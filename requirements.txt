@@ -15,8 +15,7 @@ networkx
 
 # Others
 numpy
-pandas
 wandb
 pre-commit
 pytest
-matplotlib
+gymnasium
