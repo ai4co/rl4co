@@ -1,0 +1,19 @@
+_target_: "src.data.shi_datamodule.SHIDataModule"
+
+cfg:
+    month: "JulyNAugust"
+    path: ${paths.data_dir}{}/Preprocess/integrate/{}
+    variable_sets: ["endo", "context", "action", "known", "power"]
+    dimension:
+        endo: 60
+        context: 4
+        known: 4
+        action: 50
+    scaling:
+        people: 20000
+        pressure: 10
+        temperature: 40
+        Humid: 100
+    rollout_window: 30
+    order: 5
+    val_percent: 10

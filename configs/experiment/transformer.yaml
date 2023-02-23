@@ -1,0 +1,41 @@
+# @package _global_
+
+# to execute this experiment run:
+# python src/train.py experiment=transformer
+
+defaults:
+  - override /model: transformer.yaml
+  - override /logger: wandb
+  - override /callbacks: [default, learning_rate_monitor]
+  # - override /logger: null # set to null and comment logger to disable
+  # - override /callbacks: default # do  not use learning rate monitor if no logger
+
+tags: ["shi", "transformer"]
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "transformer"
+    name: "transformer"
+
+# seed: 12345
+
+trainer:
+  accelerator: gpu
+  # devices: 1
+  devices: [1] # you can select specific GPUs here with []
+  num_nodes: 1
+  max_epochs: 50
+
+data:
+  batch_size: 128
+  cfg:
+    order: 5
+
+# Task is the LightningModule that is trained. 
+# We divide call this task to differentiate and the Model (nn.Module)
+# task: 
+#   optimizer:
+#     lr: 1e-4
+#     weight_decay: 1e-4
+

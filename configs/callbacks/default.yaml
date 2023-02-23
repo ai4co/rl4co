@@ -1,0 +1,23 @@
+defaults:
+  - model_checkpoint.yaml
+  # - early_stopping.yaml # uncomment for using this
+  - model_summary.yaml
+  - speed_monitor.yaml
+  - rich_progress_bar.yaml
+  - _self_
+
+model_checkpoint:
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch:03d}"
+  monitor: "val/loss" # change this to "val/acc" for classification tasks
+  mode: "min" # set to "max" for classification tasks
+  save_last: True
+  auto_insert_metric_name: False
+
+# early_stopping:
+#   monitor: "val/loss"
+#   patience: 10
+#   mode: "max"
+
+model_summary:
+  max_depth: -1

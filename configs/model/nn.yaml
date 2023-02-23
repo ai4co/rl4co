@@ -1,0 +1,9 @@
+_target_: src.models.nn_concat.MLP_ModelRes
+
+state_order: ${data.cfg.order}
+action_order: ${data.cfg.order}
+endo_dim: 60
+context_dim: 4
+known_dim: 4
+action_dim: 50
+legging: False
