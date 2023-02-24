@@ -14,8 +14,8 @@ dgl
 networkx
 
 # Others
+gymnasium # New version of former OpenAI Gym
 numpy
 wandb
 pre-commit
 pytest
-gymnasium
