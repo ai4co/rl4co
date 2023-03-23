@@ -1,8 +1,8 @@
 # Torch, TorchRL and Lightning
-torch
-torchrl>=0.0.5
+torch>= 2.0.0
+torchrl>=0.1.0
 tensordict>=0.0.3
-pytorch-lightning==1.8.6
+lightning>=2.0.0
 
 # Hydra
 hydra-core
