@@ -9,9 +9,10 @@ from torchrl.data import (
     BoundedTensorSpec,
     CompositeSpec,
     UnboundedContinuousTensorSpec,
+    BinaryDiscreteTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
-from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
+from torchrl.envs import EnvBase
 
 from ncobench.envs.utils import make_composite_from_td, batch_to_scalar, _set_seed
 
@@ -54,14 +55,27 @@ class TSPEnv(EnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
+        """Take a step in the environment by selecting an action"""
+
         prev_a = td["action"]
         first_a = prev_a if batch_to_scalar(td["i"]) == 0 else td["first_a"]
-        cur_coord = td["loc"].gather(dim=1, index=prev_a.unsqueeze(-1).repeat(1, 1, 2))
+        ids = td["ids"] if td["ids"][0] >= 0 else None  # compatibility if no batch
 
+        cur_coord = td["loc"][ids, prev_a] if ids is not None else td["loc"][prev_a]
+
+        # print(prev_a.shape)
+        # print(td["loc"].shape)
+        # # print(ids.shape)
+        # print(td["loc"][ids, prev_a].shape)
+
+        # assert False
+
+        
         # Calculate lengths so far
         lengths = td["lengths"]
         if not td["cur_coord"].isnan().all():
             lengths += (cur_coord - td["cur_coord"]).norm(p=2, dim=-1)
+
 
         # Set visited to 1
         visited = td["visited"].scatter(
@@ -74,11 +88,14 @@ class TSPEnv(EnvBase):
         # If we are not done, we set the cost to inf (reward is -inf)
         cost = torch.ones_like(done) * float("inf")
 
-        # Get done costs by adding the distance from the last city to the first city
+        # If we are done, we set the reward to the length of the path, adding the distance to the first location
         if done.any():
-            cost[done] = (
-                lengths[done] + (td["loc"].gather(dim=1, index=first_a.unsqueeze(-1).repeat(1, 1, 2)) - cur_coord).norm(p=2, dim=-1)[done]
-            ).squeeze(-1)
+            if ids is None:
+                cost = lengths + td["dist"][first_a].norm(p=2, dim=-1)
+            else:
+                cost[done] = (
+                    lengths[done] + td["dist"][ids, first_a][done].norm(p=2, dim=-1)
+                ).squeeze(-1)
 
         # The output must be written in a ``"next"`` entry
         out = TensorDict(
@@ -86,6 +103,7 @@ class TSPEnv(EnvBase):
                 "next": {
                     "loc": td["loc"],
                     "dist": td["dist"],
+                    "ids": td["ids"],
                     "first_a": first_a,
                     "prev_a": prev_a,
                     "visited": visited,
@@ -102,14 +120,14 @@ class TSPEnv(EnvBase):
         return out
 
     def _reset(self, td: Optional[TensorDict] = None) -> TensorDict:
+        """Reset the environment"""
         # If no tensordict is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
         if td is None or td.is_empty():
             td = self.gen_params(batch_size=self.batch_size)
         batch_size = td.shape  # batch size
 
-        # Get unique parameters
-        # NOTE: we do not allow different params (e.g. sizes) on a single batch for now
+        # Get unique parameters: we do not allow different params (e.g. sizes) on a single batch
         min_loc = batch_to_scalar(td["params", "min_loc"])
         max_loc = batch_to_scalar(td["params", "max_loc"])
         n_loc = batch_to_scalar(td["params", "n_loc"])
@@ -123,6 +141,13 @@ class TSPEnv(EnvBase):
 
         # Other variables
         dist = (loc[..., :, None, :] - loc[..., None, :, :]).norm(p=2, dim=-1)
+        ids = (
+            torch.arange(sum([int(dim) for dim in batch_size]), dtype=torch.int64)[
+                :, None
+            ]
+            if len(batch_size) > 0
+            else -torch.ones(1, dtype=torch.int64)
+        )  # special case for batch_size=()
         prev_a = torch.zeros((*batch_size, 1), dtype=torch.int64)
         visited = torch.zeros((*batch_size, 1, n_loc), dtype=torch.uint8)
         lengths = torch.zeros((*batch_size, 1))
@@ -138,6 +163,7 @@ class TSPEnv(EnvBase):
             {
                 "loc": loc,
                 "dist": dist,
+                "ids": ids,
                 "first_a": prev_a,
                 "prev_a": prev_a,
                 "visited": visited,
@@ -177,7 +203,7 @@ class TSPEnv(EnvBase):
 
     def get_current_node(self, td: TensorDict) -> torch.Tensor:
         return td['prev_a']
-    
+
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
         params = td_params["params"]
@@ -192,6 +218,10 @@ class TSPEnv(EnvBase):
             dist=UnboundedContinuousTensorSpec(
                 shape=(n_loc, n_loc),
                 dtype=torch.float32,
+            ),
+            ids=UnboundedDiscreteTensorSpec(
+                shape=(1),
+                dtype=torch.int64,
             ),
             first_a=UnboundedDiscreteTensorSpec(
                 shape=(1),
@@ -222,6 +252,7 @@ class TSPEnv(EnvBase):
             params=make_composite_from_td(params),
             shape=(),
         )
+        # since the environment is stateless, we expect the previous output as input
         self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
@@ -230,14 +261,6 @@ class TSPEnv(EnvBase):
             maximum=n_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(*td_params.shape, 1))
-    
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["rng"] # remove the random number generator for deepcopy piclkling
-        return state
-    
-    def transform(self):
-        return TransformedEnv(self, RenameTransform(in_keys=["loc"], out_keys=["observation"], create_copy=True))
 
     @staticmethod
     def plot(td):
@@ -245,11 +268,11 @@ class TSPEnv(EnvBase):
 
     _set_seed = _set_seed
 
+
 def plot_tsp(td: TensorDict) -> None:
     td = td.detach().cpu()
     # if batch_size greater than 0 , we need to select the first batch element
     if td.batch_size != torch.Size([]):
-        print("Batch detected. Plotting the first batch element!")
         td = td[0]
 
     # Get the coordinates of the visited nodes for the first batch element
