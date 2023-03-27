@@ -17,15 +17,14 @@ from ncobench.envs.utils import make_composite_from_td, batch_to_scalar, _set_se
 
 
 class TSPEnv(EnvBase):
-    metadata = {
-        "render_modes": ["human", "rgb_array"],
-        "render_fps": 30,
-    }
+
     batch_locked = False
 
     def __init__(
         self,
         n_loc: int = 10,
+        min_loc: float = 0,
+        max_loc: float = 1,
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
@@ -43,6 +42,8 @@ class TSPEnv(EnvBase):
         """
 
         self.n_loc = n_loc
+        self.min_loc = min_loc
+        self.max_loc = max_loc
         if td_params is None:
             td_params = self.gen_params()
 
@@ -51,18 +52,27 @@ class TSPEnv(EnvBase):
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
+   
+    @staticmethod
+    def get_rewards(loc, actions) -> TensorDict:
+        assert (
+            torch.arange(actions.size(1), out=actions.data.new()).view(1, -1).expand_as(actions) ==
+            actions.data.sort(1)[0]
+        ).all(), "Invalid tour"
+
+        # Gather locations in order of tour
+        locs = loc.gather(1, actions.unsqueeze(-1).expand_as(loc))
+
+        # Return the length of the path (L2-norm of difference from each next location from its previous and of last from first)
+        locs_next = torch.roll(locs, 1, dims=1)
+        return - ((locs_next - locs).norm(p=2, dim=2).sum(1))
+
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
         prev_a = td["action"]
         first_a = prev_a if batch_to_scalar(td["i"]) == 0 else td["first_a"]
-        cur_coord = td["loc"].gather(dim=1, index=prev_a.unsqueeze(-1).repeat(1, 1, 2))
-
-        # Calculate lengths so far
-        lengths = td["lengths"]
-        if not td["cur_coord"].isnan().all():
-            lengths += (cur_coord - td["cur_coord"]).norm(p=2, dim=-1)
-
+        
         # Set visited to 1
         visited = td["visited"].scatter(
             -1, prev_a[..., None].expand_as(td["visited"]), 1
@@ -71,29 +81,22 @@ class TSPEnv(EnvBase):
         # We are done if all the locations have been visited
         done = torch.count_nonzero(visited.squeeze(), dim=-1) >= td["params"]["n_loc"]
 
-        # If we are not done, we set the cost to inf (reward is -inf)
-        cost = torch.ones_like(done) * float("inf")
-
-        # Get done costs by adding the distance from the last city to the first city
-        if done.any():
-            cost[done] = (
-                lengths[done] + (td["loc"].gather(dim=1, index=first_a.unsqueeze(-1).repeat(1, 1, 2)) - cur_coord).norm(p=2, dim=-1)[done]
-            ).squeeze(-1)
+        # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
+        # NOTE: reward is calculated outside for now via the get_reward function
+        # to calculate here need to pass action sequence or save it as state
+        reward = torch.ones_like(done) * (-float("inf"))
 
         # The output must be written in a ``"next"`` entry
         out = TensorDict(
             {
                 "next": {
                     "loc": td["loc"],
-                    "dist": td["dist"],
                     "first_a": first_a,
                     "prev_a": prev_a,
                     "visited": visited,
-                    "lengths": lengths,
-                    "cur_coord": cur_coord,
                     "i": td["i"] + 1,
                     "params": td["params"],
-                    "reward": -cost,
+                    "reward": reward,
                     "done": done,
                 }
             },
@@ -101,55 +104,46 @@ class TSPEnv(EnvBase):
         )
         return out
 
-    def _reset(self, td: Optional[TensorDict] = None) -> TensorDict:
+    def _reset(self, td: Optional[TensorDict] = None, init_observation = None) -> TensorDict:
+
         # If no tensordict is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
         if td is None or td.is_empty():
-            td = self.gen_params(batch_size=self.batch_size)
+            bs = self.batch_size if init_observation is None else init_observation.shape[:-2]
+            self.device = init_observation.device # set device on the fly
+            td = self.gen_params(batch_size=bs)
         batch_size = td.shape  # batch size
 
-        # Get unique parameters
-        # NOTE: we do not allow different params (e.g. sizes) on a single batch for now
+        # We do not allow different params (e.g. sizes) on a single batch 
         min_loc = batch_to_scalar(td["params", "min_loc"])
         max_loc = batch_to_scalar(td["params", "max_loc"])
         n_loc = batch_to_scalar(td["params", "n_loc"])
 
-        # Generate locations. We could also load them directy from a dataset
-        loc = (
-            torch.rand((*batch_size, n_loc, 2), generator=self.rng)
-            * (max_loc - min_loc)
-            + min_loc
-        )
+        # We allow loading the initial observation from a dataset for faster loading
+        if init_observation is None:
+            loc =  torch.rand((*batch_size, n_loc, 2), generator=self.rng) * (max_loc - min_loc) + min_loc
+        else:
+            loc = init_observation
 
         # Other variables
-        dist = (loc[..., :, None, :] - loc[..., None, :, :]).norm(p=2, dim=-1)
         prev_a = torch.zeros((*batch_size, 1), dtype=torch.int64)
         visited = torch.zeros((*batch_size, 1, n_loc), dtype=torch.uint8)
-        lengths = torch.zeros((*batch_size, 1))
-        cur_coord = torch.ones((*batch_size, 1, 2), dtype=torch.float32) * float(
-            "nan"
-        )  # first coord is nan
-        i = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64
-        )  # Vector with length num_steps
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64)
 
         # Output is a tensordict
         out = TensorDict(
             {
                 "loc": loc,
-                "dist": dist,
                 "first_a": prev_a,
                 "prev_a": prev_a,
                 "visited": visited,
-                "lengths": lengths,
-                "cur_coord": cur_coord,
                 "i": i,
                 "params": td["params"],
             },
             batch_size=batch_size,
         )
         return out
-
+        
     def gen_params(self, batch_size=None) -> TensorDictBase:
         """Returns a tensordict containing the parameters of the environment"""
         if batch_size is None:
@@ -158,8 +152,8 @@ class TSPEnv(EnvBase):
             {
                 "params": TensorDict(
                     {
-                        "min_loc": 0,
-                        "max_loc": 1,
+                        "min_loc": self.min_loc,
+                        "max_loc": self.max_loc,
                         "n_loc": self.n_loc,
                     },
                     [],
@@ -189,10 +183,6 @@ class TSPEnv(EnvBase):
                 shape=(n_loc, 2),
                 dtype=torch.float32,
             ),
-            dist=UnboundedContinuousTensorSpec(
-                shape=(n_loc, n_loc),
-                dtype=torch.float32,
-            ),
             first_a=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
@@ -204,14 +194,6 @@ class TSPEnv(EnvBase):
             visited=UnboundedDiscreteTensorSpec(
                 shape=(1, n_loc),
                 dtype=torch.uint8,
-            ),
-            lengths=UnboundedContinuousTensorSpec(
-                shape=(1),
-                dtype=torch.float32,
-            ),
-            cur_coord=UnboundedContinuousTensorSpec(
-                shape=(1, 2),
-                dtype=torch.float32,
             ),
             i=UnboundedDiscreteTensorSpec(
                 shape=(1),
@@ -240,12 +222,14 @@ class TSPEnv(EnvBase):
         return TransformedEnv(self, RenameTransform(in_keys=["loc"], out_keys=["observation"], create_copy=True))
 
     @staticmethod
-    def plot(td):
-        plot_tsp(td)
+    def render(td):
+        render_tsp(td)
 
     _set_seed = _set_seed
 
-def plot_tsp(td: TensorDict) -> None:
+
+def render_tsp(td: TensorDict) -> None:
+
     td = td.detach().cpu()
     # if batch_size greater than 0 , we need to select the first batch element
     if td.batch_size != torch.Size([]):
@@ -298,7 +282,7 @@ def plot_tsp(td: TensorDict) -> None:
         )
 
     # Set plot title and axis labels
-    ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"][0]))
+    ax.set_title("TSP Solution")
     ax.set_xlabel("x-coordinate")
     ax.set_ylabel("y-coordinate")
     ax.set_aspect("equal")
