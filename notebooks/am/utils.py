@@ -3,15 +3,16 @@ import torch.nn.functional as F
 
 
 class CachedLookup(object):
-
     def __init__(self, data):
         self.orig = data
         self.key = None
         self.current = None
 
     def __getitem__(self, key):
-        assert not isinstance(key, slice), "CachedLookup does not support slicing, " \
-                                           "you can slice the result of an index operation instead"
+        assert not isinstance(key, slice), (
+            "CachedLookup does not support slicing, "
+            "you can slice the result of an index operation instead"
+        )
 
         assert torch.is_tensor(key)  # If tensor, idx all tensors by this tensor:
 
@@ -56,8 +57,7 @@ def sample_many(inner_func, get_cost_func, input, batch_rep=1, iter_rep=1):
     max_length = max(pi.size(-1) for pi in pis)
     # (batch_size * batch_rep, iter_rep, max_length) => (batch_size, batch_rep * iter_rep, max_length)
     pis = torch.cat(
-        [F.pad(pi, (0, max_length - pi.size(-1))) for pi in pis],
-        1
+        [F.pad(pi, (0, max_length - pi.size(-1))) for pi in pis], 1
     )  # .view(embeddings.size(0), batch_rep * iter_rep, max_length)
     costs = torch.cat(costs, 1)
 

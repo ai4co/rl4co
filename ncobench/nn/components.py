@@ -3,7 +3,6 @@ import torch.nn as nn
 
 
 class SkipConnection(nn.Module):
-
     def __init__(self, module):
         super(SkipConnection, self).__init__()
         self.module = module
@@ -13,14 +12,12 @@ class SkipConnection(nn.Module):
 
 
 class Normalization(nn.Module):
-
-    def __init__(self, embed_dim, normalization='batch'):
+    def __init__(self, embed_dim, normalization="batch"):
         super(Normalization, self).__init__()
 
-        normalizer_class = {
-            'batch': nn.BatchNorm1d,
-            'instance': nn.InstanceNorm1d
-        }.get(normalization, None)
+        normalizer_class = {"batch": nn.BatchNorm1d, "instance": nn.InstanceNorm1d}.get(
+            normalization, None
+        )
 
         self.normalizer = normalizer_class(embed_dim, affine=True)
 
@@ -28,13 +25,11 @@ class Normalization(nn.Module):
         # self.init_parameters()
 
     def init_parameters(self):
-
         for name, param in self.named_parameters():
-            stdv = 1. / math.sqrt(param.size(-1))
+            stdv = 1.0 / math.sqrt(param.size(-1))
             param.data.uniform_(-stdv, stdv)
 
     def forward(self, input):
-
         if isinstance(self.normalizer, nn.BatchNorm1d):
             return self.normalizer(input.view(-1, input.size(-1))).view(*input.size())
         elif isinstance(self.normalizer, nn.InstanceNorm1d):
@@ -42,4 +37,3 @@ class Normalization(nn.Module):
         else:
             assert self.normalizer is None, "Unknown normalizer type"
             return input
-

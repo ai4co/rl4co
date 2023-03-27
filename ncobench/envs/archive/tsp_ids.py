@@ -53,19 +53,22 @@ class TSPEnv(EnvBase):
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
 
-    
     def transform(self):
-        return TransformedEnv(self, RenameTransform(in_keys=["loc"], out_keys=["observation"], create_copy=True))
-    
+        return TransformedEnv(
+            self,
+            RenameTransform(
+                in_keys=["loc"], out_keys=["observation"], create_copy=True
+            ),
+        )
+
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["rng"] # remove the random number generator for deepcopy pickling
+        del state["rng"]  # remove the random number generator for deepcopy pickling
         return state
-    
+
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
         """Take a step in the environment by selecting an action"""
-        
 
         prev_a = td["action"]
         first_a = prev_a if batch_to_scalar(td["i"]) == 0 else td["first_a"]
@@ -85,12 +88,10 @@ class TSPEnv(EnvBase):
 
         # assert False
 
-        
         # Calculate lengths so far
         lengths = td["lengths"]
         if not td["cur_coord"].isnan().all():
             lengths += (cur_coord - td["cur_coord"]).norm(p=2, dim=-1)
-
 
         # Set visited to 1
         visited = td["visited"].scatter(
@@ -214,10 +215,10 @@ class TSPEnv(EnvBase):
 
     def get_mask(self, td: TensorDict) -> torch.Tensor:
         """Returns the mask for the current step"""
-        return td['visited'] > 0
+        return td["visited"] > 0
 
     def get_current_node(self, td: TensorDict) -> torch.Tensor:
-        return td['prev_a']
+        return td["prev_a"]
 
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""

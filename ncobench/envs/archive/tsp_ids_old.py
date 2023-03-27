@@ -70,12 +70,10 @@ class TSPEnv(EnvBase):
 
         # assert False
 
-        
         # Calculate lengths so far
         lengths = td["lengths"]
         if not td["cur_coord"].isnan().all():
             lengths += (cur_coord - td["cur_coord"]).norm(p=2, dim=-1)
-
 
         # Set visited to 1
         visited = td["visited"].scatter(
@@ -199,10 +197,10 @@ class TSPEnv(EnvBase):
 
     def get_mask(self, td: TensorDict) -> torch.Tensor:
         """Returns the mask for the current step"""
-        return td['visited'] > 0
+        return td["visited"] > 0
 
     def get_current_node(self, td: TensorDict) -> torch.Tensor:
-        return td['prev_a']
+        return td["prev_a"]
 
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""

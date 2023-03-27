@@ -17,7 +17,6 @@ from ncobench.envs.utils import make_composite_from_td, batch_to_scalar, _set_se
 
 
 class TSPEnv(EnvBase):
-
     batch_locked = False
 
     def __init__(
@@ -52,12 +51,14 @@ class TSPEnv(EnvBase):
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
-   
+
     @staticmethod
     def get_rewards(loc, actions) -> TensorDict:
         assert (
-            torch.arange(actions.size(1), out=actions.data.new()).view(1, -1).expand_as(actions) ==
-            actions.data.sort(1)[0]
+            torch.arange(actions.size(1), out=actions.data.new())
+            .view(1, -1)
+            .expand_as(actions)
+            == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 
         # Gather locations in order of tour
@@ -65,14 +66,13 @@ class TSPEnv(EnvBase):
 
         # Return the length of the path (L2-norm of difference from each next location from its previous and of last from first)
         locs_next = torch.roll(locs, 1, dims=1)
-        return - ((locs_next - locs).norm(p=2, dim=2).sum(1))
-
+        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
         prev_a = td["action"]
         first_a = prev_a if batch_to_scalar(td["i"]) == 0 else td["first_a"]
-        
+
         # Set visited to 1
         visited = td["visited"].scatter(
             -1, prev_a[..., None].expand_as(td["visited"]), 1
@@ -104,24 +104,33 @@ class TSPEnv(EnvBase):
         )
         return out
 
-    def _reset(self, td: Optional[TensorDict] = None, init_observation = None) -> TensorDict:
-
+    def _reset(
+        self, td: Optional[TensorDict] = None, init_observation=None
+    ) -> TensorDict:
         # If no tensordict is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
         if td is None or td.is_empty():
-            bs = self.batch_size if init_observation is None else init_observation.shape[:-2]
-            self.device = init_observation.device # set device on the fly
+            bs = (
+                self.batch_size
+                if init_observation is None
+                else init_observation.shape[:-2]
+            )
+            self.device = init_observation.device  # set device on the fly
             td = self.gen_params(batch_size=bs)
         batch_size = td.shape  # batch size
 
-        # We do not allow different params (e.g. sizes) on a single batch 
+        # We do not allow different params (e.g. sizes) on a single batch
         min_loc = batch_to_scalar(td["params", "min_loc"])
         max_loc = batch_to_scalar(td["params", "max_loc"])
         n_loc = batch_to_scalar(td["params", "n_loc"])
 
         # We allow loading the initial observation from a dataset for faster loading
         if init_observation is None:
-            loc =  torch.rand((*batch_size, n_loc, 2), generator=self.rng) * (max_loc - min_loc) + min_loc
+            loc = (
+                torch.rand((*batch_size, n_loc, 2), generator=self.rng)
+                * (max_loc - min_loc)
+                + min_loc
+            )
         else:
             loc = init_observation
 
@@ -143,7 +152,7 @@ class TSPEnv(EnvBase):
             batch_size=batch_size,
         )
         return out
-        
+
     def gen_params(self, batch_size=None) -> TensorDictBase:
         """Returns a tensordict containing the parameters of the environment"""
         if batch_size is None:
@@ -167,11 +176,11 @@ class TSPEnv(EnvBase):
 
     def get_mask(self, td: TensorDict) -> torch.Tensor:
         """Returns the mask for the current step"""
-        return td['visited'] > 0
+        return td["visited"] > 0
 
     def get_current_node(self, td: TensorDict) -> torch.Tensor:
-        return td['prev_a']
-    
+        return td["prev_a"]
+
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
         params = td_params["params"]
@@ -212,14 +221,19 @@ class TSPEnv(EnvBase):
             maximum=n_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(*td_params.shape, 1))
-    
+
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["rng"] # remove the random number generator for deepcopy piclkling
+        del state["rng"]  # remove the random number generator for deepcopy piclkling
         return state
-    
+
     def transform(self):
-        return TransformedEnv(self, RenameTransform(in_keys=["loc"], out_keys=["observation"], create_copy=True))
+        return TransformedEnv(
+            self,
+            RenameTransform(
+                in_keys=["loc"], out_keys=["observation"], create_copy=True
+            ),
+        )
 
     @staticmethod
     def render(td):
@@ -229,7 +243,6 @@ class TSPEnv(EnvBase):
 
 
 def render_tsp(td: TensorDict) -> None:
-
     td = td.detach().cpu()
     # if batch_size greater than 0 , we need to select the first batch element
     if td.batch_size != torch.Size([]):

@@ -12,25 +12,22 @@ class REINFORCEBaseline(nn.Module):
 
     def eval(self, td, cost):
         pass
-    
+
     def epoch_callback(self, model, td, epoch):
         pass
 
 
 class NoBaseline(REINFORCEBaseline):
-
     def eval(self, td, cost):
         return 0, 0  # No baseline, no loss
 
 
 class SharedBaseline(REINFORCEBaseline):
-
     def eval(self, td, cost):
-        return 0, cost.mean(dim=1).view(-1,1)
+        return 0, cost.mean(dim=1).view(-1, 1)
 
 
 class ExponentialBaseline(REINFORCEBaseline):
-
     def __init__(self, beta):
         super(REINFORCEBaseline, self).__init__()
 
@@ -41,14 +38,18 @@ class ExponentialBaseline(REINFORCEBaseline):
         if self.v is None:
             v = cost.mean()
         else:
-            v = self.beta * self.v + (1. - self.beta) * cost.mean()
+            v = self.beta * self.v + (1.0 - self.beta) * cost.mean()
         self.v = v.detach()  # Detach since we never want to backprop
         return self.v, 0  # No loss
 
 
 class WarmupBaseline(REINFORCEBaseline):
-
-    def __init__(self, baseline, n_epochs=1, warmup_exp_beta=0.8, ):
+    def __init__(
+        self,
+        baseline,
+        n_epochs=1,
+        warmup_exp_beta=0.8,
+    ):
         super(REINFORCEBaseline, self).__init__()
 
         self.baseline = baseline
@@ -61,7 +62,6 @@ class WarmupBaseline(REINFORCEBaseline):
         self.baseline.setup(model, dl, env)
 
     def eval(self, td, cost):
-
         if self.alpha == 1:
             return self.baseline.eval(td, cost)
         if self.alpha == 0:
@@ -69,7 +69,9 @@ class WarmupBaseline(REINFORCEBaseline):
         v, l = self.baseline.eval(td, cost)
         vw, lw = self.warmup_baseline.eval(td, cost)
         # Return convex combination of baseline and of loss
-        return self.alpha * v + (1 - self.alpha) * vw, self.alpha * l + (1 - self.alpha * lw)
+        return self.alpha * v + (1 - self.alpha) * vw, self.alpha * l + (
+            1 - self.alpha * lw
+        )
 
     def epoch_callback(self, model, dl, epoch):
         # Need to call epoch callback of inner model (also after first epoch if we have not used it)
@@ -78,9 +80,8 @@ class WarmupBaseline(REINFORCEBaseline):
         if epoch < self.n_epochs:
             print("Set warmup alpha = {}".format(self.alpha))
 
-        
-class RolloutBaseline(REINFORCEBaseline):
 
+class RolloutBaseline(REINFORCEBaseline):
     def __init__(self, bl_alpha=0.05):
         super(RolloutBaseline, self).__init__()
         self.bl_alpha = bl_alpha
@@ -98,7 +99,7 @@ class RolloutBaseline(REINFORCEBaseline):
     def eval(self, td, cost):
         # Use volatile mode for efficient inference (single batch so we do not use rollout function)
         with torch.no_grad():
-            out = -self.model(td)['reward']
+            out = -self.model(td)["reward"]
         return out, 0
 
     def epoch_callback(self, model, dl, epoch=None, env=None):
@@ -120,7 +121,7 @@ class RolloutBaseline(REINFORCEBaseline):
             assert t < 0, "T-statistic should be negative"
             print("\np-value: {}".format(p_val))
             if p_val < self.bl_alpha:
-                print('\nUpdating baseline')
+                print("\nUpdating baseline")
                 self._update_model(model, dl, env)
 
     def rollout(self, model, dl, env=None):
@@ -130,6 +131,11 @@ class RolloutBaseline(REINFORCEBaseline):
         env_fn = lambda x: x if env is None else env.reset(init_observation=x)
         with torch.no_grad():
             model.eval()
-            device = next(model.parameters()).device # same as transfer_batch_to_device in lightning, may be cleaner but hey
-            rewards = [model(env_fn(batch.to(device)), decode_type='greedy')['reward'] for batch in dl]
+            device = next(
+                model.parameters()
+            ).device  # same as transfer_batch_to_device in lightning, may be cleaner but hey
+            rewards = [
+                model(env_fn(batch.to(device)), decode_type="greedy")["reward"]
+                for batch in dl
+            ]
         return torch.cat(rewards, dim=0)

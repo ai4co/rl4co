@@ -9,4 +9,4 @@ class TorchDictDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx] # note: use torch.stack to get batch
+        return self.data[idx]  # note: use torch.stack to get batch
