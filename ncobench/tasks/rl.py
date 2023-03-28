@@ -3,7 +3,7 @@ from hydra.utils import instantiate
 
 import torch
 from torch.utils.data import DataLoader
-import lightning as L
+from lightning import LightningModule
 
 from ncobench.data.dataset import TorchDictDataset
 from ncobench.utils.pylogger import get_pylogger
@@ -12,7 +12,7 @@ from ncobench.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class NCOLightningModule(L.LightningModule):
+class NCOLitModule(LightningModule):
     def __init__(self, cfg, model_cfg=None, env_cfg=None):
         """
         Base LightningModule for Neural Combinatorial Optimization
@@ -22,6 +22,7 @@ class NCOLightningModule(L.LightningModule):
         Args:
             cfg: OmegaConf config
             model_cfg: OmegaConf config for model
+            env_cfg: OmegaConf config for env
         """
         super().__init__()
         # this line ensures params passed to LightningModule will be saved to ckpt
@@ -38,7 +39,8 @@ class NCOLightningModule(L.LightningModule):
 
     def instantiate_env(self):
         log.info(f"Instantiating environments <{self.env_cfg._target_}>")
-        self.env = instantiate(self.env_cfg)
+        env = instantiate(self.env_cfg)
+        self.env = env.transform() # transform to get the observations directly
 
     def instantiate_model(self):
         log.info(f"Instantiating model <{self.model_cfg._target_}>")
@@ -46,8 +48,8 @@ class NCOLightningModule(L.LightningModule):
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
-        self.train_dataset = self.get_observation_dataset(self.data.train_size)
-        self.val_dataset = self.get_observation_dataset(self.data.val_size)
+        self.train_dataset = self.get_observation_dataset(self.cfg.data.train_size)
+        self.val_dataset = self.get_observation_dataset(self.cfg.data.val_size)
         if hasattr(self.model, "setup"):
             self.model.setup(self)
 
@@ -100,7 +102,7 @@ class NCOLightningModule(L.LightningModule):
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
-        self.train_dataset = self.get_observation_dataset(self.train_size)
+        self.train_dataset = self.get_observation_dataset(self.cfg.data.train_size)
 
     def get_observation_dataset(self, size):
         # Online data generation: we generate a new batch online

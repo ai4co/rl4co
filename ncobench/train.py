@@ -32,8 +32,8 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
         L.seed_everything(cfg.seed, workers=True)
 
     # Note that the RL environment is instantiated inside the model
-    log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = hydra.utils.instantiate(cfg.model)
+    log.info(f"Instantiating task <{cfg.task._target_}>")
+    model: LightningModule = hydra.utils.instantiate(cfg.task, cfg=cfg)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))

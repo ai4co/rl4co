@@ -9,7 +9,7 @@ from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf, open_dict
 from rich.prompt import Prompt
 
-from src.utils import pylogger
+from ncobench.utils.utils import pylogger
 
 log = pylogger.get_pylogger(__name__)
 
@@ -26,7 +26,7 @@ def print_config_tree(
         "paths",
         "extras",
     ),
-    resolve: bool = False,
+    resolve: bool = True,
     save_to_file: bool = False,
 ) -> None:
     """Prints content of DictConfig using Rich library and its tree structure.
