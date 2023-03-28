@@ -1,1 +1,1 @@
-Have a look at [ncobench/envs/tsp.py](ncobench/envs/tsp.py) for a cleaner implementation of the TSP environment.
+Have a look at [ncobench/envs/tsp.py](../../ncobench/envs/tsp.py) for a cleaner implementation of the TSP environment.
