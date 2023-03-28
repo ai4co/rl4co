@@ -4,37 +4,35 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: mnist.yaml
-  - override /model: mnist.yaml
+  - override /model: am.yaml
+  - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
+  - override /logger: None # comment this line to enable logging
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["mnist", "simple_dense_net"]
+tags: ["tsp", "am"]
 
 seed: 12345
 
 trainer:
   min_epochs: 10
   max_epochs: 10
-  gradient_clip_val: 0.5
+  gradient_clip_val: 1.0
 
-model:
-  optimizer:
-    lr: 0.002
-  net:
-    lin1_size: 128
-    lin2_size: 256
-    lin3_size: 64
+env: ${env}
+model: ${model}
 
 data:
-  batch_size: 64
+  batch_size: 512
+  num_workers: 0
+  train_size: 1280000
 
-logger:
-  wandb:
-    tags: ${tags}
-    group: "mnist"
-  aim:
-    experiment: "mnist"
+# logger:
+#   wandb:
+#     tags: ${tags}
+#     group: "tsp"
+#   aim:
+#     experiment: "am"

@@ -1,0 +1,17 @@
+_target_: ncobench.models.am.AttentionModel
+
+env:
+  ${env}
+
+policy:
+  _target_: ncobench.models.common.AttentionBaseModel
+  env: ${env}
+  embedding_dim: 128
+  hidden_dim: 128
+
+baseline:
+  _target_: ncobench.models.common.reinforce_baselines.WarmupBaseline
+  baseline:
+    _target_: ncobench.models.common.reinforce_baselines.RolloutBaseline
+
+
