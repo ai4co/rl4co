@@ -9,7 +9,6 @@ defaults:
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml
-  - task: dynamics.yaml
 
 task_name: "eval"
 

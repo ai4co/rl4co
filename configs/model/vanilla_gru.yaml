@@ -1,7 +1,0 @@
-_target_: src.models.vanilla_rnn.GRU_Res
-
-order: ${data.cfg.order}
-endo_dim: 60
-context_dim: 4
-known_dim: 4
-action_dim: 50

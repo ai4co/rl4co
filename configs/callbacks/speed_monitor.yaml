@@ -1,5 +1,0 @@
-speed_monitor:
-  _target_: src.utils.callbacks.speed_monitor.SpeedMonitor
-  intra_step_time: True
-  inter_step_time: True
-  epoch_time: True
