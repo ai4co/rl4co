@@ -1,7 +1,7 @@
 import torch.nn as nn
 
-from ncobench.nn.attention import MHA
-from ncobench.nn.components import SkipConnection, Normalization
+from ncobench.models.nn.attention import MHA
+from ncobench.models.nn.components import SkipConnection, Normalization
 
 
 class MultiHeadAttentionLayer(nn.Sequential):

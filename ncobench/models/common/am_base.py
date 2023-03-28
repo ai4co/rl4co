@@ -8,8 +8,8 @@ from torch.utils.checkpoint import checkpoint
 from torchrl.envs import EnvBase
 from tensordict import TensorDict
 
-from ncobench.nn.graph import GraphAttentionEncoder
-from ncobench.nn.attention import CrossAttention
+from ncobench.models.nn.graph import GraphAttentionEncoder
+from ncobench.models.nn.attention import CrossAttention
 
 
 class AttentionModelBase(nn.Module):

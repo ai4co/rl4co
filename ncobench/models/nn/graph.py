@@ -1,6 +1,6 @@
 from torch import nn
 
-from ncobench.nn.layers import MultiHeadAttentionLayer
+from ncobench.models.nn.layers import MultiHeadAttentionLayer
 
 
 class GraphAttentionEncoder(nn.Module):
