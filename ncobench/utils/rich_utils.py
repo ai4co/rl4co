@@ -5,11 +5,11 @@ import rich
 import rich.syntax
 import rich.tree
 from hydra.core.hydra_config import HydraConfig
+from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf, open_dict
-from pytorch_lightning.utilities import rank_zero_only
 from rich.prompt import Prompt
 
-from ncobench.utils import pylogger
+from src.utils import pylogger
 
 log = pylogger.get_pylogger(__name__)
 
@@ -30,7 +30,6 @@ def print_config_tree(
     save_to_file: bool = False,
 ) -> None:
     """Prints content of DictConfig using Rich library and its tree structure.
-
     Args:
         cfg (DictConfig): Configuration composed by Hydra.
         print_order (Sequence[str], optional): Determines in what order config components are printed.
