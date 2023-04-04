@@ -42,10 +42,21 @@ class AttentionModel(nn.Module):
 
     def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input
-        self.baseline.setup(self.policy, lit_module.val_dataloader(), self.env, device=get_lightning_device(lit_module))         
+        self.baseline.setup(
+            self.policy,
+            lit_module.val_dataloader(),
+            self.env,
+            device=get_lightning_device(lit_module),
+        )
 
     def on_train_epoch_end(self, lit_module):
-        self.baseline.epoch_callback(self.policy, lit_module.val_dataloader(), lit_module.current_epoch, self.env, device=get_lightning_device(lit_module))
+        self.baseline.epoch_callback(
+            self.policy,
+            lit_module.val_dataloader(),
+            lit_module.current_epoch,
+            self.env,
+            device=get_lightning_device(lit_module),
+        )
 
 
 def get_lightning_device(lit_module: L.LightningModule) -> torch.device:

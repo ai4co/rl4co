@@ -43,7 +43,7 @@ def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
         },
     }
 
-    assert embedding_type in ["init", "dynamic"] 
+    assert embedding_type in ["init", "dynamic"]
     embedding_class = embedding_classes.get(env_name, {}).get(embedding_type, None)
 
     if embedding_class is None:
@@ -53,7 +53,6 @@ def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
 
 
 class TSPInitEmbedding(nn.Module):
-
     def __init__(self, embedding_dim):
         super(TSPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
@@ -62,12 +61,11 @@ class TSPInitEmbedding(nn.Module):
         self.init_embed = nn.Linear(node_dim, embedding_dim)
 
     def forward(self, td):
-        out = self.init_embed(td['observation'])
+        out = self.init_embed(td["observation"])
         return out
 
 
 class VRPInitEmbedding(nn.Module):
-
     def __init__(self, embedding_dim):
         super(VRPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, demand
@@ -90,7 +88,6 @@ class VRPInitEmbedding(nn.Module):
 
 
 class PCTSPInitEmbedding(nn.Module):
-
     def __init__(self, embedding_dim):
         super(PCTSPInitEmbedding, self).__init__()
         node_dim = 4  # x, y, prize, penalty
@@ -119,7 +116,6 @@ class PCTSPInitEmbedding(nn.Module):
 
 
 class OPInitEmbedding(nn.Module):
-
     def __init__(self, embedding_dim):
         super(OPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, prize
@@ -138,7 +134,7 @@ class OPInitEmbedding(nn.Module):
         # batch, n_customer+1, embedding_dim
         out = torch.cat((depot_embedding, node_embeddings), 1)
         return out
-    
+
 
 class SDVRPDynamicEmbedding(nn.Module):
     def __init__(self, embedding_dim):

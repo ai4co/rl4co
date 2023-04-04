@@ -48,7 +48,7 @@ class NCOLitModule(LightningModule):
     def instantiate_env(self):
         log.info(f"Instantiating environments <{self.env_cfg._target_}>")
         env = instantiate(self.env_cfg)
-        self.env = env.transform() # transform to get the observations directly
+        self.env = env.transform()  # transform to get the observations directly
 
     def instantiate_model(self):
         log.info(f"Instantiating model <{self.model_cfg._target_}>")
@@ -115,7 +115,7 @@ class NCOLitModule(LightningModule):
 
     def get_observation_dataset(self, size):
         # Online data generation: we generate a new batch online
-        return TorchDictDataset(self.env.reset(batch_size=[size])['observation'])
+        return TorchDictDataset(self.env.reset(batch_size=[size])["observation"])
 
     def _dataloader(self, dataset):
         return DataLoader(
@@ -132,52 +132,58 @@ if __name__ == "__main__":
     from omegaconf import DictConfig
     from lightning import Trainer
 
-    config = DictConfig({
-        "env": {
-            "_target_": "ncobench.envs.tsp.TSPEnv",
-            "num_loc": 50,
-        },
-        "model": {
-            "_target_": "ncobench.models.am.AttentionModel",
-            "policy": {
-                "_target_": "ncobench.models.components.am.base.AttentionModelBase",
-                "env": "${env}",
+    config = DictConfig(
+        {
+            "env": {
+                "_target_": "ncobench.envs.tsp.TSPEnv",
+                "num_loc": 50,
             },
-            "baseline": {
-                "_target_": "ncobench.models.rl.reinforce.WarmupBaseline",
+            "model": {
+                "_target_": "ncobench.models.am.AttentionModel",
+                "policy": {
+                    "_target_": "ncobench.models.components.am.base.AttentionModelBase",
+                    "env": "${env}",
+                },
                 "baseline": {
-                    "_target_": "ncobench.models.rl.reinforce.RolloutBaseline",
-                }
-            }
-        },
-        "data": {
-            "train_size": 1280000,
-            "val_size": 10000,
-            "batch_size": 512,
-        },
-        "train": {
-            "optimizer": {
-                "_target_": "torch.optim.Adam",
-                # "_target_": "deepspeed.ops.adam.DeepSpeedCPUAdam",
-                "lr": 1e-4,
-                "weight_decay": 1e-5,
+                    "_target_": "ncobench.models.rl.reinforce.WarmupBaseline",
+                    "baseline": {
+                        "_target_": "ncobench.models.rl.reinforce.RolloutBaseline",
+                    },
+                },
             },
-            "gradient_clip_val": 1.0,
-            "max_epochs": 100,
-            "accelerator": "gpu",
+            "data": {
+                "train_size": 1280000,
+                "val_size": 10000,
+                "batch_size": 512,
+            },
+            "train": {
+                "optimizer": {
+                    "_target_": "torch.optim.Adam",
+                    # "_target_": "deepspeed.ops.adam.DeepSpeedCPUAdam",
+                    "lr": 1e-4,
+                    "weight_decay": 1e-5,
+                },
+                "gradient_clip_val": 1.0,
+                "max_epochs": 100,
+                "accelerator": "gpu",
+            },
         }
-    })
+    )
 
     torch.set_float32_matmul_precision("medium")
 
     # DDPS Strategy
-    from lightning.pytorch.strategies import DDPStrategy, FSDPStrategy, DeepSpeedStrategy
+    from lightning.pytorch.strategies import (
+        DDPStrategy,
+        FSDPStrategy,
+        DeepSpeedStrategy,
+    )
 
     model = NCOLitModule(config)
     trainer = Trainer(
-        max_epochs = config.train.max_epochs,
-        gradient_clip_val = config.train.gradient_clip_val,
-        accelerator = config.train.accelerator,
+        max_epochs=config.train.max_epochs,
+        gradient_clip_val=config.train.gradient_clip_val,
+        accelerator=config.train.accelerator,
         # strategy=DDPStrategy(find_unused_parameters=True),
         devices=[1],
         # strategy="deepspeed_stage_3",#(find_unused_parameters=True),
@@ -186,14 +192,3 @@ if __name__ == "__main__":
         # accelerator="cpu",
     )
     trainer.fit(model)
-
-
-
-
-
-
-
-
-
-
-
