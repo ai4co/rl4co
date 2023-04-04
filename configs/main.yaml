@@ -11,6 +11,8 @@ defaults:
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml
+  - model: default.yaml
+  - env: default.yaml
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
@@ -27,7 +29,7 @@ defaults:
   - debug: null
 
 # task name, determines output directory path
-task_name: "train"
+mode: "train"
 
 # tags to help you identify your experiments
 # you can overwrite this in experiment configs

@@ -8,7 +8,7 @@ defaults:
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
-  - override /logger: None # comment this line to enable logging
+  - override /logger: null # comment this line to enable logging
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
@@ -17,22 +17,32 @@ tags: ["tsp", "am"]
 
 seed: 12345
 
+env:
+  num_loc: 50
+
 trainer:
   min_epochs: 10
-  max_epochs: 10
+  max_epochs: 100
   gradient_clip_val: 1.0
+  accelerator: "gpu"
+  precision: 16 
+  # Fast distributed training: comment out to use on single GPU
+  devices: 2 # change number of devices
+  strategy:
+    _target_: lightning.pytorch.strategies.DDPStrategy
+    find_unused_parameters: True
+    gradient_as_bucket_view: True
 
-env: ${env}
-model: ${model}
+train:
+  optimizer:
+    # _partial_: True
+    _target_: torch.optim.Adam
+    lr: 1e-4
+    weight_decay: 1e-5
+
+matmul_precision: "medium" #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 
 data:
   batch_size: 512
-  num_workers: 0
   train_size: 1280000
-
-# logger:
-#   wandb:
-#     tags: ${tags}
-#     group: "tsp"
-#   aim:
-#     experiment: "am"
+  val_size: 10000
