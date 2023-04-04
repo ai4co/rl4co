@@ -1,5 +1,7 @@
+import torch
 from torch import nn
 from tensordict import TensorDict
+import lightning as L
 
 
 class AttentionModel(nn.Module):
@@ -23,11 +25,10 @@ class AttentionModel(nn.Module):
     ) -> TensorDict:
         # Evaluate model, get costs and log probabilities
         out_policy = self.policy(td)
-        bl_val, bl_loss = self.baseline.eval(td, out_policy["cost"])
+        bl_val, bl_loss = self.baseline.eval(td, -out_policy["reward"])
 
-        # print(bl_val, bl_loss)
         # Calculate loss
-        advantage = out_policy["cost"] - bl_val
+        advantage = -out_policy["reward"] - bl_val
         reinforce_loss = (advantage * out_policy["log_likelihood"]).mean()
         loss = reinforce_loss + bl_loss
 
@@ -39,11 +40,18 @@ class AttentionModel(nn.Module):
             **out_policy,
         }
 
-    def setup(self, pl_module):
+    def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input
-        self.baseline.setup(self.policy, pl_module.val_dataloader(), self.env)
+        self.baseline.setup(self.policy, lit_module.val_dataloader(), self.env, device=get_lightning_device(lit_module))         
 
-    def on_train_epoch_end(self, pl_module):
-        self.baseline.epoch_callback(
-            self.policy, pl_module.val_dataloader(), pl_module.current_epoch, self.env
-        )
+    def on_train_epoch_end(self, lit_module):
+        self.baseline.epoch_callback(self.policy, lit_module.val_dataloader(), lit_module.current_epoch, self.env, device=get_lightning_device(lit_module))
+
+
+def get_lightning_device(lit_module: L.LightningModule) -> torch.device:
+    """Get the device of the Lightning module before setup is called
+    See device setting issue in setup https://github.com/Lightning-AI/lightning/issues/2638
+    """
+    if lit_module.trainer.strategy.root_device != lit_module.device:
+        return lit_module.trainer.strategy.root_device
+    return lit_module.device
