@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Sequence
 
 import hydra
 import lightning as L
@@ -16,7 +16,7 @@ log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def train(cfg: DictConfig) -> Tuple[dict, dict]:
+def run(cfg: DictConfig) -> Tuple[dict, dict]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
     training.
     This method is wrapped in optional @task_wrapper decorator, that controls the behavior during
@@ -33,13 +33,29 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 
     # Note that the RL environment is instantiated inside the model
     log.info(f"Instantiating task <{cfg.task._target_}>")
-    model: LightningModule = hydra.utils.instantiate(cfg.task, cfg=cfg)
+    model: LightningModule = hydra.utils.instantiate(cfg.task, cfg, _recursive_=False)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
+
+
+    # Configure DDP automatically
+    n_devices = cfg.trainer.get('devices', 1)
+    if isinstance(n_devices, Sequence):
+        n_devices = len(n_devices)
+    if n_devices > 1 and cfg.trainer.get('strategy', None) is None:
+        log.info("Configuring DDP strategy automatically")
+        cfg.trainer.strategy = dict(
+            _target_='lightning.pytorch.strategies.DDPStrategy',
+            find_unused_parameters=True, # We set to True due to RL envs
+            gradient_as_bucket_view=True,  # https://pytorch-lightning.readthedocs.io/en/stable/advanced/advanced_gpu.html#ddp-optimizations
+        )
+
+    # Set matmul precision for faster inference https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+    torch.set_float32_matmul_precision(cfg.get("matmul_precision", "medium"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
@@ -64,7 +80,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
         log.info("Starting training!")
         trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
 
-    train_metrics = trainer.callback_metrics
+        train_metrics = trainer.callback_metrics
 
     if cfg.get("test"):
         log.info("Starting testing!")
@@ -83,14 +99,14 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     return metric_dict, object_dict
 
 
-@hydra.main(version_base="1.3", config_path="../configs", config_name="train.yaml")
+@hydra.main(version_base="1.3", config_path="configs", config_name="main.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     utils.extras(cfg)
 
     # train the model
-    metric_dict, _ = train(cfg)
+    metric_dict, _ = run(cfg)
 
     # safely retrieve metric value for hydra-based hyperparameter optimization
     metric_value = utils.get_metric_value(
