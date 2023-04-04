@@ -49,7 +49,9 @@ class MultiHeadAttentionLayer(nn.Sequential):
         force_flash_attn=False,
     ):
         super(MultiHeadAttentionLayer, self).__init__(
-            SkipConnection(NativeFlashMHA(embed_dim, n_heads, force_flash_attn=force_flash_attn)),
+            SkipConnection(
+                NativeFlashMHA(embed_dim, n_heads, force_flash_attn=force_flash_attn)
+            ),
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(

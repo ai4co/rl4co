@@ -80,7 +80,9 @@ class TSPEnv(EnvBase):
         )
 
         # We are done if all the locations have been visited
-        done = torch.count_nonzero(visited.squeeze(), dim=-1) >= self.num_loc #td["params"]["num_loc"]
+        done = (
+            torch.count_nonzero(visited.squeeze(), dim=-1) >= self.num_loc
+        )  # td["params"]["num_loc"]
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # NOTE: reward is calculated outside for now via the get_reward function
@@ -115,7 +117,9 @@ class TSPEnv(EnvBase):
                 if init_observation is None
                 else init_observation.shape[:-2]
             )
-        device = init_observation.device if init_observation is not None else self.device
+        device = (
+            init_observation.device if init_observation is not None else self.device
+        )
         self.device = device
 
         min_loc = self.min_loc
@@ -128,13 +132,17 @@ class TSPEnv(EnvBase):
                 torch.rand((*batch_size, num_loc, 2), generator=self.rng)
                 * (max_loc - min_loc)
                 + min_loc
-            ).to(device) # number generator is on CPU by default, set device after
+            ).to(
+                device
+            )  # number generator is on CPU by default, set device after
         else:
             loc = init_observation
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        visited = torch.zeros((*batch_size, 1, num_loc), dtype=torch.uint8, device=device)
+        visited = torch.zeros(
+            (*batch_size, 1, num_loc), dtype=torch.uint8, device=device
+        )
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         return TensorDict(
@@ -217,7 +225,7 @@ def render_tsp(td: TensorDict) -> None:
     if td.batch_size != torch.Size([]):
         print("Batch detected. Plotting the first batch element!")
         td = td[0]
-    
+
     loc = td["loc"] if "loc" in td else td["observation"]
     visited = td["visited"] if "visited" in td else td["action_mask"]
 

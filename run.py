@@ -41,16 +41,15 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     log.info("Instantiating loggers...")
     logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
 
-
     # Configure DDP automatically
-    n_devices = cfg.trainer.get('devices', 1)
+    n_devices = cfg.trainer.get("devices", 1)
     if isinstance(n_devices, Sequence):
         n_devices = len(n_devices)
-    if n_devices > 1 and cfg.trainer.get('strategy', None) is None:
+    if n_devices > 1 and cfg.trainer.get("strategy", None) is None:
         log.info("Configuring DDP strategy automatically")
         cfg.trainer.strategy = dict(
-            _target_='lightning.pytorch.strategies.DDPStrategy',
-            find_unused_parameters=True, # We set to True due to RL envs
+            _target_="lightning.pytorch.strategies.DDPStrategy",
+            find_unused_parameters=True,  # We set to True due to RL envs
             gradient_as_bucket_view=True,  # https://pytorch-lightning.readthedocs.io/en/stable/advanced/advanced_gpu.html#ddp-optimizations
         )
 
@@ -58,7 +57,9 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     torch.set_float32_matmul_precision(cfg.get("matmul_precision", "medium"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
-    trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
+    trainer: Trainer = hydra.utils.instantiate(
+        cfg.trainer, callbacks=callbacks, logger=logger
+    )
 
     object_dict = {
         "cfg": cfg,

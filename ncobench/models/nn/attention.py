@@ -45,7 +45,6 @@ except ImportError:
     ft_attention = None
 
 
-
 def flash_attn_wrapper(self, func, *args, **kwargs):
     """Wrapper for flash attention to automatically cast to fp16 if needed"""
     if self.force_flash_attn and args[0].is_cuda:
@@ -324,7 +323,7 @@ class SelfAttention(nn.Module):
         attention_drop = F.dropout(attention, self.dropout_p if self.training else 0.0)
         output = torch.einsum("bhts,bshd->bthd", attention_drop, v)
         return output
-   
+
 
 class CrossAttention(nn.Module):
     """Implement the scaled dot product attention with softmax.
@@ -667,7 +666,9 @@ class MHA(nn.Module):
                     causal = (
                         None if inference_params.sequence_len_offset == 0 else False
                     )
-                    context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, causal=causal) # NOTE: modified
+                    context = self.flash_attn_wrapper(
+                        self.inner_cross_attn, q, kv, causal=causal
+                    )  # NOTE: modified
 
                 else:
                     assert inference_params.fused_ft_kernel
@@ -702,11 +703,15 @@ class MHA(nn.Module):
                     "b d s -> b s d",
                 ).contiguous()
             if inference_params is None:
-                context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, **kwargs)
+                context = self.flash_attn_wrapper(
+                    self.inner_cross_attn, q, kv, **kwargs
+                )
 
             else:
                 kv = self._update_kv_cache(kv)
-                context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, causal=False)
+                context = self.flash_attn_wrapper(
+                    self.inner_cross_attn, q, kv, causal=False
+                )
         out = self.out_proj(rearrange(context, "... h d -> ... (h d)"))
         return out if not self.return_residual else (out, x)
 
@@ -715,10 +720,19 @@ class MHA(nn.Module):
 
 class NativeFlashMHA(nn.Module):
     """PyTorch native implementation of Flash Multi-Head Attention with automatic mixed precision support."""
-    
-    def __init__(self, embed_dim, num_heads, bias=True, attention_dropout=0.0,
-                 causal=False, device=None, dtype=None, force_flash_attn=True) -> None:
-        factory_kwargs = {'device': device, 'dtype': dtype}
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        bias=True,
+        attention_dropout=0.0,
+        causal=False,
+        device=None,
+        dtype=None,
+        force_flash_attn=True,
+    ) -> None:
+        factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.embed_dim = embed_dim
         self.causal = causal
@@ -726,9 +740,13 @@ class NativeFlashMHA(nn.Module):
         self.attention_dropout = attention_dropout
 
         self.num_heads = num_heads
-        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
+        assert (
+            self.embed_dim % num_heads == 0
+        ), "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
-        assert self.head_dim % 8 == 0 and self.head_dim <= 128, "Only support head_dim <= 128 and divisible by 8"
+        assert (
+            self.head_dim % 8 == 0 and self.head_dim <= 128
+        ), "Only support head_dim <= 128 and divisible by 8"
 
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         # self.inner_attn = FlashAttention(attention_dropout=attention_dropout)
@@ -739,9 +757,18 @@ class NativeFlashMHA(nn.Module):
         key_padding_mask: bool tensor of shape (batch, seqlen)
         """
         qkv = self.Wqkv(x)
-        qkv = rearrange(qkv, 'b s (three h d) -> three b s h d', three=3, h=self.num_heads)
+        qkv = rearrange(
+            qkv, "b s (three h d) -> three b s h d", three=3, h=self.num_heads
+        )
         q, k, v = qkv[0], qkv[1], qkv[2]
-        out = self.flash_attn_wrapper(F.scaled_dot_product_attention, q, k, v, attn_mask=key_padding_mask, dropout_p=self.attention_dropout)
-        return self.out_proj(rearrange(out, 'b s h d -> b s (h d)'))
+        out = self.flash_attn_wrapper(
+            F.scaled_dot_product_attention,
+            q,
+            k,
+            v,
+            attn_mask=key_padding_mask,
+            dropout_p=self.attention_dropout,
+        )
+        return self.out_proj(rearrange(out, "b s h d -> b s (h d)"))
 
     flash_attn_wrapper = flash_attn_wrapper
