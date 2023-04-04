@@ -35,17 +35,17 @@ The above script will [automatically install](https://github.com/pmeier/light-th
 
 Train model with default configuration
 ```bash
-python ncobench/train.py
+python run.py  
 ```
 
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 
 ```bash
 # Change experiment
-python ncobench/train.py experiment=tsp
+python run.py experiment=tsp/am   
 
 # Create a sweep over hyperparameters (-m for multirun)
-python ncobench/train.py -m experiment=tsp data.cfg.order=5,10,15,20,30,45,60
+python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
 ```
 
 
