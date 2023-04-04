@@ -18,10 +18,11 @@ from ncobench.envs.utils import make_composite_from_td, batch_to_scalar, _set_se
 
 class TSPEnv(EnvBase):
     batch_locked = False
+    name = "tsp"
 
     def __init__(
         self,
-        n_loc: int = 10,
+        num_loc: int = 10,
         min_loc: float = 0,
         max_loc: float = 1,
         td_params: TensorDict = None,
@@ -34,26 +35,26 @@ class TSPEnv(EnvBase):
         In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
         Args:
-            n_loc: number of locations (cities) in the TSP
+            num_loc: number of locations (cities) in the TSP
             td_params: parameters of the environment
             seed: seed for the environment
             device: device to use.  Generally, no need to set as tensors are updated on the fly
         """
 
-        self.n_loc = n_loc
+        self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
-        if td_params is None:
-            td_params = self.gen_params()
 
         super().__init__(device=device, batch_size=[])
-        self._make_spec(td_params)
+        # self._make_spec(td_params)
+        self._make_spec()
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
 
+    # TODO: refactor get_reward function
     @staticmethod
-    def get_rewards(loc, actions) -> TensorDict:
+    def get_reward(loc, actions) -> TensorDict:
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -68,149 +69,116 @@ class TSPEnv(EnvBase):
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
-    @staticmethod
-    def _step(td: TensorDict) -> TensorDict:
-        prev_a = td["action"]
-        first_a = prev_a if batch_to_scalar(td["i"]) == 0 else td["first_a"]
+    # @staticmethod
+    def _step(self, td: TensorDict) -> TensorDict:
+        current_node = td["action"]
+        first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
         # Set visited to 1
         visited = td["visited"].scatter(
-            -1, prev_a[..., None].expand_as(td["visited"]), 1
+            -1, current_node[..., None].expand_as(td["visited"]), 1
         )
 
         # We are done if all the locations have been visited
-        done = torch.count_nonzero(visited.squeeze(), dim=-1) >= td["params"]["n_loc"]
+        done = torch.count_nonzero(visited.squeeze(), dim=-1) >= self.num_loc #td["params"]["num_loc"]
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # NOTE: reward is calculated outside for now via the get_reward function
         # to calculate here need to pass action sequence or save it as state
-        reward = torch.ones_like(done) * (-float("inf"))
+        reward = torch.ones_like(done) * float("-inf")
 
         # The output must be written in a ``"next"`` entry
-        out = TensorDict(
+        return TensorDict(
             {
                 "next": {
-                    "loc": td["loc"],
-                    "first_a": first_a,
-                    "prev_a": prev_a,
+                    "observation": td["observation"],
+                    "first_node": first_node,
+                    "current_node": current_node,
                     "visited": visited,
                     "i": td["i"] + 1,
-                    "params": td["params"],
+                    "action_mask": visited == 0,
                     "reward": reward,
                     "done": done,
                 }
             },
             td.shape,
         )
-        return out
 
     def _reset(
-        self, td: Optional[TensorDict] = None, init_observation=None
+        self, td: Optional[TensorDict] = None, init_observation=None, batch_size=None
     ) -> TensorDict:
         # If no tensordict is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
-        if td is None or td.is_empty():
-            bs = (
+        if batch_size is None:
+            batch_size = (
                 self.batch_size
                 if init_observation is None
                 else init_observation.shape[:-2]
             )
-            self.device = init_observation.device  # set device on the fly
-            td = self.gen_params(batch_size=bs)
-        batch_size = td.shape  # batch size
+        device = init_observation.device if init_observation is not None else self.device
+        self.device = device
 
-        # We do not allow different params (e.g. sizes) on a single batch
-        min_loc = batch_to_scalar(td["params", "min_loc"])
-        max_loc = batch_to_scalar(td["params", "max_loc"])
-        n_loc = batch_to_scalar(td["params", "n_loc"])
+        min_loc = self.min_loc
+        max_loc = self.max_loc
+        num_loc = self.num_loc
 
         # We allow loading the initial observation from a dataset for faster loading
         if init_observation is None:
             loc = (
-                torch.rand((*batch_size, n_loc, 2), generator=self.rng)
+                torch.rand((*batch_size, num_loc, 2), generator=self.rng)
                 * (max_loc - min_loc)
                 + min_loc
-            )
+            ).to(device) # number generator is on CPU by default, set device after
         else:
             loc = init_observation
 
         # Other variables
-        prev_a = torch.zeros((*batch_size, 1), dtype=torch.int64)
-        visited = torch.zeros((*batch_size, 1, n_loc), dtype=torch.uint8)
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64)
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        visited = torch.zeros((*batch_size, 1, num_loc), dtype=torch.uint8, device=device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
-        # Output is a tensordict
-        out = TensorDict(
+        return TensorDict(
             {
-                "loc": loc,
-                "first_a": prev_a,
-                "prev_a": prev_a,
+                "observation": loc,
+                "first_node": current_node,
+                "current_node": current_node,
                 "visited": visited,
                 "i": i,
-                "params": td["params"],
+                "action_mask": visited == 0,
             },
             batch_size=batch_size,
         )
-        return out
 
-    def gen_params(self, batch_size=None) -> TensorDictBase:
-        """Returns a tensordict containing the parameters of the environment"""
-        if batch_size is None:
-            batch_size = []
-        td = TensorDict(
-            {
-                "params": TensorDict(
-                    {
-                        "min_loc": self.min_loc,
-                        "max_loc": self.max_loc,
-                        "n_loc": self.n_loc,
-                    },
-                    [],
-                )
-            },
-            [],
-        )
-        if batch_size:
-            td = td.expand(batch_size).contiguous()
-        return td
-
-    def get_mask(self, td: TensorDict) -> torch.Tensor:
-        """Returns the mask for the current step"""
-        return td["visited"] > 0
-
-    def get_current_node(self, td: TensorDict) -> torch.Tensor:
-        return td["prev_a"]
-
-    def _make_spec(self, td_params):
+    def _make_spec(self):
         """Make the observation and action specs from the parameters"""
-        params = td_params["params"]
-        n_loc = params["n_loc"]  # TSP size
+        # params = td_params["params"]
+        # num_loc = params["num_loc"]  # TSP size
+        num_loc = self.num_loc
         self.observation_spec = CompositeSpec(
             loc=BoundedTensorSpec(
-                minimum=params["min_loc"],
-                maximum=params["max_loc"],
-                shape=(n_loc, 2),
+                # minimum=params["min_loc"],
+                # maximum=params["max_loc"],
+                minimum=self.min_loc,
+                maximum=self.max_loc,
+                shape=(num_loc, 2),
                 dtype=torch.float32,
             ),
-            first_a=UnboundedDiscreteTensorSpec(
+            first_node=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            prev_a=UnboundedDiscreteTensorSpec(
+            current_node=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
             visited=UnboundedDiscreteTensorSpec(
-                shape=(1, n_loc),
+                shape=(1, num_loc),
                 dtype=torch.uint8,
             ),
             i=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            # we need to add the "params" to the observation specs, as we want
-            # to pass it at each step during a rollout
-            params=make_composite_from_td(params),
             shape=(),
         )
         self.input_spec = self.observation_spec.clone()
@@ -218,22 +186,23 @@ class TSPEnv(EnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=n_loc,
+            maximum=num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(*td_params.shape, 1))
+        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["rng"]  # remove the random number generator for deepcopy piclkling
+        del state["rng"]  # remove the random number generator for deepcopy pickling
         return state
 
     def transform(self):
-        return TransformedEnv(
-            self,
-            RenameTransform(
-                in_keys=["loc"], out_keys=["observation"], create_copy=True
-            ),
-        )
+        return self
+        # return TransformedEnv(
+        #     self,
+        #     RenameTransform(
+        #         in_keys=["loc"], out_keys=["observation"], create_copy=True
+        #     ),
+        # )
 
     @staticmethod
     def render(td):
@@ -248,13 +217,16 @@ def render_tsp(td: TensorDict) -> None:
     if td.batch_size != torch.Size([]):
         print("Batch detected. Plotting the first batch element!")
         td = td[0]
+    
+    loc = td["loc"] if "loc" in td else td["observation"]
+    visited = td["visited"] if "visited" in td else td["action_mask"]
 
     # Get the coordinates of the visited nodes for the first batch element
-    visited_coords = td["loc"][td["visited"][0, 0] == 1][0]
+    visited_coords = loc[[visited][0, 0] == 1][0]
 
     # Create a plot of the nodes
     fig, ax = plt.subplots()
-    ax.scatter(td["loc"][:, 0], td["loc"][:, 1], color="blue")
+    ax.scatter(loc[:, 0], loc[:, 1], color="blue")
 
     # Plot the visited nodes
     ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
