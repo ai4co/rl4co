@@ -5,6 +5,9 @@
 # Logs
 /logs
 
+# Hydra
+.hydra/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
