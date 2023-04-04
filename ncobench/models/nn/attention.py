@@ -45,6 +45,18 @@ except ImportError:
     ft_attention = None
 
 
+
+def flash_attn_wrapper(self, func, *args, **kwargs):
+    """Wrapper for flash attention to automatically cast to fp16 if needed"""
+    if self.force_flash_attn and args[0].is_cuda:
+        original_dtype = args[0].dtype
+        args = [arg.half() for arg in args if isinstance(arg, torch.Tensor)]
+        out = func(*args, **kwargs)
+        return out.to(original_dtype)
+    else:
+        return func(*args, **kwargs)
+
+
 class FlashSelfAttention(nn.Module):
     """Implement the scaled dot product attention with softmax.
     Arguments
@@ -312,7 +324,7 @@ class SelfAttention(nn.Module):
         attention_drop = F.dropout(attention, self.dropout_p if self.training else 0.0)
         output = torch.einsum("bhts,bshd->bthd", attention_drop, v)
         return output
-
+   
 
 class CrossAttention(nn.Module):
     """Implement the scaled dot product attention with softmax.
@@ -469,8 +481,8 @@ class MHA(nn.Module):
         rotary_emb_scale_base=0,
         fused_bias_fc=False,
         use_flash_attn=False,
+        force_dtype_flash_attn=True,
         return_residual=False,
-        checkpointing=False,
         device=None,
         dtype=None,
     ) -> None:
@@ -488,8 +500,9 @@ class MHA(nn.Module):
         self.dwconv = dwconv
         self.rotary_emb_dim = rotary_emb_dim
         self.use_flash_attn = use_flash_attn
+        self.force_dtype_flash_attn = force_dtype_flash_attn and use_flash_attn
         self.return_residual = return_residual
-        self.checkpointing = checkpointing
+        # self.checkpointing = checkpointing # we don't use it for now
 
         self.num_heads = num_heads
         assert (
@@ -637,12 +650,8 @@ class MHA(nn.Module):
             if inference_params is None:
                 if self.rotary_emb_dim > 0:
                     qkv = self.rotary_emb(qkv)
-                if not self.checkpointing:
-                    context = self.inner_attn(qkv, **kwargs)
-                else:
-                    context = torch.utils.checkpoint.checkpoint(
-                        self.inner_attn, qkv, **kwargs
-                    )
+
+                context = self.inner_attn(qkv, **kwargs)
             else:
                 if (
                     not inference_params.fused_ft_kernel
@@ -658,7 +667,8 @@ class MHA(nn.Module):
                     causal = (
                         None if inference_params.sequence_len_offset == 0 else False
                     )
-                    context = self.inner_cross_attn(q, kv, causal=causal)
+                    context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, causal=causal) # NOTE: modified
+
                 else:
                     assert inference_params.fused_ft_kernel
                     assert ft_attention is not None
@@ -692,149 +702,46 @@ class MHA(nn.Module):
                     "b d s -> b s d",
                 ).contiguous()
             if inference_params is None:
-                if not self.checkpointing:
-                    context = self.inner_cross_attn(q, kv, **kwargs)
-                else:
-                    context = torch.utils.checkpoint.checkpoint(
-                        self.inner_cross_attn, q, kv, **kwargs
-                    )
+                context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, **kwargs)
+
             else:
                 kv = self._update_kv_cache(kv)
-                context = self.inner_cross_attn(q, kv, causal=False)
+                context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, causal=False)
         out = self.out_proj(rearrange(context, "... h d -> ... (h d)"))
         return out if not self.return_residual else (out, x)
 
+    flash_attn_wrapper = flash_attn_wrapper
 
-class ParallelMHA(nn.Module):
-    """Multi-head self-attention and cross-attention"""
 
-    def __init__(
-        self,
-        embed_dim,
-        num_heads,
-        process_group,
-        bias=True,
-        dropout=0.0,
-        softmax_scale=None,
-        causal=False,
-        layer_idx=None,
-        rotary_emb_dim=0,
-        rotary_emb_scale_base=0,
-        use_flash_attn=False,
-        checkpointing=False,
-        sequence_parallel=True,
-        device=None,
-        dtype=None,
-    ) -> None:
-        factory_kwargs = {"device": device, "dtype": dtype}
+class NativeFlashMHA(nn.Module):
+    """PyTorch native implementation of Flash Multi-Head Attention with automatic mixed precision support."""
+    
+    def __init__(self, embed_dim, num_heads, bias=True, attention_dropout=0.0,
+                 causal=False, device=None, dtype=None, force_flash_attn=True) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
         self.embed_dim = embed_dim
         self.causal = causal
-        self.layer_idx = layer_idx
-        self.rotary_emb_dim = rotary_emb_dim
-        self.use_flash_attn = use_flash_attn
-        self.checkpointing = checkpointing
+        self.force_flash_attn = force_flash_attn
+        self.attention_dropout = attention_dropout
 
         self.num_heads = num_heads
-        assert (
-            self.embed_dim % num_heads == 0
-        ), "self.kdim must be divisible by num_heads"
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
+        assert self.head_dim % 8 == 0 and self.head_dim <= 128, "Only support head_dim <= 128 and divisible by 8"
 
-        if self.rotary_emb_dim > 0:
-            assert RotaryEmbedding is not None, "rotary_emb is not installed"
-            self.rotary_emb = RotaryEmbedding(
-                self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device
-            )
+        self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
+        # self.inner_attn = FlashAttention(attention_dropout=attention_dropout)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
 
-        if ColumnParallelLinear is None or RowParallelLinear is None:
-            raise ImportError("fused_dense is not installed")
-        self.Wqkv = ColumnParallelLinear(
-            embed_dim,
-            3 * embed_dim,
-            process_group,
-            bias=bias,
-            sequence_parallel=sequence_parallel,
-            **factory_kwargs
-        )
-        inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
-        inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
-        self.inner_attn = inner_attn_cls(
-            causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
-        )
-        self.inner_cross_attn = inner_cross_attn_cls(
-            causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
-        )
-        # output projection always have the bias (for now)
-        self.out_proj = RowParallelLinear(
-            embed_dim,
-            embed_dim,
-            process_group,
-            sequence_parallel=sequence_parallel,
-            **factory_kwargs
-        )
-
-    def forward(self, x, seqlen=None, inference_params=None, **kwargs):
-        """
-        Arguments:
-            x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim) if seqlen=None.
-                If seqlen is not None, x is (batch * seqlen, hidden_dim). This is so that when we
-                split x during sequence parallel, we split the batch * seqlen dimension
-                (in case batch is small).
+    def forward(self, x, key_padding_mask=None):
+        """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
+        key_padding_mask: bool tensor of shape (batch, seqlen)
         """
         qkv = self.Wqkv(x)
-        if seqlen is None:
-            qkv = rearrange(
-                qkv, "b s (three h d) -> b s three h d", three=3, d=self.head_dim
-            )
-        else:
-            qkv = rearrange(
-                qkv,
-                "(b s) (three h d) -> b s three h d",
-                s=seqlen,
-                three=3,
-                d=self.head_dim,
-            )
-        if inference_params is None:
-            if self.rotary_emb_dim > 0:
-                qkv = self.rotary_emb(qkv)
-            if not self.checkpointing:
-                context = self.inner_attn(qkv, **kwargs)
-            else:
-                context = torch.utils.checkpoint.checkpoint(
-                    self.inner_attn, qkv, **kwargs
-                )
-        else:
-            if (
-                not inference_params.fused_ft_kernel
-            ) or inference_params.sequence_len_offset == 0:
-                if self.rotary_emb_dim > 0:
-                    qkv = self.rotary_emb(
-                        qkv, seqlen_offset=inference_params.sequence_len_offset
-                    )
-                q = qkv[:, :, 0]
-                assert (
-                    self.layer_idx is not None
-                ), "Generation requires layer_idx in the constructor"
-                kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
-                # If we're processing the prompt, causal=None (use self.causal).
-                # If we're decoding, then causal=False.
-                causal = None if inference_params.sequence_len_offset == 0 else False
-                context = self.inner_cross_attn(q, kv, causal=causal)
-            else:
-                assert inference_params.fused_ft_kernel
-                assert ft_attention is not None
-                context = ft_attention.single_query_attention(
-                    *rearrange(qkv, "b 1 three h d -> b three h d").unbind(dim=1),
-                    *inference_params.key_value_memory_dict[self.layer_idx],
-                    inference_params.lengths_per_sample,
-                    inference_params.sequence_len_offset,
-                    self.rotary_emb_dim
-                )
-                context = rearrange(context, "b h d -> b 1 h d")
-        if seqlen is None:
-            context = rearrange(context, "b s h d -> b s (h d)")
-        else:
-            context = rearrange(context, "b s h d -> (b s) (h d)")
-        out = self.out_proj(context)
-        return out
+        qkv = rearrange(qkv, 'b s (three h d) -> three b s h d', three=3, h=self.num_heads)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        out = self.flash_attn_wrapper(F.scaled_dot_product_attention, q, k, v, attn_mask=key_padding_mask, dropout_p=self.attention_dropout)
+        return self.out_proj(rearrange(out, 'b s h d -> b s (h d)'))
+
+    flash_attn_wrapper = flash_attn_wrapper
