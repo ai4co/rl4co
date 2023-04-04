@@ -87,7 +87,6 @@ def extras(cfg: DictConfig) -> None:
         log.info("Printing config tree with Rich! <cfg.extras.print_config=True>")
         rich_utils.print_config_tree(cfg, resolve=True, save_to_file=True)
 
-
 def instantiate_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:
     """Instantiates callbacks from config."""
     callbacks: List[Callback] = []

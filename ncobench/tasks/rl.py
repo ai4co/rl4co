@@ -1,5 +1,6 @@
 from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
 import torch
 from torch.utils.data import DataLoader
@@ -24,6 +25,14 @@ class NCOLitModule(LightningModule):
             model_cfg: OmegaConf config for model
             env_cfg: OmegaConf config for env
         """
+        # Disable profiling executor. This reduces memory and increases speed.
+        # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
+        try:
+            torch._C._jit_set_profiling_executor(False)
+            torch._C._jit_set_profiling_mode(False)
+        except AttributeError:
+            pass
+
         super().__init__()
         # this line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute
@@ -35,7 +44,6 @@ class NCOLitModule(LightningModule):
 
         self.instantiate_env()
         self.instantiate_model()
-        self.setup()
 
     def instantiate_env(self):
         log.info(f"Instantiating environments <{self.env_cfg._target_}>")
@@ -76,10 +84,11 @@ class NCOLitModule(LightningModule):
         output = self.model(td, phase)
         self.log(
             f"{phase}/cost",
-            output["cost"].mean(),
-            on_step=False,
+            -output["reward"].mean(),
+            on_step=self.cfg.train.get("log_on_step", True),
             on_epoch=True,
-            prog_bar=False,
+            prog_bar=True,
+            add_dataloader_idx=False,
             sync_dist=True,
         )
         return {"loss": output["loss"]}
@@ -106,8 +115,7 @@ class NCOLitModule(LightningModule):
 
     def get_observation_dataset(self, size):
         # Online data generation: we generate a new batch online
-        data = self.env.gen_params(batch_size=size)
-        return TorchDictDataset(self.env.reset(data)["observation"])
+        return TorchDictDataset(self.env.reset(batch_size=[size])['observation'])
 
     def _dataloader(self, dataset):
         return DataLoader(
@@ -116,4 +124,76 @@ class NCOLitModule(LightningModule):
             shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=self.cfg.data.get("num_workers", 0),
             collate_fn=torch.stack,  # we need this to stack the batches in the dataset
+            pin_memory=self.on_gpu,
         )
+
+
+if __name__ == "__main__":
+    from omegaconf import DictConfig
+    from lightning import Trainer
+
+    config = DictConfig({
+        "env": {
+            "_target_": "ncobench.envs.tsp.TSPEnv",
+            "num_loc": 50,
+        },
+        "model": {
+            "_target_": "ncobench.models.am.AttentionModel",
+            "policy": {
+                "_target_": "ncobench.models.components.am.base.AttentionModelBase",
+                "env": "${env}",
+            },
+            "baseline": {
+                "_target_": "ncobench.models.rl.reinforce.WarmupBaseline",
+                "baseline": {
+                    "_target_": "ncobench.models.rl.reinforce.RolloutBaseline",
+                }
+            }
+        },
+        "data": {
+            "train_size": 1280000,
+            "val_size": 10000,
+            "batch_size": 512,
+        },
+        "train": {
+            "optimizer": {
+                "_target_": "torch.optim.Adam",
+                # "_target_": "deepspeed.ops.adam.DeepSpeedCPUAdam",
+                "lr": 1e-4,
+                "weight_decay": 1e-5,
+            },
+            "gradient_clip_val": 1.0,
+            "max_epochs": 100,
+            "accelerator": "gpu",
+        }
+    })
+
+    torch.set_float32_matmul_precision("medium")
+
+    # DDPS Strategy
+    from lightning.pytorch.strategies import DDPStrategy, FSDPStrategy, DeepSpeedStrategy
+
+    model = NCOLitModule(config)
+    trainer = Trainer(
+        max_epochs = config.train.max_epochs,
+        gradient_clip_val = config.train.gradient_clip_val,
+        accelerator = config.train.accelerator,
+        # strategy=DDPStrategy(find_unused_parameters=True),
+        devices=[1],
+        # strategy="deepspeed_stage_3",#(find_unused_parameters=True),
+        # precision="16-mixed",
+        precision=16,
+        # accelerator="cpu",
+    )
+    trainer.fit(model)
+
+
+
+
+
+
+
+
+
+
+
