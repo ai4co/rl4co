@@ -124,7 +124,7 @@ class NCOLitModule(LightningModule):
             shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=self.cfg.data.get("num_workers", 0),
             collate_fn=torch.stack,  # we need this to stack the batches in the dataset
-            pin_memory=self.on_gpu,
+            # pin_memory=self.on_gpu, # TODO: check if needed, comment now for bug in test
         )
 
 

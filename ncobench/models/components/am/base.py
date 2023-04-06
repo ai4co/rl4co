@@ -9,6 +9,23 @@ from ncobench.models.components.am.encoder import GraphAttentionEncoder
 from ncobench.models.components.am.decoder import Decoder
 
 
+def get_log_likelihood(log_p, actions, mask):
+    """Get log likelihood of selected actions"""
+
+    log_p = log_p.gather(2, actions.unsqueeze(-1)).squeeze(-1)
+
+    # Optional: mask out actions irrelevant to objective so they do not get reinforced
+    if mask is not None:
+        log_p[mask] = 0
+
+    assert (
+        log_p > -1000
+    ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+
+    # Calculate log_likelihood
+    return log_p.sum(1)
+
+
 class AttentionModelBase(nn.Module):
     def __init__(
         self,
@@ -74,27 +91,12 @@ class AttentionModelBase(nn.Module):
         log_p, actions, td = self.decoder(td, encoded_inputs, decode_type)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
-        ll = self.get_log_likelihood(log_p, actions, td.get("mask", None))
+        ll = get_log_likelihood(log_p, actions, td.get("mask", None))
         out = {"reward": td["reward"], "log_likelihood": ll, "actions": actions}
 
         return out
 
-    @staticmethod
-    def get_log_likelihood(log_p, actions, mask):
-        # Get log_p corresponding to selected actions
-        log_p = log_p.gather(2, actions.unsqueeze(-1)).squeeze(-1)
-
-        # Optional: mask out actions irrelevant to objective so they do not get reinforced
-        if mask is not None:
-            log_p[mask] = 0
-
-        assert (
-            log_p > -1000
-        ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
-
-        # Calculate log_likelihood
-        return log_p.sum(1)
-
+   
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader

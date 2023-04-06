@@ -23,6 +23,29 @@ class PrecomputedCache:
     logit_key: torch.Tensor
 
 
+def decode_probs(probs, mask, decode_type="sampling"):
+    """Decode probabilities to select actions with mask"""
+    
+    assert (probs == probs).all(), "Probs should not contain any nans"
+
+    if decode_type == "greedy":
+        _, selected = probs.max(1)
+        assert not mask.gather(
+            1, selected.unsqueeze(-1)
+        ).data.any(), "Decode greedy: infeasible action has maximum probability"
+
+    elif decode_type == "sampling":
+        selected = torch.multinomial(probs, 1).squeeze(1)
+
+        while mask.gather(1, selected.unsqueeze(-1)).data.any():
+            log.info("Sampled bad values, resampling!")
+            selected = probs.multinomial(1).squeeze(1)
+
+    else:
+        assert False, "Unknown decode type"
+    return selected
+    
+
 class LogitAttention(nn.Module):
     """Calculate logits given query, key and value and logit key
     If we use Flash Attention, then we automatically move to fp16 for inner computations
@@ -144,7 +167,7 @@ class Decoder(nn.Module):
             log_p, mask = self._get_log_p(cached_embeds, td)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
-            action = self.decode(
+            action = decode_probs(
                 log_p.exp().squeeze(1), mask.squeeze(1), decode_type=decode_type
             )
 
@@ -158,28 +181,6 @@ class Decoder(nn.Module):
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         td.set("reward", self.env.get_reward(td["observation"], actions))
         return outputs, actions, td
-
-    def decode(self, probs, mask, decode_type="sampling"):
-        assert (probs == probs).all(), "Probs should not contain any nans"
-
-        if decode_type == "greedy":
-            _, selected = probs.max(1)
-            assert not mask.gather(
-                1, selected.unsqueeze(-1)
-            ).data.any(), "Decode greedy: infeasible action has maximum probability"
-
-        elif decode_type == "sampling":
-            # TODO modify
-            # selected = probs.multinomial(1).squeeze(1)
-            selected = torch.multinomial(probs, 1).squeeze(1)
-
-            while mask.gather(1, selected.unsqueeze(-1)).data.any():
-                log.info("Sampled bad values, resampling!")
-                selected = probs.multinomial(1).squeeze(1)
-
-        else:
-            assert False, "Unknown decode type"
-        return selected
 
     def _precompute(self, embeddings):
         # The fixed context projection of the graph embedding is calculated only once for efficiency
