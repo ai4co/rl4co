@@ -82,13 +82,19 @@ class NCOLitModule(LightningModule):
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(init_observation=batch)
         output = self.model(td, phase)
-        self.log(
-            f"{phase}/cost",
-            -output["reward"].mean(),
+
+        # Choose whether to log reward or cost (negative reward)
+        if self.cfg.train.get("log_cost", True):
+            logged_metrics = {f"{phase}/cost": -output["reward"].mean()}
+        else:
+            logged_metrics = {f"{phase}/reward": output["reward"].mean()}
+        logged_metrics[f"{phase}/loss"] = output["loss"].mean()
+
+        self.log_dict(
+            logged_metrics,
             on_step=self.cfg.train.get("log_on_step", True),
             on_epoch=True,
             prog_bar=True,
-            add_dataloader_idx=False,
             sync_dist=True,
         )
         return {"loss": output["loss"]}
