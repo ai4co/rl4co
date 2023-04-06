@@ -3,6 +3,8 @@ from torch import nn
 from tensordict import TensorDict
 import lightning as L
 
+from ncobench.utils.lightning import get_lightning_device
+
 
 class AttentionModel(nn.Module):
     def __init__(self, env, policy, baseline):
@@ -57,12 +59,3 @@ class AttentionModel(nn.Module):
             self.env,
             device=get_lightning_device(lit_module),
         )
-
-
-def get_lightning_device(lit_module: L.LightningModule) -> torch.device:
-    """Get the device of the Lightning module before setup is called
-    See device setting issue in setup https://github.com/Lightning-AI/lightning/issues/2638
-    """
-    if lit_module.trainer.strategy.root_device != lit_module.device:
-        return lit_module.trainer.strategy.root_device
-    return lit_module.device
