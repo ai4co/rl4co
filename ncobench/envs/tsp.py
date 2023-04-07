@@ -141,7 +141,7 @@ class TSPEnv(EnvBase):
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
         visited = torch.zeros(
-            (*batch_size, 1, num_loc), dtype=torch.uint8, device=device
+            (*batch_size, 1, num_loc), dtype=torch.bool, device=device
         )
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
@@ -163,7 +163,7 @@ class TSPEnv(EnvBase):
         # num_loc = params["num_loc"]  # TSP size
         num_loc = self.num_loc
         self.observation_spec = CompositeSpec(
-            loc=BoundedTensorSpec(
+            observation=BoundedTensorSpec(
                 # minimum=params["min_loc"],
                 # maximum=params["max_loc"],
                 minimum=self.min_loc,
@@ -181,11 +181,15 @@ class TSPEnv(EnvBase):
             ),
             visited=UnboundedDiscreteTensorSpec(
                 shape=(1, num_loc),
-                dtype=torch.uint8,
+                dtype=torch.bool,
             ),
             i=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
+            ),
+            action_mask=UnboundedDiscreteTensorSpec(
+                shape=(1, num_loc),
+                dtype=torch.bool,
             ),
             shape=(),
         )
@@ -219,25 +223,23 @@ class TSPEnv(EnvBase):
     _set_seed = _set_seed
 
 
-def render_tsp(td: TensorDict) -> None:
+def render_tsp(td):
     td = td.detach().cpu()
     # if batch_size greater than 0 , we need to select the first batch element
     if td.batch_size != torch.Size([]):
-        print("Batch detected. Plotting the first batch element!")
         td = td[0]
 
-    loc = td["loc"] if "loc" in td else td["observation"]
-    visited = td["visited"] if "visited" in td else td["action_mask"]
+    key = 'observation' if 'observation' in td.keys() else 'loc'
 
     # Get the coordinates of the visited nodes for the first batch element
-    visited_coords = loc[[visited][0, 0] == 1][0]
+    visited_coords = td[key][td['visited'][0, 0] == 1][0]
 
     # Create a plot of the nodes
     fig, ax = plt.subplots()
-    ax.scatter(loc[:, 0], loc[:, 1], color="blue")
+    ax.scatter(td[key][:, 0], td[key][:, 1], color='blue')
 
     # Plot the visited nodes
-    ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
+    ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color='red')
 
     # Add arrows between visited nodes as a quiver plot
     x = visited_coords[:, 0]
@@ -246,38 +248,25 @@ def render_tsp(td: TensorDict) -> None:
     dy = np.diff(y)
 
     # Colors via a colormap
-    cmap = plt.get_cmap("cividis")
+    cmap = plt.get_cmap('cividis')
     norm = plt.Normalize(vmin=0, vmax=len(x))
     colors = cmap(norm(range(len(x))))
 
-    ax.quiver(
-        x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
-    )
+    ax.quiver(x[:-1], y[:-1], dx, dy, scale_units='xy', angles='xy', scale=1, color=colors)
 
     # Add final arrow from last node to first node
-    ax.quiver(
-        x[-1],
-        y[-1],
-        x[0] - x[-1],
-        y[0] - y[-1],
-        scale_units="xy",
-        angles="xy",
-        scale=1,
-        color="red",
-        linestyle="dashed",
-    )
+    ax.quiver(x[-1], y[-1], x[0]-x[-1], y[0]-y[-1], scale_units='xy', angles='xy', scale=1, color="red", linestyle="dashed")
 
     # Plot numbers inside circles next to visited nodes
     for i, coord in enumerate(visited_coords):
         ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
-        ax.annotate(
-            str(i + 1), xy=coord, fontsize=10, color="white", va="center", ha="center"
-        )
+        ax.annotate(str(i+1), xy=coord, fontsize=10, color='white',
+                    va="center", ha="center")
 
     # Set plot title and axis labels
-    ax.set_title("TSP Solution")
-    ax.set_xlabel("x-coordinate")
-    ax.set_ylabel("y-coordinate")
-    ax.set_aspect("equal")
+    ax.set_title('TSP Solution\nTotal length: {:.2f}'.format(-td['reward'][0]))
+    ax.set_xlabel('x-coordinate')
+    ax.set_ylabel('y-coordinate')
+    ax.set_aspect('equal')
 
     plt.show()
