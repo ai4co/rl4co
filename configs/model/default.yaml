@@ -1,7 +1,7 @@
 _target_: ncobench.models.am.AttentionModel
 
 policy:
-  _target_: ncobench.models.components.am.base.AttentionModelBase
+  _target_: ncobench.models.components.am.policy.AttentionModelPolicy
   env: ${env}
   embedding_dim: 128
   hidden_dim: 128

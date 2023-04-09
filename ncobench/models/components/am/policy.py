@@ -26,7 +26,7 @@ def get_log_likelihood(log_p, actions, mask):
     return log_p.sum(1)
 
 
-class AttentionModelBase(nn.Module):
+class AttentionModelPolicy(nn.Module):
     def __init__(
         self,
         env: EnvBase,
@@ -42,7 +42,7 @@ class AttentionModelBase(nn.Module):
         force_flash_attn: bool = False,
         **kwargs
     ):
-        super(AttentionModelBase, self).__init__()
+        super(AttentionModelPolicy, self).__init__()
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
