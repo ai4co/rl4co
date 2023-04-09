@@ -28,7 +28,7 @@ class NoBaseline(REINFORCEBaseline):
 
 class SharedBaseline(REINFORCEBaseline):
     def eval(self, td, cost):
-        return 0, cost.mean(dim=1).view(-1, 1)
+        return cost.mean(dim=1, keepdims=True), 0
 
 
 class ExponentialBaseline(REINFORCEBaseline):
