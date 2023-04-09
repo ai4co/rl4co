@@ -18,3 +18,4 @@ einops
 wandb
 pre-commit
 pytest
+matplotlib
