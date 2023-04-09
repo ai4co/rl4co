@@ -1,7 +1,7 @@
 from typing import List
-
 import hydra
 from omegaconf import DictConfig
+
 from lightning import Callback
 from lightning.pytorch.loggers import Logger
 

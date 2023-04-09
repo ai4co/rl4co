@@ -1,15 +1,12 @@
-import time
 import warnings
 from importlib.util import find_spec
-from pathlib import Path
 from typing import Any, Callable, Dict, List
-import logging
 
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Callback
-from pytorch_lightning.loggers import LightningLoggerBase
-from lightning_utilities import rank_zero_only
+from lightning.pytorch.loggers.logger import Logger
+from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from ncobench.utils import pylogger, rich_utils
 
@@ -107,9 +104,9 @@ def instantiate_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:
     return callbacks
 
 
-def instantiate_loggers(logger_cfg: DictConfig) -> List[LightningLoggerBase]:
+def instantiate_loggers(logger_cfg: DictConfig) -> List[Logger]:
     """Instantiates loggers from config."""
-    logger: List[LightningLoggerBase] = []
+    logger: List[Logger] = []
 
     if not logger_cfg:
         log.warning("No logger configs found! Skipping...")

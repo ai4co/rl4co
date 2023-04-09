@@ -3,7 +3,6 @@ torch>= 2.0.0
 torchrl>=0.1.0
 tensordict>=0.0.3
 lightning>=2.0.0
-lightning_utilities
 
 # Hydra
 hydra-core
