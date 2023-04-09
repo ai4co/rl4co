@@ -2,8 +2,8 @@ from typing import List
 
 import hydra
 from omegaconf import DictConfig
-from pytorch_lightning import Callback
-from pytorch_lightning.loggers import Logger
+from lightning import Callback
+from lightning.pytorch.loggers import Logger
 
 from ncobench.utils import pylogger
 

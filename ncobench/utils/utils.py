@@ -9,7 +9,7 @@ import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Callback
 from pytorch_lightning.loggers import LightningLoggerBase
-from pytorch_lightning.utilities import rank_zero_only
+from lightning_utilities import rank_zero_only
 
 from ncobench.utils import pylogger, rich_utils
 

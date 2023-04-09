@@ -1,10 +1,8 @@
 """Basic utilities for common tasks in Python and PyTorch."""
-import copy
 import re
 from pathlib import Path
 
 import torch
-import torch.nn as nn
 
 
 def flatten_params(params):
