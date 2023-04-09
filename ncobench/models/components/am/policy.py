@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = AttentionModelBase(
+    model = AttentionModelPolicy(
         env,
         embedding_dim=128,
         hidden_dim=128,
