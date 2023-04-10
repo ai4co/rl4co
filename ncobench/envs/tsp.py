@@ -111,7 +111,7 @@ class TSPEnv(EnvBase):
     ) -> TensorDict:
         # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
-        init_locs = td["observation"]
+        init_locs = td["observation"] if td is not None else None
         if batch_size is None:
             batch_size = (
                 self.batch_size
