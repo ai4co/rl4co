@@ -130,7 +130,7 @@ class RolloutBaseline(REINFORCEBaseline):
         """
         Rollout the model on the given dataset.
         """
-        env_fn = lambda x: x if env is None else env.reset(x)
+        env_fn = lambda x: x if env is None else env.reset(init_obs=x)
         with torch.no_grad():
             model.eval()
             model = model.to(device)

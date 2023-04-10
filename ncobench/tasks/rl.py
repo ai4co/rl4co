@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import DataLoader
 from lightning import LightningModule
 
-from ncobench.data.dataset import TorchDictDataset
 from ncobench.utils.pylogger import get_pylogger
 
 
@@ -58,8 +57,8 @@ class NCOLitModule(LightningModule):
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
-        self.train_dataset = self.get_dataset(self.cfg.data.train_size)
-        self.val_dataset = self.get_dataset(self.cfg.data.val_size)
+        self.train_dataset = self.env.dataset(self.cfg.data.train_size)
+        self.val_dataset = self.env.dataset(self.cfg.data.val_size)
         if hasattr(self.model, "setup"):
             self.model.setup(self)
 
@@ -82,7 +81,7 @@ class NCOLitModule(LightningModule):
             }
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
-        td = self.env.reset(batch)
+        td = self.env.reset(init_obs=batch)
         output = self.model(td, phase)
 
         # Choose whether to log reward or cost (negative reward)
@@ -119,11 +118,7 @@ class NCOLitModule(LightningModule):
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
-        self.train_dataset = self.get_dataset(self.cfg.data.train_size)
-
-    def get_dataset(self, size):
-        # Online data generation: we generate a new batch online
-        return TorchDictDataset(self.env.generate_data(size))
+        self.train_dataset = self.env.dataset(self.cfg.data.train_size)
 
     def _dataloader(self, dataset):
         return DataLoader(
