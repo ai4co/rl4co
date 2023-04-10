@@ -19,3 +19,4 @@ wandb
 pre-commit
 pytest
 matplotlib
+scipy
