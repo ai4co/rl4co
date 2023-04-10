@@ -25,13 +25,15 @@ class NCOLitModule(LightningModule):
             model_cfg: OmegaConf config for model
             env_cfg: OmegaConf config for env
         """
-        # Disable profiling executor. This reduces memory and increases speed.
-        # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
-        try:
-            torch._C._jit_set_profiling_executor(False)
-            torch._C._jit_set_profiling_mode(False)
-        except AttributeError:
-            pass
+
+        if cfg.train.get("disable_profiling", True):
+            # Disable profiling executor. This reduces memory and increases speed.
+            # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
+            try:
+                torch._C._jit_set_profiling_executor(False)
+                torch._C._jit_set_profiling_mode(False)
+            except AttributeError:
+                pass
 
         super().__init__()
         # this line ensures params passed to LightningModule will be saved to ckpt
