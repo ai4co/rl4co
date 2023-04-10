@@ -1,7 +1,8 @@
 from torch.utils.data import Dataset
 
 
-class TorchDictDataset(Dataset):
+class TensorDictDataset(Dataset):
+    """Simple dataset compatible with TensorDicts"""
     def __init__(self, data):
         self.data = data
 
