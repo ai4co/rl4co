@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 import matplotlib.pyplot as plt
 
 import numpy as np
 import torch
+from torch import Tensor
 from tensordict.tensordict import TensorDict, TensorDictBase
 
 from torchrl.data import (
@@ -13,7 +14,7 @@ from torchrl.data import (
 )
 from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
 
-from ncobench.envs.utils import make_composite_from_td, batch_to_scalar, _set_seed
+from ncobench.envs.utils import batch_to_scalar, _set_seed, _getstate_env
 
 
 class TSPEnv(EnvBase):
@@ -69,19 +70,19 @@ class TSPEnv(EnvBase):
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
-    # @staticmethod
-    def _step(self, td: TensorDict) -> TensorDict:
+    @staticmethod
+    def _step(td: TensorDict) -> TensorDict:
         current_node = td["action"]
         first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
-        # Set visited to 1
-        visited = td["visited"].scatter(
-            -1, current_node[..., None].expand_as(td["visited"]), 1
+        # Set not visited to 0 (i.e., we visited the node)
+        unvisited = td["action_mask"].scatter(
+            -1, current_node[..., None].expand_as(td["action_mask"]), 0
         )
 
-        # We are done if all the locations have been visited
+        # We are done there are no unvisited locations
         done = (
-            torch.count_nonzero(visited.squeeze(), dim=-1) >= self.num_loc
+            torch.count_nonzero(unvisited.squeeze(), dim=-1) <= 0
         )  # td["params"]["num_loc"]
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
@@ -96,9 +97,8 @@ class TSPEnv(EnvBase):
                     "observation": td["observation"],
                     "first_node": first_node,
                     "current_node": current_node,
-                    "visited": visited,
                     "i": td["i"] + 1,
-                    "action_mask": visited == 0,
+                    "action_mask": unvisited,
                     "reward": reward,
                     "done": done,
                 }
@@ -107,52 +107,41 @@ class TSPEnv(EnvBase):
         )
 
     def _reset(
-        self, td: Optional[TensorDict] = None, init_observation=None, batch_size=None
+        self, td: Optional[TensorDict] = None, batch_size=None
     ) -> TensorDict:
-        # If no tensordict is passed, we generate a single set of hyperparameters
+        # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
+        init_locs = td["observation"]
         if batch_size is None:
             batch_size = (
                 self.batch_size
-                if init_observation is None
-                else init_observation.shape[:-2]
+                if init_locs is None
+                else init_locs.shape[:-2]
             )
         device = (
-            init_observation.device if init_observation is not None else self.device
+            init_locs.device if init_locs is not None else self.device
         )
         self.device = device
 
-        min_loc = self.min_loc
-        max_loc = self.max_loc
-        num_loc = self.num_loc
-
         # We allow loading the initial observation from a dataset for faster loading
-        if init_observation is None:
-            loc = (
-                torch.rand((*batch_size, num_loc, 2), generator=self.rng)
-                * (max_loc - min_loc)
-                + min_loc
-            ).to(
-                device
-            )  # number generator is on CPU by default, set device after
-        else:
-            loc = init_observation
+        if init_locs is None:
+            # number generator is on CPU by default, set device after
+            init_locs = self.generate_data(batch_size=batch_size)['observation'].to(device) 
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        visited = torch.zeros(
-            (*batch_size, 1, num_loc), dtype=torch.bool, device=device
-        )
+        unvisited = torch.ones(
+            (*batch_size, 1, self.num_loc), dtype=torch.bool, device=device
+        ) # 1 means not visited, i.e. action is allowed 
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         return TensorDict(
             {
-                "observation": loc,
+                "observation": init_locs,
                 "first_node": current_node,
                 "current_node": current_node,
-                "visited": visited,
                 "i": i,
-                "action_mask": visited == 0,
+                "action_mask": unvisited,
             },
             batch_size=batch_size,
         )
@@ -161,14 +150,13 @@ class TSPEnv(EnvBase):
         """Make the observation and action specs from the parameters"""
         # params = td_params["params"]
         # num_loc = params["num_loc"]  # TSP size
-        num_loc = self.num_loc
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
                 # minimum=params["min_loc"],
                 # maximum=params["max_loc"],
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(num_loc, 2),
+                shape=(self.num_loc, 2),
                 dtype=torch.float32,
             ),
             first_node=UnboundedDiscreteTensorSpec(
@@ -179,16 +167,12 @@ class TSPEnv(EnvBase):
                 shape=(1),
                 dtype=torch.int64,
             ),
-            visited=UnboundedDiscreteTensorSpec(
-                shape=(1, num_loc),
-                dtype=torch.bool,
-            ),
             i=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(1, num_loc),
+                shape=(1, self.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -198,28 +182,29 @@ class TSPEnv(EnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=num_loc,
+            maximum=self.num_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
+        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["rng"]  # remove the random number generator for deepcopy pickling
-        return state
+    def generate_data(self, batch_size):
+        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+        locs = (
+            torch.rand((*batch_size, self.num_loc, 2), generator=self.rng)
+            * (self.max_loc - self.min_loc)
+            + self.min_loc
+        )
+        return TensorDict({"observation": locs}, batch_size=batch_size,)
 
     def transform(self):
         return self
-        # return TransformedEnv(
-        #     self,
-        #     RenameTransform(
-        #         in_keys=["loc"], out_keys=["observation"], create_copy=True
-        #     ),
-        # )
 
     @staticmethod
     def render(td):
         render_tsp(td)
 
+    __getstate__ = _getstate_env
+    
     _set_seed = _set_seed
 
 
@@ -232,7 +217,7 @@ def render_tsp(td):
     key = 'observation' if 'observation' in td.keys() else 'loc'
 
     # Get the coordinates of the visited nodes for the first batch element
-    visited_coords = td[key][td['visited'][0, 0] == 1][0]
+    visited_coords = td[key][td['action_mask'][0, 0] == 0][0]
 
     # Create a plot of the nodes
     fig, ax = plt.subplots()

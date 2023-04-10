@@ -51,5 +51,16 @@ def batch_to_scalar(param):
 
 
 def _set_seed(self, seed: Optional[int]):
+    """Set the seed for the environment"""
     rng = torch.manual_seed(seed)
     self.rng = rng
+
+
+def _getstate_env(self):
+    """
+    Return the state of the environment. By default, we want to avoid pickling 
+    the random number generator as it is not allowed by deepcopy
+    """
+    state = self.__dict__.copy()
+    del state["rng"]  
+    return state
