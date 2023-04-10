@@ -14,6 +14,7 @@ from torchrl.data import (
 )
 from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
 
+from ncobench.data.dataset import TensorDictDataset
 from ncobench.envs.utils import batch_to_scalar, _set_seed, _getstate_env
 
 
@@ -107,11 +108,11 @@ class TSPEnv(EnvBase):
         )
 
     def _reset(
-        self, td: Optional[TensorDict] = None, batch_size=None
+        self, td: Optional[TensorDict] = None, init_obs=None, batch_size=None
     ) -> TensorDict:
         # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
         # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
-        init_locs = td["observation"] if td is not None else None
+        init_locs = td["observation"] if td is not None else init_obs
         if batch_size is None:
             batch_size = (
                 self.batch_size
@@ -126,7 +127,7 @@ class TSPEnv(EnvBase):
         # We allow loading the initial observation from a dataset for faster loading
         if init_locs is None:
             # number generator is on CPU by default, set device after
-            init_locs = self.generate_data(batch_size=batch_size)['observation'].to(device) 
+            init_locs = self.generate_data(batch_size=batch_size).to(device) 
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -194,7 +195,7 @@ class TSPEnv(EnvBase):
             * (self.max_loc - self.min_loc)
             + self.min_loc
         )
-        return TensorDict({"observation": locs}, batch_size=batch_size,)
+        return locs
 
     def transform(self):
         return self
@@ -207,6 +208,13 @@ class TSPEnv(EnvBase):
     
     _set_seed = _set_seed
 
+    def dataset(self, batch_size):
+        observation = self.generate_data(batch_size)
+        return TensorDictDataset(observation)
+
+
+
+    
 
 def render_tsp(td):
     td = td.detach().cpu()
