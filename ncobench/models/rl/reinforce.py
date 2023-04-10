@@ -27,8 +27,8 @@ class NoBaseline(REINFORCEBaseline):
 
 
 class SharedBaseline(REINFORCEBaseline):
-    def eval(self, td, cost):
-        return cost.mean(dim=1, keepdims=True), 0
+    def eval(self, td, cost, on_dim=0): # by default e.g. [pomo, batch]
+        return cost.mean(dim=on_dim, keepdims=True), 0
 
 
 class ExponentialBaseline(REINFORCEBaseline):
@@ -130,7 +130,7 @@ class RolloutBaseline(REINFORCEBaseline):
         """
         Rollout the model on the given dataset.
         """
-        env_fn = lambda x: x if env is None else env.reset(init_observation=x)
+        env_fn = lambda x: x if env is None else env.reset(x)
         with torch.no_grad():
             model.eval()
             model = model.to(device)
