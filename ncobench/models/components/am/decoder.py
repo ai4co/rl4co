@@ -9,9 +9,10 @@ from torch.nn.functional import scaled_dot_product_attention
 from ncobench.models.nn.attention import flash_attn_wrapper
 from ncobench.models.components.am.context import env_context
 from ncobench.models.components.am.embeddings import env_dynamic_embedding
-from ncobench import utils
+from ncobench.models.components.am.utils import decode_probs
+from ncobench.utils import get_pylogger
 
-log = utils.get_pylogger(__name__)
+log = get_pylogger(__name__)
 
 
 @dataclass
@@ -21,29 +22,6 @@ class PrecomputedCache:
     glimpse_key: torch.Tensor
     glimpse_val: torch.Tensor
     logit_key: torch.Tensor
-
-
-def decode_probs(probs, mask, decode_type="sampling"):
-    """Decode probabilities to select actions with mask"""
-    
-    assert (probs == probs).all(), "Probs should not contain any nans"
-
-    if decode_type == "greedy":
-        _, selected = probs.max(1)
-        assert not mask.gather(
-            1, selected.unsqueeze(-1)
-        ).data.any(), "Decode greedy: infeasible action has maximum probability"
-
-    elif decode_type == "sampling":
-        selected = torch.multinomial(probs, 1).squeeze(1)
-
-        while mask.gather(1, selected.unsqueeze(-1)).data.any():
-            log.info("Sampled bad values, resampling!")
-            selected = probs.multinomial(1).squeeze(1)
-
-    else:
-        assert False, "Unknown decode type"
-    return selected
     
 
 class LogitAttention(nn.Module):

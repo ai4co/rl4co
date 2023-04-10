@@ -7,23 +7,7 @@ from tensordict.tensordict import TensorDict
 from ncobench.models.components.am.embeddings import env_init_embedding
 from ncobench.models.components.am.encoder import GraphAttentionEncoder
 from ncobench.models.components.am.decoder import Decoder
-
-
-def get_log_likelihood(log_p, actions, mask):
-    """Get log likelihood of selected actions"""
-
-    log_p = log_p.gather(2, actions.unsqueeze(-1)).squeeze(-1)
-
-    # Optional: mask out actions irrelevant to objective so they do not get reinforced
-    if mask is not None:
-        log_p[mask] = 0
-
-    assert (
-        log_p > -1000
-    ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
-
-    # Calculate log_likelihood
-    return log_p.sum(1)
+from ncobench.models.components.am.utils import get_log_likelihood
 
 
 class AttentionModelPolicy(nn.Module):
