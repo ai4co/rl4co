@@ -7,9 +7,9 @@ import torch.nn as nn
 from torch.nn.functional import scaled_dot_product_attention
 
 from ncobench.models.nn.attention import flash_attn_wrapper
-from ncobench.models.components.am.context import env_context
-from ncobench.models.components.am.embeddings import env_dynamic_embedding
-from ncobench.models.components.am.utils import decode_probs
+from ncobench.models.co.am.context import env_context
+from ncobench.models.co.am.embeddings import env_dynamic_embedding
+from ncobench.models.co.am.utils import decode_probs
 from ncobench.utils import get_pylogger
 
 log = get_pylogger(__name__)

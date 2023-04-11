@@ -4,10 +4,10 @@ import torch.nn as nn
 from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
 
-from ncobench.models.components.am.embeddings import env_init_embedding
-from ncobench.models.components.am.encoder import GraphAttentionEncoder
-from ncobench.models.components.am.decoder import Decoder
-from ncobench.models.components.am.utils import get_log_likelihood
+from ncobench.models.co.am.embeddings import env_init_embedding
+from ncobench.models.co.am.encoder import GraphAttentionEncoder
+from ncobench.models.co.am.decoder import Decoder
+from ncobench.models.co.am.utils import get_log_likelihood
 
 
 class AttentionModelPolicy(nn.Module):
