@@ -11,7 +11,7 @@ from ncobench.utils.lightning import get_lightning_device
 class AttentionModel(nn.Module):
     def __init__(self, env, policy=None, baseline=None):
         """
-        Attention Model for neural combinatorial optimization based on REINFORCE 
+        Attention Model for neural combinatorial optimization based on REINFORCE
         Based on Wouter Kool et al. (2018) https://arxiv.org/abs/1803.08475
         Refactored from reference implementation: https://github.com/wouterkool/attention-learn-to-route
 
@@ -23,7 +23,9 @@ class AttentionModel(nn.Module):
         super().__init__()
         self.env = env
         self.policy = AttentionModelPolicy(env) if policy is None else policy
-        self.baseline = WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
+        self.baseline = (
+            WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
+        )
 
     def forward(
         self, td: TensorDict, phase: str = "train", decode_type: str = None

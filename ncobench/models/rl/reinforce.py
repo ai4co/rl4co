@@ -27,7 +27,7 @@ class NoBaseline(REINFORCEBaseline):
 
 
 class SharedBaseline(REINFORCEBaseline):
-    def eval(self, td, cost, on_dim=0): # by default e.g. [pomo, batch]
+    def eval(self, td, cost, on_dim=0):  # by default e.g. [pomo, batch]
         return cost.mean(dim=on_dim, keepdims=True), 0
 
 

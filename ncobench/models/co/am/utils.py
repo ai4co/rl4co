@@ -24,7 +24,7 @@ def get_log_likelihood(log_p, actions, mask):
 
 def decode_probs(probs, mask, decode_type="sampling"):
     """Decode probabilities to select actions with mask"""
-    
+
     assert (probs == probs).all(), "Probs should not contain any nans"
 
     if decode_type == "greedy":
