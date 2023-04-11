@@ -15,9 +15,6 @@ from ncobench.utils.utils import pylogger
 log = pylogger.get_pylogger(__name__)
 
 
-
-
-
 @rank_zero_only
 def print_config_tree(
     cfg: DictConfig,

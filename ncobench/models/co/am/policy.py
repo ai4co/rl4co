@@ -80,7 +80,6 @@ class AttentionModelPolicy(nn.Module):
 
         return out
 
-   
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader

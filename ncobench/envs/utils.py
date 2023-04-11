@@ -58,9 +58,9 @@ def _set_seed(self, seed: Optional[int]):
 
 def _getstate_env(self):
     """
-    Return the state of the environment. By default, we want to avoid pickling 
+    Return the state of the environment. By default, we want to avoid pickling
     the random number generator as it is not allowed by deepcopy
     """
     state = self.__dict__.copy()
-    del state["rng"]  
+    del state["rng"]
     return state

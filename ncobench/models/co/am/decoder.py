@@ -22,7 +22,7 @@ class PrecomputedCache:
     glimpse_key: torch.Tensor
     glimpse_val: torch.Tensor
     logit_key: torch.Tensor
-    
+
 
 class LogitAttention(nn.Module):
     """Calculate logits given query, key and value and logit key
