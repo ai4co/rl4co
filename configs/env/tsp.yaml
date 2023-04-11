@@ -1,0 +1,5 @@
+_target_: ncobench.envs.tsp.TSPEnv
+
+num_loc: 20
+min_loc: 0
+max_loc: 1
