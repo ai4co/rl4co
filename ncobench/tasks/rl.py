@@ -12,7 +12,7 @@ from ncobench.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class NCOLitModule(LightningModule):
+class RL4COLitModule(LightningModule):
     def __init__(self, cfg, model_cfg=None, env_cfg=None):
         """
         Base LightningModule for Neural Combinatorial Optimization
