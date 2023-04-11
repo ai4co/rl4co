@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 from tensordict.tensordict import TensorDict
 
+from ncobench.models.co.ptrnet.policy import PointerNetworkPolicy
+from ncobench.models.rl.reinforce import WarmupBaseline, RolloutBaseline
 from ncobench.utils.lightning import get_lightning_device
 
 
 class PointerNetwork(nn.Module):
-    def __init__(self, env, policy, baseline):
+    def __init__(self, env, policy=None, baseline=None):
         """
         Pointer Network for neural combinatorial optimization based on REINFORCE 
         Based on Vinyals et al. (2015) https://arxiv.org/abs/1506.03134
@@ -19,8 +21,8 @@ class PointerNetwork(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = policy
-        self.baseline = baseline
+        self.policy = PointerNetworkPolicy(env) if policy is None else policy
+        self.baseline = WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
 
     def forward(self, td: TensorDict, phase: str="train", decode_type: str=None) -> TensorDict:
         """Evaluate model, get costs and log probabilities and compare with baseline"""

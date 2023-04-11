@@ -3,11 +3,13 @@ from torch import nn
 from tensordict import TensorDict
 import lightning as L
 
+from ncobench.models.co.am.policy import AttentionModelPolicy
+from ncobench.models.rl.reinforce import WarmupBaseline, RolloutBaseline
 from ncobench.utils.lightning import get_lightning_device
 
 
 class AttentionModel(nn.Module):
-    def __init__(self, env, policy, baseline):
+    def __init__(self, env, policy=None, baseline=None):
         """
         Attention Model for neural combinatorial optimization based on REINFORCE 
         Based on Wouter Kool et al. (2018) https://arxiv.org/abs/1803.08475
@@ -20,8 +22,8 @@ class AttentionModel(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = policy
-        self.baseline = baseline
+        self.policy = AttentionModelPolicy(env) if policy is None else policy
+        self.baseline = WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
 
     def forward(
         self, td: TensorDict, phase: str = "train", decode_type: str = None
