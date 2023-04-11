@@ -35,7 +35,7 @@ pip install light-the-torch && python3 -m light_the_torch install --upgrade -r r
 The above script will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system. Alternatively, you can use `pip install -r requirements.txt` 
 
 
-Train model with default configuration
+Train model with default configuration (AM on TSP environment):
 ```bash
 python run.py  
 ```
