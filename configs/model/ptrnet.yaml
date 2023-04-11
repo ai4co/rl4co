@@ -1,0 +1,12 @@
+_target_: ncobench.models.PointerNetwork
+
+policy:
+  _target_: ncobench.models.PointerNetworkPolicy
+  env: ${env}
+  embedding_dim: 128
+  hidden_dim: 128
+
+baseline:
+  _target_: ncobench.models.rl.reinforce.WarmupBaseline
+  baseline:
+    _target_: ncobench.models.rl.reinforce.RolloutBaseline
