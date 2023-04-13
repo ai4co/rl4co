@@ -1,0 +1,6 @@
+_target_: ncobench.envs.dpp.DPPEnv
+
+max_decaps: 20
+chip_fpath: data/dpp/10x10_pkg_chip.npy
+decap_fpath: data/dpp/01nF_decap.npy
+freq_fpath: data/dpp/freq_201.npy
