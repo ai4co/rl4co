@@ -25,7 +25,7 @@ trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
   accelerator: "gpu"
-  precision: 16 
+  precision: "16-mixed" 
   # Fast distributed training: comment out to use on single GPU
   devices: 2 # change number of devices
   strategy:
@@ -39,6 +39,7 @@ train:
     _target_: torch.optim.Adam
     lr: 1e-4
     weight_decay: 1e-5
+  log_cost: True # we want to log the cost of the solution, which is -reward
 
 matmul_precision: "medium" #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 
