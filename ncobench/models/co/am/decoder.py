@@ -112,8 +112,7 @@ class Decoder(nn.Module):
 
         assert embedding_dim % n_heads == 0
 
-        step_context_dim = 2 * embedding_dim  # Embedding of first and last node
-        self.context = env_context(self.env.name, {"context_dim": step_context_dim})
+        self.context = env_context(self.env.name, {"embedding_dim": embedding_dim})
         self.dynamic_embedding = env_dynamic_embedding(
             self.env.name, {"embedding_dim": embedding_dim}
         )
@@ -123,9 +122,6 @@ class Decoder(nn.Module):
             embedding_dim, 3 * embedding_dim, bias=False
         )
         self.project_fixed_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
-        self.project_step_context = nn.Linear(
-            step_context_dim, embedding_dim, bias=False
-        )
 
         # MHA
         self.logit_attention = LogitAttention(
@@ -157,7 +153,7 @@ class Decoder(nn.Module):
             actions.append(action)
 
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
-        td.set("reward", self.env.get_reward(td["observation"], actions))
+        td.set("reward", self.env.get_reward(td, actions))
         return outputs, actions, td
 
     def _precompute(self, embeddings):
@@ -183,9 +179,7 @@ class Decoder(nn.Module):
         return cached_embeds
 
     def _get_log_p(self, cached, td):
-        context = self.context(cached.node_embeddings, td)
-        step_context = self.project_step_context(context)  # [batch, 1, embed_dim]
-
+        step_context = self.context(cached.node_embeddings, td) # [batch, 1, embed_dim]
         query = cached.graph_context + step_context  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
@@ -194,13 +188,14 @@ class Decoder(nn.Module):
             glimpse_key_dynamic,
             glimpse_val_dynamic,
             logit_key_dynamic,
-        ) = self.dynamic_embedding(td["observation"])
+        ) = self.dynamic_embedding(td)
         glimpse_key = cached.glimpse_key + glimpse_key_dynamic
         glimpse_key = cached.glimpse_val + glimpse_val_dynamic
         logit_key = cached.logit_key + logit_key_dynamic
 
         # Get the mask
         mask = ~td["action_mask"]
+        mask = mask.unsqueeze(1) if mask.dim() == 2 else mask
 
         # Compute logits
         log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask)
