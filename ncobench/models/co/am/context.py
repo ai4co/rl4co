@@ -12,6 +12,7 @@ def env_context(env_name: str, config: dict) -> object:
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
         "op": OPContext,
+        "dpp": DPPContext,
     }
 
     context_class = context_classes.get(env_name, None)
@@ -23,9 +24,15 @@ def env_context(env_name: str, config: dict) -> object:
 
 
 class EnvContext(nn.Module):
-    def __init__(self, context_dim):
+    def __init__(self, embedding_dim):
+        """
+        Gather the context for each specific environment and projects it to embedding space
+        """
         super(EnvContext, self).__init__()
-        self.context_dim = context_dim
+        self.embedding_dim = embedding_dim
+        self.project_context = nn.Linear(
+            2 * embedding_dim, embedding_dim, bias=False
+        )
 
     def _prev_node_embedding(self, embeddings, td):
         # current_node = td #state.get_current_node()
@@ -33,33 +40,24 @@ class EnvContext(nn.Module):
         return prev_node_embedding
 
     def _state_embedding(self, embeddings, td):
-        raise NotImplementedError("Implement the embedding for your environment")
+        raise NotImplementedError("To implement for each environment")
 
     def forward(self, embeddings, td):
         prev_node_embedding = self._prev_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
-        # Embedding of previous node + remaining capacity
         context_embedding = torch.cat((prev_node_embedding, state_embedding), -1)
-        return context_embedding
+        return self.project_context(context_embedding)
 
 
 class TSPContext(EnvContext):
-    def __init__(self, context_dim):
-        super(TSPContext, self).__init__(context_dim)
+    def __init__(self, embedding_dim):
+        super(TSPContext, self).__init__(embedding_dim)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(self.context_dim).uniform_(-1, 1)
+            torch.Tensor(self.embedding_dim * 2).uniform_(-1, 1)
         )
 
-    def _state_embedding(self, embeddings, td):
-        # first_node = state.first_a
-        state_embedding = gather_by_index(embeddings, td["first_node"])
-        return state_embedding
-
     def forward(self, embeddings, td):
-        # TODO: check whether the vectorized version is correct and FASTER (maybe?)
         batch_size = embeddings.size(0)
-        # TODO: vectorize, the following is not vectorized and a bit naive
-        # It supposes that the nodes have the same state
         if td["i"][0].item() == 0:
             context_embedding = self.W_placeholder[None, None, :].expand(
                 batch_size, 1, self.W_placeholder.size(-1)
@@ -68,12 +66,12 @@ class TSPContext(EnvContext):
             context_embedding = gather_by_index(
                 embeddings, torch.cat([td["first_node"], td["current_node"]], -1)
             ).view(batch_size, 1, -1)
-        return context_embedding
+        return self.project_context(context_embedding)
 
 
 class VRPContext(EnvContext):
-    def __init__(self, context_dim):
-        super(VRPContext, self).__init__(context_dim)
+    def __init__(self, embedding_dim):
+        super(VRPContext, self).__init__(embedding_dim)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = (
@@ -83,8 +81,8 @@ class VRPContext(EnvContext):
 
 
 class PCTSPContext(EnvContext):
-    def __init__(self, context_dim):
-        super(PCTSPContext, self).__init__(context_dim)
+    def __init__(self, embedding_dim):
+        super(PCTSPContext, self).__init__(embedding_dim)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["remaining_prize_to_collect"][:, :, None]
@@ -92,13 +90,36 @@ class PCTSPContext(EnvContext):
 
 
 class OPContext(EnvContext):
-    def __init__(self, context_dim):
-        super(OPContext, self).__init__(context_dim)
+    def __init__(self, embedding_dim):
+        super(OPContext, self).__init__(embedding_dim)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["remaining_length"][:, :, None]
         return state_embedding
 
+
+class DPPContext(EnvContext):
+    def __init__(self, embedding_dim):
+        super(DPPContext, self).__init__(embedding_dim)
+        self.W_placeholder = nn.Parameter(
+            torch.Tensor(embedding_dim).uniform_(-1, 1)
+        )
+        self.project_context = nn.Linear(
+            embedding_dim, embedding_dim, bias=False
+        )
+
+    def forward(self, embeddings, td):
+        batch_size = embeddings.size(0)
+        if td["i"][0].item() == 0:
+            context_embedding = self.W_placeholder[None, None, :].expand(
+                batch_size, 1, self.W_placeholder.size(-1)
+            )
+        else:
+            context_embedding = gather_by_index(
+                embeddings, td["current_node"]
+            ).view(batch_size, 1, -1)
+        return self.project_context(context_embedding)
+    
 
 def gather_by_index(source, index):
     target = torch.gather(
