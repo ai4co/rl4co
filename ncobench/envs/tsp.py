@@ -1,5 +1,4 @@
 from typing import Optional, Union
-import matplotlib.pyplot as plt
 
 import numpy as np
 import torch
@@ -54,9 +53,9 @@ class TSPEnv(EnvBase):
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
 
-    # TODO: refactor get_reward function
     @staticmethod
-    def get_reward(loc, actions) -> TensorDict:
+    def get_reward(td, actions) -> TensorDict:
+        loc = td["observation"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -77,13 +76,13 @@ class TSPEnv(EnvBase):
         first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
         # Set not visited to 0 (i.e., we visited the node)
-        unvisited = td["action_mask"].scatter(
+        available = td["action_mask"].scatter(
             -1, current_node[..., None].expand_as(td["action_mask"]), 0
         )
 
         # We are done there are no unvisited locations
         done = (
-            torch.count_nonzero(unvisited.squeeze(), dim=-1) <= 0
+            torch.count_nonzero(available.squeeze(), dim=-1) <= 0
         )  # td["params"]["num_loc"]
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
@@ -99,7 +98,7 @@ class TSPEnv(EnvBase):
                     "first_node": first_node,
                     "current_node": current_node,
                     "i": td["i"] + 1,
-                    "action_mask": unvisited,
+                    "action_mask": available,
                     "reward": reward,
                     "done": done,
                 }
@@ -125,7 +124,7 @@ class TSPEnv(EnvBase):
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        unvisited = torch.ones(
+        available = torch.ones(
             (*batch_size, 1, self.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -136,7 +135,7 @@ class TSPEnv(EnvBase):
                 "first_node": current_node,
                 "current_node": current_node,
                 "i": i,
-                "action_mask": unvisited,
+                "action_mask": available,
             },
             batch_size=batch_size,
         )
@@ -182,6 +181,10 @@ class TSPEnv(EnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
+    def dataset(self, batch_size):
+        observation = self.generate_data(batch_size)
+        return TensorDictDataset(observation)
+    
     def generate_data(self, batch_size):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
@@ -194,76 +197,70 @@ class TSPEnv(EnvBase):
     def transform(self):
         return self
 
-    @staticmethod
-    def render(td):
-        render_tsp(td)
-
     __getstate__ = _getstate_env
 
     _set_seed = _set_seed
 
-    def dataset(self, batch_size):
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
+    @staticmethod
+    def render_tsp(td):
+        import matplotlib.pyplot as plt
 
+        td = td.detach().cpu()
+        # if batch_size greater than 0 , we need to select the first batch element
+        if td.batch_size != torch.Size([]):
+            td = td[0]
 
-def render_tsp(td):
-    td = td.detach().cpu()
-    # if batch_size greater than 0 , we need to select the first batch element
-    if td.batch_size != torch.Size([]):
-        td = td[0]
+        key = "observation" if "observation" in td.keys() else "loc"
 
-    key = "observation" if "observation" in td.keys() else "loc"
+        # Get the coordinates of the visited nodes for the first batch element
+        visited_coords = td[key][td["action_mask"][0, 0] == 0][0]
 
-    # Get the coordinates of the visited nodes for the first batch element
-    visited_coords = td[key][td["action_mask"][0, 0] == 0][0]
+        # Create a plot of the nodes
+        fig, ax = plt.subplots()
+        ax.scatter(td[key][:, 0], td[key][:, 1], color="blue")
 
-    # Create a plot of the nodes
-    fig, ax = plt.subplots()
-    ax.scatter(td[key][:, 0], td[key][:, 1], color="blue")
+        # Plot the visited nodes
+        ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
 
-    # Plot the visited nodes
-    ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
+        # Add arrows between visited nodes as a quiver plot
+        x = visited_coords[:, 0]
+        y = visited_coords[:, 1]
+        dx = np.diff(x)
+        dy = np.diff(y)
 
-    # Add arrows between visited nodes as a quiver plot
-    x = visited_coords[:, 0]
-    y = visited_coords[:, 1]
-    dx = np.diff(x)
-    dy = np.diff(y)
+        # Colors via a colormap
+        cmap = plt.get_cmap("cividis")
+        norm = plt.Normalize(vmin=0, vmax=len(x))
+        colors = cmap(norm(range(len(x))))
 
-    # Colors via a colormap
-    cmap = plt.get_cmap("cividis")
-    norm = plt.Normalize(vmin=0, vmax=len(x))
-    colors = cmap(norm(range(len(x))))
-
-    ax.quiver(
-        x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
-    )
-
-    # Add final arrow from last node to first node
-    ax.quiver(
-        x[-1],
-        y[-1],
-        x[0] - x[-1],
-        y[0] - y[-1],
-        scale_units="xy",
-        angles="xy",
-        scale=1,
-        color="red",
-        linestyle="dashed",
-    )
-
-    # Plot numbers inside circles next to visited nodes
-    for i, coord in enumerate(visited_coords):
-        ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
-        ax.annotate(
-            str(i + 1), xy=coord, fontsize=10, color="white", va="center", ha="center"
+        ax.quiver(
+            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
         )
 
-    # Set plot title and axis labels
-    ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"][0]))
-    ax.set_xlabel("x-coordinate")
-    ax.set_ylabel("y-coordinate")
-    ax.set_aspect("equal")
+        # Add final arrow from last node to first node
+        ax.quiver(
+            x[-1],
+            y[-1],
+            x[0] - x[-1],
+            y[0] - y[-1],
+            scale_units="xy",
+            angles="xy",
+            scale=1,
+            color="red",
+            linestyle="dashed",
+        )
 
-    plt.show()
+        # Plot numbers inside circles next to visited nodes
+        for i, coord in enumerate(visited_coords):
+            ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
+            ax.annotate(
+                str(i + 1), xy=coord, fontsize=10, color="white", va="center", ha="center"
+            )
+
+        # Set plot title and axis labels
+        ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"][0]))
+        ax.set_xlabel("x-coordinate")
+        ax.set_ylabel("y-coordinate")
+        ax.set_aspect("equal")
+
+        plt.show()

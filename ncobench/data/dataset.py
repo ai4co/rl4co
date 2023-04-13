@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+from tensordict.tensordict import TensorDict
 
 
 class TensorDictDataset(Dataset):
@@ -6,7 +7,7 @@ class TensorDictDataset(Dataset):
 
     def __init__(self, data):
         self.data = data
-
+            
     def __len__(self):
         return len(self.data)
 
