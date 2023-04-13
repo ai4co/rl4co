@@ -1,6 +1,6 @@
 defaults:
   - model_checkpoint.yaml
-  - early_stopping.yaml
+  # - early_stopping.yaml
   - model_summary.yaml
   - rich_progress_bar.yaml
   - _self_
@@ -8,15 +8,15 @@ defaults:
 model_checkpoint:
   dirpath: ${paths.output_dir}/checkpoints
   filename: "epoch_{epoch:03d}"
-  monitor: "val/cost"
-  mode: "min"
+  monitor: "val/reward"
+  mode: "max"
   save_last: True
   auto_insert_metric_name: False
 
-early_stopping:
-  monitor: "val/cost"
-  patience: 100
-  mode: "min"
+# early_stopping:
+#   monitor: "val/cost"
+#   patience: 100
+#   mode: "min"
 
 model_summary:
   max_depth: -1
