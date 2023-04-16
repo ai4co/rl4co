@@ -65,7 +65,11 @@ class AttentionModelPolicy(nn.Module):
         )
 
     def forward(
-        self, td: TensorDict, phase: str = "train", decode_type: str = "sampling", return_actions: bool = False
+        self,
+        td: TensorDict,
+        phase: str = "train",
+        decode_type: str = "sampling",
+        return_actions: bool = False,
     ) -> TensorDict:
         # Encode and get embeddings
         embedding = self.init_embedding(td)
@@ -76,7 +80,11 @@ class AttentionModelPolicy(nn.Module):
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
         ll = get_log_likelihood(log_p, actions, td.get("mask", None))
-        out = {"reward": td["reward"], "log_likelihood": ll, "actions": actions if return_actions else None}
+        out = {
+            "reward": td["reward"],
+            "log_likelihood": ll,
+            "actions": actions if return_actions else None,
+        }
         return out
 
 

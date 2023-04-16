@@ -28,7 +28,7 @@ def augment_xy_data_by_8_fold(xy):
 
 
 def env_aug_feats(env_name: str):
-    return ('observation', 'depot') if env_name == "op" else ('observation',)
+    return ("observation", "depot") if env_name == "op" else ("observation",)
 
 
 class StateAugmentation(nn.Module):

@@ -184,7 +184,7 @@ class TSPEnv(EnvBase):
     def dataset(self, batch_size):
         observation = self.generate_data(batch_size)
         return TensorDictDataset(observation)
-    
+
     def generate_data(self, batch_size):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
@@ -254,7 +254,12 @@ class TSPEnv(EnvBase):
         for i, coord in enumerate(visited_coords):
             ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
             ax.annotate(
-                str(i + 1), xy=coord, fontsize=10, color="white", va="center", ha="center"
+                str(i + 1),
+                xy=coord,
+                fontsize=10,
+                color="white",
+                va="center",
+                ha="center",
             )
 
         # Set plot title and axis labels

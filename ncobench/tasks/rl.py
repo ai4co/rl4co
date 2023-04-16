@@ -86,7 +86,7 @@ class RL4COLitModule(LightningModule):
 
         # Choose whether to log reward or cost (negative reward)
         logged_metrics = {}
-        if self.cfg.train.get("log_cost", False):        
+        if self.cfg.train.get("log_cost", False):
             logged_metrics[f"{phase}/cost"] = -output["reward"].mean()
         logged_metrics[f"{phase}/reward"] = output["reward"].mean()
         logged_metrics[f"{phase}/loss"] = output["loss"].mean()

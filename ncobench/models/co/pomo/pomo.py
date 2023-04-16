@@ -28,8 +28,15 @@ class POMO(nn.Module):
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
+        self.num_augment = num_augment
 
-    def forward(self, td: TensorDict, phase: str="train", decode_type: str="sampling", return_actions: bool=False) -> TensorDict:
+    def forward(
+        self,
+        td: TensorDict,
+        phase: str = "train",
+        decode_type: str = "sampling",
+        return_actions: bool = False,
+    ) -> TensorDict:
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Augment data if not in training phase
@@ -39,8 +46,8 @@ class POMO(nn.Module):
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, decode_type=decode_type, return_actions=return_actions)
 
-        costs = undo_repeat_batch(-out['reward'], self.policy.num_pomo)
-        ll = undo_repeat_batch(out['log_likelihood'], self.policy.num_pomo)
+        costs = undo_repeat_batch(-out["reward"], self.policy.num_pomo)
+        ll = undo_repeat_batch(out["log_likelihood"], self.policy.num_pomo)
         bl_val, bl_loss = self.baseline.eval(td, costs)
 
         # Calculate REINFORCE loss
@@ -48,11 +55,22 @@ class POMO(nn.Module):
         reinforce_loss = (advantage * ll).mean()
         loss = reinforce_loss + bl_loss
 
-        # Max POMO reward. Decouple augmentation and POMO 
+        # Max POMO reward. Decouple augmentation and POMO
         # [num_pomo, num_augment, batch]
-        reward = undo_repeat_batch(undo_repeat_batch(out["reward"], self.num_augment if phase != "train" else 1), self.num_pomo, dim=1)
+        reward = undo_repeat_batch(
+            undo_repeat_batch(
+                out["reward"], self.num_augment if phase != "train" else 1
+            ),
+            self.num_pomo,
+            dim=1,
+        )
         max_reward, max_idxs = reward.max(dim=0)
-        pomo_retvals = {"max_reward": max_reward, "best_actions": get_best_actions(out["actions"], max_idxs) if return_actions else None}
+        pomo_retvals = {
+            "max_reward": max_reward,
+            "best_actions": get_best_actions(out["actions"], max_idxs)
+            if return_actions
+            else None,
+        }
 
         # Get augmentation score only during inference
         aug_retvals = {}
@@ -60,9 +78,22 @@ class POMO(nn.Module):
             # [num_augment, batch]
             aug_reward = undo_repeat_batch(max_reward, self.num_augment)
             max_aug_reward, max_idxs = aug_reward.max(dim=0)
-            aug_retvals = {"max_aug_reward": max_aug_reward, "best_aug_actions": get_best_actions(out["actions"], max_idxs) if return_actions else None}
- 
-        return {'loss': loss, 'reinforce_loss': reinforce_loss, 'bl_loss': bl_loss, 'bl_val': bl_val, **out, **pomo_retvals, **aug_retvals}
+            aug_retvals = {
+                "max_aug_reward": max_aug_reward,
+                "best_aug_actions": get_best_actions(out["actions"], max_idxs)
+                if return_actions
+                else None,
+            }
+
+        return {
+            "loss": loss,
+            "reinforce_loss": reinforce_loss,
+            "bl_loss": bl_loss,
+            "bl_val": bl_val,
+            **out,
+            **pomo_retvals,
+            **aug_retvals,
+        }
 
     def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input

@@ -53,8 +53,9 @@ log = get_pylogger(__name__)
 try:
     from torch.nn.functional import scaled_dot_product_attention
 except ImportError:
-    log.warning("torch.nn.functional.scaled_dot_product_attention not found. Make sure you are using PyTorch >= 2.0.0")
-
+    log.warning(
+        "torch.nn.functional.scaled_dot_product_attention not found. Make sure you are using PyTorch >= 2.0.0"
+    )
 
 
 def flash_attn_wrapper(self, func, *args, **kwargs):

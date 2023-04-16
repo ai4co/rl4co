@@ -9,7 +9,6 @@ from ncobench.models.co.am.embeddings import env_dynamic_embedding
 from ncobench.models.co.am.utils import decode_probs
 
 
-
 @dataclass
 class PrecomputedCache:
     node_embeddings: torch.Tensor
@@ -96,7 +95,7 @@ class Decoder(nn.Module):
         return cached_embeds
 
     def _get_log_p(self, cached, td):
-        step_context = self.context(cached.node_embeddings, td) # [batch, 1, embed_dim]
+        step_context = self.context(cached.node_embeddings, td)  # [batch, 1, embed_dim]
         query = cached.graph_context + step_context  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes

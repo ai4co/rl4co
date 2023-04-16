@@ -30,9 +30,7 @@ class EnvContext(nn.Module):
         """
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
-        self.project_context = nn.Linear(
-            2 * embedding_dim, embedding_dim, bias=False
-        )
+        self.project_context = nn.Linear(2 * embedding_dim, embedding_dim, bias=False)
 
     def _prev_node_embedding(self, embeddings, td):
         # current_node = td #state.get_current_node()
@@ -101,12 +99,8 @@ class OPContext(EnvContext):
 class DPPContext(EnvContext):
     def __init__(self, embedding_dim):
         super(DPPContext, self).__init__(embedding_dim)
-        self.W_placeholder = nn.Parameter(
-            torch.Tensor(embedding_dim).uniform_(-1, 1)
-        )
-        self.project_context = nn.Linear(
-            embedding_dim, embedding_dim, bias=False
-        )
+        self.W_placeholder = nn.Parameter(torch.Tensor(embedding_dim).uniform_(-1, 1))
+        self.project_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
 
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
@@ -115,11 +109,11 @@ class DPPContext(EnvContext):
                 batch_size, 1, self.W_placeholder.size(-1)
             )
         else:
-            context_embedding = gather_by_index(
-                embeddings, td["current_node"]
-            ).view(batch_size, 1, -1)
+            context_embedding = gather_by_index(embeddings, td["current_node"]).view(
+                batch_size, 1, -1
+            )
         return self.project_context(context_embedding)
-    
+
 
 def gather_by_index(source, index):
     target = torch.gather(

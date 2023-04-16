@@ -51,7 +51,7 @@ class Decoder(nn.Module):
         )
 
         # POMO
-        self.num_pomo = max(num_pomo, 1) # POMO = 1 is just normal REINFORCE
+        self.num_pomo = max(num_pomo, 1)  # POMO = 1 is just normal REINFORCE
 
     def forward(self, td, embeddings, decode_type="sampling"):
         # Collect outputs
@@ -60,23 +60,27 @@ class Decoder(nn.Module):
 
         if self.num_pomo > 1:
             # POMO: first action is decided via select_start_nodes
-            action = select_start_nodes(batch_size=td.shape[0], num_nodes=self.num_pomo, device=td.device)
+            action = select_start_nodes(
+                batch_size=td.shape[0], num_nodes=self.num_pomo, device=td.device
+            )
 
             # # Expand td to batch_size * num_pomo
             td = repeat_batch(td, self.num_pomo)
 
             td.set("action", action[:, None])
             td = self.env.step(td)["next"]
-            log_p = torch.zeros_like(td['action_mask'], device=td.device) # first log_p is 0, so p = log_p.exp() = 1
+            log_p = torch.zeros_like(
+                td["action_mask"], device=td.device
+            )  # first log_p is 0, so p = log_p.exp() = 1
 
             outputs.append(log_p.squeeze(1))
             actions.append(action)
-        
+
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute(embeddings)        
+        cached_embeds = self._precompute(embeddings)
 
         # Here we suppose all the batch is done at the same time
-        while not td["done"].any():  
+        while not td["done"].any():
             # Compute the logits for the next node
             log_p, mask = self._get_log_p(cached_embeds, td)
 
@@ -96,8 +100,8 @@ class Decoder(nn.Module):
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         td.set("reward", self.env.get_reward(td, actions))
         return outputs, actions, td
-    
-    def _precompute(self, embeddings):       
+
+    def _precompute(self, embeddings):
         # The projection of the node embeddings for the attention is calculated once up front
         (
             glimpse_key_fixed,
@@ -108,9 +112,13 @@ class Decoder(nn.Module):
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
             node_embeddings=repeat_batch(embeddings, self.num_pomo),
-            glimpse_key=repeat_batch(self.logit_attention._make_heads(glimpse_key_fixed), self.num_pomo),
-            glimpse_val=repeat_batch(self.logit_attention._make_heads(glimpse_val_fixed), self.num_pomo),
-            logit_key=repeat_batch(logit_key_fixed, self.num_pomo)
+            glimpse_key=repeat_batch(
+                self.logit_attention._make_heads(glimpse_key_fixed), self.num_pomo
+            ),
+            glimpse_val=repeat_batch(
+                self.logit_attention._make_heads(glimpse_val_fixed), self.num_pomo
+            ),
+            logit_key=repeat_batch(logit_key_fixed, self.num_pomo),
         )
 
         return cached_embeds
@@ -118,10 +126,14 @@ class Decoder(nn.Module):
     def _get_log_p(self, cached, td):
         # Compute the query based on the context (computes automatically the first and last node context)
         step_context = self.context(cached.node_embeddings, td)
-        query = step_context # in POMO, no graph context (trick for overfit) # [batch, 1, embed_dim]
+        query = step_context  # in POMO, no graph context (trick for overfit) # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
-        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.dynamic_embedding(td)
+        (
+            glimpse_key_dynamic,
+            glimpse_val_dynamic,
+            logit_key_dynamic,
+        ) = self.dynamic_embedding(td)
         glimpse_key = cached.glimpse_key + glimpse_key_dynamic
         glimpse_key = cached.glimpse_val + glimpse_val_dynamic
         logit_key = cached.logit_key + logit_key_dynamic

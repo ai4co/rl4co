@@ -143,19 +143,22 @@ class OPInitEmbedding(nn.Module):
 class DPPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(DPPInitEmbedding, self).__init__()
-        node_dim = 2 # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim // 2) # locs
+        node_dim = 2  # x, y
+        self.init_embed = nn.Linear(node_dim, embedding_dim // 2)  # locs
         self.init_embed_probe = nn.Linear(1, embedding_dim // 2)  # probe
 
     def forward(self, td):
         node_embeddings = self.init_embed(td["observation"])
-        probe_embedding = self.init_embed_probe(self._distance_probe(td["observation"], td["probe"]))
+        probe_embedding = self.init_embed_probe(
+            self._distance_probe(td["observation"], td["probe"])
+        )
         return torch.cat([node_embeddings, probe_embedding], -1)
-    
+
     def _distance_probe(self, locs, probe):
         # Euclidean distance from probe to all locations
         probe_loc = torch.gather(locs, 1, probe.unsqueeze(-1).expand(-1, -1, 2))
         return torch.norm(locs - probe_loc, dim=-1).unsqueeze(-1)
+
 
 class SDVRPDynamicEmbedding(nn.Module):
     def __init__(self, embedding_dim):
