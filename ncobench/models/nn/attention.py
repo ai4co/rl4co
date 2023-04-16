@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+
 try:
     from flash_attn.flash_attn_interface import flash_attn_unpadded_qkvpacked_func
     from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
@@ -43,6 +44,17 @@ try:
     import ft_attention
 except ImportError:
     ft_attention = None
+
+
+from ncobench.utils import get_pylogger
+
+log = get_pylogger(__name__)
+
+try:
+    from torch.nn.functional import scaled_dot_product_attention
+except ImportError:
+    log.warning("torch.nn.functional.scaled_dot_product_attention not found. Make sure you are using PyTorch >= 2.0.0")
+
 
 
 def flash_attn_wrapper(self, func, *args, **kwargs):
@@ -770,5 +782,83 @@ class NativeFlashMHA(nn.Module):
             dropout_p=self.attention_dropout,
         )
         return self.out_proj(rearrange(out, "b s h d -> b s (h d)"))
+
+    flash_attn_wrapper = flash_attn_wrapper
+
+
+class LogitAttention(nn.Module):
+    """Calculate logits given query, key and value and logit key
+    If we use Flash Attention, then we automatically move to fp16 for inner computations
+    Note: with Flash Attention, masking is not supported
+
+    Perform the following:
+        1. Apply cross attention to get the heads
+        2. Project heads to get glimpse
+        3. Compute attention score between glimpse and logit key
+        4. Normalize and mask
+    """
+
+    def __init__(
+        self,
+        embed_dim,
+        n_heads,
+        tanh_clipping=10.0,
+        mask_inner=True,
+        mask_logits=True,
+        normalize=True,
+        force_flash_attn=False,
+    ):
+        super(LogitAttention, self).__init__()
+        self.n_heads = n_heads
+        self.mask_logits = mask_logits
+        self.mask_inner = mask_inner
+        self.tanh_clipping = tanh_clipping
+        self.normalize = normalize
+        self.force_flash_attn = force_flash_attn
+
+        if force_flash_attn and mask_inner:
+            log.warn(
+                "Flash Attention does not support masking, force_flash_attn will only be used for fp16"
+            )
+
+        # Projection - query, key, value already include projections
+        self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
+
+    def forward(self, query, key, value, logit_key, mask):
+        # Compute inner multi-head attention with no projections
+        heads = self._inner_mha(query, key, value, mask)
+        glimpse = self.project_out(heads)
+
+        # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
+        # bmm is slightly faster than einsum and matmul
+        logits = torch.bmm(
+            glimpse.squeeze(1), logit_key.squeeze(1).transpose(-2, -1)
+        ) / math.sqrt(glimpse.size(-1))
+
+        # From the logits compute the probabilities by clipping, masking and softmax
+        if self.tanh_clipping > 0:
+            logits = torch.tanh(logits) * self.tanh_clipping
+
+        if self.mask_logits:
+            logits[mask] = float("-inf")
+
+        if self.normalize:
+            logits = torch.log_softmax(logits, dim=-1)
+
+        assert not torch.isnan(logits).any()
+
+        return logits
+
+    def _inner_mha(self, query, key, value, mask):
+        query = rearrange(query, "b 1 (h s) -> b h 1 s", h=self.n_heads)
+        mask = ~mask.unsqueeze(1) if self.mask_inner else None
+        heads = self.flash_attn_wrapper(
+            scaled_dot_product_attention, query, key, value, attn_mask=mask
+        )
+        heads = rearrange(heads, "b h 1 g -> b 1 1 (h g)", h=self.n_heads)
+        return heads
+
+    def _make_heads(self, v):
+        return rearrange(v, "b 1 g (h s) -> b h g s", h=self.n_heads)
 
     flash_attn_wrapper = flash_attn_wrapper
