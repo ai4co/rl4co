@@ -23,7 +23,7 @@ class TSPEnv(EnvBase):
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
         td_params: TensorDict = None,
@@ -85,9 +85,7 @@ class TSPEnv(EnvBase):
             torch.count_nonzero(available.squeeze(), dim=-1) <= 0
         )  # td["params"]["num_loc"]
 
-        # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
-        # NOTE: reward is calculated outside for now via the get_reward function
-        # to calculate here need to pass action sequence or save it as state
+        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
 
         # The output must be written in a ``"next"`` entry
@@ -202,7 +200,7 @@ class TSPEnv(EnvBase):
     _set_seed = _set_seed
 
     @staticmethod
-    def render_tsp(td):
+    def render(td):
         import matplotlib.pyplot as plt
 
         td = td.detach().cpu()
