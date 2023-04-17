@@ -42,7 +42,7 @@ class Normalization(nn.Module):
 class MultiHeadAttentionLayer(nn.Sequential):
     def __init__(
         self,
-        n_heads,
+        num_heads,
         embed_dim,
         feed_forward_hidden=512,
         normalization="batch",
@@ -50,7 +50,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
     ):
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                NativeFlashMHA(embed_dim, n_heads, force_flash_attn=force_flash_attn)
+                NativeFlashMHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)
             ),
             Normalization(embed_dim, normalization),
             SkipConnection(
@@ -69,9 +69,9 @@ class MultiHeadAttentionLayer(nn.Sequential):
 class GraphAttentionEncoder(nn.Module):
     def __init__(
         self,
-        n_heads,
+        num_heads,
         embed_dim,
-        n_layers,
+        num_layers,
         node_dim=None,
         normalization="batch",
         feed_forward_hidden=512,
@@ -87,13 +87,13 @@ class GraphAttentionEncoder(nn.Module):
         self.layers = nn.Sequential(
             *(
                 MultiHeadAttentionLayer(
-                    n_heads,
+                    num_heads,
                     embed_dim,
                     feed_forward_hidden,
                     normalization,
                     force_flash_attn,
                 )
-                for _ in range(n_layers)
+                for _ in range(num_layers)
             )
         )
 
