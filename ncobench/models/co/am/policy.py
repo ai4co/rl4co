@@ -18,8 +18,8 @@ class AttentionModelPolicy(nn.Module):
         decoder: nn.Module = None,
         embedding_dim: int = 128,
         hidden_dim: int = 128,
-        n_encode_layers: int = 3,
-        n_heads: int = 8,
+        num_encode_layers: int = 3,
+        num_heads: int = 8,
         normalization: str = "batch",
         checkpoint_encoder: bool = False,
         mask_inner: bool = True,
@@ -30,10 +30,10 @@ class AttentionModelPolicy(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
-        self.n_encode_layers = n_encode_layers
+        self.num_encode_layers = num_encode_layers
         self.env = env
 
-        self.n_heads = n_heads
+        self.num_heads = num_heads
         self.checkpoint_encoder = checkpoint_encoder
 
         self.init_embedding = env_init_embedding(
@@ -42,9 +42,9 @@ class AttentionModelPolicy(nn.Module):
 
         self.encoder = (
             GraphAttentionEncoder(
-                n_heads=n_heads,
+                num_heads=num_heads,
                 embed_dim=embedding_dim,
-                n_layers=self.n_encode_layers,
+                num_layers=self.num_encode_layers,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
             )
@@ -56,7 +56,7 @@ class AttentionModelPolicy(nn.Module):
             Decoder(
                 env,
                 embedding_dim,
-                n_heads,
+                num_heads,
                 mask_inner=mask_inner,
                 force_flash_attn=force_flash_attn,
             )
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         env,
         embedding_dim=128,
         hidden_dim=128,
-        n_encode_layers=3,
+        num_encode_layers=3,
         # force_flash_attn=True,
     ).to(device)
 

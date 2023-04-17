@@ -19,9 +19,9 @@ class POMOPolicy(nn.Module):
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         num_pomo: int = 10,
-        n_encode_layers: int = 3,
+        num_encode_layers: int = 3,
         normalization: str = "batch",
-        n_heads: int = 8,
+        num_heads: int = 8,
         checkpoint_encoder: bool = False,
         mask_inner: bool = True,
         force_flash_attn: bool = False,
@@ -31,10 +31,10 @@ class POMOPolicy(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
-        self.n_encode_layers = n_encode_layers
+        self.num_encode_layers = num_encode_layers
         self.env = env
 
-        self.n_heads = n_heads
+        self.num_heads = num_heads
         self.checkpoint_encoder = checkpoint_encoder
 
         self.init_embedding = env_init_embedding(
@@ -43,9 +43,9 @@ class POMOPolicy(nn.Module):
 
         self.encoder = (
             GraphAttentionEncoder(
-                n_heads=n_heads,
+                num_heads=num_heads,
                 embed_dim=embedding_dim,
-                n_layers=self.n_encode_layers,
+                num_layers=self.num_encode_layers,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
             )
@@ -57,7 +57,7 @@ class POMOPolicy(nn.Module):
             Decoder(
                 env,
                 embedding_dim,
-                n_heads,
+                num_heads,
                 num_pomo=num_pomo,
                 mask_inner=mask_inner,
                 force_flash_attn=force_flash_attn,

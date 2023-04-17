@@ -802,7 +802,7 @@ class LogitAttention(nn.Module):
     def __init__(
         self,
         embed_dim,
-        n_heads,
+        num_heads,
         tanh_clipping=10.0,
         mask_inner=True,
         mask_logits=True,
@@ -810,7 +810,7 @@ class LogitAttention(nn.Module):
         force_flash_attn=False,
     ):
         super(LogitAttention, self).__init__()
-        self.n_heads = n_heads
+        self.num_heads = num_heads
         self.mask_logits = mask_logits
         self.mask_inner = mask_inner
         self.tanh_clipping = tanh_clipping
@@ -851,15 +851,15 @@ class LogitAttention(nn.Module):
         return logits
 
     def _inner_mha(self, query, key, value, mask):
-        query = rearrange(query, "b 1 (h s) -> b h 1 s", h=self.n_heads)
+        query = rearrange(query, "b 1 (h s) -> b h 1 s", h=self.num_heads)
         mask = ~mask.unsqueeze(1) if self.mask_inner else None
         heads = self.flash_attn_wrapper(
             scaled_dot_product_attention, query, key, value, attn_mask=mask
         )
-        heads = rearrange(heads, "b h 1 g -> b 1 1 (h g)", h=self.n_heads)
+        heads = rearrange(heads, "b h 1 g -> b 1 1 (h g)", h=self.num_heads)
         return heads
 
     def _make_heads(self, v):
-        return rearrange(v, "b 1 g (h s) -> b h g s", h=self.n_heads)
+        return rearrange(v, "b 1 g (h s) -> b h g s", h=self.num_heads)
 
     flash_attn_wrapper = flash_attn_wrapper

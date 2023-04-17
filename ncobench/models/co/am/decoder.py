@@ -19,14 +19,14 @@ class PrecomputedCache:
 
 
 class Decoder(nn.Module):
-    def __init__(self, env, embedding_dim, n_heads, **logit_attn_kwargs):
+    def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
         super(Decoder, self).__init__()
 
         self.env = env
         self.embedding_dim = embedding_dim
-        self.n_heads = n_heads
+        self.num_heads = num_heads
 
-        assert embedding_dim % n_heads == 0
+        assert embedding_dim % num_heads == 0
 
         self.context = env_context(self.env.name, {"embedding_dim": embedding_dim})
         self.dynamic_embedding = env_dynamic_embedding(
@@ -41,7 +41,7 @@ class Decoder(nn.Module):
 
         # MHA
         self.logit_attention = LogitAttention(
-            embedding_dim, n_heads, **logit_attn_kwargs
+            embedding_dim, num_heads, **logit_attn_kwargs
         )
 
     def forward(self, td, embeddings, decode_type="sampling"):

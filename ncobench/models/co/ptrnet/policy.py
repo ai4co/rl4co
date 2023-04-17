@@ -33,7 +33,7 @@ class PointerNetworkPolicy(nn.Module):
             hidden_dim,
             tanh_exploration=tanh_clipping,
             use_tanh=tanh_clipping > 0,
-            n_glimpses=1,
+            num_glimpses=1,
             mask_glimpses=mask_inner,
             mask_logits=mask_logits,
         )

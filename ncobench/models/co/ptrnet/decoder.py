@@ -55,7 +55,7 @@ class Decoder(nn.Module):
         hidden_dim: int = 128,
         tanh_exploration: float = 10.0,
         use_tanh: bool = True,
-        n_glimpses=1,
+        num_glimpses=1,
         mask_glimpses=True,
         mask_logits=True,
     ):
@@ -63,7 +63,7 @@ class Decoder(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
-        self.n_glimpses = n_glimpses
+        self.num_glimpses = num_glimpses
         self.mask_glimpses = mask_glimpses
         self.mask_logits = mask_logits
         self.use_tanh = use_tanh
@@ -110,7 +110,7 @@ class Decoder(nn.Module):
         hy, cy = self.lstm(x, h_in)
         g_l, h_out = hy, (hy, cy)
 
-        for i in range(self.n_glimpses):
+        for i in range(self.num_glimpses):
             ref, logits = self.glimpse(g_l, context)
             # For the glimpses, only mask before softmax so we have always an L1 norm 1 readout vector
             if mask_glimpses:

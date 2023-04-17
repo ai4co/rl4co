@@ -30,7 +30,7 @@ class Decoder(nn.Module):
 
         self.env = env
         self.embedding_dim = embedding_dim
-        self.n_heads = num_heads
+        self.num_heads = num_heads
 
         assert embedding_dim % num_heads == 0
 
