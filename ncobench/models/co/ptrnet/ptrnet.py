@@ -32,24 +32,28 @@ class PointerNetwork(nn.Module):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Evaluate modelim=0, get costs and log probabilities
-        out_policy = self.policy(td)
-        cost = -out_policy["reward"]
-        ll = out_policy["log_likelihood"]
+        out = self.policy(td)
 
-        # Calculate loss
-        bl_val, bl_loss = self.baseline.eval(td, cost)
+        if phase == "train":
+            cost = -out["reward"]
+            ll = out["log_likelihood"]
 
-        advantage = cost - bl_val
-        reinforce_loss = (advantage * ll).mean()
-        loss = reinforce_loss + bl_loss
+            # Calculate loss
+            bl_val, bl_loss = self.baseline.eval(td, cost)
 
-        return {
-            "loss": loss,
-            "reinforce_loss": reinforce_loss,
-            "bl_loss": bl_loss,
-            "bl_val": bl_val,
-            **out_policy,
-        }
+            advantage = cost - bl_val
+            reinforce_loss = (advantage * ll).mean()
+            loss = reinforce_loss + bl_loss
+            out.update(
+                {
+                    "loss": loss,
+                    "reinforce_loss": reinforce_loss,
+                    "bl_loss": bl_loss,
+                    "bl_val": bl_val,
+                }
+            )
+
+        return out
 
     def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input

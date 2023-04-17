@@ -31,21 +31,26 @@ class AttentionModel(nn.Module):
         self, td: TensorDict, phase: str = "train", decode_type: str = None
     ) -> TensorDict:
         # Evaluate model, get costs and log probabilities
-        out_policy = self.policy(td)
-        bl_val, bl_loss = self.baseline.eval(td, -out_policy["reward"])
+        out = self.policy(td)
 
-        # Calculate loss
-        advantage = -out_policy["reward"] - bl_val
-        reinforce_loss = (advantage * out_policy["log_likelihood"]).mean()
-        loss = reinforce_loss + bl_loss
+        if phase == "train":
+            # Evaluate baseline
+            bl_val, bl_loss = self.baseline.eval(td, -out["reward"])
 
-        return {
-            "loss": loss,
-            "reinforce_loss": reinforce_loss,
-            "bl_loss": bl_loss,
-            "bl_val": bl_val,
-            **out_policy,
-        }
+            # Calculate loss
+            advantage = -out["reward"] - bl_val
+            reinforce_loss = (advantage * out["log_likelihood"]).mean()
+            loss = reinforce_loss + bl_loss
+            out.update(
+                {
+                    "loss": loss,
+                    "reinforce_loss": reinforce_loss,
+                    "bl_loss": bl_loss,
+                    "bl_val": bl_val,
+                }
+            )
+
+        return out
 
     def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input

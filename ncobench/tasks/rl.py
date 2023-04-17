@@ -89,7 +89,10 @@ class RL4COLitModule(LightningModule):
         if self.cfg.train.get("log_cost", False):
             logged_metrics[f"{phase}/cost"] = -output["reward"].mean()
         logged_metrics[f"{phase}/reward"] = output["reward"].mean()
-        logged_metrics[f"{phase}/loss"] = output["loss"].mean()
+
+        # TODO: refactor to choose what to log dynamically
+        if phase == "train":
+            logged_metrics[f"{phase}/loss"] = output["loss"].mean()
 
         self.log_dict(
             logged_metrics,
@@ -98,7 +101,12 @@ class RL4COLitModule(LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
-        return {"loss": output["loss"]}
+        ret_val = (
+            {"loss": output["loss"]}
+            if phase == "train"
+            else {"reward": output["reward"]}
+        )
+        return ret_val
 
     def training_step(self, batch: Any, batch_idx: int):
         return self.shared_step(batch, batch_idx, phase="train")
