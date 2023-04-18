@@ -45,6 +45,7 @@ class RL4COLitModule(LightningModule):
 
         self.instantiate_env()
         self.instantiate_model()
+        self.instantiate_metrics()
 
     def instantiate_env(self):
         log.info(f"Instantiating environments <{self.env_cfg._target_}>")
@@ -54,6 +55,14 @@ class RL4COLitModule(LightningModule):
     def instantiate_model(self):
         log.info(f"Instantiating model <{self.model_cfg._target_}>")
         self.model = instantiate(self.model_cfg, env=self.env)
+
+    def instantiate_metrics(self):
+        """Dictionary of metrics to be logged at each phase"""
+        self.train_metrics = self.cfg.metrics.get("train", ['loss', 'reward'])
+        self.val_metrics = self.cfg.metrics.get("val", ['reward'])
+        self.test_metrics = self.cfg.metrics.get("test", ['reward'])
+        self.log_on_step = self.cfg.metrics.get("log_on_step", True)
+        self.log_cost = self.cfg.metrics.get("log_cost", False) # convert reward to cost
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
@@ -82,31 +91,27 @@ class RL4COLitModule(LightningModule):
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(init_obs=batch)
-        output = self.model(td, phase)
+        out = self.model(td, phase)
 
-        # Choose whether to log reward or cost (negative reward)
-        logged_metrics = {}
-        if self.cfg.train.get("log_cost", False):
-            logged_metrics[f"{phase}/cost"] = -output["reward"].mean()
-        logged_metrics[f"{phase}/reward"] = output["reward"].mean()
-
-        # TODO: refactor to choose what to log dynamically
-        if phase == "train":
-            logged_metrics[f"{phase}/loss"] = output["loss"].mean()
+        # Log metrics
+        metrics = getattr(self, f"{phase}_metrics")
+        metrics = {f"{phase}/{k}": v.mean() for k, v in out.items() if k in metrics}
+        # If log_cost, replace all max -> min, reward -> cost and invert sign if contains reward
+        if self.log_cost:
+            metrics = {
+                k.replace("reward", "cost").replace("max", "min"): -v if "reward" in k else v
+                for k, v in metrics.items()
+            }
 
         self.log_dict(
-            logged_metrics,
-            on_step=self.cfg.train.get("log_on_step", True),
+            metrics,
+            on_step=self.log_on_step,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
         )
-        ret_val = (
-            {"loss": output["loss"]}
-            if phase == "train"
-            else {"reward": output["reward"]}
-        )
-        return ret_val
+
+        return {"loss": out.get("loss", None)}
 
     def training_step(self, batch: Any, batch_idx: int):
         return self.shared_step(batch, batch_idx, phase="train")
@@ -190,7 +195,7 @@ if __name__ == "__main__":
         DeepSpeedStrategy,
     )
 
-    model = NCOLitModule(config)
+    model = RL4COLitModule(config)
     trainer = Trainer(
         max_epochs=config.train.max_epochs,
         gradient_clip_val=config.train.gradient_clip_val,

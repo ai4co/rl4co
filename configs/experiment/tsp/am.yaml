@@ -39,7 +39,6 @@ train:
     _target_: torch.optim.Adam
     lr: 1e-4
     weight_decay: 1e-5
-  log_cost: True # we want to log the cost of the solution, which is -reward
 
 matmul_precision: "medium" #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 
@@ -47,3 +46,10 @@ data:
   batch_size: 512
   train_size: 1280000
   val_size: 10000
+
+# Log m
+metrics:
+  train: ["loss", "reward"]
+  val: ["reward"]
+  test: ["reward"]
+  log_cost: True

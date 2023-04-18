@@ -51,3 +51,10 @@ ckpt_path: null
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: null
+
+# metrics to be logged
+metrics:
+  train: ["loss", "reward"]
+  val: ["reward"]
+  test: ["reward"]
+  log_on_step: True
