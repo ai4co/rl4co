@@ -115,6 +115,7 @@ class DPPContext(EnvContext):
         return self.project_context(context_embedding)
 
 
+@torch.jit.script
 def gather_by_index(source, index):
     target = torch.gather(
         source, 1, index.unsqueeze(-1).expand(-1, -1, source.size(-1))
