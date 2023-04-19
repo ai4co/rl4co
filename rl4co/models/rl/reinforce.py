@@ -17,7 +17,10 @@ class REINFORCEBaseline(nn.Module):
     def eval(self, td, cost):
         pass
 
-    def epoch_callback(self, model, td, epoch):
+    def epoch_callback(self, *args, **kwargs):
+        pass
+
+    def setup(self, *args, **kwargs):
         pass
 
 
