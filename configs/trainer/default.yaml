@@ -1,15 +1,18 @@
+# Customized for RL4CO
 _target_: lightning.pytorch.trainer.Trainer
 
 default_root_dir: ${paths.output_dir}
 
-min_epochs: 1 # prevents early stopping
-max_epochs: 10
+gradient_clip_val: 1.0
+accelerator: "gpu"
+precision: "16-mixed" 
 
-accelerator: cpu
-devices: 1
-
-# mixed precision for extra speed-up
-# precision: 16
+# Fast distributed training: comment out to use on single GPU
+# devices: 1 # change number of devices
+strategy:
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  find_unused_parameters: True
+  gradient_as_bucket_view: True
 
 # perform a validation loop every N training epochs
 check_val_every_n_epoch: 1
@@ -17,5 +20,3 @@ check_val_every_n_epoch: 1
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds
 deterministic: False
-
-strategy: "auto"
