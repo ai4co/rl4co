@@ -25,7 +25,7 @@ Colone project and install dependencies:
 git clone https://github.com/kaist-silab/rl4co && cd rl4co
 pip install light-the-torch && python3 -m light_the_torch install --upgrade -r requirements.txt
 ```
-The above script will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system. Alternatively, you can use `pip install -r requirements.txt` 
+The above script will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system. Alternatively, you can use `pip install -r requirements.txt`. Alternatively, you can install the package locally with `pip install -e .`.
 
 
 Train model with default configuration (AM on TSP environment):
