@@ -5,9 +5,9 @@ import lightning as L
 
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.ops import undo_repeat_batch
-from rl4co.models.co.am.policy import AttentionModelPolicy
+from rl4co.models.zoo.am.policy import AttentionModelPolicy
 from rl4co.models.rl.reinforce import WarmupBaseline, RolloutBaseline
-from rl4co.models.co.pomo.utils import get_best_actions
+from rl4co.models.zoo.pomo.utils import get_best_actions
 
 
 class POMO(nn.Module):

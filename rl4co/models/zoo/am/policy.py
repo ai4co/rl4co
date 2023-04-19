@@ -4,10 +4,10 @@ import torch.nn as nn
 from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
 
-from rl4co.models.co.am.embeddings import env_init_embedding
-from rl4co.models.co.am.encoder import GraphAttentionEncoder
-from rl4co.models.co.am.decoder import Decoder
-from rl4co.models.co.am.utils import get_log_likelihood
+from rl4co.models.zoo.am.embeddings import env_init_embedding
+from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
+from rl4co.models.zoo.am.decoder import Decoder
+from rl4co.models.zoo.am.utils import get_log_likelihood
 
 
 class AttentionModelPolicy(nn.Module):

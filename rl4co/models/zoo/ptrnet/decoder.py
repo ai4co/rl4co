@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rl4co.models.co.am.utils import decode_probs
+from rl4co.models.zoo.am.utils import decode_probs
 
 
 class SimpleAttention(nn.Module):

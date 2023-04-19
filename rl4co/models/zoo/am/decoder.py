@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.co.am.context import env_context
-from rl4co.models.co.am.embeddings import env_dynamic_embedding
-from rl4co.models.co.am.utils import decode_probs
+from rl4co.models.zoo.am.context import env_context
+from rl4co.models.zoo.am.embeddings import env_dynamic_embedding
+from rl4co.models.zoo.am.utils import decode_probs
 
 
 @dataclass

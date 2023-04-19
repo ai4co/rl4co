@@ -3,9 +3,9 @@ import math
 import torch
 import torch.nn as nn
 
-from rl4co.models.co.am.utils import get_log_likelihood
-from rl4co.models.co.ptrnet.encoder import Encoder
-from rl4co.models.co.ptrnet.decoder import Decoder
+from rl4co.models.zoo.am.utils import get_log_likelihood
+from rl4co.models.zoo.ptrnet.encoder import Encoder
+from rl4co.models.zoo.ptrnet.decoder import Decoder
 
 
 class PointerNetworkPolicy(nn.Module):

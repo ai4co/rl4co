@@ -1,17 +1,18 @@
 import torch
-import torch.nn as nn
-from tensordict.tensordict import TensorDict
+from torch import nn
+from tensordict import TensorDict
+import lightning as L
 
-from rl4co.models.co.ptrnet.policy import PointerNetworkPolicy
+from rl4co.models.zoo.am.policy import AttentionModelPolicy
 from rl4co.models.rl.reinforce import WarmupBaseline, RolloutBaseline
 from rl4co.utils.lightning import get_lightning_device
 
 
-class PointerNetwork(nn.Module):
+class AttentionModel(nn.Module):
     def __init__(self, env, policy=None, baseline=None):
         """
-        Pointer Network for neural combinatorial optimization based on REINFORCE
-        Based on Vinyals et al. (2015) https://arxiv.org/abs/1506.03134
+        Attention Model for neural combinatorial optimization based on REINFORCE
+        Based on Wouter Kool et al. (2018) https://arxiv.org/abs/1803.08475
         Refactored from reference implementation: https://github.com/wouterkool/attention-learn-to-route
 
         Args:
@@ -21,7 +22,7 @@ class PointerNetwork(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = PointerNetworkPolicy(env) if policy is None else policy
+        self.policy = AttentionModelPolicy(env) if policy is None else policy
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
@@ -29,20 +30,16 @@ class PointerNetwork(nn.Module):
     def forward(
         self, td: TensorDict, phase: str = "train", decode_type: str = None
     ) -> TensorDict:
-        """Evaluate model, get costs and log probabilities and compare with baseline"""
-
-        # Evaluate modelim=0, get costs and log probabilities
+        # Evaluate model, get costs and log probabilities
         out = self.policy(td)
 
         if phase == "train":
-            cost = -out["reward"]
-            ll = out["log_likelihood"]
+            # Evaluate baseline
+            bl_val, bl_loss = self.baseline.eval(td, -out["reward"])
 
             # Calculate loss
-            bl_val, bl_loss = self.baseline.eval(td, cost)
-
-            advantage = cost - bl_val
-            reinforce_loss = (advantage * ll).mean()
+            advantage = -out["reward"] - bl_val
+            reinforce_loss = (advantage * out["log_likelihood"]).mean()
             loss = reinforce_loss + bl_loss
             out.update(
                 {
@@ -57,13 +54,12 @@ class PointerNetwork(nn.Module):
 
     def setup(self, lit_module):
         # Make baseline taking model itself and train_dataloader from model as input
-        if hasattr(self.baseline, "setup"):
-            self.baseline.setup(
-                self.policy,
-                lit_module.train_dataloader(),
-                self.env,
-                device=get_lightning_device(lit_module),
-            )
+        self.baseline.setup(
+            self.policy,
+            lit_module.val_dataloader(),
+            self.env,
+            device=get_lightning_device(lit_module),
+        )
 
     def on_train_epoch_end(self, lit_module):
         self.baseline.epoch_callback(
