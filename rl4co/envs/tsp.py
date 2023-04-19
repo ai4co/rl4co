@@ -210,19 +210,18 @@ class TSPEnv(EnvBase):
 
         key = "observation" if "observation" in td.keys() else "loc"
 
-        # Get the coordinates of the visited nodes for the first batch element
-        visited_coords = td[key][td["action_mask"][0, 0] == 0][0]
+        locs = td[key]
+        x = locs[:, 0]
+        y = locs[:, 1]
 
         # Create a plot of the nodes
         fig, ax = plt.subplots()
         ax.scatter(td[key][:, 0], td[key][:, 1], color="blue")
 
         # Plot the visited nodes
-        ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
+        ax.scatter(x, y, color="red")
 
         # Add arrows between visited nodes as a quiver plot
-        x = visited_coords[:, 0]
-        y = visited_coords[:, 1]
         dx = np.diff(x)
         dy = np.diff(y)
 
@@ -230,7 +229,6 @@ class TSPEnv(EnvBase):
         cmap = plt.get_cmap("cividis")
         norm = plt.Normalize(vmin=0, vmax=len(x))
         colors = cmap(norm(range(len(x))))
-
         ax.quiver(
             x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
         )
@@ -249,7 +247,7 @@ class TSPEnv(EnvBase):
         )
 
         # Plot numbers inside circles next to visited nodes
-        for i, coord in enumerate(visited_coords):
+        for i, coord in enumerate(locs):
             ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
             ax.annotate(
                 str(i + 1),
@@ -261,9 +259,8 @@ class TSPEnv(EnvBase):
             )
 
         # Set plot title and axis labels
-        ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"][0]))
+        ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"].detach().item()))
         ax.set_xlabel("x-coordinate")
         ax.set_ylabel("y-coordinate")
         ax.set_aspect("equal")
-
         plt.show()
