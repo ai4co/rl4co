@@ -1,2 +1,2 @@
-from .ptrnet import PointerNetwork
+from .model import PointerNetwork
 from .policy import PointerNetworkPolicy

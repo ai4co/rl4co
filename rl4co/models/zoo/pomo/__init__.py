@@ -1,2 +1,2 @@
-from .pomo import POMO
+from .model import POMO
 from .policy import POMOPolicy
