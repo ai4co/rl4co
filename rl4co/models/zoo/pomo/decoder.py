@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 
-from rl4co.utils.ops import repeat_batch
+from rl4co.utils.ops import batchify
 from rl4co.utils import get_pylogger
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.zoo.am.context import env_context
@@ -65,7 +65,7 @@ class Decoder(nn.Module):
             )
 
             # # Expand td to batch_size * num_pomo
-            td = repeat_batch(td, self.num_pomo)
+            td = batchify(td, self.num_pomo)
 
             td.set("action", action[:, None])
             td = self.env.step(td)["next"]
@@ -110,14 +110,14 @@ class Decoder(nn.Module):
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
-            node_embeddings=repeat_batch(embeddings, self.num_pomo),
-            glimpse_key=repeat_batch(
+            node_embeddings=batchify(embeddings, self.num_pomo),
+            glimpse_key=batchify(
                 self.logit_attention._make_heads(glimpse_key_fixed), self.num_pomo
             ),
-            glimpse_val=repeat_batch(
+            glimpse_val=batchify(
                 self.logit_attention._make_heads(glimpse_val_fixed), self.num_pomo
             ),
-            logit_key=repeat_batch(logit_key_fixed, self.num_pomo),
+            logit_key=batchify(logit_key_fixed, self.num_pomo),
         )
 
         return cached_embeds

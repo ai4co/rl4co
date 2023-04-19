@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from tensordict.tensordict import TensorDict
 
-from rl4co.utils.ops import repeat_batch
+from rl4co.utils.ops import batchify
 
 
 def augment_xy_data_by_8_fold(xy):
@@ -41,7 +41,7 @@ class StateAugmentation(nn.Module):
         self.feats = env_aug_feats(env_name)
 
     def forward(self, td: TensorDict) -> TensorDict:
-        td_aug = repeat_batch(td, self.num_augment)
+        td_aug = batchify(td, self.num_augment)
         for feat in self.feats:
             aug_feat = self.augmentation(td[feat])
             td_aug[feat] = aug_feat

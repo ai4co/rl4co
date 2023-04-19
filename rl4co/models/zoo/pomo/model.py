@@ -4,10 +4,11 @@ from tensordict import TensorDict
 import lightning as L
 
 from rl4co.utils.lightning import get_lightning_device
-from rl4co.utils.ops import undo_repeat_batch
-from rl4co.models.zoo.am.policy import AttentionModelPolicy
+from rl4co.utils.ops import unbatchify
 from rl4co.models.rl.reinforce import WarmupBaseline, RolloutBaseline
 from rl4co.models.zoo.pomo.utils import get_best_actions
+from rl4co.models.zoo.pomo.policy import POMOPolicy
+from rl4co.models.zoo.pomo.augmentations import StateAugmentation 
 
 
 class POMO(nn.Module):
@@ -24,11 +25,14 @@ class POMO(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = AttentionModelPolicy(env) if policy is None else policy
+        self.policy = POMOPolicy(env) if policy is None else policy
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
+        # POMO parameters
+        self.num_pomo = policy.num_pomo
         self.num_augment = num_augment
+        self.augment = StateAugmentation(env.name, num_augment) if num_augment > 1 else None
 
     def forward(
         self,
@@ -47,15 +51,9 @@ class POMO(nn.Module):
         out = self.policy(td, decode_type=decode_type, return_actions=return_actions)
 
         # Max POMO reward. Decouple augmentation and POMO
-        # [num_pomo, num_augment, batch]
-        reward = undo_repeat_batch(
-            undo_repeat_batch(
-                out["reward"], self.num_augment if phase != "train" else 1
-            ),
-            self.num_pomo,
-            dim=1,
-        )
-        max_reward, max_idxs = reward.max(dim=0)
+        # [batch, num_pomo, num_augment]
+        reward = unbatchify(unbatchify(out["reward"], self.num_augment if phase != "train" else 1), self.num_pomo)
+        max_reward, max_idxs = reward.max(dim=1)
         out.update(
             {
                 "max_reward": max_reward,
@@ -66,8 +64,8 @@ class POMO(nn.Module):
         )
 
         if phase == "train":
-            costs = undo_repeat_batch(-out["reward"], self.policy.num_pomo)
-            ll = undo_repeat_batch(out["log_likelihood"], self.policy.num_pomo)
+            costs = unbatchify(-out["reward"], self.policy.num_pomo)
+            ll = unbatchify(out["log_likelihood"], self.policy.num_pomo)
             bl_val, bl_loss = self.baseline.eval(td, costs)
 
             # Calculate REINFORCE loss
@@ -82,12 +80,12 @@ class POMO(nn.Module):
                     "bl_val": bl_val,
                 }
             )
-
+        
         # Get augmentation score only during inference
         if phase != "train" and self.augment is not None:
-            # [num_augment, batch]
-            aug_reward = undo_repeat_batch(max_reward, self.num_augment)
-            max_aug_reward, max_idxs = aug_reward.max(dim=0)
+            # [batch, num_augment]
+            aug_reward = unbatchify(max_reward, self.num_augment)
+            max_aug_reward, max_idxs = aug_reward.max(dim=1)
             out.update(
                 {
                     "max_aug_reward": max_aug_reward,
