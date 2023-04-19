@@ -1,8 +1,8 @@
 import pytest
 
-from ncobench.models import AttentionModel, AttentionModelPolicy
-from ncobench.models import PointerNetwork, PointerNetworkPolicy
-from ncobench.utils.test_utils import generate_env_data
+from rl4co.models import AttentionModel, AttentionModelPolicy
+from rl4co.models import PointerNetwork, PointerNetworkPolicy
+from rl4co.utils.test_utils import generate_env_data
 
 
 @pytest.mark.parametrize("size", [10, 50])

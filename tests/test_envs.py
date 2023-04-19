@@ -1,6 +1,6 @@
 import pytest
 
-from ncobench.envs import TSPEnv
+from rl4co.envs import TSPEnv
 
 
 @pytest.mark.parametrize("size", [10, 50])
