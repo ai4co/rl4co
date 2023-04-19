@@ -27,7 +27,7 @@ trainer:
   accelerator: "gpu"
   precision: "16-mixed" 
   # Fast distributed training: comment out to use on single GPU
-  devices: 2 # change number of devices
+  # devices: 1 # change number of devices
   strategy:
     _target_: lightning.pytorch.strategies.DDPStrategy
     find_unused_parameters: True
