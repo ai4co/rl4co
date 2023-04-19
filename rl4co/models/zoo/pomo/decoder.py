@@ -79,8 +79,7 @@ class Decoder(nn.Module):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 
-        # Here we suppose all the batch is done at the same time
-        while not td["done"].any():
+        while not td["done"].all():
             # Compute the logits for the next node
             log_p, mask = self._get_log_p(cached_embeds, td)
 
