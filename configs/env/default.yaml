@@ -1,4 +1,4 @@
-_target_: ncobench.envs.tsp.TSPEnv
+_target_: rl4co.envs.tsp.TSPEnv
 
 num_loc: 20
 min_loc: 0

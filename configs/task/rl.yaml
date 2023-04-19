@@ -1,4 +1,4 @@
-_target_: ncobench.tasks.rl.RL4COLitModule
+_target_: rl4co.tasks.rl.RL4COLitModule
 
 
   

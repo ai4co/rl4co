@@ -1,4 +1,4 @@
-_target_: ncobench.envs.dpp.DPPEnv
+_target_: rl4co.envs.dpp.DPPEnv
 
 max_decaps: 20
 chip_fpath: data/dpp/10x10_pkg_chip.npy
