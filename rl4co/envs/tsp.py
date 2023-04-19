@@ -259,7 +259,9 @@ class TSPEnv(EnvBase):
             )
 
         # Set plot title and axis labels
-        ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"].detach().item()))
+        ax.set_title(
+            "TSP Solution\nTotal length: {:.2f}".format(-td["reward"].detach().item())
+        )
         ax.set_xlabel("x-coordinate")
         ax.set_ylabel("y-coordinate")
         ax.set_aspect("equal")

@@ -58,11 +58,13 @@ class RL4COLitModule(LightningModule):
 
     def instantiate_metrics(self):
         """Dictionary of metrics to be logged at each phase"""
-        self.train_metrics = self.cfg.metrics.get("train", ['loss', 'reward'])
-        self.val_metrics = self.cfg.metrics.get("val", ['reward'])
-        self.test_metrics = self.cfg.metrics.get("test", ['reward'])
+        self.train_metrics = self.cfg.metrics.get("train", ["loss", "reward"])
+        self.val_metrics = self.cfg.metrics.get("val", ["reward"])
+        self.test_metrics = self.cfg.metrics.get("test", ["reward"])
         self.log_on_step = self.cfg.metrics.get("log_on_step", True)
-        self.log_cost = self.cfg.metrics.get("log_cost", False) # convert reward to cost
+        self.log_cost = self.cfg.metrics.get(
+            "log_cost", False
+        )  # convert reward to cost
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
@@ -99,7 +101,9 @@ class RL4COLitModule(LightningModule):
         # If log_cost, replace all max -> min, reward -> cost and invert sign if contains reward
         if self.log_cost:
             metrics = {
-                k.replace("reward", "cost").replace("max", "min"): -v if "reward" in k else v
+                k.replace("reward", "cost").replace("max", "min"): -v
+                if "reward" in k
+                else v
                 for k, v in metrics.items()
             }
 
