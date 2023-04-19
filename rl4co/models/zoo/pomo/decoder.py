@@ -7,10 +7,10 @@ import torch.nn as nn
 from rl4co.utils.ops import repeat_batch
 from rl4co.utils import get_pylogger
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.co.am.context import env_context
-from rl4co.models.co.am.embeddings import env_dynamic_embedding
-from rl4co.models.co.am.utils import decode_probs
-from rl4co.models.co.pomo.utils import select_start_nodes
+from rl4co.models.zoo.am.context import env_context
+from rl4co.models.zoo.am.embeddings import env_dynamic_embedding
+from rl4co.models.zoo.am.utils import decode_probs
+from rl4co.models.zoo.pomo.utils import select_start_nodes
 
 
 log = get_pylogger(__name__)
