@@ -846,7 +846,7 @@ class LogitAttention(nn.Module):
         if self.normalize:
             logits = torch.log_softmax(logits, dim=-1)
 
-        assert not torch.isnan(logits).any()
+        assert not torch.isnan(logits).any(), "Logits contain NaNs"
 
         return logits
 
