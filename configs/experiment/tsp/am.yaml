@@ -8,12 +8,20 @@ defaults:
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
-  - override /logger: null # comment this line to enable logging
+  # - override /logger: null # comment this line to enable logging
+  - override /logger: wandb.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
 tags: ["tsp", "am"]
+
+logger:
+  wandb:
+    project: "rl4co"
+    tags: ${tags}
+    group: "tsp${env.num_loc}"
+    name: "am"
    
 seed: 12345
 
