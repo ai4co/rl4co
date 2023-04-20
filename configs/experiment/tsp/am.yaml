@@ -14,7 +14,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 tags: ["tsp", "am"]
-
+   
 seed: 12345
 
 env:
@@ -53,3 +53,8 @@ metrics:
   val: ["reward"]
   test: ["reward"]
   log_cost: True
+
+# Adjust monitoring
+model_checkpoint:
+  monitor: "val/cost"
+  mode: "min"

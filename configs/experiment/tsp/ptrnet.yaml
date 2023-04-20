@@ -47,3 +47,8 @@ data:
   batch_size: 512
   train_size: 1280000
   val_size: 10000
+
+# Adjust monitoring
+model_checkpoint:
+  monitor: "val/cost"
+  mode: "min"
