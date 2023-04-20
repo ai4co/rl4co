@@ -16,4 +16,4 @@ def unbatchify(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, Tens
     Same as einops.rearrange(x, '(r b) ... -> b r ...', r=repeats) but ~2x faster
     """
     s = x.shape
-    return x.view(repeats, s[0] // repeats, *s[1:]).permute(1, 0, *range(2, len(s)+1))
+    return x.view(repeats, s[0] // repeats, *s[1:]).permute(1, 0, *range(2, len(s) + 1))
