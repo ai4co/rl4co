@@ -9,12 +9,13 @@ from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTe
 from rl4co.utils.pylogger import get_pylogger
 from rl4co.data.dataset import TensorDictDataset
 from rl4co.envs.utils import batch_to_scalar
+from rl4co.envs.base import RL4COEnv
 
 
 log = get_pylogger( __name__ )
 
 
-class ATSPEnv(EnvBase):
+class ATSPEnv(RL4COEnv):
     batch_locked = False
     name = "atsp"
 
