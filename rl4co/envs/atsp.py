@@ -147,9 +147,8 @@ class ATSPEnv(RL4COEnv):
         # Get indexes of tour. Actions: [batch_size, num_loc]
         nodes_src = actions
         nodes_tgt = torch.roll(actions, 1, dims=1)
-        
-        # Get distances of tour
-        return distance_matrix[:, nodes_src, nodes_tgt]
+        batch_idx = torch.arange(distance_matrix.shape[0], device=distance_matrix.device).unsqueeze(1) 
+        return distance_matrix[batch_idx, nodes_src, nodes_tgt].sum(-1)
     
     def dataset(self, batch_size):
         """Return a dataset of observations"""
