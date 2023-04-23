@@ -39,8 +39,12 @@ Train model with chosen experiment configuration from [configs/experiment/](conf
 # Change experiment (e.g. tsp/am, and environment with 42 cities)
 python run.py experiment=tsp/am env.num_loc=42    
 
+# Disable logging
+python run.py experiment=tsp/am logger='null'
+
 # Create a sweep over hyperparameters (-m for multirun)
 python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
+
 ```
 
 ### Testing
