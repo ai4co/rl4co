@@ -24,13 +24,14 @@ def env_context(env_name: str, config: dict) -> object:
 
 
 class EnvContext(nn.Module):
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, step_context_dim=None):
         """
         Gather the context for each specific environment and projects it to embedding space
         """
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
-        self.project_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
+        step_context_dim = step_context_dim if step_context_dim is not None else embedding_dim
+        self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
 
     def _cur_node_embedding(self, embeddings, td):
         # current_node = td #state.get_current_node()
@@ -49,9 +50,9 @@ class EnvContext(nn.Module):
 
 class TSPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(TSPContext, self).__init__(2 * embedding_dim)
+        super(TSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(self.embedding_dim * 2).uniform_(-1, 1)
+            torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1)
         )
 
     def forward(self, embeddings, td):
@@ -69,7 +70,7 @@ class TSPContext(EnvContext):
 
 class VRPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(VRPContext, self).__init__(embedding_dim + 1)
+        super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = (
@@ -80,7 +81,7 @@ class VRPContext(EnvContext):
 
 class PCTSPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(PCTSPContext, self).__init__(embedding_dim + 1)
+        super(PCTSPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["remaining_prize_to_collect"][:, :, None]
@@ -89,7 +90,7 @@ class PCTSPContext(EnvContext):
 
 class OPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(OPContext, self).__init__(embedding_dim + 1)
+        super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["remaining_length"][:, :, None]
@@ -98,9 +99,9 @@ class OPContext(EnvContext):
 
 class DPPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(DPPContext, self).__init__(2 * embedding_dim)
+        super(DPPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         self.W_placeholder = nn.Parameter(torch.Tensor(embedding_dim).uniform_(-1, 1))
-        self.project_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
+        self.project_context = nn.Linear(2 * embedding_dim, embedding_dim, bias=False)
 
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
