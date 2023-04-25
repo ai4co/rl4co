@@ -74,7 +74,7 @@ class VRPContext(EnvContext):
 
     def _state_embedding(self, embeddings, td):
         state_embedding = (
-            td["params"]["vehicle_capacity"] - td["used_capacity"][:, :, None]
+            td['capacity'][..., :, None] + td['demand'][..., :1, None]
         )
         return state_embedding
 
