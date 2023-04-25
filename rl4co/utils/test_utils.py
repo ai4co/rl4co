@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 
+from rl4co.data.dataset import TensorDictCollate
 from rl4co.envs.tsp import TSPEnv
 
 
@@ -15,14 +16,14 @@ def get_env(env_name, size):
 
 def generate_env_data(env, size):
     env = get_env(env, size)
-    dataset = env.dataset(batch_size=[2])
+    dataset = env.dataset([2])
 
     dataloader = DataLoader(
         dataset,
         batch_size=2,
         shuffle=False,
         num_workers=0,
-        collate_fn=torch.stack,
+        collate_fn=TensorDictCollate(),
     )
 
     return env, next(iter(dataloader))

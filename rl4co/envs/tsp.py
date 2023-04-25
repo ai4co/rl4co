@@ -1,9 +1,8 @@
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import torch
-from torch import Tensor
-from tensordict.tensordict import TensorDict, TensorDictBase
+from tensordict.tensordict import TensorDict
 
 from torchrl.data import (
     BoundedTensorSpec,
@@ -11,14 +10,12 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
-from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
 
-from rl4co.data.dataset import TensorDictDataset
-from rl4co.envs.utils import batch_to_scalar, _set_seed, _getstate_env
+from rl4co.envs.utils import batch_to_scalar
+from rl4co.envs.base import RL4COEnv
 
 
-class TSPEnv(EnvBase):
-    batch_locked = False
+class TSPEnv(RL4COEnv):
     name = "tsp"
 
     def __init__(
@@ -41,34 +38,11 @@ class TSPEnv(EnvBase):
             seed: seed for the environment
             device: device to use.  Generally, no need to set as tensors are updated on the fly
         """
-
+        super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
-
-        super().__init__(device=device, batch_size=[])
-        # self._make_spec(td_params)
-        self._make_spec()
-        if seed is None:
-            seed = torch.empty((), dtype=torch.int64).random_().item()
-        self.set_seed(seed)
-
-    @staticmethod
-    def get_reward(td, actions) -> TensorDict:
-        loc = td["observation"]
-        assert (
-            torch.arange(actions.size(1), out=actions.data.new())
-            .view(1, -1)
-            .expand_as(actions)
-            == actions.data.sort(1)[0]
-        ).all(), "Invalid tour"
-
-        # Gather locations in order of tour
-        locs = loc.gather(1, actions.unsqueeze(-1).expand_as(loc))
-
-        # Return the length of the path (L2-norm of difference from each next location from its previous and of last from first)
-        locs_next = torch.roll(locs, 1, dims=1)
-        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+        self._make_spec(td_params)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -83,7 +57,7 @@ class TSPEnv(EnvBase):
         # We are done there are no unvisited locations
         done = (
             torch.count_nonzero(available.squeeze(), dim=-1) <= 0
-        )  # td["params"]["num_loc"]
+        )
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
@@ -104,21 +78,14 @@ class TSPEnv(EnvBase):
             td.shape,
         )
 
-    def _reset(
-        self, td: Optional[TensorDict] = None, init_obs=None, batch_size=None
-    ) -> TensorDict:
-        # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
-        # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
-        init_locs = td["observation"] if td is not None else init_obs
+    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+        # Initialize locations
+        init_locs = td["observation"] if td is not None else None
         if batch_size is None:
             batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        device = init_locs.device if init_locs is not None else self.device
-        self.device = device
-
-        # We allow loading the initial observation from a dataset for faster loading
+        self.device = device = init_locs.device if init_locs is not None else self.device
         if init_locs is None:
-            # number generator is on CPU by default, set device after
-            init_locs = self.generate_data(batch_size=batch_size).to(device)
+            init_locs = self.generate_data(batch_size=batch_size).to(device)['observation']
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -138,14 +105,10 @@ class TSPEnv(EnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self):
+    def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
-        # params = td_params["params"]
-        # num_loc = params["num_loc"]  # TSP size
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
-                # minimum=params["min_loc"],
-                # maximum=params["max_loc"],
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -179,25 +142,29 @@ class TSPEnv(EnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def dataset(self, batch_size):
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
+    @staticmethod
+    def get_reward(td, actions) -> TensorDict:
+        loc = td["observation"]
+        assert (
+            torch.arange(actions.size(1), out=actions.data.new())
+            .view(1, -1)
+            .expand_as(actions)
+            == actions.data.sort(1)[0]
+        ).all(), "Invalid tour"
 
-    def generate_data(self, batch_size):
+        # Gather locations in order of tour and return distance between them (i.e., -reward)
+        locs = loc.gather(1, actions.unsqueeze(-1).expand_as(loc))
+        locs_next = torch.roll(locs, 1, dims=1)
+        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+    
+    def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
             torch.rand((*batch_size, self.num_loc, 2), generator=self.rng)
             * (self.max_loc - self.min_loc)
             + self.min_loc
         )
-        return locs
-
-    def transform(self):
-        return self
-
-    __getstate__ = _getstate_env
-
-    _set_seed = _set_seed
+        return TensorDict({"observation": locs}, batch_size=batch_size)
 
     @staticmethod
     def render(td):

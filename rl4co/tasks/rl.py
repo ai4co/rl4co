@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from lightning import LightningModule
 
 from rl4co.utils.pylogger import get_pylogger
+from rl4co.data.dataset import TensorDictCollate
 
 
 log = get_pylogger(__name__)
@@ -49,8 +50,8 @@ class RL4COLitModule(LightningModule):
 
     def instantiate_env(self):
         log.info(f"Instantiating environments <{self.env_cfg._target_}>")
-        env = instantiate(self.env_cfg)
-        self.env = env.transform()  # transform to get the observations directly
+        self.env = instantiate(self.env_cfg)
+        # self.env = env.transform() # NOTE: comment for now, we may not need it
 
     def instantiate_model(self):
         log.info(f"Instantiating model <{self.model_cfg._target_}>")
@@ -92,7 +93,7 @@ class RL4COLitModule(LightningModule):
             }
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
-        td = self.env.reset(init_obs=batch)
+        td = self.env.reset(batch)
         out = self.model(td, phase)
 
         # Log metrics
@@ -143,12 +144,14 @@ class RL4COLitModule(LightningModule):
             batch_size=self.cfg.data.batch_size,
             shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=self.cfg.data.get("num_workers", 0),
-            collate_fn=torch.stack,  # we need this to stack the batches in the dataset
+            collate_fn=TensorDictCollate(),
             # pin_memory=self.on_gpu, # TODO: check if needed, comment now for bug in test
         )
 
 
 if __name__ == "__main__":
+
+    # TODO: remove this small test, do this under tests/
     from omegaconf import DictConfig
     from lightning import Trainer
 

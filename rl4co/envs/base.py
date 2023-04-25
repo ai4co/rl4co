@@ -10,7 +10,6 @@ from rl4co.data.dataset import TensorDictDataset
 
 class RL4COEnv(EnvBase):
     batch_locked = False
-    name = "rl4co"
 
     def __init__(
         self,
@@ -59,13 +58,13 @@ class RL4COEnv(EnvBase):
         """Used for converting TensorDict variables (such as with torch.cat) efficiently
         https://pytorch.org/rl/reference/generated/torchrl.envs.transforms.Transform.html
         """
-        pass
+        return self
 
     def render(self, td):
         """Render the environment"""
         raise NotImplementedError
 
-    def _getstate_env(self):
+    def __getstate__(self):
         """Return the state of the environment. By default, we want to avoid pickling
         the random number generator as it is not allowed by deepcopy
         """

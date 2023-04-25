@@ -1,13 +1,10 @@
-from collections import defaultdict
 from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.envs import EnvBase
 from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec, BinaryDiscreteTensorSpec, UnboundedDiscreteTensorSpec
 
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.data.dataset import TensorDictDataset
 from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnv
 
@@ -16,7 +13,6 @@ log = get_pylogger( __name__ )
 
 
 class ATSPEnv(RL4COEnv):
-    batch_locked = False
     name = "atsp"
 
     def __init__(
@@ -24,14 +20,28 @@ class ATSPEnv(RL4COEnv):
         num_loc: int = 10,
         min_dist: float = 0,
         max_dist: float = 1,
+        tmat_class: bool = True,
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
     ):
+        """
+        Asymmetric Traveling Salesman Problem environment
+        At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+        In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
+        Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
+
+        Args:
+            num_loc: number of locations (cities) in the TSP
+            td_params: parameters of the environment
+            seed: seed for the environment
+            device: device to use.  Generally, no need to set as tensors are updated on the fly
+        """
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_dist = min_dist
         self.max_dist = max_dist
+        self.tmat_class = tmat_class
         self._make_spec(td_params)
 
     def _step(self, td: TensorDict) -> TensorDict:
@@ -65,21 +75,14 @@ class ATSPEnv(RL4COEnv):
             td.shape,
         )
 
-    def _reset(
-        self, td: Optional[TensorDict] = None, init_obs=None, batch_size=None
-    ) -> TensorDict:
-        # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
-        # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
-        init_dm = td["observation"] if td is not None else init_obs # dm = distance matrix
+    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+        # Initialize distance matrix
+        init_dm = td["observation"] if td is not None else None # dm = distance matrix
         if batch_size is None:
             batch_size = self.batch_size if init_dm is None else init_dm.shape[:-2]
-        device = init_dm.device if init_dm is not None else self.device
-        self.device = device
-
-        # We allow loading the initial observation from a dataset for faster loading
+        self.device = device = init_dm.device if init_dm is not None else self.device
         if init_dm is None:
-            # number generator is on CPU by default, set device after
-            init_dm = self.generate_data(batch_size=batch_size).to(device)
+            init_dm = self.generate_data(batch_size=batch_size).to(device)['observation']
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -144,29 +147,26 @@ class ATSPEnv(RL4COEnv):
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
         
-        # Get indexes of tour. Actions: [batch_size, num_loc]
+        # Get indexes of tour edges
         nodes_src = actions
         nodes_tgt = torch.roll(actions, 1, dims=1)
         batch_idx = torch.arange(distance_matrix.shape[0], device=distance_matrix.device).unsqueeze(1) 
         return distance_matrix[batch_idx, nodes_src, nodes_tgt].sum(-1)
-    
-    def dataset(self, batch_size):
-        """Return a dataset of observations"""
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
 
-    def generate_data(self, batch_size):
+    def generate_data(self, batch_size) -> TensorDict:
         # Generate distance matrices inspired by the reference MatNet (Kwon et al., 2021)
         # We satifsy the triangle inequality (TMAT class) in a batch 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         dms = torch.rand((*batch_size, self.num_loc, self.num_loc), generator=self.rng) * (self.max_dist - self.min_dist) + self.min_dist 
         dms[..., torch.arange(self.num_loc), torch.arange(self.num_loc)] = 0
-        while True:
-            old_dms = dms.clone()
-            dms, _ = (dms[..., :, None, :] + dms[..., None, :, :].transpose(-2,-1)).min(dim=-1)
-            if (dms == old_dms).all():
-                break
-        return dms
+        log.info("Using TMAT class (triangle inequality): {}".format(self.tmat_class))
+        if self.tmat_class:
+            while True:
+                old_dms = dms.clone()
+                dms, _ = (dms[..., :, None, :] + dms[..., None, :, :].transpose(-2,-1)).min(dim=-1)
+                if (dms == old_dms).all():
+                    break
+        return TensorDict({"observation": dms}, batch_size=batch_size)
 
     def render(self, td):
         try:
