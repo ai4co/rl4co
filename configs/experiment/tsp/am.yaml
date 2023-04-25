@@ -56,11 +56,11 @@ data:
   val_size: 10000
 
 # Log m
-metrics:
-  train: ["loss", "reward"]
-  val: ["reward"]
-  test: ["reward"]
-  log_cost: True
+# metrics:
+#   train: ["loss", "reward"]
+#   val: ["reward"]
+#   test: ["reward"]
+#   log_cost: True
 
 # Adjust monitoring
 model_checkpoint:
