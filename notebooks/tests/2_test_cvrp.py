@@ -133,7 +133,7 @@ class NCOLightningModule(L.LightningModule):
         )
 
 
-batch_size = 128 #1024 #512
+batch_size = 512 #1024 #512
 epochs = 1
 lr = 1e-4
 train_size = 1280000
