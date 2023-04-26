@@ -73,6 +73,8 @@ class VRPContext(EnvContext):
         super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
+        # TODO: check compatibility between CVRP and SDVRP
+        # (td['capacity'] - td['used_capacity'])[:, :, None]
         state_embedding = (
             td['capacity'][..., :, None] + td['demand'][..., :1, None]
         )
