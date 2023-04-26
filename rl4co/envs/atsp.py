@@ -6,13 +6,13 @@ from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTe
 
 from rl4co.utils.pylogger import get_pylogger
 from rl4co.envs.utils import batch_to_scalar
-from rl4co.envs.base import RL4COEnv
+from rl4co.envs.base import RL4COEnvBase
 
 
 log = get_pylogger( __name__ )
 
 
-class ATSPEnv(RL4COEnv):
+class ATSPEnv(RL4COEnvBase):
     name = "atsp"
 
     def __init__(

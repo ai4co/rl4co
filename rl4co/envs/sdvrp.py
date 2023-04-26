@@ -1,6 +1,4 @@
-from collections import defaultdict
 from typing import Optional
-from matplotlib.style import available
 
 import torch
 from tensordict.tensordict import TensorDict
@@ -12,11 +10,10 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.data.dataset import TensorDictDataset
+from rl4co.envs.base import RL4COEnvBase
 
 
-class SDVRPEnv(EnvBase):
-    batch_locked = False
+class SDVRPEnv(RL4COEnvBase):
     name = "sdvrp"
 
     def __init__(
@@ -25,18 +22,17 @@ class SDVRPEnv(EnvBase):
         min_loc: float = 0,
         max_loc: float = 1,
         capacity: float = 1.,
+        td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
         **kwargs,
     ):
-        super().__init__(device=device, batch_size=[])
-        if seed is None:
-            seed = torch.empty((), dtype=torch.int64).random_().item()
-        self.set_seed(seed)
+        super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
         self.capacity = capacity
+        self._make_spec(td_params)
 
     def _step(self, td: TensorDict) -> TensorDict:
         """Step function to call at each step of the episode containing an action.
@@ -264,11 +260,6 @@ class SDVRPEnv(EnvBase):
             + (d[:, -1] - td['depot']).norm(p=2, dim=1)  # Last to depot, will be 0 if depot is last
         )
     
-    def dataset(self, batch_size):
-        """Return a dataset of observations"""
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
-
     def generate_data(self, batch_size):
         """Dataset generation or loading"""
         CAPACITIES = {
@@ -289,25 +280,5 @@ class SDVRPEnv(EnvBase):
             batch_size=batch_size
         )
 
-    def transform(self):
-        """Used for converting TensorDict variables (such as with torch.cat) efficiently
-        https://pytorch.org/rl/reference/generated/torchrl.envs.transforms.Transform.html
-        """
-        pass
-
-    def render(self, td):
-        """Render the environment"""
-        raise NotImplementedError
-
-    def _getstate_env(self):
-        """Return the state of the environment. By default, we want to avoid pickling
-        the random number generator as it is not allowed by deepcopy
-        """
-        state = self.__dict__.copy()
-        del state["rng"]
-        return state
-
-    def _set_seed(self, seed: Optional[int]):
-        """Set the seed for the environment"""
-        rng = torch.manual_seed(seed)
-        self.rng = rng
+    def render(self, td: TensorDict):
+        raise NotImplementedError("TODO: render is not implemented yet")

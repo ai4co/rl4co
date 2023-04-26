@@ -12,10 +12,10 @@ from torchrl.data import (
 )
 
 from rl4co.envs.utils import batch_to_scalar
-from rl4co.envs.base import RL4COEnv
+from rl4co.envs.base import RL4COEnvBase
 
 
-class TSPEnv(RL4COEnv):
+class TSPEnv(RL4COEnvBase):
     name = "tsp"
 
     def __init__(
@@ -144,7 +144,7 @@ class TSPEnv(RL4COEnv):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        loc = td["observation"]
+        locs = td["observation"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -153,7 +153,7 @@ class TSPEnv(RL4COEnv):
         ).all(), "Invalid tour"
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = loc.gather(1, actions.unsqueeze(-1).expand_as(loc))
+        locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
     
