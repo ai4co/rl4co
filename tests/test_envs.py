@@ -11,7 +11,7 @@ def test_tsp(size):
     actions = torch.stack([torch.randperm(size) for _ in range(bs)])
     td = env.reset(batch_size=[bs])
     for i in range(size):
-        td.set("action", actions[:, i][:, None])
+        td.set("action", actions[:, i])
         td = env.step(td)['next']
     reward = env.get_reward(td, actions)
     assert reward.shape == (bs,)
@@ -24,7 +24,7 @@ def test_atsp(size):
     actions = torch.stack([torch.randperm(size) for _ in range(bs)])
     td = env.reset(batch_size=[bs])
     for i in range(size):
-        td.set("action", actions[:, i][:, None])
+        td.set("action", actions[:, i])
         td = env.step(td)['next']
     reward = env.get_reward(td, actions)
     assert reward.shape == (bs,)

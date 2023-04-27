@@ -12,7 +12,7 @@ def get_log_likelihood(log_p, actions, mask):
 
     # Optional: mask out actions irrelevant to objective so they do not get reinforced
     if mask is not None:
-        log_p[mask] = 0
+        log_p[~mask] = 0
 
     assert (
         log_p > -1000

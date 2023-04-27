@@ -67,33 +67,31 @@ class Decoder(nn.Module):
             # # Expand td to batch_size * num_pomo
             td = batchify(td, self.num_pomo)
 
-            td.set("action", action[:, None])
+            td.set("action", action)
             td = self.env.step(td)["next"]
             log_p = torch.zeros_like(
                 td["action_mask"], device=td.device
             )  # first log_p is 0, so p = log_p.exp() = 1
 
-            outputs.append(log_p.squeeze(1))
+            outputs.append(log_p)
             actions.append(action)
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 
         while not td["done"].all():
-            # Compute the logits for the next node
             log_p, mask = self._get_log_p(cached_embeds, td)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(
-                log_p.exp().squeeze(1), mask.squeeze(1), decode_type=decode_type
+                log_p.exp(), mask, decode_type=decode_type
             )
 
-            # Step the environment
-            td.set("action", action[:, None])
+            td.set("action", action)
             td = self.env.step(td)["next"]
 
             # Collect output of step
-            outputs.append(log_p.squeeze(1))
+            outputs.append(log_p)
             actions.append(action)
 
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
@@ -106,17 +104,13 @@ class Decoder(nn.Module):
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key_fixed,
-        ) = self.project_node_embeddings(embeddings[:, None, :, :]).chunk(3, dim=-1)
+        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
             node_embeddings=batchify(embeddings, self.num_pomo),
-            glimpse_key=batchify(
-                self.logit_attention._make_heads(glimpse_key_fixed), self.num_pomo
-            ),
-            glimpse_val=batchify(
-                self.logit_attention._make_heads(glimpse_val_fixed), self.num_pomo
-            ),
+            glimpse_key=batchify(glimpse_key_fixed, self.num_pomo),
+            glimpse_val=batchify(glimpse_val_fixed, self.num_pomo),
             logit_key=batchify(logit_key_fixed, self.num_pomo),
         )
 
@@ -125,7 +119,7 @@ class Decoder(nn.Module):
     def _get_log_p(self, cached, td):
         # Compute the query based on the context (computes automatically the first and last node context)
         step_context = self.context(cached.node_embeddings, td)
-        query = step_context  # in POMO, no graph context (trick for overfit) # [batch, 1, embed_dim]
+        query = step_context.unsqueeze(1)  # in POMO, no graph context (trick for overfit) # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (
@@ -139,7 +133,6 @@ class Decoder(nn.Module):
 
         # Get the mask
         mask = ~td["action_mask"]
-        mask = mask.unsqueeze(1) if mask.dim() == 2 else mask
 
         # Compute logits
         log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask)

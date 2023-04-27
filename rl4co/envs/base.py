@@ -8,7 +8,7 @@ from torchrl.envs import EnvBase
 from rl4co.data.dataset import TensorDictDataset
 
 
-class RL4COEnv(EnvBase):
+class RL4COEnvBase(EnvBase):
     batch_locked = False
 
     def __init__(
@@ -18,6 +18,12 @@ class RL4COEnv(EnvBase):
         device: str = "cpu",
         **kwargs,
     ):
+        """Base class for RL4CO environments based on TorchRL EnvBase
+
+        Args:
+            seed (int, optional): Seed for the environment. Defaults to None.
+            device (str, optional): Device to use. Defaults to "cpu".
+        """
         super().__init__(device=device, batch_size=[])
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()

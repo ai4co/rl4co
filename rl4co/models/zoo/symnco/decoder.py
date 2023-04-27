@@ -76,13 +76,13 @@ class Decoder(nn.Module):
             # # Expand td to batch_size * num_starts
             td = batchify(td, self.num_starts)
 
-            td.set("action", action[:, None])
+            td.set("action", action)
             td = self.env.step(td)["next"]
             log_p = torch.zeros_like(
                 td["action_mask"], device=td.device
             )  # first log_p is 0, so p = log_p.exp() = 1
 
-            outputs.append(log_p.squeeze(1))
+            outputs.append(log_p)
             actions.append(action)
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
@@ -94,15 +94,14 @@ class Decoder(nn.Module):
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(
-                log_p.exp().squeeze(1), mask.squeeze(1), decode_type=decode_type
+                log_p.exp(), mask, decode_type=decode_type
             )
 
-            # Step the environment
-            td.set("action", action[:, None])
+            td.set("action", action)
             td = self.env.step(td)["next"]
 
             # Collect output of step
-            outputs.append(log_p.squeeze(1))
+            outputs.append(log_p)
             actions.append(action)
 
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
@@ -115,12 +114,12 @@ class Decoder(nn.Module):
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key_fixed,
-        ) = self.project_node_embeddings(embeddings[:, None, :, :]).chunk(3, dim=-1)
+        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # In POMO, no graph context (trick for overfit to single graph size) # [batch, 1, embed_dim]
         graph_context = (
             batchify(
-                self.project_fixed_context(embeddings.mean(1))[:, None, :],
+                self.project_fixed_context(embeddings.mean(1)),
                 self.num_starts,
             )
             if self.use_graph_context
@@ -131,20 +130,16 @@ class Decoder(nn.Module):
         cached_embeds = PrecomputedCache(
             node_embeddings=batchify(embeddings, self.num_starts),
             graph_context=graph_context,
-            glimpse_key=batchify(
-                self.logit_attention._make_heads(glimpse_key_fixed), self.num_starts
-            ),
-            glimpse_val=batchify(
-                self.logit_attention._make_heads(glimpse_val_fixed), self.num_starts
-            ),
+            glimpse_key=batchify(glimpse_key_fixed, self.num_starts),
+            glimpse_val=batchify(glimpse_val_fixed, self.num_starts),
             logit_key=batchify(logit_key_fixed, self.num_starts),
         )
         return cached_embeds
 
     def _get_log_p(self, cached, td):
         # Compute the query based on the context (computes automatically the first and last node context)
-        step_context = self.context(cached.node_embeddings, td)
-        query = step_context + cached.graph_context
+        step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
+        query = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (
@@ -158,7 +153,6 @@ class Decoder(nn.Module):
 
         # Get the mask
         mask = ~td["action_mask"]
-        mask = mask.unsqueeze(1) if mask.dim() == 2 else mask
 
         # Compute logits
         log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask)

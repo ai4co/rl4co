@@ -1,0 +1,3 @@
+_target_: rl4co.envs.cvrp.CVRPEnv
+
+num_loc: 20

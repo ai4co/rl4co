@@ -12,10 +12,10 @@ from torchrl.data import (
 )
 
 from rl4co.envs.utils import batch_to_scalar
-from rl4co.envs.base import RL4COEnv
+from rl4co.envs.base import RL4COEnvBase
 
 
-class TSPEnv(RL4COEnv):
+class TSPEnv(RL4COEnvBase):
     name = "tsp"
 
     def __init__(
@@ -51,13 +51,11 @@ class TSPEnv(RL4COEnv):
 
         # Set not visited to 0 (i.e., we visited the node)
         available = td["action_mask"].scatter(
-            -1, current_node[..., None].expand_as(td["action_mask"]), 0
+            -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
         )
 
         # We are done there are no unvisited locations
-        done = (
-            torch.count_nonzero(available.squeeze(), dim=-1) <= 0
-        )
+        done = (torch.count_nonzero(available, dim=-1) <= 0)
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
@@ -90,7 +88,7 @@ class TSPEnv(RL4COEnv):
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
         available = torch.ones(
-            (*batch_size, 1, self.num_loc), dtype=torch.bool, device=device
+            (*batch_size, self.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
@@ -127,7 +125,7 @@ class TSPEnv(RL4COEnv):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(1, self.num_loc),
+                shape=(self.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -144,7 +142,7 @@ class TSPEnv(RL4COEnv):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        loc = td["observation"]
+        locs = td["observation"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -153,7 +151,7 @@ class TSPEnv(RL4COEnv):
         ).all(), "Invalid tour"
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = loc.gather(1, actions.unsqueeze(-1).expand_as(loc))
+        locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
     
