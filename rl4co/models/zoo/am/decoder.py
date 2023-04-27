@@ -102,9 +102,9 @@ class Decoder(nn.Module):
             glimpse_val_dynamic,
             logit_key_dynamic,
         ) = self.dynamic_embedding(td)
-        glimpse_key = cached.glimpse_key + glimpse_key_dynamic
-        glimpse_key = cached.glimpse_val + glimpse_val_dynamic
-        logit_key = cached.logit_key + logit_key_dynamic
+        glimpse_key = cached.glimpse_key + glimpse_key_dynamic.squeeze()
+        glimpse_key = cached.glimpse_val + glimpse_val_dynamic.squeeze()
+        logit_key = cached.logit_key + logit_key_dynamic.squeeze()
 
         # Get the mask
         mask = ~td["action_mask"]

@@ -3,8 +3,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from torch import Tensor
-from tensordict.tensordict import TensorDict, TensorDictBase
-from typing import Optional, Union
+from tensordict.tensordict import TensorDict
+from typing import Optional
 
 from torchrl.data import (
     BoundedTensorSpec,
@@ -12,14 +12,10 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
-from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
-
-from rl4co.data.dataset import TensorDictDataset
-from rl4co.envs.utils import batch_to_scalar, _set_seed, _getstate_env
+from rl4co.envs import RL4COEnvBase
 
 
-class SDVRPEnv(EnvBase):
-    batch_locked = False
+class SDVRPEnv(RL4COEnvBase):
     name = "sdvrp"
 
     def __init__(
@@ -31,6 +27,7 @@ class SDVRPEnv(EnvBase):
         max_demand: float = 0.5,
         capacity: float = 1,
         batch_size: list = [],
+        td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
     ):
@@ -48,7 +45,7 @@ class SDVRPEnv(EnvBase):
             - seed <int>: seed for the environment
             - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
         """
-        self.device = device
+        super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
@@ -56,35 +53,7 @@ class SDVRPEnv(EnvBase):
         self.max_demand = max_demand
         self.capacity = capacity
         self.batch_size = batch_size
-
-        super().__init__(device=device, batch_size=[])
-        self._make_spec()
-        if seed is None:
-            seed = torch.empty((), dtype=torch.int64).random_().item()
-        self.set_seed(seed)
-
-    @staticmethod
-    def get_reward(td, actions) -> TensorDict:
-        ''' 
-        Args:
-            - td: <tensor_dict>: tensor dictionary containing the state
-            - actions: [batch_size, TODO] num_loc means a sequence of actions till the task is done
-        NOTE:
-            - about the length of the actions
-        '''
-        # TODO: Check the validation of the tour
-
-        # Gather dataset in order of tour
-        d = td['observation'].gather(1, actions[..., None].expand(*actions.size(), td['observation'].size(-1)))
-
-        # Calculate the reward
-        # Length is distance (L2-norm of difference) of each next location to its prev and of first and last to depot
-        rewards = (d[..., 1:, :] - d[..., :-1, :]).norm(p=2, dim=-1).sum(-1)
-
-        # Depot to the first node
-        rewards += (d[..., :1, :] - td['observation'][..., :1, :]).norm(p=2, dim=-1).sum(-1)
-
-        return rewards
+        self._make_spec(td_params)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -96,30 +65,31 @@ class SDVRPEnv(EnvBase):
             - the first node in de demand is larger than 1 or less than 0? 
             - this design is important. For now the design is LESS than 0
         '''
-        current_node = td["action"]
-        demands = td['demands']
+        current_node = td["action"].unsqueeze(-1)
+        demand = td['demand']
 
         # Calculate the available capacity
-        available_capacity = td['capacity'] + demands[..., :1]
+        available_capacity = td['capacity'] + demand[..., :1]
 
         # Calculate the capacity to use, if the demand is larger than the available capacity, use the capacity
-        use_capacity = torch.min(torch.gather(demands, 1, current_node).squeeze(), available_capacity)
+        current_demand = torch.gather(demand, 1, current_node)
+        use_capacity = torch.min(current_demand, available_capacity)
 
         # Update the used capacity
-        demands[..., 0] -= use_capacity
+        demand[..., 0] -= use_capacity.squeeze()
 
         # Update visited node capacity
-        demands.scatter_(-1, current_node, -use_capacity, reduce='add')
+        demand[..., 1:] = demand.scatter(-1, current_node, -use_capacity, reduce='add')[..., 1:]
 
         # Get the action mask, no zero demand nodes can be visited
-        action_mask = torch.abs(demands) > 0
+        action_mask = torch.abs(demand) > 0
         
         # Nodes exceeding capacity cannot be visited
-        available_capacity = td['capacity'] + demands[..., :1]
-        action_mask = torch.logical_and(action_mask, demands <= available_capacity)
+        available_capacity = td['capacity'] + demand[..., :1]
+        action_mask = torch.logical_and(action_mask, demand <= available_capacity)
 
         # We are done there are no unvisited locations
-        done = (torch.count_nonzero(demands, dim=-1) <= 0) 
+        done = (torch.count_nonzero(demand, dim=-1) <= 0) 
 
         # If all nodes are visited, then set the depot be always available
         action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
@@ -136,7 +106,7 @@ class SDVRPEnv(EnvBase):
                     "observation": td["observation"],
                     "capacity": td["capacity"],
                     "current_node": current_node,
-                    "demands": demands,
+                    "demand": demand,
                     "action_mask": action_mask,
                     "reward": reward,
                     "done": done,
@@ -176,7 +146,7 @@ class SDVRPEnv(EnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self):
+    def _make_spec(self, td_params: TensorDict):
         """ Make the observation and action specs from the parameters. """
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
@@ -189,7 +159,7 @@ class SDVRPEnv(EnvBase):
                 shape=(1),
                 dtype=torch.int64,
             ),
-            demands=BoundedTensorSpec(
+            demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
                 shape=(self.num_loc, 1),
@@ -211,6 +181,23 @@ class SDVRPEnv(EnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
+    @staticmethod
+    def get_reward(td, actions) -> TensorDict:
+        ''' 
+        Args:
+            - td: <tensor_dict>: tensor dictionary containing the state
+            - actions: [batch_size, TODO] num_loc means a sequence of actions till the task is done
+        NOTE:
+            - about the length of the actions
+        '''
+        locs = td['observation']
+
+        # Gather locations in order of tour and return distance between them (i.e., -reward)
+        locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
+        locs_next = torch.roll(locs, 1, dims=1)
+
+        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+
     def generate_data(self, batch_size) -> TensorDict: 
         ''' 
         Args:
@@ -218,14 +205,14 @@ class SDVRPEnv(EnvBase):
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
                 - observation <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - demands <Tensor> [batch_size, num_loc]: demands of the nodes
+                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
             - the observation includes the depot as the first node
-            - the demands includes the used capacity at the first value
-            - the unvisited variable can be replaced by demands > 0
+            - the demand includes the used capacity at the first value
+            - the unvisited variable can be replaced by demand > 0
         '''
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -248,80 +235,5 @@ class SDVRPEnv(EnvBase):
             batch_size=batch_size
         )
 
-    def transform(self):
-        return self
-
-    @staticmethod
-    def render(td):
-        render_sdvrp(td)
-
-    __getstate__ = _getstate_env
-
-    _set_seed = _set_seed
-
-    def dataset(self, batch_size):
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
-
-
-def render_sdvrp(td):
-    # TODO
-    td = td.detach().cpu()
-    # if batch_size greater than 0 , we need to select the first batch element
-    if td.batch_size != torch.Size([]):
-        td = td[0]
-
-    key = "observation" if "observation" in td.keys() else "loc"
-
-    # Get the coordinates of the visited nodes for the first batch element
-    visited_coords = td[key][td["action_mask"][0, 0] == 0][0]
-
-    # Create a plot of the nodes
-    fig, ax = plt.subplots()
-    ax.scatter(td[key][:, 0], td[key][:, 1], color="blue")
-
-    # Plot the visited nodes
-    ax.scatter(visited_coords[:, 0], visited_coords[:, 1], color="red")
-
-    # Add arrows between visited nodes as a quiver plot
-    x = visited_coords[:, 0]
-    y = visited_coords[:, 1]
-    dx = np.diff(x)
-    dy = np.diff(y)
-
-    # Colors via a colormap
-    cmap = plt.get_cmap("cividis")
-    norm = plt.Normalize(vmin=0, vmax=len(x))
-    colors = cmap(norm(range(len(x))))
-
-    ax.quiver(
-        x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
-    )
-
-    # Add final arrow from last node to first node
-    ax.quiver(
-        x[-1],
-        y[-1],
-        x[0] - x[-1],
-        y[0] - y[-1],
-        scale_units="xy",
-        angles="xy",
-        scale=1,
-        color="red",
-        linestyle="dashed",
-    )
-
-    # Plot numbers inside circles next to visited nodes
-    for i, coord in enumerate(visited_coords):
-        ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
-        ax.annotate(
-            str(i + 1), xy=coord, fontsize=10, color="white", va="center", ha="center"
-        )
-
-    # Set plot title and axis labels
-    ax.set_title("TSP Solution\nTotal length: {:.2f}".format(-td["reward"][0]))
-    ax.set_xlabel("x-coordinate")
-    ax.set_ylabel("y-coordinate")
-    ax.set_aspect("equal")
-
-    plt.show()
+    def render(self, td: TensorDict):
+        raise NotImplementedError("TODO: render is not implemented yet")
