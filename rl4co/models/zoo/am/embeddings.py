@@ -166,8 +166,8 @@ class SDVRPDynamicEmbedding(nn.Module):
         self.projection = nn.Linear(1, 3 * embedding_dim, bias=False)
 
     def forward(self, td):
-        demands_with_depot = td["demand"][..., None, :, None].clone()
-        demands_with_depot[..., 0, None] = 0
+        demands_with_depot = td["demand"][..., :, None].clone()
+        demands_with_depot[..., 0, :] = 0
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
             demands_with_depot
         ).chunk(3, dim=-1)
