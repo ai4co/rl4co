@@ -44,17 +44,18 @@ class ATSPEnv(RL4COEnvBase):
         self.tmat_class = tmat_class
         self._make_spec(td_params)
 
-    def _step(self, td: TensorDict) -> TensorDict:
+    @staticmethod
+    def _step(td: TensorDict) -> TensorDict:
         current_node = td["action"]
         first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
-        # Set available to 0 (i.e., we visited the node)
+        # Set not visited to 0 (i.e., we visited the node)
         available = td["action_mask"].scatter(
-            -1, current_node[..., None].expand_as(td["action_mask"]), 0
+            -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
         )
 
         # We are done there are no unvisited locations
-        done = torch.count_nonzero(available.squeeze(), dim=-1) <= 0
+        done = (torch.count_nonzero(available, dim=-1) <= 0)
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
@@ -87,7 +88,7 @@ class ATSPEnv(RL4COEnvBase):
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
         available = torch.ones(
-            (*batch_size, 1, self.num_loc), dtype=torch.bool, device=device
+            (*batch_size, self.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
@@ -123,7 +124,7 @@ class ATSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(1, self.num_loc),
+                shape=(self.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),

@@ -826,15 +826,15 @@ class LogitAttention(nn.Module):
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
 
     def forward(self, query, key, value, logit_key, mask):
-        # Compute inner multi-head attention with no projections
+        # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, mask)
         glimpse = self.project_out(heads)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
-        logits = torch.bmm(
-            glimpse.squeeze(1), logit_key.squeeze(1).transpose(-2, -1)
-        ) / math.sqrt(glimpse.size(-1))
+        logits = (torch.bmm(
+            glimpse, logit_key.squeeze(1).transpose(-2, -1)
+        ) / math.sqrt(glimpse.size(-1))).squeeze(1)
 
         # From the logits compute the probabilities by clipping, masking and softmax
         if self.tanh_clipping > 0:
@@ -851,15 +851,25 @@ class LogitAttention(nn.Module):
         return logits
 
     def _inner_mha(self, query, key, value, mask):
-        query = rearrange(query, "b 1 (h s) -> b h 1 s", h=self.num_heads)
-        mask = ~mask.unsqueeze(1) if self.mask_inner else None
+        q = self._make_heads(query)
+        k = self._make_heads(key)
+        v = self._make_heads(value)
+        
+        if self.mask_inner:
+            # need to invert mask: (batch, seqlen) -> (batch, 1, 1, seqlen)
+            attn_mask = ~mask.unsqueeze(1).unsqueeze(2)
+        else:
+            attn_mask = None
+
         heads = self.flash_attn_wrapper(
-            scaled_dot_product_attention, query, key, value, attn_mask=mask
+            scaled_dot_product_attention, q, k, v, attn_mask=attn_mask
         )
-        heads = rearrange(heads, "b h 1 g -> b 1 1 (h g)", h=self.num_heads)
+        # Same as rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads) but faster
+        heads = heads.view(heads.size(0), 1, heads.size(1) * heads.size(-1))
         return heads
 
     def _make_heads(self, v):
-        return rearrange(v, "b 1 g (h s) -> b h g s", h=self.num_heads)
+        # Same as rearrange(v, "b g (h s) -> b h g s", h=self.num_heads) but faster
+        return v.view(v.size(0), self.num_heads, v.size(1), v.size(-1) // self.num_heads)
 
     flash_attn_wrapper = flash_attn_wrapper

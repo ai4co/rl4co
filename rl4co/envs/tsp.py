@@ -51,13 +51,11 @@ class TSPEnv(RL4COEnvBase):
 
         # Set not visited to 0 (i.e., we visited the node)
         available = td["action_mask"].scatter(
-            -1, current_node[..., None].expand_as(td["action_mask"]), 0
+            -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
         )
 
         # We are done there are no unvisited locations
-        done = (
-            torch.count_nonzero(available.squeeze(), dim=-1) <= 0
-        )
+        done = (torch.count_nonzero(available, dim=-1) <= 0)
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
@@ -90,7 +88,7 @@ class TSPEnv(RL4COEnvBase):
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
         available = torch.ones(
-            (*batch_size, 1, self.num_loc), dtype=torch.bool, device=device
+            (*batch_size, self.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
@@ -127,7 +125,7 @@ class TSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(1, self.num_loc),
+                shape=(self.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
