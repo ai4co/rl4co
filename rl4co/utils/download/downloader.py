@@ -1,23 +1,20 @@
-import time
-import os
-import logging
-import requests
-import sys
 import hashlib
+import logging
+import os
+import sys
+import time
 import urllib
+from urllib.parse import urlparse
+from typing import Any, Optional
+
+import requests
 from tqdm.auto import tqdm
-from typing import Optional, Any
-import six
-from six.moves import urllib_parse
-import warnings
-import textwrap
-import re
 
-USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"
+from rl4co.utils.pylogger import get_pylogger
+from rl4co.utils.download.constants import USER_AGENT
+from rl4co.utils.download.gdrive import get_url_filename_drive
 
-# Set logging level to INFO only for this module
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+log = get_pylogger(__name__)
 
 
 def download_url(
@@ -39,7 +36,6 @@ def download_url(
 ) -> None:
     """Download a file from a url and place it in root. Supports robust downloads with resuming,
     connection error handling, proxies, authentication, and more.
-
     Args:
         url (str): URL to download file from
         root (str): Directory to place downloaded file in
@@ -58,7 +54,7 @@ def download_url(
         logging_level (int, optional): Logging level
     """
     # Set logging level
-    logger.setLevel(logging_level)
+    log.setLevel(logging_level)
 
     # Expand redirect hops if needed
     url = _get_redirect_url(url, max_hops=max_redirect_hops)
@@ -80,7 +76,7 @@ def download_url(
         if content_disposition:
             filename = content_disposition.split(";")[-1]
         else:
-            filename = os.path.basename(urllib.parse.urlparse(response.url).path)
+            filename = os.path.basename(urlparse(response.url).path)
     elif url_drive:
         url = url_drive
         filename = filename_drive if not filename else filename
@@ -90,7 +86,7 @@ def download_url(
 
     # Check if file is already present locally
     if md5 is not None and check_integrity(fpath, md5):
-        logger.info("Using downloaded and verified file: " + fpath)
+        log.info("Using downloaded and verified file: " + fpath)
         return
 
     # Get file size
@@ -100,12 +96,12 @@ def download_url(
         downloaded = 0
     size = int(session.get(url, stream=True).headers["Content-Length"])
     if downloaded == size:
-        logger.info("File %s already downloaded", filename)
+        log.info("File %s already downloaded", filename)
         return
     elif downloaded > size:
         raise RuntimeError("File %s is corrupted" % filename)
 
-    logger.info("Downloading %s to %s (%s)", url, filename, format_bytes(size))
+    log.info("Downloading %s to %s (%s)", url, filename, format_bytes(size))
 
     mode = "ab"  # append to file if it exists
     sleep = 10
@@ -140,18 +136,18 @@ def download_url(
                             pbar.update(len(chunk))
 
         except requests.exceptions.ConnectionError as e:
-            logger.error("Download interrupted: %s" % (e,))
+            log.error("Download interrupted: %s" % (e,))
         finally:
             r.close()
 
         if downloaded >= size:
             break
 
-        logger.error(
+        log.error(
             "Download incomplete, downloaded %s / %s"
             % (format_bytes(downloaded), format_bytes(size))
         )
-        logger.warning("Sleeping %s seconds" % (sleep,))
+        log.warning("Sleeping %s seconds" % (sleep,))
         time.sleep(sleep)
         mode = "ab"
 
@@ -161,7 +157,7 @@ def download_url(
             sleep = sleep_max
         headers = {"Range": "bytes=%d-" % downloaded, "User-Agent": USER_AGENT}
         tries += 1
-        logger.warning("Resuming from downloaded %s" % (format_bytes(downloaded),))
+        log.warning("Resuming from downloaded %s" % (format_bytes(downloaded),))
 
     if downloaded != size:
         raise Exception(
@@ -173,7 +169,7 @@ def download_url(
         if not check_integrity(fpath, md5):
             raise RuntimeError("File not found or corrupted.")
         else:
-            logger.info("File integrity verified!")
+            log.info("File integrity verified!")
 
 
 def robust_wrapper(call, retry_max=500, sleep_max=120):
@@ -200,7 +196,7 @@ def robust_wrapper(call, retry_max=500, sleep_max=120):
                 requests.exceptions.ReadTimeout,
             ) as e:
                 r = None
-                logger.warning(
+                log.warning(
                     "Recovering from connection error [%s], attempts %s of %s",
                     e,
                     tries,
@@ -211,10 +207,10 @@ def robust_wrapper(call, retry_max=500, sleep_max=120):
                 if not retriable(r.status_code, r.reason):
                     return r
                 try:
-                    logger.warning(r.json()["reason"])
+                    log.warning(r.json()["reason"])
                 except Exception:
                     pass
-                logger.warning(
+                log.warning(
                     "Recovering from HTTP error [%s %s], attempts %s of %s",
                     r.status_code,
                     r.reason,
@@ -224,143 +220,11 @@ def robust_wrapper(call, retry_max=500, sleep_max=120):
 
             tries += 1
 
-            logger.warning("Retrying in %s seconds", sleep_max)
+            log.warning("Retrying in %s seconds", sleep_max)
             time.sleep(sleep_max)
-            logger.info("Retrying now...")
+            log.info("Retrying now...")
 
     return wrapped
-
-
-def _parse_gdrive_url(url, warning=True):
-    """Parse URLs especially for Google Drive links.
-    file_id: ID of file on Google Drive.
-    is_download_link: Flag if it is download link of Google Drive.
-    """
-    parsed = urllib_parse.urlparse(url)
-    query = urllib_parse.parse_qs(parsed.query)
-    is_gdrive = parsed.hostname in ["drive.google.com", "docs.google.com"]
-    is_download_link = parsed.path.endswith("/uc")
-
-    if not is_gdrive:
-        return None
-
-    file_id = None
-    if "id" in query:
-        file_ids = query["id"]
-        if len(file_ids) == 1:
-            file_id = file_ids[0]
-    else:
-        patterns = [r"^/file/d/(.*?)/view$", r"^/presentation/d/(.*?)/edit$"]
-        for pattern in patterns:
-            match = re.match(pattern, parsed.path)
-            if match:
-                file_id = match.groups()[0]
-                break
-
-    if warning and not is_download_link:
-        warnings.warn(
-            "You specified a Google Drive link that is not the correct link "
-            "to download a file. You might want to try `--fuzzy` option "
-            "or the following url: {url}".format(
-                url="https://drive.google.com/uc?id={}".format(file_id)
-            )
-        )
-
-    return (
-        "https://drive.google.com/uc?id={id}".format(id=file_id),
-        file_id,
-        is_download_link,
-    )
-
-
-def get_url_from_gdrive_confirmation(contents):
-    url = ""
-    for line in contents.splitlines():
-        m = re.search(r'href="(\/uc\?export=download[^"]+)', line)
-        if m:
-            url = "https://docs.google.com" + m.groups()[0]
-            url = url.replace("&amp;", "&")
-            break
-        m = re.search('id="download-form" action="(.+?)"', line)
-        if m:
-            url = m.groups()[0]
-            url = url.replace("&amp;", "&")
-            break
-        m = re.search('"downloadUrl":"([^"]+)', line)
-        if m:
-            url = m.groups()[0]
-            url = url.replace("\\u003d", "=")
-            url = url.replace("\\u0026", "&")
-            break
-        m = re.search('<p class="uc-error-subcaption">(.*)</p>', line)
-        if m:
-            error = m.groups()[0]
-            raise RuntimeError(error)
-    if not url:
-        raise RuntimeError(
-            "Cannot retrieve the public link of the file. "
-            "You may need to change the permission to "
-            "'Anyone with the link', or have had many accesses."
-        )
-    return url
-
-
-def indent(text, prefix):
-    def prefixed_lines():
-        for line in text.splitlines(True):
-            yield (prefix + line if line.strip() else line)
-
-    return "".join(prefixed_lines())
-
-
-def get_url_filename_drive(url, sess, verify):
-    url_origin = url
-    url, gdrive_file_id, is_gdrive_download_link = _parse_gdrive_url(url)
-
-    while True:
-        try:
-            res = sess.get(
-                url, headers={"User-Agent": USER_AGENT}, stream=True, verify=verify
-            )
-        except requests.exceptions.ProxyError as e:
-            logger.error(
-                "An error has occurred using proxy:", sess.proxy, file=sys.stderr
-            )
-            logger.error(e, file=sys.stderr)
-            return None, None
-
-        if "Content-Disposition" in res.headers:
-            # This is the file
-            break
-        if not (gdrive_file_id and is_gdrive_download_link):
-            break
-
-        # Need to redirect with confirmation
-        try:
-            url = get_url_from_gdrive_confirmation(res.text)
-        except RuntimeError as e:
-            logger.error("Access denied with the following error:")
-            error = "\n".join(textwrap.wrap(str(e)))
-            error = indent(error, "\t")
-            logger.error("\n", error, "\n", file=sys.stderr)
-            logger.error(
-                "You may still be able to access the file from the browser:",
-                file=sys.stderr,
-            )
-            logger.error("\n\t", url_origin, "\n", file=sys.stderr)
-            return None, None
-
-    if gdrive_file_id and is_gdrive_download_link:
-        content_disposition = six.moves.urllib_parse.unquote(
-            res.headers["Content-Disposition"]
-        )
-        m = re.search(r"filename\*=UTF-8''(.*)", content_disposition)
-        filename_from_url = m.groups()[0]
-        filename_from_url = filename_from_url.replace(os.path.sep, "_")
-    else:
-        filename_from_url = os.path.basename(url)
-
-    return url, filename_from_url
 
 
 def calculate_md5(fpath: str, chunk_size: int = 1024 * 1024) -> str:
