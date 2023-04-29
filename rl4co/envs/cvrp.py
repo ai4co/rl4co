@@ -1,4 +1,6 @@
-import sys; sys.path.append('.')
+import sys
+
+sys.path.append(".")
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -58,16 +60,16 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
-        ''' Update the states of the environment
+        """Update the states of the environment
         Args:
             - td <TensorDict>: tensor dictionary containing with the action
                 - action <int> [batch_size, 1]: action to take
         NOTE:
-            - the first node in de demand is larger than 0 or less than 0? 
+            - the first node in de demand is larger than 0 or less than 0?
             - this design is important. For now the design is LESS than 0
-        '''
+        """
         current_node = td["action"]
-        demand = td['demand']
+        demand = td["demand"]
 
         # update the used capacity
         demand[..., 0] -= torch.gather(demand, 1, current_node).squeeze()
@@ -77,13 +79,13 @@ class CVRPEnv(RL4COEnvBase):
 
         # Get the action mask, no zero demand nodes can be visited
         action_mask = torch.abs(demand) > 0
-        
+
         # Nodes exceeding capacity cannot be visited
-        available_capacity = td['capacity'] + demand[..., :1]
+        available_capacity = td["capacity"] + demand[..., :1]
         action_mask = torch.logical_and(action_mask, demand <= available_capacity)
 
         # We are done there are no unvisited locations
-        done = (torch.count_nonzero(demand, dim=-1) <= 0) 
+        done = torch.count_nonzero(demand, dim=-1) <= 0
 
         # REVIEW: if all nodes are visited, then set the depot be always available
         action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
@@ -109,25 +111,29 @@ class CVRPEnv(RL4COEnvBase):
             td.shape,
         )
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None) -> TensorDict:
-        ''' 
+    def _reset(
+        self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
+    ) -> TensorDict:
+        """
         Args:
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
-        '''
+        """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td['observation'].shape[:-2]
+            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
         # Initialize the current node
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros(
+            (*batch_size, 1), dtype=torch.int64, device=self.device
+        )
 
         # Initialize the capacity
         capacity = torch.full((*batch_size, 1), self.capacity)
 
         # Init the action mask
-        action_mask = td['demand'] > 0
+        action_mask = td["demand"] > 0
 
         return TensorDict(
             {
@@ -141,7 +147,7 @@ class CVRPEnv(RL4COEnvBase):
         )
 
     def _make_spec(self, td_params: TensorDict):
-        """ Make the observation and action specs from the parameters. """
+        """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
                 minimum=self.min_loc,
@@ -177,22 +183,22 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        ''' 
+        """
         Args:
             - td: <tensor_dict>: tensor dictionary containing the state
             - actions: [batch_size, TODO] num_loc means a sequence of actions till the task is done
         NOTE:
             - about the length of the actions
-        '''
-        locs = td['observation']
+        """
+        locs = td["observation"]
         # TODO: Check the validation of the tour
         # Gather locations in order of tour and return distance between them (i.e., -reward)
         locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
-    
-    def generate_data(self, batch_size) -> TensorDict: 
-        ''' 
+
+    def generate_data(self, batch_size) -> TensorDict:
+        """
         Args:
             - batch_size <int> or <list>: batch size
         Returns:
@@ -206,15 +212,23 @@ class CVRPEnv(RL4COEnvBase):
             - the observation includes the depot as the first node
             - the demand includes the used capacity at the first value
             - the unvisited variable can be replaced by demand > 0
-        '''
+        """
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = torch.FloatTensor(*batch_size, self.num_loc, 2).uniform_(self.min_loc, self.max_loc).to(self.device)
+        locs = (
+            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            .uniform_(self.min_loc, self.max_loc)
+            .to(self.device)
+        )
 
         # Initialize the demand
-        demand = torch.FloatTensor(*batch_size, self.num_loc).uniform_(self.min_demand, self.max_demand).to(self.device)
+        demand = (
+            torch.FloatTensor(*batch_size, self.num_loc)
+            .uniform_(self.min_demand, self.max_demand)
+            .to(self.device)
+        )
 
         # The first demand is the used capacity
         demand[..., 0] = 0
@@ -224,8 +238,8 @@ class CVRPEnv(RL4COEnvBase):
                 "observation": locs,
                 "depot": locs[..., 0, :],
                 "demand": demand,
-            }, 
-            batch_size=batch_size
+            },
+            batch_size=batch_size,
         )
 
     def render(self, td: TensorDict):
@@ -235,15 +249,15 @@ class CVRPEnv(RL4COEnvBase):
 if __name__ == "__main__":
     # Create a CVRP environment
     env = CVRPEnv(
-        num_loc=10, 
-        min_loc=0, 
-        max_loc=1, 
-        min_demand=1, 
-        max_demand=10, 
+        num_loc=10,
+        min_loc=0,
+        max_loc=1,
+        min_demand=1,
+        max_demand=10,
         capacity=100,
         batch_size=[32],
         seed=0,
-        device='cpu'
+        device="cpu",
     )
 
     # REVIEW Test the generate_data()
@@ -253,7 +267,7 @@ if __name__ == "__main__":
     env._reset()
 
     # REVIEW Test the step()
-    td['action'] = torch.ones((64, 1), dtype=torch.int64)
+    td["action"] = torch.ones((64, 1), dtype=torch.int64)
     env._step(td)
 
     # REVIEW Test the reward()

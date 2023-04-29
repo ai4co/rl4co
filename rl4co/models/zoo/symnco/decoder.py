@@ -93,9 +93,7 @@ class Decoder(nn.Module):
             log_p, mask = self._get_log_p(cached_embeds, td)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
-            action = decode_probs(
-                log_p.exp(), mask, decode_type=decode_type
-            )
+            action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
 
             td.set("action", action)
             td = self.env.step(td)["next"]
@@ -139,7 +137,9 @@ class Decoder(nn.Module):
     def _get_log_p(self, cached, td):
         # Compute the query based on the context (computes automatically the first and last node context)
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        query = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
+        query = (cached.graph_context + step_context).unsqueeze(
+            1
+        )  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (

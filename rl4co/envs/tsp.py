@@ -55,7 +55,7 @@ class TSPEnv(RL4COEnvBase):
         )
 
         # We are done there are no unvisited locations
-        done = (torch.count_nonzero(available, dim=-1) <= 0)
+        done = torch.count_nonzero(available, dim=-1) <= 0
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
@@ -81,9 +81,13 @@ class TSPEnv(RL4COEnvBase):
         init_locs = td["observation"] if td is not None else None
         if batch_size is None:
             batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        self.device = device = init_locs.device if init_locs is not None else self.device
+        self.device = device = (
+            init_locs.device if init_locs is not None else self.device
+        )
         if init_locs is None:
-            init_locs = self.generate_data(batch_size=batch_size).to(device)['observation']
+            init_locs = self.generate_data(batch_size=batch_size).to(device)[
+                "observation"
+            ]
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -154,7 +158,7 @@ class TSPEnv(RL4COEnvBase):
         locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
-    
+
     def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (

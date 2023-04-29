@@ -98,9 +98,7 @@ def get_url_filename_drive(url, sess, verify):
                 url, headers={"User-Agent": USER_AGENT}, stream=True, verify=verify
             )
         except requests.exceptions.ProxyError as e:
-            log.error(
-                "An error has occurred using proxy:", sess.proxy, file=sys.stderr
-            )
+            log.error("An error has occurred using proxy:", sess.proxy, file=sys.stderr)
             log.error(e, file=sys.stderr)
             return None, None
 
@@ -126,9 +124,7 @@ def get_url_filename_drive(url, sess, verify):
             return None, None
 
     if gdrive_file_id and is_gdrive_download_link:
-        content_disposition = urllib.parse.unquote(
-            res.headers["Content-Disposition"]
-        )
+        content_disposition = urllib.parse.unquote(res.headers["Content-Disposition"])
         m = re.search(r"filename\*=UTF-8''(.*)", content_disposition)
         filename_from_url = m.groups()[0]
         filename_from_url = filename_from_url.replace(os.path.sep, "_")

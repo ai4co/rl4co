@@ -47,7 +47,11 @@ class DPPEnv(RL4COEnvBase):
         envbase_kwargs["data_dir"] = data_dir
         super().__init__(**envbase_kwargs)
 
-        self.url = "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95" if url is None else url
+        self.url = (
+            "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
+            if url is None
+            else url
+        )
         self._load_dpp_data(chip_file, decap_file, freq_file)
         self.min_loc = min_loc
         self.max_loc = max_loc
@@ -96,9 +100,7 @@ class DPPEnv(RL4COEnvBase):
             td.shape,
         )
 
-    def _reset(
-        self, td: Optional[TensorDict] = None, batch_size=None
-    ) -> TensorDict:
+    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize locations
         if batch_size is None:
             batch_size = self.batch_size if td is None else td.batch_size
@@ -109,7 +111,9 @@ class DPPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros(
+            (*batch_size, 1), dtype=torch.int64, device=self.device
+        )
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         return TensorDict(
@@ -179,7 +183,7 @@ class DPPEnv(RL4COEnvBase):
             [self._decap_simulator(p, a) for p, a in zip(probes, actions)]
         )
         return reward
-    
+
     def generate_data(self, batch_size):
         """
         Generate initial observations for the environment with locations, probe, and action mask
@@ -226,7 +230,7 @@ class DPPEnv(RL4COEnvBase):
             },
             batch_size=batch_size,
         )
-    
+
     def _decap_placement(self, pi, probe):
         device = pi.device
 
@@ -305,33 +309,34 @@ class DPPEnv(RL4COEnvBase):
         return reward
 
     def _load_dpp_data(self, chip_file, decap_file, freq_file):
-
         def _load_file(fpath):
             f = os.path.join(self.data_dir, fpath)
             if not os.path.isfile(f):
                 self._download_data()
             with open(f, "rb") as f_:
                 return torch.from_numpy(np.load(f_)).to(self.device)
-            
-        self.raw_pdn = _load_file(chip_file) # [num_freq, size^2, size^2]
-        self.decap = _load_file(decap_file).to(torch.complex64) # [num_freq, 1, 1]
-        self.freq = _load_file(freq_file) # [num_freq]
+
+        self.raw_pdn = _load_file(chip_file)  # [num_freq, size^2, size^2]
+        self.decap = _load_file(decap_file).to(torch.complex64)  # [num_freq, 1, 1]
+        self.freq = _load_file(freq_file)  # [num_freq]
         self.size = int(np.sqrt(self.raw_pdn.shape[-1]))
         self.num_freq = self.freq.shape[0]
 
     def _download_data(self):
         log.info("Downloading data...")
-        download_url(self.url, self.data_dir, 'data.zip')
+        download_url(self.url, self.data_dir, "data.zip")
         log.info("Download complete. Unzipping...")
-        zipfile.ZipFile(os.path.join(self.data_dir, 'data.zip'), 'r').extractall(self.data_dir)
+        zipfile.ZipFile(os.path.join(self.data_dir, "data.zip"), "r").extractall(
+            self.data_dir
+        )
         log.info("Unzip complete. Removing zip file")
-        os.remove(os.path.join(self.data_dir, 'data.zip'))
+        os.remove(os.path.join(self.data_dir, "data.zip"))
 
     def load_data(self, fpath, batch_size=[]):
         data = dict(np.load(fpath))
-        batch_size = data['observation'].shape[0]
+        batch_size = data["observation"].shape[0]
         return TensorDict(data, batch_size=batch_size)
-    
+
     def render(self, decaps, probe, action_mask, ax=None, legend=True):
         """
         Plot a grid of 1x1 squares representing the environment.

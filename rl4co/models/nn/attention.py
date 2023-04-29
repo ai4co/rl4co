@@ -832,9 +832,10 @@ class LogitAttention(nn.Module):
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
-        logits = (torch.bmm(
-            glimpse, logit_key.squeeze(1).transpose(-2, -1)
-        ) / math.sqrt(glimpse.size(-1))).squeeze(1)
+        logits = (
+            torch.bmm(glimpse, logit_key.squeeze(1).transpose(-2, -1))
+            / math.sqrt(glimpse.size(-1))
+        ).squeeze(1)
 
         # From the logits compute the probabilities by clipping, masking and softmax
         if self.tanh_clipping > 0:
@@ -854,7 +855,7 @@ class LogitAttention(nn.Module):
         q = self._make_heads(query)
         k = self._make_heads(key)
         v = self._make_heads(value)
-        
+
         if self.mask_inner:
             # need to invert mask: (batch, seqlen) -> (batch, 1, 1, seqlen)
             attn_mask = ~mask.unsqueeze(1).unsqueeze(2)
@@ -870,6 +871,8 @@ class LogitAttention(nn.Module):
 
     def _make_heads(self, v):
         # Same as rearrange(v, "b g (h s) -> b h g s", h=self.num_heads) but faster
-        return v.view(v.size(0), self.num_heads, v.size(1), v.size(-1) // self.num_heads)
+        return v.view(
+            v.size(0), self.num_heads, v.size(1), v.size(-1) // self.num_heads
+        )
 
     flash_attn_wrapper = flash_attn_wrapper

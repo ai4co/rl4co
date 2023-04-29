@@ -150,7 +150,6 @@ class RL4COLitModule(LightningModule):
 
 
 if __name__ == "__main__":
-
     # TODO: remove this small test, do this under tests/
     from omegaconf import DictConfig
     from lightning import Trainer

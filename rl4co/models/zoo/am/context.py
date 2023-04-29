@@ -30,7 +30,9 @@ class EnvContext(nn.Module):
         """
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
-        step_context_dim = step_context_dim if step_context_dim is not None else embedding_dim
+        step_context_dim = (
+            step_context_dim if step_context_dim is not None else embedding_dim
+        )
         self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
 
     def _cur_node_embedding(self, embeddings, td):
@@ -74,9 +76,7 @@ class VRPContext(EnvContext):
     def _state_embedding(self, embeddings, td):
         # TODO: check compatibility between CVRP and SDVRP
         # (td['capacity'] - td['used_capacity'])[:, :, None]
-        state_embedding = (
-            td['capacity'] + td['demand'][..., :1]
-        )
+        state_embedding = td["capacity"] + td["demand"][..., :1]
         return state_embedding
 
 
