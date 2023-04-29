@@ -30,7 +30,9 @@ class EnvContext(nn.Module):
         """
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
-        step_context_dim = step_context_dim if step_context_dim is not None else embedding_dim
+        step_context_dim = (
+            step_context_dim if step_context_dim is not None else embedding_dim
+        )
         self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
 
     def _cur_node_embedding(self, embeddings, td):
@@ -43,7 +45,8 @@ class EnvContext(nn.Module):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
-        context_embedding = torch.stack([cur_node_embedding, state_embedding], -1)
+        context_embedding = torch.cat([cur_node_embedding, state_embedding], -1).squeeze()
+        # context_embedding = torch.stack([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
 
 
@@ -75,7 +78,7 @@ class VRPContext(EnvContext):
         # TODO: check compatibility between CVRP and SDVRP
         # (td['capacity'] - td['used_capacity'])[:, :, None]
         state_embedding = (
-            td['capacity'] + td['demand'][..., :1]
+            td['capacity'][..., :, None] + td['demand'][..., :1, None]
         )
         return state_embedding
 

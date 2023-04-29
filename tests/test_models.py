@@ -8,7 +8,7 @@ from rl4co.utils.test_utils import generate_env_data
 @pytest.mark.parametrize("size", [10, 50])
 def test_am(size):
     batch_size = 2
-    env, x = generate_env_data("tsp", size, batch_size)    
+    env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
     model = AttentionModel(env)
     out = model(td, decode_type="sampling")

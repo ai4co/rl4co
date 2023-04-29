@@ -1,6 +1,7 @@
 _target_: rl4co.envs.dpp.DPPEnv
 
 max_decaps: 20
-chip_fpath: data/dpp/10x10_pkg_chip.npy
-decap_fpath: data/dpp/01nF_decap.npy
-freq_fpath: data/dpp/freq_201.npy
+data_dir: ${paths.root_dir}/data/dpp
+# data_dir: ${data_dir}/dpp
+val_file: test.npz # same as test_file due to data scarcity
+test_file: test.npz 

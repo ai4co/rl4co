@@ -1,4 +1,6 @@
-import sys; sys.path.append('./')
+import sys
+
+sys.path.append("./")
 
 import math
 from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
@@ -22,7 +24,12 @@ from rl4co.models.rl.reinforce import *
 from rl4co.models.zoo.am.context import env_context
 from rl4co.models.zoo.am.embeddings import env_init_embedding, env_dynamic_embedding
 from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
-from rl4co.models.zoo.am.decoder import Decoder, decode_probs, PrecomputedCache, LogitAttention
+from rl4co.models.zoo.am.decoder import (
+    Decoder,
+    decode_probs,
+    PrecomputedCache,
+    LogitAttention,
+)
 from rl4co.models.zoo.am.policy import get_log_likelihood
 from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.nn.attention import NativeFlashMHA, flash_attn_wrapper
@@ -32,19 +39,24 @@ from rl4co.envs.sdvrp import SDVRPEnv
 
 
 num_loc = 20
-env = SDVRPEnv(num_loc=num_loc)
+env = SDVRPEnv(
+    num_loc=num_loc,
+    min_demand=1, 
+    max_demand=10,
+    capacity=30
+    )
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # env = TSPEnv(num_loc=15).transform()
 dataset = env.dataset(batch_size=[1000])
 
 dataloader = DataLoader(
-                dataset,
-                batch_size=32,
-                shuffle=False, # no need to shuffle, we're resampling every epoch
-                num_workers=0,
-                collate_fn=TensorDictCollate()
-            )
+    dataset,
+    batch_size=32,
+    shuffle=False,  # no need to shuffle, we're resampling every epoch
+    num_workers=0,
+    collate_fn=TensorDictCollate(),
+)
 
 policy = AttentionModelPolicy(
     env,
@@ -60,8 +72,11 @@ td = env.reset(tensordict=x)
 out = policy(td, decode_type="sampling", return_actions=True)
 print(out)
 
+
 class NCOLightningModule(L.LightningModule):
-    def __init__(self, env, model, lr=1e-4, batch_size=128, train_size=1000, val_size=10000):
+    def __init__(
+        self, env, model, lr=1e-4, batch_size=128, train_size=1000, val_size=10000
+    ):
         super().__init__()
 
         # TODO: hydra instantiation
@@ -82,30 +97,30 @@ class NCOLightningModule(L.LightningModule):
         td = self.env.reset(tensordict=batch)
         output = self.model(td, phase)
         self.log(f"{phase}/cost", -output["reward"].mean(), prog_bar=True)
-        return {"loss": output['loss'] if phase == "train" else None}
+        return {"loss": output["loss"] if phase == "train" else None}
 
-    def training_step(self, batch: Any, batch_idx: int):   
-        return self.shared_step(batch, batch_idx, phase='train')
+    def training_step(self, batch: Any, batch_idx: int):
+        return self.shared_step(batch, batch_idx, phase="train")
 
     def validation_step(self, batch: Any, batch_idx: int):
-        return self.shared_step(batch, batch_idx, phase='val')
+        return self.shared_step(batch, batch_idx, phase="val")
 
     def test_step(self, batch: Any, batch_idx: int):
-        return self.shared_step(batch, batch_idx, phase='test')
+        return self.shared_step(batch, batch_idx, phase="test")
 
     def configure_optimizers(self):
         optim = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=1e-5)
         # optim = Lion(model.parameters(), lr=1e-4, weight_decay=1e-2)
         # TODO: scheduler
         # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, total_steps)
-        return [optim] #, [scheduler]
-    
+        return [optim]  # , [scheduler]
+
     def train_dataloader(self):
         return self._dataloader(self.train_dataset)
-    
+
     def val_dataloader(self):
         return self._dataloader(self.val_dataset)
-    
+
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
@@ -117,18 +132,18 @@ class NCOLightningModule(L.LightningModule):
         # FIXME: batch_size is required for the reset() function
         # return TensorDictDataset(self.env.reset(batch_size=[size])['observation'])
         return self.env.dataset(batch_size=[size])
-       
+
     def _dataloader(self, dataset):
         return DataLoader(
             dataset,
             batch_size=self.batch_size,
-            shuffle=False, # no need to shuffle, we're resampling every epoch
+            shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=0,
-            collate_fn=TensorDictCollate()
+            collate_fn=TensorDictCollate(),
         )
 
 
-batch_size = 128 #1024 #512
+batch_size = 128  # 1024 #512
 epochs = 1
 lr = 1e-4
 train_size = 1280000
@@ -138,7 +153,9 @@ train_size = 1280000
 model = AttentionModel(env, policy)
 
 # Lightning module
-litmodel = NCOLightningModule(env, model, batch_size=batch_size, train_size=train_size, lr=lr)
+litmodel = NCOLightningModule(
+    env, model, batch_size=batch_size, train_size=train_size, lr=lr
+)
 
 # Trick to make calculations faster
 torch.set_float32_matmul_precision("medium")
@@ -148,8 +165,8 @@ torch.set_float32_matmul_precision("medium")
 trainer = L.Trainer(
     max_epochs=epochs,
     accelerator="gpu",
-    log_every_n_steps=100,   
-    gradient_clip_val=1.0, # clip gradients to avoid exploding gradients
+    log_every_n_steps=100,
+    gradient_clip_val=1.0,  # clip gradients to avoid exploding gradients
 )
 
 # Fit the model
