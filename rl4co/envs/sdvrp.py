@@ -26,7 +26,7 @@ class SDVRPEnv(RL4COEnvBase):
         min_demand: float = 0.1,
         max_demand: float = 0.5,
         capacity: float = 1,
-        batch_size: list = []0,
+        batch_size: list = [],
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",

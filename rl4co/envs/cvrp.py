@@ -67,7 +67,7 @@ class CVRPEnv(RL4COEnvBase):
         NOTE:
             - the first node in de demand is larger than 0 or less than 0?
             - this design is important. For now the design is LESS than 0
-        '''
+        """
         current_node = td["action"][..., None]
         demand = td['demand']
 
