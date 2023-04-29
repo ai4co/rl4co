@@ -39,7 +39,12 @@ from rl4co.envs.sdvrp import SDVRPEnv
 
 
 num_loc = 20
-env = SDVRPEnv(num_loc=num_loc)
+env = SDVRPEnv(
+    num_loc=num_loc,
+    min_demand=1, 
+    max_demand=10,
+    capacity=30
+    )
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # env = TSPEnv(num_loc=15).transform()

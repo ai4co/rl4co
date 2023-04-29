@@ -45,7 +45,8 @@ class EnvContext(nn.Module):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
-        context_embedding = torch.stack([cur_node_embedding, state_embedding], -1)
+        context_embedding = torch.cat([cur_node_embedding, state_embedding], -1).squeeze()
+        # context_embedding = torch.stack([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
 
 
@@ -76,7 +77,9 @@ class VRPContext(EnvContext):
     def _state_embedding(self, embeddings, td):
         # TODO: check compatibility between CVRP and SDVRP
         # (td['capacity'] - td['used_capacity'])[:, :, None]
-        state_embedding = td["capacity"] + td["demand"][..., :1]
+        state_embedding = (
+            td['capacity'][..., :, None] + td['demand'][..., :1, None]
+        )
         return state_embedding
 
 

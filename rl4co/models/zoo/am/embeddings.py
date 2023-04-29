@@ -84,12 +84,10 @@ class VRPInitEmbedding(nn.Module):
         depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
         # [batch, n_customer, 2, batch, n_customer, 1]  -> batch, n_customer, embedding_dim
         node_embeddings = self.init_embed(
-            # TODO: check compatibility between CVRP and SDVRP
-            # torch.cat((td["observation"][..., 1:, :], td["demand"][..., :, None]), -1)
-            torch.cat((td["observation"][..., 1:, :], td["demand"][..., 1:, None]), -1)
+            torch.cat((td["observation"], td["demand"][:, :, None]), -1)
         )
         # batch, n_customer+1, embedding_dim
-        out = torch.cat((depot_embedding, node_embeddings), 1)
+        out = torch.cat((depot_embedding, node_embeddings[..., 1:, :]), 1)
         return out
 
 
@@ -168,8 +166,10 @@ class SDVRPDynamicEmbedding(nn.Module):
         self.projection = nn.Linear(1, 3 * embedding_dim, bias=False)
 
     def forward(self, td):
+        demands_with_depot = td["demand"][..., :, None].clone()
+        demands_with_depot[..., 0, :] = 0
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
-            td["demands_with_depot"][..., None, :, None].clone()
+            demands_with_depot
         ).chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
 
