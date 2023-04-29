@@ -16,15 +16,15 @@ from rl4co.data.dataset import TensorDictDataset
 
 
 class OPEnv(EnvBase):
-    batch_locked = False
+    name = "op"
 
     def __init__(
         self,
         num_loc: int = 10,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_demand: float = 0.1,
-        max_demand: float = 0.5,
+        min_prize: float = 0.1,
+        max_prize: float = 0.5,
         length_capacity: float = 1,
         batch_size: list = [],
         td_params: TensorDict = None,
@@ -48,8 +48,8 @@ class OPEnv(EnvBase):
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
-        self.min_demand = min_demand
-        self.max_demand = max_demand
+        self.min_prize = min_prize
+        self.max_prize = max_prize
         self.length_capacity = length_capacity
         self.batch_size = batch_size
         if seed is None:
@@ -62,7 +62,7 @@ class OPEnv(EnvBase):
             - td <TensorDict>: tensor dictionary containing with the action
                 - action <int> [batch_size, 1]: action to take
         NOTE:
-            - the first node in de demand is larger than 0 or less than 0? 
+            - the first node in de prize is larger than 0 or less than 0? 
             - this design is important. For now the design is LESS than 0
         '''
         current_node = td["action"]
@@ -73,17 +73,18 @@ class OPEnv(EnvBase):
         # Collect prize
         prize_collect += torch.gather(prize, 1, current_node).squeeze()
 
-        # Set the visited node demand to -1
-        prize.scatter_(-1, current_node, -1)
+        # Set the visited node prize to -1
+        prize.scatter_(-1, current_node, 0)
 
         # Update the used length capacity
         length_capacity -= (
             torch.gather(td["observation"], -2, current_node) - 
-            torch.gather(td["observation"], -2, td["previous_node"])
+            torch.gather(td["observation"], -2, td["current_node"])
             ).norm(p=2, dim=-1)
 
-        # Get the action mask, no zero demand nodes can be visited
-        action_mask = torch.abs(prize) >= 0
+        # Get the action mask, no zero prize nodes can be visited
+        # TODO: check if the depot can be visited multi times
+        action_mask = torch.abs(prize) > 0
         
         # Nodes distance exceeding length capacity cannot be visited
         length_to_next_node = (
@@ -105,7 +106,7 @@ class OPEnv(EnvBase):
                 "next": {
                     "observation": td["observation"],
                     "length_capacity": td["length_capacity"],
-                    "previsou_node": current_node,
+                    "current_node": current_node,
                     "prize": prize,
                     "prize_collect": prize_collect,
                     "action_mask": action_mask,
@@ -135,13 +136,13 @@ class OPEnv(EnvBase):
         length_capacity = torch.full((*batch_size, 1), self.length_capacity)
 
         # Init the action mask
-        action_mask = td['demand'] > 0
+        action_mask = td['prize'] > 0
 
         return TensorDict(
             {
                 "observation": td["observation"],
                 "length_capacity": length_capacity,
-                "previous_node": current_node,
+                "current_node": current_node,
                 "prize": td["prize"],
                 "prize_collect": torch.zeros_like(td["prize"]),
                 "action_mask": action_mask,
@@ -165,7 +166,7 @@ class OPEnv(EnvBase):
                 shape=(1),
                 dtype=torch.float32,
             ),
-            previous_node=UnboundedDiscreteTensorSpec(
+            current_node=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
@@ -213,14 +214,14 @@ class OPEnv(EnvBase):
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
                 - observation <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
+                - prize <Tensor> [batch_size, num_loc]: prize of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
             - the observation includes the depot as the first node
-            - the demand includes the used capacity at the first value
-            - the unvisited variable can be replaced by demand > 0
+            - the prize includes the used capacity at the first value
+            - the unvisited variable can be replaced by prize > 0
         '''
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -228,10 +229,10 @@ class OPEnv(EnvBase):
         # Initialize the locations (including the depot which is always the first node)
         locs = torch.FloatTensor(*batch_size, self.num_loc, 2).uniform_(self.min_loc, self.max_loc).to(self.device)
 
-        # Initialize the demand
+        # Initialize the prize
         prize = torch.FloatTensor(*batch_size, self.num_loc).uniform_(self.min_prize, self.max_prize).to(self.device)
 
-        # The first demand is the used capacity
+        # The first prize is the used capacity
         prize[..., 0] = 0
 
         return TensorDict(
