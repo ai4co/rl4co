@@ -1,9 +1,10 @@
 from typing import Optional, Union
+import os
+import zipfile
 
 import numpy as np
 import torch
-from torch import Tensor
-from tensordict.tensordict import TensorDict, TensorDictBase
+from tensordict.tensordict import TensorDict
 
 from torchrl.data import (
     BoundedTensorSpec,
@@ -11,41 +12,45 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
-from torchrl.envs import EnvBase, TransformedEnv, RenameTransform
 
-from rl4co.data.dataset import TensorDictDataset
-from rl4co.envs.utils import batch_to_scalar, _set_seed, _getstate_env
+from rl4co.utils.pylogger import get_pylogger
+from rl4co.envs.utils import batch_to_scalar
+from rl4co.envs.base import RL4COEnvBase
+from rl4co.utils.download.downloader import download_url
 
 
-class DPPEnv(EnvBase):
-    batch_locked = False
+log = get_pylogger(__name__)
+
+
+class DPPEnv(RL4COEnvBase):
     name = "dpp"
 
     def __init__(
         self,
         *,
-        size: int = 10,  # size of the grid (size x size)
         min_loc: float = 0,
         max_loc: float = 1,
-        num_freq=201,
         num_keepout_min: int = 1,
         num_keepout_max: int = 50,
         max_decaps: int = 20,
-        chip_fpath="data/dpp/10x10_pkg_chip.npy",
-        decap_fpath="data/dpp/01nF_decap.npy",
-        freq_fpath="data/dpp/freq_201.npy",
+        data_dir: str = "data/dpp/",
+        chip_file: str = "10x10_pkg_chip.npy",
+        decap_file: str = "01nF_decap.npy",
+        freq_file: str = "freq_201.npy",
+        url: str = None,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
-        **kwargs,
+        **envbase_kwargs,
     ):
         """
         Decap placement problem as done in Devformer paper
         """
-        self.size = size
+        envbase_kwargs["data_dir"] = data_dir
+        super().__init__(**envbase_kwargs)
+
+        self.url = "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95" if url is None else url
+        self._load_dpp_data(chip_file, decap_file, freq_file)
         self.min_loc = min_loc
         self.max_loc = max_loc
-        self.num_freq = num_freq
         self.num_keepout_min = num_keepout_min
         self.num_keepout_max = num_keepout_max
         self.max_decaps = max_decaps
@@ -54,51 +59,19 @@ class DPPEnv(EnvBase):
             num_keepout_min <= num_keepout_max
         ), "num_keepout_min must be <= num_keepout_max"
         assert (
-            num_keepout_max <= size * size
+            num_keepout_max <= self.size**2
         ), "num_keepout_max must be <= size * size (total number of locations)"
 
-        with open(freq_fpath, "rb") as f:
-            self.freq = torch.from_numpy(np.load(f)).to(device)
-
-        with open(chip_fpath, "rb") as f:
-            self.raw_pdn = torch.from_numpy(np.load(f)).to(device)
-
-        with open(decap_fpath, "rb") as f:
-            self.decap = torch.from_numpy(np.load(f)).to(torch.complex64).to(device)
-
-        super().__init__(device=device, batch_size=[])
-        # self._make_spec(td_params)
-        self._make_spec()
-        if seed is None:
-            seed = torch.empty((), dtype=torch.int64).random_().item()
-        self.set_seed(seed)
-
-    def get_reward(self, td, actions):
-        """
-        We call the reward function with the final sequence of actions to get the reward
-        Calling per-step would be very time consuming due to decap simulation
-        """
-        # We do the operation in a batch
-        if len(td.batch_size) == 0:
-            td = td.unsqueeze(0)
-            actions = actions.unsqueeze(0)
-        probes = td["probe"]
-        reward = torch.stack(
-            [self._decap_simulator(p, a) for p, a in zip(probes, actions)]
-        )
-        return reward
+        self._make_spec(td_params)
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"]
         first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
-        idxs = (
-            current_node[..., None]
-            if current_node.ndim == 1 and td["action_mask"].ndim == 2
-            else current_node
+        # Set available to 0 (i.e., already placed) if the current node is the first node
+        available = td["action_mask"].scatter(
+            -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
         )
-
-        available = td["action_mask"].scatter(-1, idxs.expand_as(td["action_mask"]), 0)
 
         # Set done if i is greater than max_decaps
         done = td["i"] >= self.max_decaps - 1
@@ -124,37 +97,34 @@ class DPPEnv(EnvBase):
         )
 
     def _reset(
-        self, td: Optional[TensorDict] = None, init_obs=None, batch_size=None
+        self, td: Optional[TensorDict] = None, batch_size=None
     ) -> TensorDict:
-        # If no tensordict (or observations tensor) is passed, we generate a single set of hyperparameters
-        # Otherwise, we assume that the input tensordict contains all the relevant parameters to get started.
+        # Initialize locations
         if batch_size is None:
-            batch_size = self.batch_size if init_obs is None else init_obs.batch_size
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-        device = init_obs.device if init_obs is not None else self.device
-        self.device = device
+            batch_size = self.batch_size if td is None else td.batch_size
+        self.device = td.device if td is not None else self.device
 
         # We allow loading the initial observation from a dataset for faster loading
-        if init_obs is None:
-            init_obs = self.generate_data(batch_size=batch_size)
+        if td is None:
+            td = self.generate_data(batch_size=batch_size)
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         return TensorDict(
             {
-                "observation": init_obs["observation"],
-                "probe": init_obs["probe"],
+                "observation": td["observation"],
+                "probe": td["probe"],
                 "first_node": current_node,
                 "current_node": current_node,
                 "i": i,
-                "action_mask": init_obs["action_mask"],
+                "action_mask": td["action_mask"],
             },
             batch_size=batch_size,
         )
 
-    def _make_spec(self):
+    def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
@@ -180,7 +150,6 @@ class DPPEnv(EnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                # shape=(1, self.size**2),
                 shape=(self.size**2),
                 dtype=torch.bool,
             ),
@@ -196,10 +165,21 @@ class DPPEnv(EnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def dataset(self, batch_size):
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
-
+    def get_reward(self, td, actions):
+        """
+        We call the reward function with the final sequence of actions to get the reward
+        Calling per-step would be very time consuming due to decap simulation
+        """
+        # We do the operation in a batch
+        if len(td.batch_size) == 0:
+            td = td.unsqueeze(0)
+            actions = actions.unsqueeze(0)
+        probes = td["probe"]
+        reward = torch.stack(
+            [self._decap_simulator(p, a) for p, a in zip(probes, actions)]
+        )
+        return reward
+    
     def generate_data(self, batch_size):
         """
         Generate initial observations for the environment with locations, probe, and action mask
@@ -246,7 +226,7 @@ class DPPEnv(EnvBase):
             },
             batch_size=batch_size,
         )
-
+    
     def _decap_placement(self, pi, probe):
         device = pi.device
 
@@ -324,13 +304,34 @@ class DPPEnv(EnvBase):
         reward = self._decap_model(z_initial, z_final)
         return reward
 
-    def transform(self):
-        return self
+    def _load_dpp_data(self, chip_file, decap_file, freq_file):
 
-    __getstate__ = _getstate_env
+        def _load_file(fpath):
+            f = os.path.join(self.data_dir, fpath)
+            if not os.path.isfile(f):
+                self._download_data()
+            with open(f, "rb") as f_:
+                return torch.from_numpy(np.load(f_)).to(self.device)
+            
+        self.raw_pdn = _load_file(chip_file) # [num_freq, size^2, size^2]
+        self.decap = _load_file(decap_file).to(torch.complex64) # [num_freq, 1, 1]
+        self.freq = _load_file(freq_file) # [num_freq]
+        self.size = int(np.sqrt(self.raw_pdn.shape[-1]))
+        self.num_freq = self.freq.shape[0]
 
-    _set_seed = _set_seed
+    def _download_data(self):
+        log.info("Downloading data...")
+        download_url(self.url, self.data_dir, 'data.zip')
+        log.info("Download complete. Unzipping...")
+        zipfile.ZipFile(os.path.join(self.data_dir, 'data.zip'), 'r').extractall(self.data_dir)
+        log.info("Unzip complete. Removing zip file")
+        os.remove(os.path.join(self.data_dir, 'data.zip'))
 
+    def load_data(self, fpath, batch_size=[]):
+        data = dict(np.load(fpath))
+        batch_size = data['observation'].shape[0]
+        return TensorDict(data, batch_size=batch_size)
+    
     def render(self, decaps, probe, action_mask, ax=None, legend=True):
         """
         Plot a grid of 1x1 squares representing the environment.
@@ -403,11 +404,3 @@ class DPPEnv(EnvBase):
                 loc="upper center",
                 bbox_to_anchor=(0.5, 1.1),
             )
-
-
-if __name__ == "__main__":
-    env = DPPEnv(size=10)
-    batch_size = 2
-    td = env.reset(batch_size=batch_size)
-    print("Shape: ", td.shape)
-    print("Keys: ", td.keys())
