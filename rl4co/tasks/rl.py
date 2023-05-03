@@ -69,8 +69,10 @@ class RL4COLitModule(LightningModule):
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
-        self.train_dataset = self.env.dataset(self.cfg.data.train_size)
-        self.val_dataset = self.env.dataset(self.cfg.data.val_size)
+        self.train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
+        self.val_dataset = self.env.dataset(self.cfg.data.val_size, "val")
+        test_size = self.cfg.data.get("test_size", self.cfg.data.val_size)
+        self.test_dataset = self.env.dataset(test_size, "test")
         if hasattr(self.model, "setup"):
             self.model.setup(self)
 
@@ -132,11 +134,14 @@ class RL4COLitModule(LightningModule):
 
     def val_dataloader(self):
         return self._dataloader(self.val_dataset)
+    
+    def test_dataloader(self):
+        return self._dataloader(self.test_dataset)
 
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
-        self.train_dataset = self.env.dataset(self.cfg.data.train_size)
+        self.train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
 
     def _dataloader(self, dataset):
         return DataLoader(
