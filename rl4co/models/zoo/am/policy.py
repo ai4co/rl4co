@@ -24,6 +24,9 @@ class AttentionModelPolicy(nn.Module):
         checkpoint_encoder: bool = False,
         mask_inner: bool = True,
         force_flash_attn: bool = False,
+        train_decode_type: str = "sampling",
+        val_decode_type: str = "greedy",
+        test_decode_type: str = "greedy",
         **kwargs
     ):
         super(AttentionModelPolicy, self).__init__()
@@ -63,17 +66,26 @@ class AttentionModelPolicy(nn.Module):
             if decoder is None
             else decoder
         )
+        
+        self.train_decode_type = train_decode_type
+        self.val_decode_type = val_decode_type
+        self.test_decode_type = test_decode_type
 
     def forward(
         self,
         td: TensorDict,
         phase: str = "train",
-        decode_type: str = "sampling",
+        decode_type: str = None,
         return_actions: bool = False,
     ) -> TensorDict:
         # Encode and get embeddings
         embedding = self.init_embedding(td)
         encoded_inputs, _ = self.encoder(embedding)
+
+        # Get decode type depending on phase
+        # NOTE: we will update with more options later
+        if decode_type is None:
+            decode_type = getattr(self, f"{phase}_decode_type")
 
         # Decode to get log_p, action and new state
         log_p, actions, td = self.decoder(td, encoded_inputs, decode_type)
