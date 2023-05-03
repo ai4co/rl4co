@@ -18,18 +18,26 @@ from torchrl.data import (
 from rl4co.envs import RL4COEnvBase
 
 
+# Default capacities https://arxiv.org/abs/1803.08475
+CAPACITIES = {
+    10: 20.,
+    20: 30.,
+    50: 40.,
+    100: 50.
+}
+
+
 class CVRPEnv(RL4COEnvBase):
     name = "cvrp"
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_demand: float = 0.1,
-        max_demand: float = 0.5,
-        capacity: float = 1,
-        batch_size: list = [],
+        min_demand: float = 1,
+        max_demand: float = 10,
+        capacity: float = None,
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
@@ -54,8 +62,9 @@ class CVRPEnv(RL4COEnvBase):
         self.max_loc = max_loc
         self.min_demand = min_demand
         self.max_demand = max_demand
-        self.capacity = capacity
-        self.batch_size = batch_size
+        self.capacity = CAPACITIES.get(num_loc, None) if capacity is None else capacity
+        if self.capacity is None:
+            raise ValueError(f"Capacity for {num_loc} locations is not defined. Please provide a capacity manually.")
         self._make_spec(td_params)
 
     @staticmethod
