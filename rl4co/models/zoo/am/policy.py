@@ -4,10 +4,10 @@ import torch.nn as nn
 from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
 
-from rl4co.models.zoo.am.embeddings import env_init_embedding
-from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
+from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.zoo.am.decoder import Decoder
-from rl4co.models.zoo.am.utils import get_log_likelihood
+from rl4co.models.nn.utils import get_log_likelihood
 
 
 class AttentionModelPolicy(nn.Module):
@@ -27,7 +27,6 @@ class AttentionModelPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
-        **kwargs
     ):
         super(AttentionModelPolicy, self).__init__()
 
@@ -75,20 +74,19 @@ class AttentionModelPolicy(nn.Module):
         self,
         td: TensorDict,
         phase: str = "train",
-        decode_type: str = None,
         return_actions: bool = False,
+        **decoder_kwargs
     ) -> TensorDict:
         # Encode and get embeddings
         embedding = self.init_embedding(td)
-        encoded_inputs, _ = self.encoder(embedding)
+        encoded_inputs = self.encoder(embedding)
 
         # Get decode type depending on phase
-        # NOTE: we will update with more options later
-        if decode_type is None:
-            decode_type = getattr(self, f"{phase}_decode_type")
+        if decoder_kwargs.get("decode_type", None) is None:
+            decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # Decode to get log_p, action and new state
-        log_p, actions, td = self.decoder(td, encoded_inputs, decode_type)
+        log_p, actions, td = self.decoder(td, encoded_inputs, **decoder_kwargs)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
         ll = get_log_likelihood(log_p, actions, td.get("mask", None))
@@ -98,40 +96,3 @@ class AttentionModelPolicy(nn.Module):
             "actions": actions if return_actions else None,
         }
         return out
-
-
-if __name__ == "__main__":
-    from torch.utils.data import DataLoader
-
-    from rl4co.envs.tsp import TSPEnv
-    from rl4co.data.dataset import TorchDictDataset
-
-    env = TSPEnv(num_loc=10).transform()
-
-    init_td = env.reset(batch_size=[10000])
-    dataset = TorchDictDataset(init_td)
-
-    dataloader = DataLoader(
-        dataset,
-        batch_size=32,
-        shuffle=False,  # no need to shuffle, we're resampling every epoch
-        num_workers=0,
-        collate_fn=torch.stack,  # we need this to stack the batches in the dataset
-    )
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    model = AttentionModelPolicy(
-        env,
-        embedding_dim=128,
-        hidden_dim=128,
-        num_encode_layers=3,
-        # force_flash_attn=True,
-    ).to(device)
-
-    x = next(iter(dataloader)).to(device)
-
-    print("Input TensorDict shape: ", x.shape)
-
-    out = model(x, decode_type="sampling")
-    print("Out reward shape: ", out["reward"].shape)

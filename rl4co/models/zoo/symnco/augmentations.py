@@ -36,16 +36,15 @@ def env_aug_feats(env_name: str):
 
 
 class StateAugmentation(nn.Module):
-    def __init__(self, env_name, num_augment: int = 8):
+    def __init__(self, env_name: str):
         """Augment state by N times via symmetric rotation/reflection transform"""
         super(StateAugmentation, self).__init__()
-        self.num_augment = num_augment
         self.augmentation = augment_xy_data_by_n_fold
         self.feats = env_aug_feats(env_name)
 
-    def forward(self, td: TensorDict) -> TensorDict:
-        td_aug = batchify(td, self.num_augment)
+    def forward(self, td: TensorDict, num_augment: int = 8) -> TensorDict:
+        td_aug = batchify(td, num_augment)
         for feat in self.feats:
-            aug_feat = self.augmentation(td_aug[feat], self.num_augment)
+            aug_feat = self.augmentation(td_aug[feat], num_augment)
             td_aug[feat] = aug_feat
         return td_aug
