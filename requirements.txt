@@ -1,7 +1,7 @@
 # Torch, TorchRL and Lightning
 torch>= 2.0.0
-torchrl>=0.1.0
-tensordict>=0.0.3
+torchrl>=0.1.1
+tensordict>=0.1.1
 lightning>=2.0.0
 
 # Hydra
