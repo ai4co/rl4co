@@ -334,7 +334,8 @@ class DPPEnv(RL4COEnvBase):
 
     def load_data(self, fpath, batch_size=[]):
         data = dict(np.load(fpath))
-        batch_size = data["locs"].shape[0]
+        batch_size = data["observation"].shape[0]
+        data["locs"] = data.pop("observation")  # rename observation to locs
         return TensorDict(data, batch_size=batch_size)
 
     def render(self, decaps, probe, action_mask, ax=None, legend=True):
