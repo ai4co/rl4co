@@ -87,7 +87,7 @@ class DPPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "probe": td["probe"],
                     "first_node": first_node,
                     "current_node": current_node,
@@ -118,7 +118,7 @@ class DPPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": td["observation"],
+                "locs": td["locs"],
                 "probe": td["probe"],
                 "first_node": current_node,
                 "current_node": current_node,
@@ -131,7 +131,7 @@ class DPPEnv(RL4COEnvBase):
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.size**2, 2),
@@ -195,7 +195,7 @@ class DPPEnv(RL4COEnvBase):
         batched = len(batch_size) > 0
         bs = [1] if not batched else batch_size
 
-        # Create a list of observations on a grid
+        # Create a list of locs on a grid
         locs = torch.meshgrid(
             torch.arange(m, device=self.device), torch.arange(n, device=self.device)
         )
@@ -224,7 +224,7 @@ class DPPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": locs if batched else locs.squeeze(0),
+                "locs": locs if batched else locs.squeeze(0),
                 "probe": probe if batched else probe.squeeze(0),
                 "action_mask": available if batched else available.squeeze(0),
             },
@@ -334,7 +334,7 @@ class DPPEnv(RL4COEnvBase):
 
     def load_data(self, fpath, batch_size=[]):
         data = dict(np.load(fpath))
-        batch_size = data["observation"].shape[0]
+        batch_size = data["locs"].shape[0]
         return TensorDict(data, batch_size=batch_size)
 
     def render(self, decaps, probe, action_mask, ax=None, legend=True):

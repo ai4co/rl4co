@@ -49,10 +49,10 @@ class PointerNetworkPolicy(nn.Module):
     def forward(
         self, td, phase: str = "train", decode_type="sampling", eval_tours=None
     ):
-        batch_size, graph_size, input_dim = td["observation"].size()
+        batch_size, graph_size, input_dim = td["locs"].size()
 
         embedded_inputs = torch.mm(
-            td["observation"].transpose(0, 1).contiguous().view(-1, input_dim),
+            td["locs"].transpose(0, 1).contiguous().view(-1, input_dim),
             self.embedding,
         ).view(graph_size, batch_size, -1)
 

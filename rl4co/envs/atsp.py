@@ -70,7 +70,7 @@ class ATSPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "cost_matrix": td["cost_matrix"],
                     "first_node": first_node,
                     "current_node": current_node,
                     "i": td["i"] + 1,
@@ -84,13 +84,13 @@ class ATSPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize distance matrix
-        init_dm = td["observation"] if td is not None else None  # dm = distance matrix
+        cost_matrix = td["cost_matrix"] if td is not None else None  # dm = distance matrix
         if batch_size is None:
-            batch_size = self.batch_size if init_dm is None else init_dm.shape[:-2]
-        self.device = device = init_dm.device if init_dm is not None else self.device
-        if init_dm is None:
-            init_dm = self.generate_data(batch_size=batch_size).to(device)[
-                "observation"
+            batch_size = self.batch_size if cost_matrix is None else cost_matrix.shape[:-2]
+        self.device = device = cost_matrix.device if cost_matrix is not None else self.device
+        if cost_matrix is None:
+            cost_matrix = self.generate_data(batch_size=batch_size).to(device)[
+                "cost_matrix"
             ]
 
         # Other variables
@@ -102,7 +102,7 @@ class ATSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": init_dm,
+                "cost_matrix": cost_matrix,
                 "first_node": current_node,
                 "current_node": current_node,
                 "i": i,
@@ -113,7 +113,7 @@ class ATSPEnv(RL4COEnvBase):
 
     def _make_spec(self, td_params: TensorDict = None):
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            cost_matrix=BoundedTensorSpec(
                 minimum=self.min_dist,
                 maximum=self.max_dist,
                 shape=(self.num_loc, self.num_loc),
@@ -148,7 +148,7 @@ class ATSPEnv(RL4COEnvBase):
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     def get_reward(self, td, actions) -> TensorDict:
-        distance_matrix = td["observation"]
+        distance_matrix = td["cost_matrix"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -183,7 +183,7 @@ class ATSPEnv(RL4COEnvBase):
                 ).min(dim=-1)
                 if (dms == old_dms).all():
                     break
-        return TensorDict({"observation": dms}, batch_size=batch_size)
+        return TensorDict({"cost_matrix": dms}, batch_size=batch_size)
 
     def render(self, td):
         try:
@@ -203,7 +203,7 @@ class ATSPEnv(RL4COEnvBase):
         tgt_nodes = torch.roll(td["action"], 1, dims=0)
 
         # Plot with networkx
-        G = nx.DiGraph(td["observation"].numpy())
+        G = nx.DiGraph(td["cost_matrix"].numpy())
         pos = nx.spring_layout(G)
         nx.draw(
             G,
