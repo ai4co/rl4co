@@ -32,7 +32,7 @@ class OPEnv(EnvBase):
         device: str = "cpu",
         **kwargs,
     ):
-        """ Orienteering Problem (OP) environment
+        """Orienteering Problem (OP) environment
         At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
 
         Args:
@@ -59,19 +59,19 @@ class OPEnv(EnvBase):
         self.set_seed(seed)
 
     def _step(self, td: TensorDict) -> TensorDict:
-        ''' Update the states of the environment
+        """Update the states of the environment
         Args:
             - td <TensorDict>: tensor dictionary containing with the action
                 - action <int> [batch_size, 1]: action to take
         NOTE:
-            - the first node in de prize is larger than 0 or less than 0? 
+            - the first node in de prize is larger than 0 or less than 0?
             - this design is important. For now the design is LESS than 0
-        '''
+        """
         current_node = td["action"][..., None]
         current_node_expand = current_node[..., None].repeat_interleave(2, dim=-1)
         length_capacity = td["length_capacity"]
-        prize = td['prize']
-        prize_collect = td['prize_collect']
+        prize = td["prize"]
+        prize_collect = td["prize_collect"]
 
         # Collect prize
         prize_collect += torch.gather(prize, -1, current_node)
@@ -81,22 +81,28 @@ class OPEnv(EnvBase):
 
         # Update the used length capacity
         length_capacity -= (
-            torch.gather(td["observation"], -2, current_node_expand) - 
-            torch.gather(td["observation"], -2, td["current_node"][..., None].repeat_interleave(2, dim=-1))
-            ).norm(p=2, dim=-1)
+            torch.gather(td["observation"], -2, current_node_expand)
+            - torch.gather(
+                td["observation"],
+                -2,
+                td["current_node"][..., None].repeat_interleave(2, dim=-1),
+            )
+        ).norm(p=2, dim=-1)
 
         # Get the action mask, no zero prize nodes can be visited
         action_mask = prize > 0
-        
+
         # Nodes distance exceeding length capacity cannot be visited
         length_to_next_node = (
             td["observation"] - torch.gather(td["observation"], -2, current_node_expand)
-            ).norm(p=2, dim=-1)
+        ).norm(p=2, dim=-1)
         length_to_next_node_and_return = length_to_next_node + td["length_to_depot"]
-        action_mask = torch.logical_and(action_mask, length_to_next_node_and_return <= length_capacity)
+        action_mask = torch.logical_and(
+            action_mask, length_to_next_node_and_return <= length_capacity
+        )
 
         # We are done if run out the lenght capacity, i.e. no available node to visit
-        done = (torch.count_nonzero(action_mask.float(), dim=-1) <= 0) 
+        done = torch.count_nonzero(action_mask.float(), dim=-1) <= 0
 
         # If done, then set the depot be always available
         action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
@@ -124,35 +130,49 @@ class OPEnv(EnvBase):
             td.shape,
         )
 
-
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        ''' 
+        """
         Args:
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
-        '''
+        """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td['observation'].shape[:-2]
+            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
         # Initialize the current node
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros(
+            (*batch_size, 1), dtype=torch.int64, device=self.device
+        )
 
         # Initialize the capacity
-        length_capacity = torch.full((*batch_size, 1), self.length_capacity, dtype=torch.float32, device=self.device)
+        length_capacity = torch.full(
+            (*batch_size, 1),
+            self.length_capacity,
+            dtype=torch.float32,
+            device=self.device,
+        )
 
         # Calculate the lenght of each node back to the depot
-        length_to_depot = (td["observation"] - td["depot"][..., None, :]).norm(p=2, dim=-1)
+        length_to_depot = (td["observation"] - td["depot"][..., None, :]).norm(
+            p=2, dim=-1
+        )
 
         # Init the action mask
-        action_mask = td['prize'] > 0
+        action_mask = td["prize"] > 0
 
         # Calculate the distance of each node at this moment
-        current_node_loccation = torch.gather(td["observation"], -2, current_node[..., None].repeat_interleave(2, dim=-1))
-        length_to_next_node = (td["observation"] - current_node_loccation).norm(p=2, dim=-1)
+        current_node_loccation = torch.gather(
+            td["observation"], -2, current_node[..., None].repeat_interleave(2, dim=-1)
+        )
+        length_to_next_node = (td["observation"] - current_node_loccation).norm(
+            p=2, dim=-1
+        )
         length_to_next_node_and_return = length_to_next_node + length_to_depot
-        action_mask = torch.logical_and(action_mask, length_to_next_node_and_return <= length_capacity)
+        action_mask = torch.logical_and(
+            action_mask, length_to_next_node_and_return <= length_capacity
+        )
 
         return TensorDict(
             {
@@ -167,9 +187,8 @@ class OPEnv(EnvBase):
             batch_size=batch_size,
         )
 
-
     def _make_spec(self, td_params: TensorDict = None):
-        """ Make the observation and action specs from the parameters. """
+        """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             observation=BoundedTensorSpec(
                 minimum=self.min_loc,
@@ -218,20 +237,20 @@ class OPEnv(EnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
-    
+
     def get_reward(self, td, actions) -> TensorDict:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
         return td["prize_collect"]
-    
+
     def dataset(self, batch_size):
         """Return a dataset of observations"""
         observation = self.generate_data(batch_size)
         return TensorDictDataset(observation)
 
     def generate_data(self, batch_size):
-        ''' 
+        """
         Args:
             - batch_size <int> or <list>: batch size
         Returns:
@@ -245,15 +264,23 @@ class OPEnv(EnvBase):
             - the observation includes the depot as the first node
             - the prize includes the used capacity at the first value
             - the unvisited variable can be replaced by prize > 0
-        '''
+        """
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = torch.FloatTensor(*batch_size, self.num_loc, 2).uniform_(self.min_loc, self.max_loc).to(self.device)
+        locs = (
+            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            .uniform_(self.min_loc, self.max_loc)
+            .to(self.device)
+        )
 
         # Initialize the prize
-        prize = torch.FloatTensor(*batch_size, self.num_loc).uniform_(self.min_prize, self.max_prize).to(self.device)
+        prize = (
+            torch.FloatTensor(*batch_size, self.num_loc)
+            .uniform_(self.min_prize, self.max_prize)
+            .to(self.device)
+        )
 
         # Depot has no prize
         prize[..., 0] = 0
@@ -263,8 +290,8 @@ class OPEnv(EnvBase):
                 "observation": locs,
                 "depot": locs[..., 0, :],
                 "prize": prize,
-            }, 
-            batch_size=batch_size
+            },
+            batch_size=batch_size,
         )
 
     def transform(self):

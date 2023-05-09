@@ -77,7 +77,6 @@ class SymNCOPolicy(nn.Module):
             else projection_head
         )
 
-
     def forward(
         self,
         td: TensorDict,

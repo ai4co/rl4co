@@ -84,10 +84,16 @@ class ATSPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize distance matrix
-        cost_matrix = td["cost_matrix"] if td is not None else None  # dm = distance matrix
+        cost_matrix = (
+            td["cost_matrix"] if td is not None else None
+        )  # dm = distance matrix
         if batch_size is None:
-            batch_size = self.batch_size if cost_matrix is None else cost_matrix.shape[:-2]
-        self.device = device = cost_matrix.device if cost_matrix is not None else self.device
+            batch_size = (
+                self.batch_size if cost_matrix is None else cost_matrix.shape[:-2]
+            )
+        self.device = device = (
+            cost_matrix.device if cost_matrix is not None else self.device
+        )
         if cost_matrix is None:
             cost_matrix = self.generate_data(batch_size=batch_size).to(device)[
                 "cost_matrix"

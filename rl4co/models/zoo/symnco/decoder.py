@@ -155,6 +155,8 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute logits
-        log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask, softmax_temp)
+        log_p = self.logit_attention(
+            query, glimpse_key, glimpse_key, logit_key, mask, softmax_temp
+        )
 
         return log_p, mask

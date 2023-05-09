@@ -40,12 +40,12 @@ from rl4co.envs.op import OPEnv
 num_loc = 20
 device = "cuda" if torch.cuda.is_available() else "cpu"
 env = OPEnv(
-    num_loc=num_loc, 
-    min_loc=0, 
+    num_loc=num_loc,
+    min_loc=0,
     max_loc=1,
-    min_prize=1, 
-    max_prize=10, 
-    length_capacity=5, 
+    min_prize=1,
+    max_prize=10,
+    length_capacity=5,
     batch_size=[32],
     device=device,
 )

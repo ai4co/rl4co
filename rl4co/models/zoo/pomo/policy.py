@@ -19,7 +19,7 @@ class POMOPolicy(nn.Module):
         embedding_dim: int = 128,
         hidden_dim: int = 128,
         num_pomo: int = 10,
-        num_encode_layers: int = 6, # NOTE: used in the original paper, but may not be fair to compare with AM
+        num_encode_layers: int = 6,  # NOTE: used in the original paper, but may not be fair to compare with AM
         normalization: str = "batch",
         num_heads: int = 8,
         checkpoint_encoder: bool = False,
@@ -77,7 +77,7 @@ class POMOPolicy(nn.Module):
         td: TensorDict,
         phase: str = "train",
         return_actions: bool = False,
-        **decoder_kwargs
+        **decoder_kwargs,
     ) -> TensorDict:
         """Given observation, precompute embeddings and rollout"""
 

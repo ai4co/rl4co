@@ -134,7 +134,7 @@ class RL4COLitModule(LightningModule):
 
     def val_dataloader(self):
         return self._dataloader(self.val_dataset)
-    
+
     def test_dataloader(self):
         return self._dataloader(self.test_dataset)
 

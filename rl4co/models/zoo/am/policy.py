@@ -65,7 +65,7 @@ class AttentionModelPolicy(nn.Module):
             if decoder is None
             else decoder
         )
-        
+
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
@@ -75,7 +75,7 @@ class AttentionModelPolicy(nn.Module):
         td: TensorDict,
         phase: str = "train",
         return_actions: bool = False,
-        **decoder_kwargs
+        **decoder_kwargs,
     ) -> TensorDict:
         # Encode and get embeddings
         embedding = self.init_embedding(td)
