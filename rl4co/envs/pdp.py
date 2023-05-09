@@ -28,9 +28,13 @@ class PDPEnv(RL4COEnvBase):
         device: str = "cpu",
     ):
         """
-        Traveling Salesman Problem environment
-        At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
-        In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
+        Pickup and Delivery Problem (PDP) environment
+        The environment is made of num_loc + 1 locations (cities):
+        - 1 depot
+        - num_loc / 2 pickup locations
+        - num_loc / 2 delivery locations
+        The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
+        The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
 
         Args:
             num_loc: number of locations (cities) in the TSP
