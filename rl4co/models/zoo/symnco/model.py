@@ -64,7 +64,7 @@ class SymNCO(nn.Module):
         # Init vals
         loss_retvals, multi_start_retvals, aug_retvals = {}, {}, {}
         return_action = policy_kwargs.get("return_actions", False)
-        num_starts  = self.policy.decoder.num_starts
+        num_starts = self.policy.decoder.num_starts
 
         # Augment data
         if phase == "train" or self.augment_test:
@@ -81,9 +81,7 @@ class SymNCO(nn.Module):
 
         if phase == "train":
             # [batch_size, num_augment, num_starts]
-            ll = unbatchify(
-                unbatchify(out["log_likelihood"], num_starts), aug_size
-            )
+            ll = unbatchify(unbatchify(out["log_likelihood"], num_starts), aug_size)
             loss_ps = problem_symmetricity_loss(reward, ll)
             loss_ss = solution_symmetricity_loss(reward, ll)
             loss_inv = invariance_loss(out["proj_embeddings"], self.num_augment)

@@ -21,7 +21,9 @@ class HeterogeneousAttentionModel(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = HeterogeneousAttentionModelPolicy(env) if policy is None else policy
+        self.policy = (
+            HeterogeneousAttentionModelPolicy(env) if policy is None else policy
+        )
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )

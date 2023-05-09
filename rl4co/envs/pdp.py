@@ -48,11 +48,11 @@ class PDPEnv(RL4COEnvBase):
     def _step(td: TensorDict) -> TensorDict:
         current_node = td["action"].unsqueeze(-1)
 
-        num_loc = td['locs'].shape[-2] - 1 # except depot
+        num_loc = td["locs"].shape[-2] - 1  # except depot
 
         # Pickup and delivery node pair of selected node
-        new_to_deliver = (current_node +  num_loc // 2) % (num_loc + 1)
-        
+        new_to_deliver = (current_node + num_loc // 2) % (num_loc + 1)
+
         # Set available to 0 (i.e., we visited the node)
         available = td["available"].scatter(
             -1, current_node.expand_as(td["action_mask"]), 0
@@ -97,18 +97,27 @@ class PDPEnv(RL4COEnvBase):
             init_locs.device if init_locs is not None else self.device
         )
         if init_locs is None:
-            init_locs = self.generate_data(batch_size=batch_size)['locs'].to(device)
+            init_locs = self.generate_data(batch_size=batch_size)["locs"].to(device)
 
         # Pick is 1, deliver is 0 [batch_size, graph_size+1], [1,1...1, 0...0]
-        to_deliver = torch.cat([torch.ones(*batch_size, self.num_loc // 2 + 1, dtype=torch.bool, device=device),
-            torch.zeros(*batch_size, self.num_loc // 2, dtype=torch.bool, device=device)], dim=-1) 
-        
+        to_deliver = torch.cat(
+            [
+                torch.ones(
+                    *batch_size, self.num_loc // 2 + 1, dtype=torch.bool, device=device
+                ),
+                torch.zeros(
+                    *batch_size, self.num_loc // 2, dtype=torch.bool, device=device
+                ),
+            ],
+            dim=-1,
+        )
+
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
             (*batch_size, self.num_loc + 1), dtype=torch.bool, device=device
         )
-        action_mask = ~available.contiguous() # [batch_size, graph_size+1]
-        action_mask[..., 0] = 1 # First step is always the depot
+        action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
+        action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -116,7 +125,7 @@ class PDPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "locs": init_locs, # init_locs [..., 0] is depot
+                "locs": init_locs,  # init_locs [..., 0] is depot
                 "current_node": current_node,
                 "to_deliver": to_deliver,
                 "available": available,
@@ -163,16 +172,28 @@ class PDPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:        
-        assert (actions[:, 0]==0).all(), "Not starting at depot"
-        assert (torch.arange(actions.size(1), out=actions.data.new()).view(1, -1).expand_as(actions) == actions.data.sort(1)[0]).all(), "Not visiting all nodes"
+    def get_reward(self, td, actions) -> TensorDict:
+        assert (actions[:, 0] == 0).all(), "Not starting at depot"
+        assert (
+            torch.arange(actions.size(1), out=actions.data.new())
+            .view(1, -1)
+            .expand_as(actions)
+            == actions.data.sort(1)[0]
+        ).all(), "Not visiting all nodes"
 
-        visited_time = torch.argsort(actions, 1)  # index of pickup less than index of delivery 
-        assert (visited_time[:, 1:actions.size(1) // 2 + 1] < visited_time[:, actions.size(1) // 2 + 1:]).all(), "Deliverying without pick-up"
-        
+        visited_time = torch.argsort(
+            actions, 1
+        )  # index of pickup less than index of delivery
+        assert (
+            visited_time[:, 1 : actions.size(1) // 2 + 1]
+            < visited_time[:, actions.size(1) // 2 + 1 :]
+        ).all(), "Deliverying without pick-up"
+
         # Gather locations in the order of actions and get reward = -(total distance)
-        locs = td['locs'].gather(1, actions.unsqueeze(-1).expand_as(td['locs']))  # [batch, graph_size+1, 2]
-        locs_next = torch.roll(locs, 1, dims=1) 
+        locs = td["locs"].gather(
+            1, actions.unsqueeze(-1).expand_as(td["locs"])
+        )  # [batch, graph_size+1, 2]
+        locs_next = torch.roll(locs, 1, dims=1)
         return -(locs_next - locs).norm(p=2, dim=2).sum(1)
 
     def generate_data(self, batch_size) -> TensorDict:
@@ -184,11 +205,15 @@ class PDPEnv(RL4COEnvBase):
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
-        return TensorDict({"locs": locs}, batch_size=batch_size,)
+        return TensorDict(
+            {"locs": locs},
+            batch_size=batch_size,
+        )
 
     @staticmethod
     def render(td, actions):
         import matplotlib.pyplot as plt
+
         markersize = 8
 
         td = td.detach().cpu()
@@ -198,33 +223,61 @@ class PDPEnv(RL4COEnvBase):
             actions = actions[0]
 
         # Variables
-        init_deliveries = td['to_deliver'][1:]
-        delivery_locs = td['locs'][1:][~init_deliveries.bool()]
-        pickup_locs = td['locs'][1:][init_deliveries.bool()]
-        depot_loc = td['locs'][0]
+        init_deliveries = td["to_deliver"][1:]
+        delivery_locs = td["locs"][1:][~init_deliveries.bool()]
+        pickup_locs = td["locs"][1:][init_deliveries.bool()]
+        depot_loc = td["locs"][0]
 
         fig, ax = plt.subplots()
 
         # Plot the actions in order
         for i in range(len(actions)):
             from_node = actions[i]
-            to_node = actions[i+1] if i < len(actions)-1 else actions[0] # last goes back to depot
-            from_loc = td['locs'][from_node]
-            to_loc = td['locs'][to_node]
-            ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], 'k-')
-            ax.annotate("", xy=(to_loc[0], to_loc[1]), xytext=(from_loc[0], from_loc[1]),
-                        arrowprops=dict(arrowstyle="->", color='black'), annotation_clip=False)
+            to_node = (
+                actions[i + 1] if i < len(actions) - 1 else actions[0]
+            )  # last goes back to depot
+            from_loc = td["locs"][from_node]
+            to_loc = td["locs"][to_node]
+            ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], "k-")
+            ax.annotate(
+                "",
+                xy=(to_loc[0], to_loc[1]),
+                xytext=(from_loc[0], from_loc[1]),
+                arrowprops=dict(arrowstyle="->", color="black"),
+                annotation_clip=False,
+            )
 
         # Plot the depot location
-        ax.plot(depot_loc[0], depot_loc[1], "g", marker='s', markersize=markersize, label='Depot')
+        ax.plot(
+            depot_loc[0],
+            depot_loc[1],
+            "g",
+            marker="s",
+            markersize=markersize,
+            label="Depot",
+        )
 
         # Plot the pickup locations
         for i, pickup_loc in enumerate(pickup_locs):
-            ax.plot(pickup_loc[0], pickup_loc[1], 'r', marker='^', markersize=markersize, label='Pickup' if i == 0 else None)
+            ax.plot(
+                pickup_loc[0],
+                pickup_loc[1],
+                "r",
+                marker="^",
+                markersize=markersize,
+                label="Pickup" if i == 0 else None,
+            )
 
         # Plot the delivery locations
         for i, delivery_loc in enumerate(delivery_locs):
-            ax.plot(delivery_loc[0], delivery_loc[1], 'b', marker='v', markersize=markersize, label='Delivery' if i == 0 else None)
+            ax.plot(
+                delivery_loc[0],
+                delivery_loc[1],
+                "b",
+                marker="v",
+                markersize=markersize,
+                label="Delivery" if i == 0 else None,
+            )
 
         # Legend
         # plt.legend(['Actions', 'Depot', 'Delivery', 'Pickup'])
@@ -233,7 +286,7 @@ class PDPEnv(RL4COEnvBase):
 
         # plot legend
         ax.legend(handles, labels)
-        ax.set_title('Pickup and Delivery Problem Solution')
-        ax.set_xlabel('x-coordinate')
-        ax.set_ylabel('y-coordinate')
+        ax.set_title("Pickup and Delivery Problem Solution")
+        ax.set_xlabel("x-coordinate")
+        ax.set_ylabel("y-coordinate")
         plt.show()

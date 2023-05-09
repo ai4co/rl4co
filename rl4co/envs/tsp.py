@@ -85,9 +85,7 @@ class TSPEnv(RL4COEnvBase):
             init_locs.device if init_locs is not None else self.device
         )
         if init_locs is None:
-            init_locs = self.generate_data(batch_size=batch_size).to(device)[
-                "locs"
-            ]
+            init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)

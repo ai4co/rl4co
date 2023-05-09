@@ -73,6 +73,6 @@ class GraphAttentionEncoder(nn.Module):
             if self.init_embed is not None
             else x
         )
-        
-        h = self.layers(h) 
-        return h # (batch_size, graph_size, embed_dim)
+
+        h = self.layers(h)
+        return h  # (batch_size, graph_size, embed_dim)

@@ -6,7 +6,7 @@ from rl4co.envs import TSPEnv, ATSPEnv, DPPEnv, CVRPEnv, SDVRPEnv, PDPEnv
 
 def policy(td):
     """Helper function to select a random action from available actions"""
-    action = torch.multinomial(td['action_mask'].float(), 1).squeeze(-1)
+    action = torch.multinomial(td["action_mask"].float(), 1).squeeze(-1)
     td.set("action", action)
     return td
 
@@ -54,6 +54,7 @@ def test_sdvrp(size, batch_size):
     env = SDVRPEnv()
     reward = rollout(env, env.reset(batch_size=[batch_size]), policy)
     assert reward.shape == (batch_size,)
+
 
 @pytest.mark.parametrize("size, batch_size", [(10, 2)])
 def test_pdp(size, batch_size):

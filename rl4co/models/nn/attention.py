@@ -848,7 +848,9 @@ class LogitAttention(nn.Module):
 
         # Normalize with softmax and apply temperature
         if self.normalize:
-            softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
+            softmax_temp = (
+                softmax_temp if softmax_temp is not None else self.softmax_temp
+            )
             logits = torch.log_softmax(logits / softmax_temp, dim=-1)
 
         assert not torch.isnan(logits).any(), "Logits contain NaNs"

@@ -16,9 +16,7 @@ class HeterogeneuousMHALayer(nn.Sequential):
         normalization="batch",
     ):
         super(HeterogeneuousMHALayer, self).__init__(
-            SkipConnection(
-                HeterogenousMHA(num_heads, embed_dim, embed_dim)
-            ),
+            SkipConnection(HeterogenousMHA(num_heads, embed_dim, embed_dim)),
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(
@@ -71,6 +69,6 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
             if self.init_embed is not None
             else x
         )
-        
-        h = self.layers(h) 
-        return h # (batch_size, graph_size, embed_dim)
+
+        h = self.layers(h)
+        return h  # (batch_size, graph_size, embed_dim)

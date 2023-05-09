@@ -19,12 +19,7 @@ from rl4co.envs import RL4COEnvBase
 
 
 # Default capacities https://arxiv.org/abs/1803.08475
-CAPACITIES = {
-    10: 20.,
-    20: 30.,
-    50: 40.,
-    100: 50.
-}
+CAPACITIES = {10: 20.0, 20: 30.0, 50: 40.0, 100: 50.0}
 
 
 class CVRPEnv(RL4COEnvBase):
@@ -64,7 +59,9 @@ class CVRPEnv(RL4COEnvBase):
         self.max_demand = max_demand
         self.capacity = CAPACITIES.get(num_loc, None) if capacity is None else capacity
         if self.capacity is None:
-            raise ValueError(f"Capacity for {num_loc} locations is not defined. Please provide a capacity manually.")
+            raise ValueError(
+                f"Capacity for {num_loc} locations is not defined. Please provide a capacity manually."
+            )
         self._make_spec(td_params)
 
     @staticmethod
@@ -78,7 +75,7 @@ class CVRPEnv(RL4COEnvBase):
             - this design is important. For now the design is LESS than 0
         """
         current_node = td["action"][..., None]
-        demand = td['demand']
+        demand = td["demand"]
 
         # update the used capacity
         demand[..., 0] -= torch.gather(demand, 1, current_node).squeeze()
