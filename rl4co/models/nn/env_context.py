@@ -13,6 +13,7 @@ def env_context(env_name: str, config: dict) -> object:
         "pctsp": PCTSPContext,
         "op": OPContext,
         "dpp": DPPContext,
+        "pdp": PDPContext,
     }
 
     context_class = context_classes.get(env_name, None)
@@ -46,7 +47,6 @@ class EnvContext(nn.Module):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
         context_embedding = torch.cat([cur_node_embedding, state_embedding], -1).squeeze()
-        # context_embedding = torch.stack([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
 
 
@@ -119,6 +119,16 @@ class DPPContext(EnvContext):
                 embeddings, torch.stack([td["first_node"], td["current_node"]], -1)
             ).view(batch_size, -1)
         return self.project_context(context_embedding)
+    
+
+class PDPContext(EnvContext):
+    def __init__(self, embedding_dim):
+        """From https://arxiv.org/abs/2110.02634"""
+        super(PDPContext, self).__init__(embedding_dim, embedding_dim)
+
+    def forward(self, embeddings, td):
+        cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
+        return self.project_context(cur_node_embedding)
 
 
 @torch.jit.script

@@ -47,6 +47,10 @@ def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
             "init": DPPInitEmbedding,
             "dynamic": StaticEmbedding,
         },
+        "pdp": {
+            "init": PDPInitEmbedding,
+            "dynamic": StaticEmbedding,
+        },
     }
 
     assert embedding_type in ["init", "dynamic"]
@@ -79,14 +83,14 @@ class VRPInitEmbedding(nn.Module):
         self.init_embed = nn.Linear(node_dim, embedding_dim)
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
-    def forward(self, td):  # dict of 'loc', 'demand', 'depot'
-        # batch, 1, 2 -> batch, 1, embedding_dim
+    def forward(self, td):
+        # [batch, 1, 2]-> [batch, 1, embedding_dim]
         depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
-        # [batch, n_customer, 2, batch, n_customer, 1]  -> batch, n_customer, embedding_dim
+        # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
         node_embeddings = self.init_embed(
             torch.cat((td["locs"], td["demand"][:, :, None]), -1)
         )
-        # batch, n_customer+1, embedding_dim
+        # [batch, n_customer+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings[..., 1:, :]), 1)
         return out
 
@@ -159,6 +163,26 @@ class DPPInitEmbedding(nn.Module):
         probe_loc = torch.gather(locs, 1, probe.unsqueeze(-1).expand(-1, -1, 2))
         return torch.norm(locs - probe_loc, dim=-1).unsqueeze(-1)
 
+
+class PDPInitEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super(PDPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed_depot = nn.Linear(2, embedding_dim) 
+        self.init_embed_pick = nn.Linear(node_dim * 2, embedding_dim) 
+        self.init_embed_delivery = nn.Linear(node_dim, embedding_dim)
+
+    def forward(self, td):
+        depot, locs = td['locs'][..., 0:1, :], td['locs'][..., 1:, :]
+        num_locs = locs.size(-2)
+        pick_feats = torch.cat([locs[:, :num_locs // 2, :], locs[:, num_locs // 2:, :]], -1) # [batch_size, graph_size//2, 4]
+        delivery_feats = locs[:, num_locs // 2:, :] # [batch_size, graph_size//2, 2]
+        depot_embeddings = self.init_embed_depot(depot)
+        pick_embeddings = self.init_embed_pick(pick_feats)
+        delivery_embeddings = self.init_embed_delivery(delivery_feats)
+        # concatenate on graph size dimension
+        return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2) 
+    
 
 class SDVRPDynamicEmbedding(nn.Module):
     def __init__(self, embedding_dim):
