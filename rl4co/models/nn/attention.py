@@ -807,6 +807,7 @@ class LogitAttention(nn.Module):
         mask_inner=True,
         mask_logits=True,
         normalize=True,
+        softmax_temp=1.0,
         force_flash_attn=False,
     ):
         super(LogitAttention, self).__init__()
@@ -815,6 +816,7 @@ class LogitAttention(nn.Module):
         self.mask_inner = mask_inner
         self.tanh_clipping = tanh_clipping
         self.normalize = normalize
+        self.softmax_temp = softmax_temp
         self.force_flash_attn = force_flash_attn
 
         if force_flash_attn and mask_inner:
@@ -825,7 +827,7 @@ class LogitAttention(nn.Module):
         # Projection - query, key, value already include projections
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
 
-    def forward(self, query, key, value, logit_key, mask):
+    def forward(self, query, key, value, logit_key, mask, softmax_temp=None):
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, mask)
         glimpse = self.project_out(heads)
@@ -844,8 +846,10 @@ class LogitAttention(nn.Module):
         if self.mask_logits:
             logits[mask] = float("-inf")
 
+        # Normalize with softmax and apply temperature
         if self.normalize:
-            logits = torch.log_softmax(logits, dim=-1)
+            softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
+            logits = torch.log_softmax(logits / softmax_temp, dim=-1)
 
         assert not torch.isnan(logits).any(), "Logits contain NaNs"
 

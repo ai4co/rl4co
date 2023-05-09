@@ -103,7 +103,7 @@ class SDVRPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "capacity": td["capacity"],
                     "current_node": current_node,
                     "demand": demand,
@@ -121,7 +121,7 @@ class SDVRPEnv(RL4COEnvBase):
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
         '''
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td['observation'].shape[:-2]
+            batch_size = self.batch_size if td is None else td['locs'].shape[:-2]
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
@@ -137,7 +137,7 @@ class SDVRPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": td["observation"],
+                "locs": td["locs"],
                 "capacity": capacity,
                 "current_node": current_node,
                 "demand": td["demand"],
@@ -149,7 +149,7 @@ class SDVRPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict):
         """ Make the observation and action specs from the parameters. """
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -190,7 +190,7 @@ class SDVRPEnv(RL4COEnvBase):
         NOTE:
             - about the length of the actions
         '''
-        locs = td['observation']
+        locs = td['locs']
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
         locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
@@ -204,13 +204,13 @@ class SDVRPEnv(RL4COEnvBase):
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - observation <Tensor> [batch_size, num_loc, 2]: locations of the nodes
+                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
                 - demand <Tensor> [batch_size, num_loc]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
-            - the observation includes the depot as the first node
+            - the locs includes the depot as the first node
             - the demand includes the used capacity at the first value
             - the unvisited variable can be replaced by demand > 0
         '''
@@ -228,7 +228,7 @@ class SDVRPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": locs,
+                "locs": locs,
                 "depot": locs[..., 0, :],
                 "demand": demand,
             }, 

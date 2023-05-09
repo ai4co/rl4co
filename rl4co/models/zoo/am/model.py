@@ -27,9 +27,10 @@ class AttentionModel(nn.Module):
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
 
-    def forward(self, td: TensorDict, phase: str = "train", decode_type: str = None):
+
+    def forward(self, td: TensorDict, phase: str = "train", **policy_kwargs):
         # Evaluate model, get costs and log probabilities
-        out = self.policy(td)
+        out = self.policy(td, phase, **policy_kwargs)
 
         if phase == "train":
             # Evaluate baseline

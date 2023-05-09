@@ -18,18 +18,26 @@ from torchrl.data import (
 from rl4co.envs import RL4COEnvBase
 
 
+# Default capacities https://arxiv.org/abs/1803.08475
+CAPACITIES = {
+    10: 20.,
+    20: 30.,
+    50: 40.,
+    100: 50.
+}
+
+
 class CVRPEnv(RL4COEnvBase):
     name = "cvrp"
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_demand: float = 0.1,
-        max_demand: float = 0.5,
-        capacity: float = 1,
-        batch_size: list = [],
+        min_demand: float = 1,
+        max_demand: float = 10,
+        capacity: float = None,
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
@@ -54,8 +62,9 @@ class CVRPEnv(RL4COEnvBase):
         self.max_loc = max_loc
         self.min_demand = min_demand
         self.max_demand = max_demand
-        self.capacity = capacity
-        self.batch_size = batch_size
+        self.capacity = CAPACITIES.get(num_loc, None) if capacity is None else capacity
+        if self.capacity is None:
+            raise ValueError(f"Capacity for {num_loc} locations is not defined. Please provide a capacity manually.")
         self._make_spec(td_params)
 
     @staticmethod
@@ -99,7 +108,7 @@ class CVRPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "capacity": td["capacity"],
                     "current_node": current_node,
                     "demand": demand,
@@ -119,7 +128,7 @@ class CVRPEnv(RL4COEnvBase):
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
         """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
+            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
@@ -137,7 +146,7 @@ class CVRPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": td["observation"],
+                "locs": td["locs"],
                 "capacity": capacity,
                 "current_node": current_node,
                 "demand": td["demand"],
@@ -149,7 +158,7 @@ class CVRPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -190,7 +199,7 @@ class CVRPEnv(RL4COEnvBase):
         NOTE:
             - about the length of the actions
         """
-        locs = td["observation"]
+        locs = td["locs"]
         # TODO: Check the validation of the tour
         # Gather locations in order of tour and return distance between them (i.e., -reward)
         locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
@@ -203,13 +212,13 @@ class CVRPEnv(RL4COEnvBase):
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - observation <Tensor> [batch_size, num_loc, 2]: locations of the nodes
+                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
                 - demand <Tensor> [batch_size, num_loc]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
-            - the observation includes the depot as the first node
+            - the locs includes the depot as the first node
             - the demand includes the used capacity at the first value
             - the unvisited variable can be replaced by demand > 0
         """
@@ -235,7 +244,7 @@ class CVRPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": locs,
+                "locs": locs,
                 "depot": locs[..., 0, :],
                 "demand": demand,
             },

@@ -19,13 +19,12 @@ class SymNCO(nn.Module):
     def __init__(
         self,
         env,
-        policy,
+        policy=None,
         baseline=None,
         num_augment=8,
         alpha=0.2,
         beta=1,
         augment_test=True,
-        **kwargs
     ):
         """
         SymNCO Model for neural combinatorial optimization based on REINFORCE
@@ -42,7 +41,7 @@ class SymNCO(nn.Module):
         """
         super().__init__()
         self.env = env
-        self.policy = policy
+        self.policy = SymNCOPolicy(env) if policy is None else policy
         if baseline is not None:
             print(
                 "SymNCO uses baselines in the loss functions, so we do not set the baseline here."
@@ -50,12 +49,11 @@ class SymNCO(nn.Module):
         self.baseline = NoBaseline()  # done in loss function
 
         # Multi-start parameters from policy, default to 1
-        self.num_starts = getattr(policy, "num_starts", 1)
         self.num_augment = num_augment
         assert (
             num_augment > 1
         ), "Number of augmentations must be greater than 1 for SymNCO"
-        self.augment = StateAugmentation(env.name, num_augment)
+        self.augment = StateAugmentation(env.name)
         self.augment_test = augment_test
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
@@ -66,10 +64,11 @@ class SymNCO(nn.Module):
         # Init vals
         loss_retvals, multi_start_retvals, aug_retvals = {}, {}, {}
         return_action = policy_kwargs.get("return_actions", False)
+        num_starts  = self.policy.decoder.num_starts
 
         # Augment data
         if phase == "train" or self.augment_test:
-            td = self.augment(td)
+            td = self.augment(td, self.num_augment)
             aug_size = (
                 self.num_augment
             )  # reward to [batch_size, num_augment, num_starts]
@@ -78,12 +77,12 @@ class SymNCO(nn.Module):
 
         # Evaluate model, get costs and log probabilities and more
         out = self.policy(td, **policy_kwargs)
-        reward = unbatchify(unbatchify(out["reward"], self.num_starts), aug_size)
+        reward = unbatchify(unbatchify(out["reward"], num_starts), aug_size)
 
         if phase == "train":
             # [batch_size, num_augment, num_starts]
             ll = unbatchify(
-                unbatchify(out["log_likelihood"], self.num_starts), aug_size
+                unbatchify(out["log_likelihood"], num_starts), aug_size
             )
             loss_ps = problem_symmetricity_loss(reward, ll)
             loss_ss = solution_symmetricity_loss(reward, ll)

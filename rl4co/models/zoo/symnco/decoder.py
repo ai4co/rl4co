@@ -6,9 +6,9 @@ import torch.nn as nn
 from rl4co.utils.ops import batchify
 from rl4co.utils import get_pylogger
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.zoo.am.context import env_context
-from rl4co.models.zoo.am.embeddings import env_dynamic_embedding
-from rl4co.models.zoo.am.utils import decode_probs
+from rl4co.models.nn.env_context import env_context
+from rl4co.models.nn.env_embedding import env_dynamic_embedding
+from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.pomo.utils import select_start_nodes
 
 
@@ -62,7 +62,7 @@ class Decoder(nn.Module):
         self.num_starts = max(num_starts, 1)  # POMO = 1 is just normal REINFORCE
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
-    def forward(self, td, embeddings, decode_type="sampling"):
+    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
         # Collect outputs
         outputs = []
         actions = []
@@ -90,7 +90,7 @@ class Decoder(nn.Module):
 
         while not td["done"].all():
             # Compute the logits for the next node
-            log_p, mask = self._get_log_p(cached_embeds, td)
+            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
@@ -134,7 +134,7 @@ class Decoder(nn.Module):
         )
         return cached_embeds
 
-    def _get_log_p(self, cached, td):
+    def _get_log_p(self, cached, td, softmax_temp=None):
         # Compute the query based on the context (computes automatically the first and last node context)
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
         query = (cached.graph_context + step_context).unsqueeze(
@@ -155,6 +155,6 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute logits
-        log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask)
+        log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask, softmax_temp)
 
         return log_p, mask

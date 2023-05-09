@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.zoo.am.context import env_context
-from rl4co.models.zoo.am.embeddings import env_dynamic_embedding
-from rl4co.models.zoo.am.utils import decode_probs
+from rl4co.models.nn.env_context import env_context
+from rl4co.models.nn.env_embedding import env_dynamic_embedding
+from rl4co.models.nn.utils import decode_probs
 
 
 @dataclass
@@ -44,7 +44,7 @@ class Decoder(nn.Module):
             embedding_dim, num_heads, **logit_attn_kwargs
         )
 
-    def forward(self, td, embeddings, decode_type="sampling"):
+    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
         outputs = []
         actions = []
 
@@ -52,7 +52,7 @@ class Decoder(nn.Module):
         cached_embeds = self._precompute(embeddings)
 
         while not td["done"].all():
-            log_p, mask = self._get_log_p(cached_embeds, td)
+            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
@@ -90,7 +90,7 @@ class Decoder(nn.Module):
 
         return cached_embeds
 
-    def _get_log_p(self, cached, td):
+    def _get_log_p(self, cached, td, softmax_temp):
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
         query = (cached.graph_context + step_context).unsqueeze(
             1
@@ -110,6 +110,6 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute logits
-        log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask)
+        log_p = self.logit_attention(query, glimpse_key, glimpse_key, logit_key, mask, softmax_temp)
 
         return log_p, mask
