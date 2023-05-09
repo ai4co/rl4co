@@ -1,6 +1,6 @@
 import pytest
 
-from rl4co.models import AttentionModel, PointerNetwork, POMO, SymNCO
+from rl4co.models import AttentionModel, PointerNetwork, POMO, SymNCO, HeterogeneousAttentionModel
 from rl4co.models import SymNCOPolicy
 from rl4co.utils.test_utils import generate_env_data
 
@@ -42,3 +42,12 @@ def test_symnco(size, batch_size=2, num_augment=8, num_starts=10):
     model = SymNCO(env, policy, num_augment=num_augment)
     out = model(td, decode_type="sampling")
     assert out["reward"].shape == (batch_size * num_augment * num_starts,)
+
+
+@pytest.mark.parametrize("size", [10])
+def test_haam(size, batch_size=2):
+    env, x = generate_env_data("pdp", size, batch_size)
+    td = env.reset(x)
+    model = HeterogeneousAttentionModel(env)
+    out = model(td, decode_type="sampling")
+    assert out["reward"].shape == (batch_size,)

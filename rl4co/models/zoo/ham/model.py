@@ -21,6 +21,7 @@ class HeterogeneousAttentionModel(nn.Module):
         """
         super().__init__()
         self.env = env
+        assert env.name == "pdp", "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
         self.policy = (
             HeterogeneousAttentionModelPolicy(env) if policy is None else policy
         )

@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import TensorDictCollate
-from rl4co.envs import TSPEnv, CVRPEnv, SDVRPEnv, DPPEnv
+from rl4co.envs import TSPEnv, CVRPEnv, SDVRPEnv, DPPEnv, PDPEnv
 
 
 def get_env(env_name, size):
@@ -14,6 +14,8 @@ def get_env(env_name, size):
         env = SDVRPEnv(num_loc=size)
     elif env_name == "dpp":
         env = DPPEnv()
+    elif env_name == "pdp":
+        env = PDPEnv()
     else:
         raise ValueError(f"Unknown env_name: {env_name}")
 
