@@ -1,4 +1,5 @@
 import sys
+from turtle import back
 
 sys.path.append(".")
 import numpy as np
@@ -60,7 +61,6 @@ class PCTSPEnv(RL4COEnvBase):
         self.max_penalty = max_penalty
         self.require_prize = require_prize
         self.batch_size = batch_size
-        self._make_spec(td_params)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -77,7 +77,7 @@ class PCTSPEnv(RL4COEnvBase):
         prize_collect = td["prize_collect"]
 
         # Collect the prize
-        prize_collect += torch.gather(td["prize"], 1, current_node).squeeze()
+        prize_collect += torch.gather(td["prize"], 1, current_node)
 
         # Update the prize
         prize.scatter_(-1, current_node, 0)
@@ -85,9 +85,21 @@ class PCTSPEnv(RL4COEnvBase):
         # Get the action mask, no zero demand nodes can be visited
         action_mask = prize > 0
 
-        # We are done there are no unvisited locations
-        # NOTE: in the PCTSP problem, we can finish at any time 
-        done = torch.logical_and(torch.count_nonzero(prize, dim=-1) <= 0, prize_collect >= td["prize_require"])
+        # If collected prize is larger than required prize, then the depot is allowed to visit
+        action_mask[..., :1] = torch.logical_or(action_mask[..., :1], prize_collect >= td["prize_require"])
+
+        # Force to done when there are no unvisited locations
+        done = (torch.count_nonzero(prize, dim=-1) <= 0)[..., None]
+
+        # We can choose to finish when we meet the required prize
+        # The mark of finish is back to the depot
+        done = torch.logical_or(done, current_node == 0)
+
+        # If done, then set the depot be always available
+        action_mask[..., :1] = torch.logical_or(action_mask[..., :1], done)
+
+        # If done, then we are not allowed to visit any other nodes
+        action_mask[..., 1:] = torch.logical_xor(torch.logical_or(action_mask[..., 1:], done), done)
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # Note: reward is calculated outside for now via the get_reward function
@@ -137,7 +149,7 @@ class PCTSPEnv(RL4COEnvBase):
 
         # Required prize
         prize_require = torch.full(
-            (*batch_size, 1), self.prize_require, dtype=torch.float32, device=self.device
+            (*batch_size, 1), self.require_prize, dtype=torch.float32, device=self.device
         )
 
         # Init the action mask
@@ -172,7 +184,7 @@ class PCTSPEnv(RL4COEnvBase):
             prize=BoundedTensorSpec(
                 minimum=self.min_prize,
                 maximum=self.max_prize,
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc),
                 dtype=torch.float32,
             ),
             prize_collect=UnboundedContinuousTensorSpec(
@@ -180,7 +192,7 @@ class PCTSPEnv(RL4COEnvBase):
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -197,13 +209,6 @@ class PCTSPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        """
-        Args:
-            - td: <tensor_dict>: tensor dictionary containing the state
-            - actions: [batch_size, TODO] num_loc means a sequence of actions till the task is done
-        NOTE:
-            - about the length of the actions
-        """
         # Calculate the length
         locs = td["observation"]
         locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
@@ -211,7 +216,7 @@ class PCTSPEnv(RL4COEnvBase):
         length = -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
         # Calculate the penalty
-        penalty = td["penalty"] * (td['prize'] > 0).float()
+        penalty = torch.sum(td["penalty"] * (td['prize'] > 0).float(), dim=-1)
         return length + penalty
 
     def generate_data(self, batch_size) -> TensorDict:
