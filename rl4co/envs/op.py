@@ -43,6 +43,8 @@ class OPEnv(EnvBase):
             - td_params <TensorDict>: parameters of the environment
             - seed <int>: seed for the environment
             - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
+        Note:
+            - in our setting, the vehicle has to come back to the depot at the end
         """
         super().__init__(device=device, batch_size=[])
         self.num_loc = num_loc
@@ -65,35 +67,39 @@ class OPEnv(EnvBase):
             - the first node in de prize is larger than 0 or less than 0? 
             - this design is important. For now the design is LESS than 0
         '''
-        current_node = td["action"]
+        current_node = td["action"][..., None]
+        current_node_expand = current_node[..., None].repeat_interleave(2, dim=-1)
         length_capacity = td["length_capacity"]
         prize = td['prize']
         prize_collect = td['prize_collect']
 
         # Collect prize
-        prize_collect += torch.gather(prize, 1, current_node).squeeze()
+        prize_collect += torch.gather(prize, -1, current_node)
 
         # Set the visited node prize to -1
         prize.scatter_(-1, current_node, 0)
 
         # Update the used length capacity
         length_capacity -= (
-            torch.gather(td["observation"], -2, current_node) - 
-            torch.gather(td["observation"], -2, td["current_node"])
+            torch.gather(td["observation"], -2, current_node_expand) - 
+            torch.gather(td["observation"], -2, td["current_node"][..., None].repeat_interleave(2, dim=-1))
             ).norm(p=2, dim=-1)
 
         # Get the action mask, no zero prize nodes can be visited
-        # TODO: check if the depot can be visited multi times
-        action_mask = torch.abs(prize) > 0
+        action_mask = prize > 0
         
         # Nodes distance exceeding length capacity cannot be visited
         length_to_next_node = (
-            td["observation"] - torch.gather(td["observation"], -2, current_node)
+            td["observation"] - torch.gather(td["observation"], -2, current_node_expand)
             ).norm(p=2, dim=-1)
-        action_mask = torch.logical_and(action_mask, length_to_next_node <= length_capacity)
+        length_to_next_node_and_return = length_to_next_node + td["length_to_depot"]
+        action_mask = torch.logical_and(action_mask, length_to_next_node_and_return <= length_capacity)
 
         # We are done if run out the lenght capacity, i.e. no available node to visit
         done = (torch.count_nonzero(action_mask.float(), dim=-1) <= 0) 
+
+        # If done, then set the depot be always available
+        action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # Note: reward is calculated outside for now via the get_reward function
@@ -106,6 +112,7 @@ class OPEnv(EnvBase):
                 "next": {
                     "observation": td["observation"],
                     "length_capacity": td["length_capacity"],
+                    "length_to_depot": td["length_to_depot"],
                     "current_node": current_node,
                     "prize": prize,
                     "prize_collect": prize_collect,
@@ -133,18 +140,28 @@ class OPEnv(EnvBase):
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         # Initialize the capacity
-        length_capacity = torch.full((*batch_size, 1), self.length_capacity)
+        length_capacity = torch.full((*batch_size, 1), self.length_capacity, dtype=torch.float32, device=self.device)
+
+        # Calculate the lenght of each node back to the depot
+        length_to_depot = (td["observation"] - td["depot"][..., None, :]).norm(p=2, dim=-1)
 
         # Init the action mask
         action_mask = td['prize'] > 0
+
+        # Calculate the distance of each node at this moment
+        current_node_loccation = torch.gather(td["observation"], -2, current_node[..., None].repeat_interleave(2, dim=-1))
+        length_to_next_node = (td["observation"] - current_node_loccation).norm(p=2, dim=-1)
+        length_to_next_node_and_return = length_to_next_node + length_to_depot
+        action_mask = torch.logical_and(action_mask, length_to_next_node_and_return <= length_capacity)
 
         return TensorDict(
             {
                 "observation": td["observation"],
                 "length_capacity": length_capacity,
+                "length_to_depot": length_to_depot,
                 "current_node": current_node,
                 "prize": td["prize"],
-                "prize_collect": torch.zeros_like(td["prize"]),
+                "prize_collect": torch.zeros_like(length_capacity),
                 "action_mask": action_mask,
             },
             batch_size=batch_size,
@@ -161,6 +178,12 @@ class OPEnv(EnvBase):
                 dtype=torch.float32,
             ),
             length_capacity=BoundedTensorSpec(
+                minimum=0,
+                maximum=self.length_capacity,
+                shape=(1),
+                dtype=torch.float32,
+            ),
+            length_to_depot=BoundedTensorSpec(
                 minimum=0,
                 maximum=self.length_capacity,
                 shape=(1),
@@ -200,7 +223,7 @@ class OPEnv(EnvBase):
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
-        raise td["prize_collect"]
+        return td["prize_collect"]
     
     def dataset(self, batch_size):
         """Return a dataset of observations"""
@@ -232,7 +255,7 @@ class OPEnv(EnvBase):
         # Initialize the prize
         prize = torch.FloatTensor(*batch_size, self.num_loc).uniform_(self.min_prize, self.max_prize).to(self.device)
 
-        # The first prize is the used capacity
+        # Depot has no prize
         prize[..., 0] = 0
 
         return TensorDict(
