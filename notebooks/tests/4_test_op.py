@@ -21,9 +21,8 @@ from tensordict import TensorDict
 
 from rl4co.data.dataset import TensorDictCollate, TensorDictDataset
 from rl4co.models.rl.reinforce import *
-from rl4co.models.zoo.am.context import env_context
-from rl4co.models.zoo.am.embeddings import env_init_embedding, env_dynamic_embedding
-from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
+from rl4co.models.nn.env_context import env_context
+from rl4co.models.nn.env_embedding import env_init_embedding, env_dynamic_embedding
 from rl4co.models.zoo.am.decoder import (
     Decoder,
     decode_probs,
@@ -39,8 +38,17 @@ from rl4co.envs.op import OPEnv
 
 
 num_loc = 20
-env = OPEnv(num_loc=num_loc, min_prize=1, max_prize=10, capacity=5)
 device = "cuda" if torch.cuda.is_available() else "cpu"
+env = OPEnv(
+    num_loc=num_loc, 
+    min_loc=0, 
+    max_loc=1,
+    min_prize=1, 
+    max_prize=10, 
+    length_capacity=5, 
+    batch_size=[32],
+    device=device,
+)
 
 # env = TSPEnv(num_loc=15).transform()
 dataset = env.dataset(batch_size=[1000])
@@ -57,7 +65,7 @@ policy = AttentionModelPolicy(
     env,
     embedding_dim=128,
     hidden_dim=128,
-    n_encode_layers=3,
+    num_encode_layers=3,
 ).to(device)
 
 # NOTE: here x is a tensor dict instead of a tensor in tsp test
@@ -138,10 +146,10 @@ class NCOLightningModule(L.LightningModule):
         )
 
 
-batch_size = 512  # 1024 #512
+batch_size = 32  # 1024 #512
 epochs = 1
 lr = 1e-4
-train_size = 1280000
+train_size = 128000
 
 
 # Instantiate full model
