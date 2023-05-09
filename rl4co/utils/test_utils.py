@@ -2,14 +2,20 @@ import torch
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import TensorDictCollate
-from rl4co.envs.tsp import TSPEnv
+from rl4co.envs import TSPEnv, CVRPEnv, SDVRPEnv, DPPEnv
 
 
 def get_env(env_name, size):
     if env_name == "tsp":
         env = TSPEnv(num_loc=size)
+    elif env_name == "cvrp":
+        env = CVRPEnv(num_loc=size)
+    elif env_name == "sdvrp":
+        env = SDVRPEnv(num_loc=size)
+    elif env_name == "dpp":
+        env = DPPEnv()
     else:
-        raise NotImplementedError
+        raise ValueError(f"Unknown env_name: {env_name}")
 
     return env.transform()
 

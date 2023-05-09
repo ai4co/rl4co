@@ -64,7 +64,7 @@ class TSPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "first_node": first_node,
                     "current_node": current_node,
                     "i": td["i"] + 1,
@@ -78,7 +78,7 @@ class TSPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize locations
-        init_locs = td["observation"] if td is not None else None
+        init_locs = td["locs"] if td is not None else None
         if batch_size is None:
             batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
         self.device = device = (
@@ -86,7 +86,7 @@ class TSPEnv(RL4COEnvBase):
         )
         if init_locs is None:
             init_locs = self.generate_data(batch_size=batch_size).to(device)[
-                "observation"
+                "locs"
             ]
 
         # Other variables
@@ -98,7 +98,7 @@ class TSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": init_locs,
+                "locs": init_locs,
                 "first_node": current_node,
                 "current_node": current_node,
                 "i": i,
@@ -110,7 +110,7 @@ class TSPEnv(RL4COEnvBase):
     def _make_spec(self, td_params):
         """Make the observation and action specs from the parameters"""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -146,7 +146,7 @@ class TSPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        locs = td["observation"]
+        locs = td["locs"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -166,7 +166,7 @@ class TSPEnv(RL4COEnvBase):
             * (self.max_loc - self.min_loc)
             + self.min_loc
         )
-        return TensorDict({"observation": locs}, batch_size=batch_size)
+        return TensorDict({"locs": locs}, batch_size=batch_size)
 
     @staticmethod
     def render(td):
@@ -177,7 +177,7 @@ class TSPEnv(RL4COEnvBase):
         if td.batch_size != torch.Size([]):
             td = td[0]
 
-        key = "observation" if "observation" in td.keys() else "loc"
+        key = "locs" if "locs" in td.keys() else "loc"
 
         locs = td[key]
         x = locs[:, 0]

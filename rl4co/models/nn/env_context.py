@@ -104,8 +104,9 @@ class OPContext(EnvContext):
 class DPPContext(EnvContext):
     def __init__(self, embedding_dim):
         super(DPPContext, self).__init__(embedding_dim, 2 * embedding_dim)
-        self.W_placeholder = nn.Parameter(torch.Tensor(embedding_dim).uniform_(-1, 1))
-        self.project_context = nn.Linear(2 * embedding_dim, embedding_dim, bias=False)
+        self.W_placeholder = nn.Parameter(
+            torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1)
+        )
 
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)

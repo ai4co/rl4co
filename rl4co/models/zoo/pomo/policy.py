@@ -4,9 +4,9 @@ import torch.nn as nn
 from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
 
-from rl4co.models.zoo.am.embeddings import env_init_embedding
-from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
-from rl4co.models.zoo.am.utils import get_log_likelihood
+from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.graph import GraphAttentionEncoder
+from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.pomo.decoder import Decoder
 
 
@@ -14,18 +14,20 @@ class POMOPolicy(nn.Module):
     def __init__(
         self,
         env: EnvBase,
-        embedding_dim: int,
-        hidden_dim: int,
         encoder: nn.Module = None,
         decoder: nn.Module = None,
+        embedding_dim: int = 128,
+        hidden_dim: int = 128,
         num_pomo: int = 10,
-        num_encode_layers: int = 3,
+        num_encode_layers: int = 6, # NOTE: used in the original paper, but may not be fair to compare with AM
         normalization: str = "batch",
         num_heads: int = 8,
         checkpoint_encoder: bool = False,
         mask_inner: bool = True,
         force_flash_attn: bool = False,
-        **kwargs
+        train_decode_type: str = "sampling",
+        val_decode_type: str = "greedy",
+        test_decode_type: str = "greedy",
     ):
         super(POMOPolicy, self).__init__()
 
@@ -66,25 +68,32 @@ class POMOPolicy(nn.Module):
             else decoder
         )
         self.num_pomo = num_pomo
+        self.train_decode_type = train_decode_type
+        self.val_decode_type = val_decode_type
+        self.test_decode_type = test_decode_type
 
     def forward(
         self,
         td: TensorDict,
         phase: str = "train",
-        decode_type: str = "sampling",
         return_actions: bool = False,
+        **decoder_kwargs
     ) -> TensorDict:
         """Given observation, precompute embeddings and rollout"""
 
         # Set decoding type for policy, can be also greedy
         embedding = self.init_embedding(td)
-        encoded_inputs, _ = self.encoder(embedding)
+        encoded_inputs = self.encoder(embedding)
+
+        # Get decode type depending on phase
+        if decoder_kwargs.get("decode_type", None) is None:
+            decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # Main rollout
-        _log_p, actions, td = self.decoder(td, encoded_inputs, decode_type)
+        log_p, actions, td = self.decoder(td, encoded_inputs, **decoder_kwargs)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
-        ll = get_log_likelihood(_log_p, actions, td.get("mask", None))
+        ll = get_log_likelihood(log_p, actions, td.get("mask", None))
         out = {
             "reward": td["reward"],
             "log_likelihood": ll,

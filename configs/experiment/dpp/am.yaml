@@ -5,7 +5,7 @@
 
 defaults:
   - override /model: am.yaml
-  - override /env: tsp.yaml
+  - override /env: dpp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -16,34 +16,49 @@ defaults:
 
 tags: ["dpp", "am"]
 
+logger:
+  wandb:
+    project: "rl4co"
+    tags: ${tags}
+    group: "dpp"
+    name: "am"
+   
 seed: 12345
+
+env:
+  val_file: "test.npz" # these are automatically loaded by the environment
+  test_file: "test.npz"
 
 trainer:
   min_epochs: 10
-  max_epochs: 100
+  max_epochs: 10
   gradient_clip_val: 1.0
   accelerator: "gpu"
-  # precision: "16-mixed" 
+  precision: "16-mixed" 
   # Fast distributed training: comment out to use on single GPU
   # devices: 1 # change number of devices
-  strategy:
-    _target_: lightning.pytorch.strategies.DDPStrategy
-    find_unused_parameters: True
-    gradient_as_bucket_view: True
 
 train:
   optimizer:
     # _partial_: True
     _target_: torch.optim.Adam
+    # lr: 1e-4
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 1e-3
 
 matmul_precision: "medium" #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 
 data:
-  batch_size: 64
-  train_size: 10000 #1280000
-  val_size: 1000
+  batch_size: 64 #512 #64
+  train_size: 1000 # with 10 epochs, this is 10k samples
+  val_size: 100
+
+# Log metrics
+metrics:
+  train: ["loss", "reward"]
+  val: ["reward"]
+  test: ["reward"]
+  log_cost: False
 
 # Adjust monitoring
 model_checkpoint:

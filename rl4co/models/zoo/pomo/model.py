@@ -30,7 +30,7 @@ class POMO(nn.Module):
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
         # POMO parameters
-        self.num_pomo = policy.num_pomo
+        self.num_pomo = self.policy.num_pomo
         self.num_augment = num_augment
         self.augment = (
             StateAugmentation(env.name, num_augment) if num_augment > 1 else None
