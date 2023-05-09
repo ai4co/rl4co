@@ -88,7 +88,8 @@ class PCTSPContext(EnvContext):
         super(PCTSPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["remaining_prize_to_collect"]
+        state_embedding = td["prize_require"] - td["prize_collect"]
+        state_embedding = state_embedding[:, :, None]
         return state_embedding
 
 
