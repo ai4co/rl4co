@@ -111,9 +111,9 @@ class PCTSPInitEmbedding(nn.Module):
         node_embeddings = self.init_embed(
             torch.cat(
                 (
-                    td["loc"],
-                    td["deterministic_prize"][:, :, None],
-                    td["penalty"][:, :, None],
+                    td["observation"][..., 1:, :],
+                    td["prize"][..., 1:, None],
+                    td["penalty"][..., 1:, None],
                 ),
                 -1,
             )
