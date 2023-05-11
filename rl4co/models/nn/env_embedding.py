@@ -51,6 +51,10 @@ def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
             "init": PDPInitEmbedding,
             "dynamic": StaticEmbedding,
         },
+        "mtsp": {
+            "init": MTSPInitEmbedding,
+            "dynamic": StaticEmbedding,
+        },
     }
 
     assert embedding_type in ["init", "dynamic"]
@@ -77,9 +81,6 @@ class VRPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(VRPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, demand
-
-        self.context_dim = embedding_dim + 1  # last node + remaining_capacity
-
         self.init_embed = nn.Linear(node_dim, embedding_dim)
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
@@ -99,8 +100,6 @@ class PCTSPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(PCTSPInitEmbedding, self).__init__()
         node_dim = 4  # x, y, prize, penalty
-        self.context_dim = embedding_dim + 1  # last node + remaining prize to collect
-
         self.init_embed = nn.Linear(node_dim, embedding_dim)
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
@@ -127,8 +126,6 @@ class OPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(OPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, prize
-        self.context_dim = embedding_dim + 1  # last node + remaining prize to collect
-
         self.init_embed = nn.Linear(node_dim, embedding_dim)
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
@@ -184,6 +181,44 @@ class PDPInitEmbedding(nn.Module):
         delivery_embeddings = self.init_embed_delivery(delivery_feats)
         # concatenate on graph size dimension
         return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)
+
+
+class MTSPInitEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        """NOTE: new made by Fede. May need to be checked
+        """
+        super(MTSPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed = nn.Linear(node_dim, embedding_dim)
+        self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
+
+    def forward(self, td):
+        # embeddings: [batch, n_cities + 1, embedding_dim]
+        depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
+        node_embedding = self.init_embed(td["locs"][..., 1:, :])
+        return torch.cat([depot_embedding, node_embedding], -2)
+
+# class MTSPDynamicEmbedding(nn.Module):
+#     def __init__(self, embedding_dim):
+#         """NOTE: new made by Fede. May need to be checked
+#         We use the current agent idx, the current length of the tour and the max subtour length
+#         to modify key, value and logit of multi-head attention
+#         """
+#         super(MTSPDynamicEmbedding, self).__init__()
+#         proj_in_dim = 3  # remaining_agents, current_length, max_subtour_length
+#         self.projection = nn.Linear(proj_in_dim, 3 * embedding_dim, bias=False)
+
+#     def forward(self, td):
+#         #  [batch, 3]
+#         remaining_agents = td["num_agents"] - td["agent_idx"]
+#         feats = torch.stack([remaining_agents, td["current_length"], td["max_subtour_length"]], dim=-1)
+#         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
+#             feats[..., None, :]
+#         ).chunk(3, dim=-1)
+#         def _expand(x):
+#             return x.expand(-1, td['locs'].size(-2), -1)
+#         out = _expand(glimpse_key_dynamic), _expand(glimpse_val_dynamic), _expand(logit_key_dynamic)
+#         return out
 
 
 class SDVRPDynamicEmbedding(nn.Module):

@@ -24,11 +24,11 @@ class MTSPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_num_agents: int = 1,
-        max_num_agents: int = 10,
+        min_num_agents: int = 3,
+        max_num_agents: int = 3,
         cost_type: str = "minmax",
         td_params: TensorDict = None,
         seed: int = None,

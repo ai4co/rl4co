@@ -14,6 +14,7 @@ def env_context(env_name: str, config: dict) -> object:
         "op": OPContext,
         "dpp": DPPContext,
         "pdp": PDPContext,
+        "mtsp": MTSPContext,
     }
 
     context_class = context_classes.get(env_name, None)
@@ -131,6 +132,38 @@ class PDPContext(EnvContext):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
         return self.project_context(cur_node_embedding)
 
+
+class MTSPContext(EnvContext):
+    def __init__(self, embedding_dim):
+        """NOTE: new made by Fede in free style. May need to be checked
+        We use as features:
+            1. remaining number of agents
+            2. the current length of the tour
+            3. the max subtour length so far
+            4. the current distance from the depot
+        """
+        super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
+        proj_in_dim = 4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
+        self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim)
+
+    def _cur_node_embedding(self, embeddings, td):
+        cur_node_embedding = gather_by_index(embeddings, td["current_node"][...,None])
+        return cur_node_embedding.squeeze()
+    
+    def _state_embedding(self, embeddings, td):
+        dynamic_feats = torch.stack([
+            (td['num_agents'] - td['agent_idx']).float(),
+            td['current_length'],
+            td['max_subtour_length'],
+            self._distance_from_depot(td)
+        ], dim=-1)
+        return self.proj_dynamic_feats(dynamic_feats)
+
+    def _distance_from_depot(self, td):
+        # Euclidean distance from the depot (loc[..., 0, :])
+        cur_loc = td["locs"].gather(-2, td['current_node'][..., None, None]).squeeze(-2)
+        return torch.norm(cur_loc - td['locs'][..., 0, :], dim=-1)
+    
 
 @torch.jit.script
 def gather_by_index(source, index):
