@@ -1,0 +1,7 @@
+_target_: rl4co.envs.mtsp.MTSPEnv
+
+num_loc: 20
+min_loc: 0
+max_loc: 1
+min_num_agents: 3
+max_num_agents: 3
