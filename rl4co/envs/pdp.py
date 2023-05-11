@@ -1,6 +1,5 @@
 from typing import Optional
 
-import numpy as np
 import torch
 from tensordict.tensordict import TensorDict
 
@@ -11,7 +10,6 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnvBase
 
 

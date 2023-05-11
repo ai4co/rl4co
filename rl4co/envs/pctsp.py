@@ -1,13 +1,7 @@
-import sys
-from turtle import back
+from typing import Optional
 
-sys.path.append(".")
-import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from torch import Tensor
 from tensordict.tensordict import TensorDict
-from typing import Optional, Union
 
 from torchrl.data import (
     BoundedTensorSpec,

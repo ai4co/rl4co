@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from rl4co.envs import TSPEnv, ATSPEnv, DPPEnv, CVRPEnv, SDVRPEnv, PDPEnv
+from rl4co.envs import TSPEnv, ATSPEnv, DPPEnv, CVRPEnv, SDVRPEnv, PDPEnv, MTSPEnv
 
 
 def policy(td):
@@ -61,3 +61,11 @@ def test_pdp(size, batch_size):
     env = PDPEnv(num_loc=size)
     reward = rollout(env, env.reset(batch_size=[batch_size]), policy)
     assert reward.shape == (batch_size,)
+
+
+@pytest.mark.parametrize("size, batch_size", [(10, 2)])
+def test_mtsp(size, batch_size):
+    env = MTSPEnv(num_loc=size)
+    reward = rollout(env, env.reset(batch_size=[batch_size]), policy)
+    assert reward.shape == (batch_size,)
+

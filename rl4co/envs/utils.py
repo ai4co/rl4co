@@ -1,29 +1,12 @@
-from collections import defaultdict
 from typing import Optional
 
-import numpy as np
 import torch
-import tqdm
-from tensordict.nn import TensorDictModule
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torch import nn
+from tensordict.tensordict import TensorDictBase
 
 from torchrl.data import (
-    BoundedTensorSpec,
     CompositeSpec,
     UnboundedContinuousTensorSpec,
-    BinaryDiscreteTensorSpec,
-    UnboundedDiscreteTensorSpec,
 )
-from torchrl.envs import (
-    CatTensors,
-    EnvBase,
-    Transform,
-    TransformedEnv,
-    UnsqueezeTransform,
-)
-from torchrl.envs.transforms.transforms import _apply_to_composite
-from torchrl.envs.utils import check_env_specs, step_mdp
 
 
 def make_composite_from_td(td):

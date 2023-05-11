@@ -6,7 +6,6 @@ from torchrl.data import (
     BoundedTensorSpec,
     CompositeSpec,
     UnboundedContinuousTensorSpec,
-    BinaryDiscreteTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
 
