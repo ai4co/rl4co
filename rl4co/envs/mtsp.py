@@ -13,10 +13,8 @@ from torchrl.data import (
 
 from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnvBase
+from rl4co.utils.ops import gather_by_index, distance
 
-
-def distance(x, y):
-    return torch.norm(x - y, p=2, dim=-1)
 
 
 class MTSPEnv(RL4COEnvBase):
@@ -59,8 +57,8 @@ class MTSPEnv(RL4COEnvBase):
         first_node = current_node if is_first_action else td["first_node"]
 
         # Get the locations of the current node and the previous node and the depot
-        cur_loc = td["locs"].gather(-2, current_node[..., None, None]).squeeze(-2)
-        prev_loc = td["locs"].gather(-2, td["current_node"][..., None, None]).squeeze(-2)
+        cur_loc = gather_by_index(td['locs'], current_node[..., None]).squeeze(-2)
+        prev_loc = gather_by_index(td['locs'], td['current_node'][..., None]).squeeze(-2) # current_node is the previous node
         depot_loc = td["locs"][..., 0, :]
 
         # If current_node is the depot, then increment agent_idx
@@ -217,10 +215,7 @@ class MTSPEnv(RL4COEnvBase):
         elif self.cost_type == "distance":
             locs = td["locs"]
             locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
-
-            # Concatenate as last node the depot
-            locs = torch.cat([locs, locs[..., 0:1]], dim=-2)
-            locs_next = torch.roll(locs, 1, dims=1)
+            locs_next = torch.roll(locs, 1, dims=1) # roll will also consider last node to depot
             return -((locs_next - locs).norm(p=2, dim=2).sum(1))
         else:
             raise ValueError(f"Cost type {self.cost_type} not supported")
