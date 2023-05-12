@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from rl4co.utils.ops import gather_by_index
+
 
 def env_context(env_name: str, config: dict) -> object:
     """
@@ -161,13 +163,6 @@ class MTSPContext(EnvContext):
 
     def _distance_from_depot(self, td):
         # Euclidean distance from the depot (loc[..., 0, :])
-        cur_loc = td["locs"].gather(-2, td['current_node'][..., None, None]).squeeze(-2)
+        cur_loc = gather_by_index(td["locs"], td['current_node'][...,None]).squeeze()
         return torch.norm(cur_loc - td['locs'][..., 0, :], dim=-1)
     
-
-@torch.jit.script
-def gather_by_index(source, index):
-    target = torch.gather(
-        source, 1, index.unsqueeze(-1).expand(-1, -1, source.size(-1))
-    )
-    return target
