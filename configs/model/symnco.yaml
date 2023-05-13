@@ -4,5 +4,4 @@ policy:
   _target_: rl4co.models.SymNCOPolicy
   env: ${env}
   embedding_dim: 128
-  hidden_dim: 128
   num_starts: ${env.num_loc}
