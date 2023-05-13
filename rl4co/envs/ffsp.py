@@ -14,6 +14,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
+import sys; sys.path.append('.')
 from rl4co.envs import RL4COEnvBase
 
 
@@ -28,6 +29,7 @@ class FFSPEnv(RL4COEnvBase):
         min_time: float = 0.1,
         max_time: float = 1.0,
         pomo_size: int = 1,
+        batch_size: list = [50], 
         seed: int = None,
         device: str = "cpu",
     ):
@@ -42,10 +44,10 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.pomo_size = pomo_size
+        self.batch_size = batch_size
 
         self.sm_indexer = _Stage_N_Machine_Index_Converter(self)
 
-    @staticmethod
     def _step(self, td: TensorDict) -> TensorDict:
         """Update the states of the environment
         Args:
@@ -61,7 +63,7 @@ class FFSPEnv(RL4COEnvBase):
         schedule = td["schedule"]
         schedule[batch_idx, pomo_idx, machine_idx, job_idx] = time_idx
 
-        job_length = td["job_length"][batch_idx, job_idx, machine_idx]
+        job_length = td["job_durations"][batch_idx, job_idx, machine_idx]
 
         machine_wait_step = td["machine_wait_step"]
         machine_wait_step[batch_idx, pomo_idx, machine_idx] = job_length
@@ -72,10 +74,10 @@ class FFSPEnv(RL4COEnvBase):
         job_wait_step = td["job_wait_step"]
         job_wait_step[batch_idx, pomo_idx, job_idx] = job_length
 
-        reward = torch.ones_like(done) * float("-inf")
-
-        finish = (job_location[:, :, :self.job_num] == self.stage_num).all(dim=2)
+        finish = (job_location[:, :, :self.num_job] == self.num_stage).all(dim=2)
         done = finish.all()
+
+        reward = torch.ones_like(done) * float("-inf")
 
         if done:
             pass
@@ -99,6 +101,7 @@ class FFSPEnv(RL4COEnvBase):
                 finish=finish,
             )
 
+        # FIXME: fix the reward shape and the done shape
         return TensorDict(
             {
                 "next": {
@@ -112,8 +115,8 @@ class FFSPEnv(RL4COEnvBase):
                     "job_location": job_location,
                     "job_wait_step": job_wait_step,
                     "job_durations": td["job_durations"],
-                    "reward": reward,
-                    "done": done,
+                    # "reward": reward,
+                    "done": finish,
                 }
             },
             td.shape,
@@ -180,7 +183,7 @@ class FFSPEnv(RL4COEnvBase):
             job_wait_step: torch.Tensor,
             finish: torch.Tensor,
         ):
-        self.step_state.step_cnt += 1
+        # self.step_state.step_cnt += 1
 
         stage_idx = self.sm_indexer.get_stage_index(sub_time_idx)
         stage_machine_idx = self.sm_indexer.get_stage_machine_index(pomo_idx, sub_time_idx)
@@ -196,7 +199,7 @@ class FFSPEnv(RL4COEnvBase):
         job_waiting_in_stage = (job_in_stage & (job_wait_time > 0)).any(dim=2)
         wait_allowed = job_in_previous_stages + job_waiting_in_stage + finish
 
-        job_ninf_mask = torch.full(size=(self.batch_size, self.pomo_size, self.num_job+1),
+        job_ninf_mask = torch.full(size=(*self.batch_size, self.pomo_size, self.num_job+1),
             fill_value=float('-inf'))
         job_enable = torch.cat((job_available, wait_allowed[:, :, None]), dim=2)
         job_ninf_mask[job_enable] = 0
@@ -206,6 +209,20 @@ class FFSPEnv(RL4COEnvBase):
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
     ) -> TensorDict:
+        '''
+            - problem_list: [batch_size, num_job, num_machine, num_stage]
+            - time_idx: [batch_size, pomo_size]
+            - sub_time_idx: [batch_size, pomo_size]
+            - pomo_idx: [batch_size, pomo_size]
+            - batch_idx: [batch_size, pomo_size]
+            - machine_idx: [batch_size, pomo_size]
+            - schedule: [batch_size, pomo_size, num_machine_total, num_job+1]
+            - machine_wait_step: [batch_size, pomo_size, num_machine_total]
+            - job_location: [batch_size, pomo_size, num_job+1]
+            - job_wait_step: [batch_size, pomo_size, num_job+1]
+            - job_duration: [batch_size, pomo_size, num_machine_total]
+            - done: [batch_size, pomo_size]
+        '''
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
 
@@ -213,30 +230,30 @@ class FFSPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         time_idx = torch.zeros(
-            size=(self.batch_size, self.pomo_size), 
+            size=(*self.batch_size, self.pomo_size), 
             dtype=torch.long
         ) # shape: (batch, pomo)
 
         sub_time_idx = torch.zeros(
-            size=(self.batch_size, self.pomo_size), 
+            size=(*self.batch_size, self.pomo_size), 
             dtype=torch.long
         ) # shape: (batch, pomo)
 
-        pomo_idx = torch.arange(self.pomo_size)[None, :].expand(self.batch_size, self.pomo_size)
-        batch_idx = torch.arange(self.batch_size)[:, None].expand(self.batch_size, self.pomo_size)
+        pomo_idx = torch.arange(self.pomo_size)[None, :].expand(*self.batch_size, self.pomo_size)
+        batch_idx = torch.arange(*self.batch_size)[:, None].expand(*self.batch_size, self.pomo_size)
         machine_idx = self.sm_indexer.get_machine_index(pomo_idx, sub_time_idx) # shape: (batch, pomo)
 
-        schedule = torch.full(size=(self.batch_size, self.pomo_size, self.num_machine_total, self.num_job+1),
+        schedule = torch.full(size=(*self.batch_size, self.pomo_size, self.num_machine_total, self.num_job+1),
                                    dtype=torch.long, fill_value=-999999)# shape: (batch, pomo, machine, job+1)
-        machine_wait_step = torch.zeros(size=(self.batch_size, self.pomo_size, self.num_machine_total),
+        machine_wait_step = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_machine_total),
                                              dtype=torch.long)# shape: (batch, pomo, machine)
-        job_location = torch.zeros(size=(self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
-        job_wait_step = torch.zeros(size=(self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
-        job_durations = torch.empty(size=(self.batch_size, self.num_job+1, self.num_machine_total), dtype=torch.long) # shape: (batch, job+1, total_machine)
-        job_durations[:, :self.num_job, :] = td["problem_list"]
+        job_location = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
+        job_wait_step = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
+        job_durations = torch.empty(size=(*self.batch_size, self.num_job+1, self.num_machine_total), dtype=torch.long) # shape: (batch, job+1, total_machine)
+        job_durations[:, :self.num_job, :] = td["problem_list"].view(*self.batch_size, self.num_job, -1)
         job_durations[:, self.num_job, :] = 0
 
-        done = torch.full(size=(self.batch_size, self.pomo_size), dtype=torch.bool, fill_value=False)# shape: (batch, pomo)
+        done = torch.full(size=(*self.batch_size, self.pomo_size), dtype=torch.bool, fill_value=False)# shape: (batch, pomo)
 
         return TensorDict(
             {
@@ -331,7 +348,8 @@ class FFSPEnv(RL4COEnvBase):
         
         # FIXME: doesn't work for different machine number for now
         # Shape: [batch_size, num_stage, num_job, num_machine]
-        problem_list = torch.stack(problem_list, dim=-3)
+        # -> New Shape: [batch_size, num_job, num_machine, num_stage]
+        problem_list = torch.stack(problem_list, dim=-1)
 
         return TensorDict(
             {
@@ -357,7 +375,7 @@ class FFSPEnv(RL4COEnvBase):
         problems_INT_list = []
         for stage_num in range(num_stage):
             machine_cnt = num_machine_list[stage_num]
-            stage_problems_INT = torch.randint(low=time_low, high=time_high, size=(batch_size, num_job, machine_cnt))
+            stage_problems_INT = torch.randint(low=time_low, high=time_high, size=(*batch_size, num_job, machine_cnt))
             problems_INT_list.append(stage_problems_INT)
 
         return problems_INT_list
@@ -365,7 +383,7 @@ class FFSPEnv(RL4COEnvBase):
 
 class _Stage_N_Machine_Index_Converter:
     def __init__(self, env):
-        assert env.machine_cnt_list == [4, 4, 4]
+        assert env.num_machine_list == [4, 4, 4]
         assert env.pomo_size == 24
 
         machine_SUBindex_0 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
@@ -392,3 +410,25 @@ class _Stage_N_Machine_Index_Converter:
 
     def get_stage_machine_index(self, POMO_IDX, sub_time_idx):
         return self.machine_SUBindex_table[POMO_IDX, sub_time_idx]
+
+
+if __name__ == "__main__":
+    env = FFSPEnv(
+        num_stage=3,
+        num_machine_list=[4, 4, 4],
+        num_job=20,
+        min_time=2,
+        max_time=10,
+        pomo_size=24,
+        batch_size=[50],
+        seed = None,
+        device = "cpu",
+    )
+    td = env.reset()
+    print(td)
+
+    job_idx = torch.load("job_idx.pt")
+    td["job_idx"] = job_idx
+    td = env._step(td=td)
+    print(td)
+    pass
