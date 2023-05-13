@@ -8,6 +8,10 @@ from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.zoo.am.decoder import Decoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
+from rl4co.utils.pylogger import get_pylogger
+
+
+log = get_pylogger(__name__)
 
 
 class HeterogeneousAttentionModelPolicy(nn.Module):
@@ -17,27 +21,20 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         embedding_dim: int = 128,
-        hidden_dim: int = 128,
         num_encode_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
-        checkpoint_encoder: bool = False,
         mask_inner: bool = True,
         force_flash_attn: bool = False,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        **unused_kw
     ):
         super(HeterogeneousAttentionModelPolicy, self).__init__()
+        if len(unused_kw) > 0: log.warn(f"Unused kwargs: {unused_kw}")
 
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
-        self.num_encode_layers = num_encode_layers
         self.env = env
-
-        self.num_heads = num_heads
-        self.checkpoint_encoder = checkpoint_encoder
-
         self.init_embedding = env_init_embedding(
             self.env.name, {"embedding_dim": embedding_dim}
         )
@@ -46,7 +43,7 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
             GraphHeterogeneousAttentionEncoder(
                 num_heads=num_heads,
                 embed_dim=embedding_dim,
-                num_layers=self.num_encode_layers,
+                num_layers=num_encode_layers,
                 normalization=normalization,
             )
             if encoder is None

@@ -9,6 +9,10 @@ from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.symnco.decoder import Decoder
+from rl4co.utils.pylogger import get_pylogger
+
+
+log = get_pylogger(__name__)
 
 
 class SymNCOPolicy(nn.Module):
@@ -18,7 +22,6 @@ class SymNCOPolicy(nn.Module):
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         embedding_dim: int = 128,
-        hidden_dim: int = 128,
         projection_head: nn.Module = None,
         num_starts: int = 10,
         num_encode_layers: int = 3,
@@ -30,18 +33,12 @@ class SymNCOPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        **unused_kw
     ):
         super(SymNCOPolicy, self).__init__()
+        if len(unused_kw) > 0: log.warn(f"Unused kwargs: {unused_kw}")
 
         self.env = env
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
-        self.num_encode_layers = num_encode_layers
-        self.num_heads = num_heads
-        self.train_decode_type = train_decode_type
-        self.val_decode_type = val_decode_type
-        self.test_decode_type = test_decode_type
-
         self.init_embedding = env_init_embedding(
             self.env.name, {"embedding_dim": embedding_dim}
         )
@@ -50,7 +47,7 @@ class SymNCOPolicy(nn.Module):
             GraphAttentionEncoder(
                 num_heads=num_heads,
                 embed_dim=embedding_dim,
-                num_layers=self.num_encode_layers,
+                num_layers=num_encode_layers,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
             )
@@ -76,6 +73,9 @@ class SymNCOPolicy(nn.Module):
             if projection_head is None
             else projection_head
         )
+        self.train_decode_type = train_decode_type
+        self.val_decode_type = val_decode_type
+        self.test_decode_type = test_decode_type
 
     def forward(
         self,
