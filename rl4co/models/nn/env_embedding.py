@@ -13,8 +13,7 @@ def env_dynamic_embedding(env_name: str, config: dict) -> object:
 
 
 def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
-    """
-    Create an embedding object for a given environment name and embedding type.
+    """Create an embedding object for a given environment name and embedding type.
 
     Args:
         env_name: The name of the environment.

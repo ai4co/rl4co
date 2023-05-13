@@ -5,9 +5,7 @@ from rl4co.utils.ops import gather_by_index
 
 
 def env_context(env_name: str, config: dict) -> object:
-    """
-    Get context for a given environment name and initialize the context object.
-    """
+    """Get context object for given environment name"""
     context_classes = {
         "tsp": TSPContext,
         "cvrp": VRPContext,
@@ -29,9 +27,7 @@ def env_context(env_name: str, config: dict) -> object:
 
 class EnvContext(nn.Module):
     def __init__(self, embedding_dim, step_context_dim=None):
-        """
-        Gather the context for each specific environment and projects it to embedding space
-        """
+        """Get environment context and project it to embedding space"""
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
         step_context_dim = (
