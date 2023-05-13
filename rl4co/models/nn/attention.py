@@ -56,6 +56,8 @@ except ImportError:
     log.warning(
         "torch.nn.functional.scaled_dot_product_attention not found. Make sure you are using PyTorch >= 2.0.0"
     )
+    # TODO
+    assert False, "TODO: Implement scaled_dot_product_attention fallback for PyTorch < 2.0.0"
 
 
 def flash_attn_wrapper(self, func, *args, **kwargs):
@@ -769,13 +771,14 @@ class NativeFlashMHA(nn.Module):
         """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
         key_padding_mask: bool tensor of shape (batch, seqlen)
         """
-        qkv = self.Wqkv(x)
-        qkv = rearrange(
-            qkv, "b s (three h d) -> three b s h d", three=3, h=self.num_heads
-        )
-        q, k, v = qkv[0], qkv[1], qkv[2]
+        # Project query, key, value
+        q, k, v = rearrange(
+            self.Wqkv(x), "b s (three h d) -> three b s h d", three=3, h=self.num_heads
+        ).unbind(dim=0)
+
+        # Scaled dot product attention
         out = self.flash_attn_wrapper(
-            F.scaled_dot_product_attention,
+            scaled_dot_product_attention,
             q,
             k,
             v,
