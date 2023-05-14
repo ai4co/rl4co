@@ -12,6 +12,7 @@ from torchrl.data import (
 )
 
 from rl4co.envs.utils import batch_to_scalar
+from rl4co.utils.ops import gather_by_index
 from rl4co.envs.base import RL4COEnvBase
 
 
@@ -153,7 +154,7 @@ class TSPEnv(RL4COEnvBase):
         ).all(), "Invalid tour"
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
+        locs = gather_by_index(locs, actions)
         locs_next = torch.roll(locs, 1, dims=1)
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 

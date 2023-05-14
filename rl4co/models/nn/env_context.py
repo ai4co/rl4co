@@ -47,7 +47,7 @@ class EnvContext(nn.Module):
         state_embedding = self._state_embedding(embeddings, td)
         context_embedding = torch.cat(
             [cur_node_embedding, state_embedding], -1
-        ).squeeze()
+        )
         return self.project_context(context_embedding)
 
 
@@ -64,9 +64,9 @@ class TSPContext(EnvContext):
             context_embedding = self.W_placeholder[None, :].expand(
                 batch_size, self.W_placeholder.size(-1)
             )
-        else:
+        else:     
             context_embedding = gather_by_index(
-                embeddings, torch.stack([td["first_node"], td["current_node"]], -1)
+                embeddings, torch.stack([td["first_node"], td["current_node"]], -1),
             ).view(batch_size, -1)
         return self.project_context(context_embedding)
 
@@ -77,8 +77,7 @@ class VRPContext(EnvContext):
 
     def _state_embedding(self, embeddings, td):
         # TODO: check compatibility between CVRP and SDVRP
-        # (td['capacity'] - td['used_capacity'])[:, :, None]
-        state_embedding = td["capacity"][..., :, None] + td["demand"][..., :1, None]
+        state_embedding = td["capacity"] + td["demand"][..., :1]
         return state_embedding
 
 
@@ -88,7 +87,6 @@ class PCTSPContext(EnvContext):
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["prize_require"] - td["prize_collect"]
-        state_embedding = state_embedding[:, :, None]
         return state_embedding
 
 
@@ -97,7 +95,7 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["length_capacity"][..., :, None]
+        state_embedding = td["length_capacity"]
         return state_embedding
 
 
@@ -145,7 +143,7 @@ class MTSPContext(EnvContext):
         self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim)
 
     def _cur_node_embedding(self, embeddings, td):
-        cur_node_embedding = gather_by_index(embeddings, td["current_node"][...,None])
+        cur_node_embedding = gather_by_index(embeddings, td["current_node"])
         return cur_node_embedding.squeeze()
     
     def _state_embedding(self, embeddings, td):
@@ -156,9 +154,10 @@ class MTSPContext(EnvContext):
             self._distance_from_depot(td)
         ], dim=-1)
         return self.proj_dynamic_feats(dynamic_feats)
+    
 
     def _distance_from_depot(self, td):
         # Euclidean distance from the depot (loc[..., 0, :])
-        cur_loc = gather_by_index(td["locs"], td['current_node'][...,None]).squeeze()
+        cur_loc = gather_by_index(td["locs"], td['current_node'])
         return torch.norm(cur_loc - td['locs'][..., 0, :], dim=-1)
     

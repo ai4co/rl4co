@@ -31,15 +31,10 @@ def gather_by_index(src, idx, dim=1):
     Returns:
         target: shape (64, 1, 2) 
     """
-    target = torch.gather(
-        src, 1, idx.unsqueeze(-1).expand(-1, -1, src.size(-1))
-    )
-    return target
-    # # Note: better flexible version to do this, but needs some fixes
-    # expanded_shape = [src.shape[i] if i != dim else 1 for i in range(src.dim())]
-    # idx = idx.view(idx.shape + (1,) * (src.dim() - idx.dim())).expand(expanded_shape)
-    # target = torch.gather(src, dim, idx)
-    # return target
+    expanded_shape = list(src.shape)
+    expanded_shape[dim] = -1
+    idx = idx.view(idx.shape + (1,) * (src.dim() - idx.dim())).expand(expanded_shape)
+    return src.gather(dim, idx).squeeze()
 
 
 def distance(x, y):
