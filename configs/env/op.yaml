@@ -1,0 +1,3 @@
+_target_: rl4co.envs.op.OPEnv
+
+num_loc: 20

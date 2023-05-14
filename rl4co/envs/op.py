@@ -2,7 +2,6 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.envs import EnvBase
 
 from torchrl.data import (
     BoundedTensorSpec,
@@ -11,10 +10,10 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.data.dataset import TensorDictDataset
+from rl4co.envs.base import RL4COEnvBase
 
 
-class OPEnv(EnvBase):
+class OPEnv(RL4COEnvBase):
     name = "op"
 
     def __init__(
@@ -25,11 +24,9 @@ class OPEnv(EnvBase):
         min_prize: float = 0.1,
         max_prize: float = 0.5,
         length_capacity: float = 1,
-        batch_size: list = [],
         td_params: TensorDict = None,
         seed: int = None,
         device: str = "cpu",
-        **kwargs,
     ):
         """ Orienteering Problem (OP) environment
         At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
@@ -45,17 +42,15 @@ class OPEnv(EnvBase):
         Note:
             - in our setting, the vehicle has to come back to the depot at the end
         """
-        super().__init__(device=device, batch_size=[])
+        super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
         self.min_prize = min_prize
         self.max_prize = max_prize
         self.length_capacity = length_capacity
-        self.batch_size = batch_size
-        if seed is None:
-            seed = torch.empty((), dtype=torch.int64).random_().item()
-        self.set_seed(seed)
+        self._make_spec(td_params)
+
 
     def _step(self, td: TensorDict) -> TensorDict:
         ''' Update the states of the environment
@@ -131,15 +126,15 @@ class OPEnv(EnvBase):
         '''
         if batch_size is None:
             batch_size = self.batch_size if td is None else td['observation'].shape[:-2]
-
+        device = td.device if td is not None else self.device
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
         # Initialize the current node
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Initialize the capacity
-        length_capacity = torch.full((*batch_size, 1), self.length_capacity, dtype=torch.float32, device=self.device)
+        length_capacity = torch.full((*batch_size, 1), self.length_capacity, dtype=torch.float32, device=device)
 
         # Calculate the lenght of each node back to the depot
         length_to_depot = (td["observation"] - td["depot"][..., None, :]).norm(p=2, dim=-1)
@@ -215,19 +210,14 @@ class OPEnv(EnvBase):
             minimum=0,
             maximum=self.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = UnboundedContinuousTensorSpec()
+        self.done_spec = UnboundedDiscreteTensorSpec(dtype=torch.bool)
     
     def get_reward(self, td, actions) -> TensorDict:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
-        return td["prize_collect"]
-    
-    def dataset(self, batch_size):
-        """Return a dataset of observations"""
-        observation = self.generate_data(batch_size)
-        return TensorDictDataset(observation)
+        return td["prize_collect"].squeeze(-1)
 
     def generate_data(self, batch_size):
         ''' 
@@ -266,25 +256,7 @@ class OPEnv(EnvBase):
             batch_size=batch_size
         )
 
-    def transform(self):
-        """Used for converting TensorDict variables (such as with torch.cat) efficiently
-        https://pytorch.org/rl/reference/generated/torchrl.envs.transforms.Transform.html
-        """
-        return self
-
     def render(self, td):
+        # TODO
         """Render the environment"""
         raise NotImplementedError
-
-    def __getstate__(self):
-        """Return the state of the environment. By default, we want to avoid pickling
-        the random number generator as it is not allowed by deepcopy
-        """
-        state = self.__dict__.copy()
-        del state["rng"]
-        return state
-
-    def _set_seed(self, seed: Optional[int]):
-        """Set the seed for the environment"""
-        rng = torch.manual_seed(seed)
-        self.rng = rng

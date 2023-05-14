@@ -46,7 +46,6 @@ env = OPEnv(
     min_prize=1, 
     max_prize=10, 
     length_capacity=5, 
-    batch_size=[32],
     device=device,
 )
 
