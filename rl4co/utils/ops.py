@@ -24,12 +24,11 @@ def unbatchify(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, Tens
 # @torch.jit.script
 def gather_by_index(src, idx, dim=1):
     """Gather elements from src by index idx along specified dim
-    For example:
+    Example:
         src: shape (64, 20, 2)
-        idx: shape (64,)
-        dim: 1  
-    Returns:
-        target: shape (64, 1, 2) 
+        idx: shape (64, 3) # 3 is the number of idxs on dim 1
+        on dim 1 
+        Returns: (64, 3, 2)  # get the 3 elements from src at idx
     """
     expanded_shape = list(src.shape)
     expanded_shape[dim] = -1
