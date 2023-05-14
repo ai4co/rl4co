@@ -1,9 +1,8 @@
 from platform import machine
 from re import sub
+import sched
 from typing import Optional
 
-import itertools
-from sympy import poly_from_expr
 import torch
 from tensordict.tensordict import TensorDict
 
@@ -24,204 +23,163 @@ class FFSPEnv(RL4COEnvBase):
     def __init__(
         self,
         num_stage: int,
-        num_machine_list: list,
+        num_machine: int,
         num_job: int,
         min_time: float = 0.1,
         max_time: float = 1.0,
-        pomo_size: int = 1,
         batch_size: list = [50], 
         seed: int = None,
         device: str = "cpu",
     ):
         """Flexible Flow Shop Problem (FFSP) Environment
         Args:
+
+        Note: 
+            - [IMPORTANT] This version of ffsp requires the number of machines in each stage to be the same
         """
         super().__init__(seed=seed, device=device)
         self.num_stage = num_stage
-        self.num_machine_list = num_machine_list
-        self.num_machine_total = sum(num_machine_list)
+        self.num_machine = num_machine
+        self.num_machine_total = num_stage * num_machine
         self.num_job = num_job
         self.min_time = min_time
         self.max_time = max_time
-        self.pomo_size = pomo_size
         self.batch_size = batch_size
 
-        self.sm_indexer = _Stage_N_Machine_Index_Converter(self)
-
     def _step(self, td: TensorDict) -> TensorDict:
-        """Update the states of the environment
-        Args:
-            - td <TensorDict>: tensor dictionary containing with the action
-        """
+        # job_idx is the action from the model
         job_idx = td["job_idx"]
         time_idx = td["time_idx"]
-        pomo_idx = td["pomo_idx"]
         batch_idx = td["batch_idx"]
-        machine_idx = td["machine_idx"]
+        machine_idx = td["machine_idx"][0]
         sub_time_idx = td["sub_time_idx"]
 
         schedule = td["schedule"]
-        schedule[batch_idx, pomo_idx, machine_idx, job_idx] = time_idx
+        schedule[batch_idx, machine_idx, job_idx] = time_idx
 
-        job_length = td["job_durations"][batch_idx, job_idx, machine_idx]
+        job_length = td["job_duration"][batch_idx, job_idx, machine_idx]
 
         machine_wait_step = td["machine_wait_step"]
-        machine_wait_step[batch_idx, pomo_idx, machine_idx] = job_length
+        machine_wait_step[batch_idx, machine_idx] = job_length
 
         job_location = td["job_location"]
-        job_location[batch_idx, pomo_idx, job_idx] += 1
+        job_location[batch_idx, job_idx] += 1
 
         job_wait_step = td["job_wait_step"]
-        job_wait_step[batch_idx, pomo_idx, job_idx] = job_length
+        job_wait_step[batch_idx, job_idx] = job_length
 
-        finish = (job_location[:, :, :self.num_job] == self.num_stage).all(dim=2)
+        finish = (job_location[:, :self.num_job] == self.num_stage).all(dim=-1)
         done = finish.all()
 
-        reward = torch.ones_like(done) * float("-inf")
-
         if done:
-            pass
+            end_schedule = schedule + td["job_duration"].permute(0, 2, 1)
+            end_time_max, _ = end_schedule[:, :, :self.job_cnt].max(dim=-1)
+            end_time_max, _ = end_time_max.max(dim=-1)
+            reward = end_time_max
         else:
-            time_idx, pomo_idx, batch_idx, sub_time_idx, machine_idx, machine_wait_step, job_wait_step, job_location = self._move_to_next_machine(
-                time_idx=time_idx,
-                pomo_idx=pomo_idx,
-                batch_idx=batch_idx,
-                sub_time_idx=sub_time_idx,
-                machine_idx=machine_idx,
-                machine_wait_step=machine_wait_step,
-                job_wait_step=job_wait_step,
-                job_location=job_location,
-                finish=finish,
-            )
-            self._update_step_state(
-                sub_time_idx=sub_time_idx,
-                pomo_idx=pomo_idx,
-                job_location=job_location,
-                job_wait_step=job_wait_step,
-                finish=finish,
-            )
+            ready = torch.flatten(finish)
+            idx = torch.flatten(batch_idx)
+            idx = idx[~ready]
 
-        # FIXME: fix the reward shape and the done shape
+            while ~ready.all():
+                new_sub_time_idx = sub_time_idx[idx] + 1
+                step_time_required = new_sub_time_idx == self.num_machine_total
+                time_idx[idx] += step_time_required.long()
+                new_sub_time_idx[step_time_required] = 0
+                sub_time_idx[idx] = new_sub_time_idx
+                new_machine_idx = td["machine_table"][0][new_sub_time_idx]
+                machine_idx[idx] = new_machine_idx
+
+                machine_wait_steps = machine_wait_step[idx, :]
+                machine_wait_steps[step_time_required, :] -= 1
+                machine_wait_steps[machine_wait_steps < 0] = 0
+                machine_wait_step[idx, :] = machine_wait_steps
+
+                job_wait_steps = job_wait_step[idx, :]
+                job_wait_steps[step_time_required, :] -= 1
+                job_wait_steps[job_wait_steps < 0] = 0
+                job_wait_step[idx, :] = job_wait_steps
+
+                machine_ready = machine_wait_step[idx, new_machine_idx] == 0
+
+                new_stage_idx = td["stage_table"][0][new_sub_time_idx]
+                job_ready_1 = (job_location[idx, :self.num_job] == new_stage_idx[:, None])
+                job_ready_2 = (job_wait_step[idx, :self.num_job] == 0)
+                job_ready = (job_ready_1 & job_ready_2).any(dim=-1)
+
+                ready = machine_ready & job_ready
+                idx = idx[~ready]
+            
+            stage_idx = td["stage_table"][0][sub_time_idx]
+            stage_machine_idx = td["stage_machine_table"][0][sub_time_idx]
+
+            job_loc = job_location[:, :self.num_job]
+            job_wait_time = job_wait_step[:, :self.num_job]
+
+            job_in_stage = job_loc == stage_idx[:, None]
+            job_not_waiting = (job_wait_time == 0)
+            job_available = job_in_stage & job_not_waiting
+
+            job_in_previous_stages = (job_loc < stage_idx[:, None]).any(dim=-1)
+            job_waiting_in_stage = (job_in_stage & (job_wait_time > 0)).any(dim=-1)
+            wait_allowed = job_in_previous_stages + job_waiting_in_stage + finish
+
+            job_enable = torch.cat((job_available, wait_allowed[:, None]), dim=-1)
+            job_mask = torch.full(
+                size=(*self.batch_size, self.num_job+1),
+                dtype=torch.float32,
+                device=self.device,
+                fill_value=float('-inf')
+            )
+            job_mask[job_enable] = 0
+
+            reward = td["reward"]
+
         return TensorDict(
             {
                 "next": {
-                    "problem_list": td["problem_list"],
+                    "stage_table": td["stage_table"],
+                    "machine_table": td["machine_table"],
                     "time_idx": time_idx,
-                    "pomo_idx": pomo_idx,
+                    "sub_time_idx": sub_time_idx,
                     "batch_idx": batch_idx,
                     "machine_idx": machine_idx,
                     "schedule": schedule,
                     "machine_wait_step": machine_wait_step,
                     "job_location": job_location,
                     "job_wait_step": job_wait_step,
-                    "job_durations": td["job_durations"],
-                    # "reward": reward,
-                    "done": finish,
+                    "job_duration": td["job_duration"],
+                    "reward": reward,
+                    "finish": finish,
+                    
+                    # Update variables
+                    "job_mask": job_mask,
+                    "stage_idx": stage_idx,
+                    "stage_machine_idx": stage_machine_idx,
                 }
             },
             td.shape,
         )
 
-    def _move_to_next_machine(
-            self,
-            time_idx: torch.Tensor,
-            pomo_idx: torch.Tensor,
-            batch_idx: torch.Tensor,
-            sub_time_idx: torch.Tensor,
-            machine_idx: torch.Tensor,
-            machine_wait_step: torch.Tensor,
-            job_wait_step: torch.Tensor,
-            job_location: torch.Tensor,
-            finish: torch.Tensor,
-        ):
-
-        b_idx = torch.flatten(batch_idx)
-        p_idx = torch.flatten(pomo_idx)
-        ready = torch.flatten(finish)
-
-        b_idx = b_idx[~ready]
-        p_idx = p_idx[~ready]
-
-        while ~ready.all():
-            new_sub_time_idx = sub_time_idx[b_idx, p_idx] + 1
-            step_time_required = new_sub_time_idx == self.num_machine_total
-            time_idx[b_idx, p_idx] += step_time_required.long()
-            new_sub_time_idx[step_time_required] = 0
-            sub_time_idx[b_idx, p_idx] = new_sub_time_idx
-            new_machine_idx = self.sm_indexer.get_machine_index(p_idx, new_sub_time_idx)
-            machine_idx[b_idx, p_idx] = new_machine_idx
-
-            machine_wait_steps = machine_wait_step[b_idx, p_idx, :]
-            machine_wait_steps[step_time_required, :] -= 1
-            machine_wait_steps[machine_wait_steps < 0] = 0
-            machine_wait_step[b_idx, p_idx, :] = machine_wait_steps
-
-            job_wait_steps = job_wait_step[b_idx, p_idx, :]
-            job_wait_steps[step_time_required, :] -= 1
-            job_wait_steps[job_wait_steps < 0] = 0
-            job_wait_step[b_idx, p_idx, :] = job_wait_steps
-
-            machine_ready = machine_wait_step[b_idx, p_idx, new_machine_idx] == 0
-
-            new_stage_idx = self.sm_indexer.get_stage_index(new_sub_time_idx)
-            job_ready_1 = (job_location[b_idx, p_idx, :self.num_job] == new_stage_idx[:, None])
-            job_ready_2 = (job_wait_step[b_idx, p_idx, :self.num_job] == 0)
-            job_ready = (job_ready_1 & job_ready_2).any(dim=1)
-
-            ready = machine_ready & job_ready
-
-            b_idx = b_idx[~ready]
-            p_idx = p_idx[~ready]
-
-        return time_idx, pomo_idx, batch_idx, sub_time_idx, machine_idx, machine_wait_step, job_wait_step, job_location
-
-    def _update_step_state(
-            self,
-            sub_time_idx: torch.Tensor,
-            pomo_idx: torch.Tensor,
-            job_location: torch.Tensor,
-            job_wait_step: torch.Tensor,
-            finish: torch.Tensor,
-        ):
-        # self.step_state.step_cnt += 1
-
-        stage_idx = self.sm_indexer.get_stage_index(sub_time_idx)
-        stage_machine_idx = self.sm_indexer.get_stage_machine_index(pomo_idx, sub_time_idx)
-
-        job_loc = job_location[:, :, :self.num_job]
-        job_wait_time = job_wait_step[:, :, :self.num_job]
-
-        job_in_stage = job_loc == stage_idx[:, :, None]
-        job_not_waiting = (job_wait_time == 0)
-        job_available = job_in_stage & job_not_waiting
-
-        job_in_previous_stages = (job_loc < stage_idx[:, :, None]).any(dim=2)
-        job_waiting_in_stage = (job_in_stage & (job_wait_time > 0)).any(dim=2)
-        wait_allowed = job_in_previous_stages + job_waiting_in_stage + finish
-
-        job_ninf_mask = torch.full(size=(*self.batch_size, self.pomo_size, self.num_job+1),
-            fill_value=float('-inf'))
-        job_enable = torch.cat((job_available, wait_allowed[:, :, None]), dim=2)
-        job_ninf_mask[job_enable] = 0
-        state_finished = finish
-        return job_ninf_mask, state_finished
-
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
     ) -> TensorDict:
         '''
-            - problem_list: [batch_size, num_job, num_machine, num_stage]
-            - time_idx: [batch_size, pomo_size]
-            - sub_time_idx: [batch_size, pomo_size]
-            - pomo_idx: [batch_size, pomo_size]
-            - batch_idx: [batch_size, pomo_size]
-            - machine_idx: [batch_size, pomo_size]
-            - schedule: [batch_size, pomo_size, num_machine_total, num_job+1]
-            - machine_wait_step: [batch_size, pomo_size, num_machine_total]
-            - job_location: [batch_size, pomo_size, num_job+1]
-            - job_wait_step: [batch_size, pomo_size, num_job+1]
-            - job_duration: [batch_size, pomo_size, num_machine_total]
-            - done: [batch_size, pomo_size]
+        Args:
+
+        Returns:
+            - stage_table [batch_size, num_stage * num_machine]
+            - machine_table [batch_size, num_machine * num_stage]
+            - stage_machine_idx [batch_size, num_stage * num_machine]
+            - time_idx [batch_size]
+            - sub_time_idx [batch_size]
+            - batch_idx [batch_size]
+            - machine_idx [batch_size]
+            - schedule [batch_size, num_machine_total, num_job+1]
+            - machine_wait_step [batch_size, num_machine_total]
+            - job_location [batch_size, num_job+1]
+            - job_wait_step [batch_size, num_job+1]
+            - job_duration [batch_size, num_job+1, num_machine * num_stage]
         '''
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
@@ -229,76 +187,145 @@ class FFSPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
+        # Init stage and machine mapping table
+        stage_table = torch.arange(
+            self.num_stage, 
+            dtype=torch.long,
+            device=self.device
+        ).repeat_interleave(self.num_machine).repeat(*batch_size, 1)
+        machine_table = torch.arange(
+            self.num_machine * self.num_stage,
+            dtype=torch.long,
+            device=self.device
+        ).repeat(*batch_size, 1)
+        stage_machine_table = torch.arange(
+            self.num_machine,
+            dtype=torch.long,
+            device=self.device
+        ).repeat(*batch_size, self.num_stage)
+
+        # Init index record tensor
         time_idx = torch.zeros(
-            size=(*self.batch_size, self.pomo_size), 
-            dtype=torch.long
-        ) # shape: (batch, pomo)
-
+            size=(batch_size), 
+            dtype=torch.long,
+            device=self.device
+        ) 
         sub_time_idx = torch.zeros(
-            size=(*self.batch_size, self.pomo_size), 
-            dtype=torch.long
-        ) # shape: (batch, pomo)
+            size=(batch_size), 
+            dtype=torch.long,
+            device=self.device
+        )
+        batch_idx = torch.arange(*batch_size)
+        machine_idx = machine_table[..., sub_time_idx]
+        
+        # Scheduling status information
+        schedule = torch.full(
+            size=(*batch_size, self.num_machine_total, self.num_job+1),
+            dtype=torch.long,
+            device=self.device,
+            fill_value=-999999,
+        )
+        machine_wait_step = torch.zeros(
+            size=(*batch_size, self.num_machine_total),
+            dtype=torch.long,
+            device=self.device,
+        )
+        job_location = torch.zeros(
+            size=(*batch_size, self.num_job+1),
+            dtype=torch.long,
+            device=self.device,
+        )
+        job_wait_step = torch.zeros(
+            size=(*batch_size, self.num_job+1),
+            dtype=torch.long,
+            device=self.device,
+        )
+        job_duration = torch.empty(
+            size=(*batch_size, self.num_job+1, self.num_machine * self.num_stage),
+            dtype=torch.long,
+            device=self.device,
+        )
+        job_duration[..., :self.num_job, :] = td["run_time"].view(*batch_size, self.num_job, -1)
+        job_duration[..., self.num_job, :] = 0
 
-        pomo_idx = torch.arange(self.pomo_size)[None, :].expand(*self.batch_size, self.pomo_size)
-        batch_idx = torch.arange(*self.batch_size)[:, None].expand(*self.batch_size, self.pomo_size)
-        machine_idx = self.sm_indexer.get_machine_index(pomo_idx, sub_time_idx) # shape: (batch, pomo)
-
-        schedule = torch.full(size=(*self.batch_size, self.pomo_size, self.num_machine_total, self.num_job+1),
-                                   dtype=torch.long, fill_value=-999999)# shape: (batch, pomo, machine, job+1)
-        machine_wait_step = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_machine_total),
-                                             dtype=torch.long)# shape: (batch, pomo, machine)
-        job_location = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
-        job_wait_step = torch.zeros(size=(*self.batch_size, self.pomo_size, self.num_job+1), dtype=torch.long)# shape: (batch, pomo, job+1)
-        job_durations = torch.empty(size=(*self.batch_size, self.num_job+1, self.num_machine_total), dtype=torch.long) # shape: (batch, job+1, total_machine)
-        job_durations[:, :self.num_job, :] = td["problem_list"].view(*self.batch_size, self.num_job, -1)
-        job_durations[:, self.num_job, :] = 0
-
-        done = torch.full(size=(*self.batch_size, self.pomo_size), dtype=torch.bool, fill_value=False)# shape: (batch, pomo)
+        # Finish status information
+        reward = torch.full(
+            size=(self.batch_size),
+            dtype=torch.float32,
+            device=self.device,
+            fill_value=float('-inf')
+        )
+        finish = torch.full(
+            size=(self.batch_size),
+            dtype=torch.bool,
+            device=self.device,
+            fill_value=False
+        )
 
         return TensorDict(
             {
-                "problem_list": td["problem_list"],
+                # Mapping table information
+                "stage_table": stage_table,
+                "machine_table": machine_table,
+                "stage_machine_table": stage_machine_table,
+                
+                # Index information
                 "time_idx": time_idx,
                 "sub_time_idx": sub_time_idx,
-                "pomo_idx": pomo_idx,
                 "batch_idx": batch_idx,
                 "machine_idx": machine_idx,
+
+                # Scheduling status information
                 "schedule": schedule,
                 "machine_wait_step": machine_wait_step,
                 "job_location": job_location,
                 "job_wait_step": job_wait_step,
-                "job_durations": job_durations,
-                "done": done,
+                "job_duration": job_duration,
+
+                # Finish status information
+                "reward": reward,
+                "finish": finish,
             },
             batch_size=batch_size,
         )
 
     def _make_spec(self, td_params: TensorDict):
-        """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
-                shape=(self.num_loc, 2),
-                dtype=torch.float32,
-            ),
-            current_node=UnboundedDiscreteTensorSpec(
-                shape=(1),
+            time_idx=UnboundedDiscreteTensorSpec(
+                shape=(1,),
                 dtype=torch.int64,
             ),
-            prize=BoundedTensorSpec(
-                minimum=self.min_prize,
-                maximum=self.max_prize,
-                shape=(self.num_loc),
-                dtype=torch.float32,
-            ),
-            prize_collect=UnboundedContinuousTensorSpec(
+            sub_time_idx=UnboundedDiscreteTensorSpec(
                 shape=(1,),
-                dtype=torch.float32,
+                dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc),
-                dtype=torch.bool,
+            batch_idx=UnboundedDiscreteTensorSpec(
+                shape=(1,),
+                dtype=torch.int64,
+            ),
+            machine_idx=UnboundedDiscreteTensorSpec(
+                shape=(1,),
+                dtype=torch.int64,
+            ),
+            schedule=UnboundedDiscreteTensorSpec(
+                shape=(self.num_machine_total, self.num_job+1),
+                dtype=torch.int64,
+            ),
+            machine_wait_step=UnboundedDiscreteTensorSpec(
+                shape=(self.num_machine_total),
+                dtype=torch.int64,
+            ),
+            job_location=UnboundedDiscreteTensorSpec(
+                shape=(self.num_job+1),
+                dtype=torch.int64,
+            ),
+            job_wait_step=UnboundedDiscreteTensorSpec(
+                shape=(self.num_job+1),
+                dtype=torch.int64,
+            ),
+            job_duration=UnboundedDiscreteTensorSpec(
+                shape=(self.num_job+1, self.num_machine * self.num_stage),
+                dtype=torch.int64,
             ),
             shape=(),
         )
@@ -312,48 +339,21 @@ class FFSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    @staticmethod
     def get_reward(self, td, actions) -> TensorDict:
-        job_durations_perm = td["job_durations"].permute(0, 2, 1)
-        end_schedule = td["schedule"] + job_durations_perm[:, None, :, :]
-
-        end_time_max, _ = end_schedule[:, :, :, :self.num_job].max(dim=3)
-        end_time_max, _ = end_time_max.max(dim=2)
-
-        return end_time_max
+        return td["reward"]
 
     def generate_data(self, batch_size) -> TensorDict:
-        """
-        Args:
-            - batch_size <int> or <list>: batch size
-        Returns:
-            - td <TensorDict>: tensor dictionary containing the initial state
-                - problem_list <Tensor> [batch_size, num_stage, num_job, num_machine]
-        """
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
-        # Get random problems
-        problems_INT_list = self.get_random_problems(
-            batch_size=batch_size,
-            num_stage=self.num_stage,
-            num_machine_list=self.num_machine_list,
-            num_job=self.num_job,
-        )
-        problem_list = []
-        for idx_stage in range(self.num_stage):
-            stage_problems_INT = problems_INT_list[idx_stage]
-            stage_problems = stage_problems_INT.clone().type(torch.float)
-            problem_list.append(stage_problems)
-        
-        # FIXME: doesn't work for different machine number for now
-        # Shape: [batch_size, num_stage, num_job, num_machine]
-        # -> New Shape: [batch_size, num_job, num_machine, num_stage]
-        problem_list = torch.stack(problem_list, dim=-1)
+        # Init observation: running time of each job on each machine
+        run_time = torch.FloatTensor(
+            *batch_size, self.num_job, self.num_machine, self.num_stage
+        ).uniform_(self.min_time, self.max_time).to(self.device)
 
         return TensorDict(
             {
-                "problem_list": problem_list,
+                "run_time": run_time,
             },
             batch_size=batch_size,
         )
@@ -361,74 +361,33 @@ class FFSPEnv(RL4COEnvBase):
     def render(self, td: TensorDict):
         raise NotImplementedError("TODO: render is not implemented yet")
 
-    def get_random_problems(
-            self, 
-            batch_size, 
-            num_stage, 
-            num_machine_list, 
-            num_job, 
-        ):
-        '''Generate random problems for each stage.'''
-        time_low = self.min_time
-        time_high = self.max_time
-
-        problems_INT_list = []
-        for stage_num in range(num_stage):
-            machine_cnt = num_machine_list[stage_num]
-            stage_problems_INT = torch.randint(low=time_low, high=time_high, size=(*batch_size, num_job, machine_cnt))
-            problems_INT_list.append(stage_problems_INT)
-
-        return problems_INT_list
-
-
-class _Stage_N_Machine_Index_Converter:
-    def __init__(self, env):
-        assert env.num_machine_list == [4, 4, 4]
-        assert env.pomo_size == 24
-
-        machine_SUBindex_0 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
-        machine_SUBindex_1 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
-        machine_SUBindex_2 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
-        self.machine_SUBindex_table = torch.cat((machine_SUBindex_0, machine_SUBindex_1, machine_SUBindex_2), dim=1)
-        # machine_SUBindex_table.shape: (pomo, total_machine)
-
-        starting_SUBindex = [0, 4, 8]
-        machine_order_0 = machine_SUBindex_0 + starting_SUBindex[0]
-        machine_order_1 = machine_SUBindex_1 + starting_SUBindex[1]
-        machine_order_2 = machine_SUBindex_2 + starting_SUBindex[2]
-        self.machine_table = torch.cat((machine_order_0, machine_order_1, machine_order_2), dim=1)
-        self.stage_table = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], dtype=torch.long)
-
-    def get_stage_index(self, sub_time_idx):
-        return self.stage_table[sub_time_idx]
-
-    def get_machine_index(self, POMO_IDX, sub_time_idx):
-        # POMO_IDX.shape: (batch, pomo)
-        # sub_time_idx.shape: (batch, pomo)
-        return self.machine_table[POMO_IDX, sub_time_idx]
-        # shape: (batch, pomo)
-
-    def get_stage_machine_index(self, POMO_IDX, sub_time_idx):
-        return self.machine_SUBindex_table[POMO_IDX, sub_time_idx]
-
 
 if __name__ == "__main__":
+    '''
+        num_stage: int,
+        num_machine: int,
+        num_job: int,
+        min_time: float = 0.1,
+        max_time: float = 1.0,
+        pomo_size: int = 1,
+        batch_size: list = [50], 
+        seed: int = None,
+        device: str = "cpu",
+    '''
     env = FFSPEnv(
-        num_stage=3,
-        num_machine_list=[4, 4, 4],
-        num_job=20,
+        num_stage=2,
+        num_machine=3,
+        num_job=4,
         min_time=2,
         max_time=10,
-        pomo_size=24,
-        batch_size=[50],
+        batch_size=[5],
         seed = None,
         device = "cpu",
     )
     td = env.reset()
     print(td)
-
-    job_idx = torch.load("job_idx.pt")
-    td["job_idx"] = job_idx
-    td = env._step(td=td)
+    
+    td["job_idx"] = torch.tensor([1, 1, 1, 1, 1])
+    td = env._step(td)
     print(td)
     pass
