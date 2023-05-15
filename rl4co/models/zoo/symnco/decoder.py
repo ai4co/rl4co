@@ -137,7 +137,7 @@ class Decoder(nn.Module):
     def _get_log_p(self, cached, td, softmax_temp=None):
         # Compute the query based on the context (computes automatically the first and last node context)
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        query = (cached.graph_context + step_context).unsqueeze(
+        glimpse_q = (cached.graph_context + step_context).unsqueeze(
             1
         )  # [batch, 1, embed_dim]
 
@@ -147,16 +147,16 @@ class Decoder(nn.Module):
             glimpse_val_dynamic,
             logit_key_dynamic,
         ) = self.dynamic_embedding(td)
-        glimpse_key = cached.glimpse_key + glimpse_key_dynamic
-        glimpse_key = cached.glimpse_val + glimpse_val_dynamic
-        logit_key = cached.logit_key + logit_key_dynamic
+        glimpse_k = cached.glimpse_key + glimpse_key_dynamic
+        glimpse_v = cached.glimpse_val + glimpse_val_dynamic
+        logit_k = cached.logit_key + logit_key_dynamic
 
         # Get the mask
         mask = ~td["action_mask"]
 
         # Compute logits
         log_p = self.logit_attention(
-            query, glimpse_key, glimpse_key, logit_key, mask, softmax_temp
+            glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
         return log_p, mask
