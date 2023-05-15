@@ -1,6 +1,5 @@
 from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
 import torch
 from torch.utils.data import DataLoader
@@ -63,9 +62,6 @@ class RL4COLitModule(LightningModule):
         self.val_metrics = self.cfg.metrics.get("val", ["reward"])
         self.test_metrics = self.cfg.metrics.get("test", ["reward"])
         self.log_on_step = self.cfg.metrics.get("log_on_step", True)
-        self.log_cost = self.cfg.metrics.get(
-            "log_cost", False
-        )  # convert reward to cost
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
@@ -101,15 +97,6 @@ class RL4COLitModule(LightningModule):
         # Log metrics
         metrics = getattr(self, f"{phase}_metrics")
         metrics = {f"{phase}/{k}": v.mean() for k, v in out.items() if k in metrics}
-        # If log_cost, replace all max -> min, reward -> cost and invert sign if contains reward
-        if self.log_cost:
-            metrics = {
-                k.replace("reward", "cost").replace("max", "min"): -v
-                if "reward" in k
-                else v
-                for k, v in metrics.items()
-            }
-
         self.log_dict(
             metrics,
             on_step=self.log_on_step,
@@ -150,72 +137,4 @@ class RL4COLitModule(LightningModule):
             shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=self.cfg.data.get("num_workers", 0),
             collate_fn=TensorDictCollate(),
-            # pin_memory=self.on_gpu, # TODO: check if needed, comment now for bug in test
         )
-
-
-if __name__ == "__main__":
-    # TODO: remove this small test, do this under tests/
-    from omegaconf import DictConfig
-    from lightning import Trainer
-
-    config = DictConfig(
-        {
-            "env": {
-                "_target_": "ncobench.envs.tsp.TSPEnv",
-                "num_loc": 50,
-            },
-            "model": {
-                "_target_": "ncobench.models.am.AttentionModel",
-                "policy": {
-                    "_target_": "ncobench.models.components.am.base.AttentionModelBase",
-                    "env": "${env}",
-                },
-                "baseline": {
-                    "_target_": "ncobench.models.rl.reinforce.WarmupBaseline",
-                    "baseline": {
-                        "_target_": "ncobench.models.rl.reinforce.RolloutBaseline",
-                    },
-                },
-            },
-            "data": {
-                "train_size": 1280000,
-                "val_size": 10000,
-                "batch_size": 512,
-            },
-            "train": {
-                "optimizer": {
-                    "_target_": "torch.optim.Adam",
-                    # "_target_": "deepspeed.ops.adam.DeepSpeedCPUAdam",
-                    "lr": 1e-4,
-                    "weight_decay": 1e-5,
-                },
-                "gradient_clip_val": 1.0,
-                "max_epochs": 100,
-                "accelerator": "gpu",
-            },
-        }
-    )
-
-    torch.set_float32_matmul_precision("medium")
-
-    # DDPS Strategy
-    from lightning.pytorch.strategies import (
-        DDPStrategy,
-        FSDPStrategy,
-        DeepSpeedStrategy,
-    )
-
-    model = RL4COLitModule(config)
-    trainer = Trainer(
-        max_epochs=config.train.max_epochs,
-        gradient_clip_val=config.train.gradient_clip_val,
-        accelerator=config.train.accelerator,
-        # strategy=DDPStrategy(find_unused_parameters=True),
-        devices=[1],
-        # strategy="deepspeed_stage_3",#(find_unused_parameters=True),
-        # precision="16-mixed",
-        precision=16,
-        # accelerator="cpu",
-    )
-    trainer.fit(model)
