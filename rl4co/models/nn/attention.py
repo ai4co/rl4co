@@ -874,14 +874,9 @@ class LogitAttention(nn.Module):
         heads = self.flash_attn_wrapper(
             scaled_dot_product_attention, q, k, v, attn_mask=attn_mask
         )
-        # Same as rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads) but faster
-        heads = heads.view(heads.size(0), 1, heads.size(1) * heads.size(-1))
-        return heads
+        return rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads)
 
     def _make_heads(self, v):
-        # Same as rearrange(v, "b g (h s) -> b h g s", h=self.num_heads) but faster
-        return v.view(
-            v.size(0), self.num_heads, v.size(1), v.size(-1) // self.num_heads
-        )
-
+        return rearrange(v, "b g (h s) -> b h g s", h=self.num_heads)
+    
     flash_attn_wrapper = flash_attn_wrapper
