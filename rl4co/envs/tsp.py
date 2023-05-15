@@ -14,6 +14,10 @@ from torchrl.data import (
 from rl4co.envs.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index
 from rl4co.envs.base import RL4COEnvBase
+from rl4co.utils.pylogger import get_pylogger
+
+
+log = get_pylogger(__name__)
 
 
 class TSPEnv(RL4COEnvBase):
@@ -168,69 +172,41 @@ class TSPEnv(RL4COEnvBase):
         return TensorDict({"locs": locs}, batch_size=batch_size)
 
     @staticmethod
-    def render(td):
+    def render(td, ax=None):
         import matplotlib.pyplot as plt
+
+        if ax is None:
+            # Create a plot of the nodes
+            _, ax = plt.subplots()
 
         td = td.detach().cpu()
         # if batch_size greater than 0 , we need to select the first batch element
         if td.batch_size != torch.Size([]):
             td = td[0]
 
-        key = "locs" if "locs" in td.keys() else "loc"
+        locs = td['locs']
 
-        locs = td[key]
-        x = locs[:, 0]
-        y = locs[:, 1]
+        # gather locs in order of action if available
+        if 'action' in td.keys():
+            locs = gather_by_index(locs, td['action'], dim=0)
+        else:
+            log.warning('No action in TensorDict, rendering unsorted locs')
 
-        # Create a plot of the nodes
-        fig, ax = plt.subplots()
-        ax.scatter(td[key][:, 0], td[key][:, 1], color="blue")
+        # Cat the first node to the end to complete the tour
+        locs = torch.cat((locs, locs[0:1]))
+        x, y = locs[:, 0], locs[:, 1]
 
         # Plot the visited nodes
-        ax.scatter(x, y, color="red")
+        ax.scatter(x, y, color="tab:blue")
 
         # Add arrows between visited nodes as a quiver plot
-        dx = np.diff(x)
-        dy = np.diff(y)
-
-        # Colors via a colormap
-        cmap = plt.get_cmap("cividis")
-        norm = plt.Normalize(vmin=0, vmax=len(x))
-        colors = cmap(norm(range(len(x))))
+        dx, dy = np.diff(x), np.diff(y)
         ax.quiver(
-            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color=colors
+            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color='k'
         )
-
-        # Add final arrow from last node to first node
-        ax.quiver(
-            x[-1],
-            y[-1],
-            x[0] - x[-1],
-            y[0] - y[-1],
-            scale_units="xy",
-            angles="xy",
-            scale=1,
-            color="red",
-            linestyle="dashed",
-        )
-
-        # Plot numbers inside circles next to visited nodes
-        for i, coord in enumerate(locs):
-            ax.add_artist(plt.Circle(coord, radius=0.02, color=colors[i]))
-            ax.annotate(
-                str(i + 1),
-                xy=coord,
-                fontsize=10,
-                color="white",
-                va="center",
-                ha="center",
-            )
 
         # Set plot title and axis labels
-        ax.set_title(
-            "TSP Solution\nTotal length: {:.2f}".format(-td["reward"].detach().item())
-        )
+        ax.set_title("TSP Solution")
         ax.set_xlabel("x-coordinate")
         ax.set_ylabel("y-coordinate")
-        ax.set_aspect("equal")
         plt.show()
