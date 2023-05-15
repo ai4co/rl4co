@@ -167,7 +167,8 @@ class ATSPEnv(RL4COEnvBase):
         batch_idx = torch.arange(
             distance_matrix.shape[0], device=distance_matrix.device
         ).unsqueeze(1)
-        return distance_matrix[batch_idx, nodes_src, nodes_tgt].sum(-1)
+        # return negative tour length
+        return - distance_matrix[batch_idx, nodes_src, nodes_tgt].sum(-1)
 
     def generate_data(self, batch_size) -> TensorDict:
         # Generate distance matrices inspired by the reference MatNet (Kwon et al., 2021)
