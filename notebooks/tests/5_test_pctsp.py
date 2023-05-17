@@ -40,12 +40,12 @@ from rl4co.envs.pctsp import PCTSPEnv
 num_loc = 20
 device = "cuda" if torch.cuda.is_available() else "cpu"
 env = PCTSPEnv(
-    num_loc=num_loc, 
-    min_loc=0, 
+    num_loc=num_loc,
+    min_loc=0,
     max_loc=1,
-    min_prize=0.1, 
-    max_prize=0.5, 
-    min_penalty=0.1, 
+    min_prize=0.1,
+    max_prize=0.5,
+    min_penalty=0.1,
     max_penalty=0.5,
     require_prize=2,
     batch_size=[32],

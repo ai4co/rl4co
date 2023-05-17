@@ -80,7 +80,9 @@ class PCTSPEnv(RL4COEnvBase):
         action_mask = prize > 0
 
         # If collected prize is larger than required prize, then the depot is allowed to visit
-        action_mask[..., :1] = torch.logical_or(action_mask[..., :1], prize_collect >= td["prize_require"])
+        action_mask[..., :1] = torch.logical_or(
+            action_mask[..., :1], prize_collect >= td["prize_require"]
+        )
 
         # Force to done when there are no unvisited locations
         done = (torch.count_nonzero(prize, dim=-1) <= 0)[..., None]
@@ -93,7 +95,9 @@ class PCTSPEnv(RL4COEnvBase):
         action_mask[..., :1] = torch.logical_or(action_mask[..., :1], done)
 
         # If done, then we are not allowed to visit any other nodes
-        action_mask[..., 1:] = torch.logical_xor(torch.logical_or(action_mask[..., 1:], done), done)
+        action_mask[..., 1:] = torch.logical_xor(
+            torch.logical_or(action_mask[..., 1:], done), done
+        )
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # Note: reward is calculated outside for now via the get_reward function
@@ -143,7 +147,10 @@ class PCTSPEnv(RL4COEnvBase):
 
         # Required prize
         prize_require = torch.full(
-            (*batch_size, 1), self.require_prize, dtype=torch.float32, device=self.device
+            (*batch_size, 1),
+            self.require_prize,
+            dtype=torch.float32,
+            device=self.device,
         )
 
         # Init the action mask
@@ -210,7 +217,7 @@ class PCTSPEnv(RL4COEnvBase):
         length = -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
         # Calculate the penalty
-        penalty = torch.sum(td["penalty"] * (td['prize'] > 0).float(), dim=-1)
+        penalty = torch.sum(td["penalty"] * (td["prize"] > 0).float(), dim=-1)
         return length + penalty
 
     def generate_data(self, batch_size) -> TensorDict:

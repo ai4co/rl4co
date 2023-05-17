@@ -12,15 +12,11 @@ from rl4co.data.dataset import TensorDictCollate
 from rl4co.envs.base import EnvBase
 
 
-
 log = get_pylogger(__name__)
 
 
 class RL4COLitModule(LightningModule):
-    def __init__(self, 
-                 cfg: DictConfig, 
-                 env: EnvBase = None,
-                 model: nn.Module = None):
+    def __init__(self, cfg: DictConfig, env: EnvBase = None, model: nn.Module = None):
         """
         Base LightningModule for Neural Combinatorial Optimization
         Args:
@@ -81,7 +77,9 @@ class RL4COLitModule(LightningModule):
         train_cfg = self.cfg.get("train", {})
         if train_cfg.get("optimizer", None) is None:
             log.info(f"No optimizer specified, using default")
-        opt_cfg = train_cfg.get("optimizer", DictConfig({'_target_': 'torch.optim.Adam', 'lr': 1e-4}))
+        opt_cfg = train_cfg.get(
+            "optimizer", DictConfig({"_target_": "torch.optim.Adam", "lr": 1e-4})
+        )
         if "_target_" not in opt_cfg:
             log.warning(f"No _target_ specified for optimizer, using default Adam")
             opt_cfg["_target_"] = "torch.optim.Adam"

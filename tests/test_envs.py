@@ -68,4 +68,3 @@ def test_mtsp(size, batch_size):
     env = MTSPEnv(num_loc=size)
     reward = rollout(env, env.reset(batch_size=[batch_size]), policy)
     assert reward.shape == (batch_size,)
-

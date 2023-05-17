@@ -184,8 +184,7 @@ class PDPInitEmbedding(nn.Module):
 
 class MTSPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
-        """NOTE: new made by Fede. May need to be checked
-        """
+        """NOTE: new made by Fede. May need to be checked"""
         super(MTSPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
         self.init_embed = nn.Linear(node_dim, embedding_dim)
@@ -196,6 +195,7 @@ class MTSPInitEmbedding(nn.Module):
         depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
         node_embedding = self.init_embed(td["locs"][..., 1:, :])
         return torch.cat([depot_embedding, node_embedding], -2)
+
 
 # class MTSPDynamicEmbedding(nn.Module):
 #     def __init__(self, embedding_dim):

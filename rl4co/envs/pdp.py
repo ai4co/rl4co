@@ -13,6 +13,7 @@ from torchrl.data import (
 from rl4co.envs.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
 
+
 class PDPEnv(RL4COEnvBase):
     name = "pdp"
 
@@ -192,7 +193,7 @@ class PDPEnv(RL4COEnvBase):
         ).all(), "Deliverying without pick-up"
 
         # Gather locations in the order of actions and get reward = -(total distance)
-        locs = gather_by_index(td["locs"], actions)# [batch, graph_size+1, 2]
+        locs = gather_by_index(td["locs"], actions)  # [batch, graph_size+1, 2]
         locs_next = torch.roll(locs, 1, dims=1)
         return -(locs_next - locs).norm(p=2, dim=2).sum(1)
 

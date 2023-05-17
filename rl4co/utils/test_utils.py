@@ -16,9 +16,9 @@ def get_env(name, size):
         env = DPPEnv()
     elif name == "pdp":
         env = PDPEnv(num_loc=size)
-    elif name == 'op':
+    elif name == "op":
         env = OPEnv(num_loc=size)
-    elif name == 'mtsp':
+    elif name == "mtsp":
         env = MTSPEnv(num_loc=size)
     else:
         raise ValueError(f"Unknown env_name: {name}")
