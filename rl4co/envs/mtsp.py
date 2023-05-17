@@ -57,8 +57,8 @@ class MTSPEnv(RL4COEnvBase):
         first_node = current_node if is_first_action else td["first_node"]
 
         # Get the locations of the current node and the previous node and the depot
-        cur_loc = gather_by_index(td['locs'], current_node[..., None]).squeeze(-2)
-        prev_loc = gather_by_index(td['locs'], td['current_node'][..., None]).squeeze(-2) # current_node is the previous node
+        cur_loc = gather_by_index(td['locs'], current_node)
+        prev_loc = gather_by_index(td['locs'], td['current_node']) # current_node is the previous node
         depot_loc = td["locs"][..., 0, :]
 
         # If current_node is the depot, then increment agent_idx

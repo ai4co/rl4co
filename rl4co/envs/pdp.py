@@ -11,7 +11,7 @@ from torchrl.data import (
 )
 
 from rl4co.envs.base import RL4COEnvBase
-
+from rl4co.utils.ops import gather_by_index
 
 class PDPEnv(RL4COEnvBase):
     name = "pdp"
@@ -192,9 +192,7 @@ class PDPEnv(RL4COEnvBase):
         ).all(), "Deliverying without pick-up"
 
         # Gather locations in the order of actions and get reward = -(total distance)
-        locs = td["locs"].gather(
-            1, actions.unsqueeze(-1).expand_as(td["locs"])
-        )  # [batch, graph_size+1, 2]
+        locs = gather_by_index(td["locs"], actions)# [batch, graph_size+1, 2]
         locs_next = torch.roll(locs, 1, dims=1)
         return -(locs_next - locs).norm(p=2, dim=2).sum(1)
 
@@ -213,7 +211,7 @@ class PDPEnv(RL4COEnvBase):
         )
 
     @staticmethod
-    def render(td, actions):
+    def render(td, actions=None):
         import matplotlib.pyplot as plt
 
         markersize = 8
@@ -222,13 +220,15 @@ class PDPEnv(RL4COEnvBase):
         # if batch_size greater than 0 , we need to select the first batch element
         if td.batch_size != torch.Size([]):
             td = td[0]
-            actions = actions[0]
+            if actions is not None:
+                actions = actions[0]
 
         # Variables
         init_deliveries = td["to_deliver"][1:]
         delivery_locs = td["locs"][1:][~init_deliveries.bool()]
         pickup_locs = td["locs"][1:][init_deliveries.bool()]
         depot_loc = td["locs"][0]
+        actions = actions if actions is not None else td["action"]
 
         fig, ax = plt.subplots()
 

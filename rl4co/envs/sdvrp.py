@@ -10,6 +10,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 from rl4co.envs import RL4COEnvBase
+from rl4co.utils.ops import gather_by_index
 
 
 class SDVRPEnv(RL4COEnvBase):
@@ -196,9 +197,8 @@ class SDVRPEnv(RL4COEnvBase):
         locs = td["locs"]
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
+        locs = gather_by_index(locs, actions)
         locs_next = torch.roll(locs, 1, dims=1)
-
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
