@@ -20,6 +20,14 @@ class PrecomputedCache:
 
 class Decoder(nn.Module):
     def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
+        """
+        Auto-regressive decoder for the Attention Model for constructing solutions
+        
+        Args:
+            env: Environment to solve
+            embedding_dim: Dimension of the embeddings
+            num_heads: Number of heads for the attention
+        """
         super(Decoder, self).__init__()
 
         self.env = env
