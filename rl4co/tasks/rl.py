@@ -1,31 +1,35 @@
 from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
 from hydra.utils import instantiate
+from omegaconf import DictConfig, ListConfig
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from lightning import LightningModule
 
 from rl4co.utils.pylogger import get_pylogger
 from rl4co.data.dataset import TensorDictCollate
+from rl4co.envs.base import EnvBase
+
 
 
 log = get_pylogger(__name__)
 
 
 class RL4COLitModule(LightningModule):
-    def __init__(self, cfg, model_cfg=None, env_cfg=None):
+    def __init__(self, 
+                 cfg: DictConfig, 
+                 env: EnvBase = None,
+                 model: nn.Module = None):
         """
         Base LightningModule for Neural Combinatorial Optimization
-        If model_cfg is passed, it will take precedence over cfg.model
-        Likewise for env_cfg
-
         Args:
-            cfg: OmegaConf config
-            model_cfg: OmegaConf config for model
-            env_cfg: OmegaConf config for env
+            cfg: Hydra config
+            env: Environment to use overridding the config. If None, instantiate from config
+            model: Model to use overridding the config. If None, instantiate from config
         """
 
-        if cfg.train.get("disable_profiling", True):
+        if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
             try:
@@ -37,31 +41,32 @@ class RL4COLitModule(LightningModule):
         super().__init__()
         # this line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute
+        cfg = DictConfig(cfg) if not isinstance(cfg, DictConfig) else cfg
         self.save_hyperparameters(cfg)
         self.cfg = cfg
 
-        self.model_cfg = model_cfg or self.cfg.model
-        self.env_cfg = env_cfg or self.cfg.env
-
-        self.instantiate_env()
-        self.instantiate_model()
+        # Instantiate environment, model and metrics
+        self.env = env if env is not None else self.instantiate_env()
+        self.model = model if model is not None else self.instantiate_model()
         self.instantiate_metrics()
 
     def instantiate_env(self):
-        log.info(f"Instantiating environments <{self.env_cfg._target_}>")
-        self.env = instantiate(self.env_cfg)
-        # self.env = env.transform() # NOTE: comment for now, we may not need it
+        log.info(f"Instantiating environment <{self.cfg.env._target_}>")
+        return instantiate(self.cfg.env)
 
     def instantiate_model(self):
-        log.info(f"Instantiating model <{self.model_cfg._target_}>")
-        self.model = instantiate(self.model_cfg, env=self.env)
+        log.info(f"Instantiating model <{self.cfg.model._target_}>")
+        return instantiate(self.cfg.model, env=self.env)
 
     def instantiate_metrics(self):
         """Dictionary of metrics to be logged at each phase"""
-        self.train_metrics = self.cfg.metrics.get("train", ["loss", "reward"])
-        self.val_metrics = self.cfg.metrics.get("val", ["reward"])
-        self.test_metrics = self.cfg.metrics.get("test", ["reward"])
-        self.log_on_step = self.cfg.metrics.get("log_on_step", True)
+        metrics = self.cfg.get("metrics", {})
+        if not metrics:
+            log.info(f"No metrics specified, using default")
+        self.train_metrics = metrics.get("train", ["loss", "reward"])
+        self.val_metrics = metrics.get("val", ["reward"])
+        self.test_metrics = metrics.get("test", ["reward"])
+        self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
         log.info(f"Setting up datasets")
@@ -73,21 +78,26 @@ class RL4COLitModule(LightningModule):
             self.model.setup(self)
 
     def configure_optimizers(self):
-        parameters = (
-            self.parameters()
-        )  # this will train task specific parameters such as Retrieval head for AAN
-        log.info(f"Instantiating optimizer <{self.cfg.train.optimizer._target_}>")
-        optimizer = instantiate(self.cfg.train.optimizer, parameters)
+        train_cfg = self.cfg.get("train", {})
+        if train_cfg.get("optimizer", None) is None:
+            log.info(f"No optimizer specified, using default")
+        opt_cfg = train_cfg.get("optimizer", DictConfig({'_target_': 'torch.optim.Adam', 'lr': 1e-4}))
+        if "_target_" not in opt_cfg:
+            log.warning(f"No _target_ specified for optimizer, using default Adam")
+            opt_cfg["_target_"] = "torch.optim.Adam"
 
-        if "scheduler" not in self.cfg.train:
+        log.info(f"Instantiating optimizer <{opt_cfg._target_}>")
+        optimizer = instantiate(opt_cfg, self.parameters())
+
+        if "scheduler" not in train_cfg:
             return optimizer
         else:
-            log.info(f"Instantiating scheduler <{self.cfg.train.scheduler._target_}>")
-            lr_scheduler = instantiate(self.cfg.train.scheduler, optimizer)
+            log.info(f"Instantiating scheduler <{train_cfg.scheduler._target_}>")
+            lr_scheduler = instantiate(train_cfg.scheduler, optimizer)
             return [optimizer], {
                 "scheduler": lr_scheduler,
-                "interval": self.cfg.train.get("scheduler_interval", "step"),
-                "monitor": self.cfg.train.get("scheduler_monitor", "val/loss"),
+                "interval": train_cfg.get("scheduler_interval", "step"),
+                "monitor": train_cfg.get("scheduler_monitor", "val/loss"),
             }
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
