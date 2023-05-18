@@ -8,9 +8,8 @@ from torch.utils.data import DataLoader
 from lightning import LightningModule
 
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.data.dataset import TensorDictCollate
+from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.envs.base import EnvBase
-
 
 
 log = get_pylogger(__name__)
@@ -28,7 +27,6 @@ class RL4COLitModule(LightningModule):
             env: Environment to use overridding the config. If None, instantiate from config
             model: Model to use overridding the config. If None, instantiate from config
         """
-
         if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
@@ -69,8 +67,19 @@ class RL4COLitModule(LightningModule):
         self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
+        # setup batch sizes
+        if self.cfg.data.get("train_batch_size", None) is None:
+            batch_size = self.cfg.data.get("batch_size", None)
+            if batch_size is not None:
+                log.warning(f"batch_size under data specified, using default as {batch_size}")
+                self.cfg.data.train_batch_size = batch_size
+            log.warning(f"No train_batch_size under data specified, using default as 64")
+        self.train_batch_size = self.cfg.data.get("train_batch_size", 64)
+        self.val_batch_size = self.cfg.data.get("val_batch_size", self.train_batch_size)
+        self.test_batch_size = self.cfg.data.get("test_batch_size", self.train_batch_size)
+
         log.info(f"Setting up datasets")
-        self.train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
+        self.train_dataset = self.wrap_dataset(self.env.dataset(self.cfg.data.train_size, "train"))
         self.val_dataset = self.env.dataset(self.cfg.data.val_size, "val")
         test_size = self.cfg.data.get("test_size", self.cfg.data.val_size)
         self.test_dataset = self.env.dataset(test_size, "test")
@@ -102,22 +111,26 @@ class RL4COLitModule(LightningModule):
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(batch)
-        out = self.model(td, phase)
+        out = self.model(td, phase, td.get("extra", None))
 
         # Log metrics
         metrics = getattr(self, f"{phase}_metrics")
         metrics = {f"{phase}/{k}": v.mean() for k, v in out.items() if k in metrics}
-        self.log_dict(
-            metrics,
-            on_step=self.log_on_step,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
 
-        return {"loss": out.get("loss", None)}
+        log_on_step = self.log_on_step if phase == "train" else False
+        on_epoch = False if phase == "train" else True
+        self.log_dict(
+            metrics, 
+            on_step=log_on_step, 
+            on_epoch=on_epoch, 
+            prog_bar=True, 
+            sync_dist=True, 
+            add_dataloader_idx=False
+        )
+        return {"loss": out.get("loss", None), **metrics}
 
     def training_step(self, batch: Any, batch_idx: int):
+        # To use new data every epoch, we need to call reload_dataloaders_every_epoch=True in Trainer
         return self.shared_step(batch, batch_idx, phase="train")
 
     def validation_step(self, batch: Any, batch_idx: int):
@@ -127,24 +140,30 @@ class RL4COLitModule(LightningModule):
         return self.shared_step(batch, batch_idx, phase="test")
 
     def train_dataloader(self):
-        return self._dataloader(self.train_dataset)
+        return self._dataloader(self.train_dataset, self.train_batch_size)
 
     def val_dataloader(self):
-        return self._dataloader(self.val_dataset)
+        return self._dataloader(self.val_dataset, self.val_batch_size)
 
     def test_dataloader(self):
-        return self._dataloader(self.test_dataset)
+        return self._dataloader(self.test_dataset, self.test_batch_size)
 
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
-        self.train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
+        train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
+        self.train_dataset = self.wrap_dataset(train_dataset)
+    
+    def wrap_dataset(self, dataset):
+        if hasattr(self.model, "wrap_dataset"):
+            dataset = self.model.wrap_dataset(self, dataset)
+        return dataset
 
-    def _dataloader(self, dataset):
+    def _dataloader(self, dataset, batch_size):
         return DataLoader(
             dataset,
-            batch_size=self.cfg.data.batch_size,
+            batch_size=batch_size,
             shuffle=False,  # no need to shuffle, we're resampling every epoch
             num_workers=self.cfg.data.get("num_workers", 0),
-            collate_fn=TensorDictCollate(),
+            collate_fn=tensordict_collate_fn,
         )

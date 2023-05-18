@@ -3,15 +3,15 @@ from torch import nn
 from tensordict import TensorDict
 import lightning as L
 
-from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.ops import unbatchify
-from rl4co.models.rl.reinforce import WarmupBaseline, RolloutBaseline
 from rl4co.models.zoo.pomo.utils import get_best_actions
 from rl4co.models.zoo.pomo.policy import POMOPolicy
 from rl4co.models.zoo.pomo.augmentations import StateAugmentation
+from rl4co.models.rl.reinforce.baselines import WarmupBaseline, RolloutBaseline
+from rl4co.models.rl.reinforce.base import REINFORCE
 
 
-class POMO(nn.Module):
+class POMO(REINFORCE):
     def __init__(self, env, policy=None, baseline=None, num_augment=8):
         """
         POMO Model for neural combinatorial optimization based on REINFORCE
@@ -23,9 +23,10 @@ class POMO(nn.Module):
             baseline: REINFORCE Baseline
             num_augment: Number of augmentations (default: 8)
         """
-        super().__init__()
-        self.env = env
-        self.policy = POMOPolicy(env) if policy is None else policy
+        super().__init__(env, policy, baseline)
+        self.policy = POMOPolicy(self.env) if policy is None else policy
+
+        # TODO: check baseline
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
@@ -33,7 +34,7 @@ class POMO(nn.Module):
         self.num_pomo = self.policy.num_pomo
         self.num_augment = num_augment
         self.augment = (
-            StateAugmentation(env.name, num_augment) if num_augment > 1 else None
+            StateAugmentation(self.env.name, num_augment) if num_augment > 1 else None
         )
 
     def forward(
@@ -101,21 +102,3 @@ class POMO(nn.Module):
             )
 
         return out
-
-    def setup(self, lit_module):
-        # Make baseline taking model itself and train_dataloader from model as input
-        self.baseline.setup(
-            self.policy,
-            lit_module.val_dataloader(),
-            self.env,
-            device=get_lightning_device(lit_module),
-        )
-
-    def on_train_epoch_end(self, lit_module):
-        self.baseline.epoch_callback(
-            self.policy,
-            lit_module.val_dataloader(),
-            lit_module.current_epoch,
-            self.env,
-            device=get_lightning_device(lit_module),
-        )

@@ -4,7 +4,6 @@ from tensordict import TensorDict
 import lightning as L
 
 from rl4co.utils.ops import unbatchify
-from rl4co.models.rl.reinforce import NoBaseline
 from rl4co.models.zoo.symnco.utils import get_best_actions
 from rl4co.models.zoo.symnco.policy import SymNCOPolicy
 from rl4co.models.zoo.symnco.augmentations import StateAugmentation
@@ -13,9 +12,12 @@ from rl4co.models.zoo.symnco.losses import (
     solution_symmetricity_loss,
     invariance_loss,
 )
+from rl4co.models.rl.reinforce.baselines import NoBaseline
+from rl4co.models.rl.reinforce.base import REINFORCE
 
 
-class SymNCO(nn.Module):
+
+class SymNCO(REINFORCE):
     def __init__(
         self,
         env,
@@ -39,9 +41,8 @@ class SymNCO(nn.Module):
             beta: weight for solution symmetricity loss
             augment_test: whether to augment data during testing as well
         """
-        super().__init__()
-        self.env = env
-        self.policy = SymNCOPolicy(env) if policy is None else policy
+        super(SymNCO, self).__init__(env, policy, baseline)
+        self.policy = SymNCOPolicy(self.env) if policy is None else policy
         if baseline is not None:
             print(
                 "SymNCO uses baselines in the loss functions, so we do not set the baseline here."
@@ -53,7 +54,7 @@ class SymNCO(nn.Module):
         assert (
             num_augment > 1
         ), "Number of augmentations must be greater than 1 for SymNCO"
-        self.augment = StateAugmentation(env.name)
+        self.augment = StateAugmentation(self.env.name)
         self.augment_test = augment_test
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
