@@ -16,7 +16,6 @@ from rl4co.models.rl.reinforce.baselines import NoBaseline
 from rl4co.models.rl.reinforce.base import REINFORCE
 
 
-
 class SymNCO(REINFORCE):
     """
     SymNCO Model for neural combinatorial optimization based on REINFORCE
@@ -31,6 +30,7 @@ class SymNCO(REINFORCE):
         beta: weight for solution symmetricity loss
         augment_test: whether to augment data during testing as well
     """
+
     def __init__(
         self,
         env,

@@ -22,7 +22,7 @@ class Decoder(nn.Module):
     def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
         """
         Auto-regressive decoder for the Attention Model for constructing solutions
-        
+
         Args:
             env: Environment to solve
             embedding_dim: Dimension of the embeddings
@@ -100,7 +100,9 @@ class Decoder(nn.Module):
 
     def _get_log_p(self, cached, td, softmax_temp):
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
+        glimpse_q = (cached.graph_context + step_context).unsqueeze(
+            1
+        )  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (
@@ -112,10 +114,9 @@ class Decoder(nn.Module):
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
-
         # Get the mask
         mask = ~td["action_mask"]
-        
+
         # Compute log prob: MHA + single-head attention
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp

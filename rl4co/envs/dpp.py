@@ -27,6 +27,7 @@ class DPPEnv(RL4COEnvBase):
 
     https://arxiv.org/abs/2205.13225
     """
+
     name = "dpp"
 
     def __init__(
@@ -45,7 +46,6 @@ class DPPEnv(RL4COEnvBase):
         td_params: TensorDict = None,
         **envbase_kwargs,
     ):
-
         envbase_kwargs["data_dir"] = data_dir
         super().__init__(**envbase_kwargs)
 

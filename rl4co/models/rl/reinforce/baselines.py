@@ -76,7 +76,7 @@ class WarmupBaseline(REINFORCEBaseline):
         if self.alpha > 0:
             return self.baseline.wrap_dataset(dataset, *args, **kw)
         return self.warmup_baseline.wrap_dataset(dataset, *args, **kw)
-    
+
     def setup(self, *args, **kw):
         self.baseline.setup(*args, **kw)
 
@@ -109,14 +109,20 @@ class RolloutBaseline(REINFORCEBaseline):
     def setup(self, *args, **kw):
         self._update_model(*args, **kw)
 
-    def _update_model(self, model, env, batch_size=64, device="cpu", dataset_size=None, dataset=None):
+    def _update_model(
+        self, model, env, batch_size=64, device="cpu", dataset_size=None, dataset=None
+    ):
         self.model = copy.deepcopy(model).to(device)
         if dataset is None:
             log.info("Creating evaluation dataset for rollout baseline")
             self.dataset = env.dataset(batch_size=[dataset_size])
 
         log.info("Evaluating baseline model on evaluation dataset")
-        self.bl_vals = self.rollout(self.model, env, batch_size, device, self.dataset).cpu().numpy()
+        self.bl_vals = (
+            self.rollout(self.model, env, batch_size, device, self.dataset)
+            .cpu()
+            .numpy()
+        )
         self.mean = self.bl_vals.mean()
 
     def eval(self, td, reward):
@@ -125,13 +131,19 @@ class RolloutBaseline(REINFORCEBaseline):
             reward = self.model(td)["reward"]
         return reward, 0
 
-    def epoch_callback(self, model, env, batch_size=64, device="cpu", epoch=None, dataset_size=None):
+    def epoch_callback(
+        self, model, env, batch_size=64, device="cpu", epoch=None, dataset_size=None
+    ):
         """Challenges the current baseline with the model and replaces the baseline model if it is improved"""
         log.info("Evaluating candidate model on evaluation dataset")
         candidate_vals = self.rollout(model, env, batch_size, device).cpu().numpy()
         candidate_mean = candidate_vals.mean()
 
-        log.info("Candidate mean: {:.3f}, Baseline mean: {:.3f}".format(candidate_mean, self.mean))
+        log.info(
+            "Candidate mean: {:.3f}, Baseline mean: {:.3f}".format(
+                candidate_mean, self.mean
+            )
+        )
         if candidate_mean - self.mean > 0:
             # Calc p value with inverse logic (costs)
             t, p = ttest_rel(-candidate_vals, -self.bl_vals)
@@ -145,7 +157,7 @@ class RolloutBaseline(REINFORCEBaseline):
 
     def rollout(self, model, env=None, batch_size=64, device="cpu", dataset=None):
         """Rollout the model on the given dataset"""
-        # if dataset is None, use the dataset of the baseline   
+        # if dataset is None, use the dataset of the baseline
         dataset = self.dataset if dataset is None else dataset
 
         model.eval()
@@ -155,16 +167,21 @@ class RolloutBaseline(REINFORCEBaseline):
             with torch.no_grad():
                 batch = env.reset(batch.to(device))
                 return model(batch, decode_type="greedy")["reward"].data.cpu()
-        
-        dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
 
-        retval =  torch.cat([
-            eval_model(batch)
-            for batch in tqdm(dl, disable=not self.progress_bar)
-        ], 0)
+        dl = DataLoader(
+            dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn
+        )
+
+        retval = torch.cat(
+            [eval_model(batch) for batch in tqdm(dl, disable=not self.progress_bar)], 0
+        )
         return retval
 
     def wrap_dataset(self, dataset, env, batch_size=64, device="cpu", **kw):
         """Wrap the dataset in a baseline dataset"""
-        rewards = self.rollout(self.model, env, batch_size, device, dataset=dataset).detach().cpu()
+        rewards = (
+            self.rollout(self.model, env, batch_size, device, dataset=dataset)
+            .detach()
+            .cpu()
+        )
         return ExtraKeyDataset(dataset, rewards)

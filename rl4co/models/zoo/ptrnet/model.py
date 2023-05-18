@@ -14,6 +14,7 @@ class PointerNetwork(REINFORCE):
         policy: Policy
         baseline: REINFORCE Baseline
     """
+
     def __init__(self, env, policy=None, baseline=None):
         super(PointerNetwork, self).__init__(env, policy, baseline)
         self.policy = PointerNetworkPolicy(self.env) if policy is None else policy

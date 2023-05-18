@@ -45,9 +45,7 @@ class EnvContext(nn.Module):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
-        context_embedding = torch.cat(
-            [cur_node_embedding, state_embedding], -1
-        )
+        context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
 
 
@@ -64,9 +62,10 @@ class TSPContext(EnvContext):
             context_embedding = self.W_placeholder[None, :].expand(
                 batch_size, self.W_placeholder.size(-1)
             )
-        else:     
+        else:
             context_embedding = gather_by_index(
-                embeddings, torch.stack([td["first_node"], td["current_node"]], -1),
+                embeddings,
+                torch.stack([td["first_node"], td["current_node"]], -1),
             ).view(batch_size, -1)
         return self.project_context(context_embedding)
 
@@ -145,19 +144,20 @@ class MTSPContext(EnvContext):
     def _cur_node_embedding(self, embeddings, td):
         cur_node_embedding = gather_by_index(embeddings, td["current_node"])
         return cur_node_embedding.squeeze()
-    
+
     def _state_embedding(self, embeddings, td):
-        dynamic_feats = torch.stack([
-            (td['num_agents'] - td['agent_idx']).float(),
-            td['current_length'],
-            td['max_subtour_length'],
-            self._distance_from_depot(td)
-        ], dim=-1)
+        dynamic_feats = torch.stack(
+            [
+                (td["num_agents"] - td["agent_idx"]).float(),
+                td["current_length"],
+                td["max_subtour_length"],
+                self._distance_from_depot(td),
+            ],
+            dim=-1,
+        )
         return self.proj_dynamic_feats(dynamic_feats)
-    
 
     def _distance_from_depot(self, td):
         # Euclidean distance from the depot (loc[..., 0, :])
-        cur_loc = gather_by_index(td["locs"], td['current_node'])
-        return torch.norm(cur_loc - td['locs'][..., 0, :], dim=-1)
-    
+        cur_loc = gather_by_index(td["locs"], td["current_node"])
+        return torch.norm(cur_loc - td["locs"][..., 0, :], dim=-1)

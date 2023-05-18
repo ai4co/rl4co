@@ -63,9 +63,11 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
         )
     reload_dataloaders_every_n_epochs = 1
 
-
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger, reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs
+        cfg.trainer,
+        callbacks=callbacks,
+        logger=logger,
+        reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs,
     )
 
     object_dict = {

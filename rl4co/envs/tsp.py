@@ -32,6 +32,7 @@ class TSPEnv(RL4COEnvBase):
         seed: seed for the environment
         device: device to use.  Generally, no need to set as tensors are updated on the fly
     """
+
     name = "tsp"
 
     def __init__(
@@ -43,7 +44,6 @@ class TSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -185,13 +185,13 @@ class TSPEnv(RL4COEnvBase):
         if td.batch_size != torch.Size([]):
             td = td[0]
 
-        locs = td['locs']
+        locs = td["locs"]
 
         # gather locs in order of action if available
-        if 'action' in td.keys():
-            locs = gather_by_index(locs, td['action'], dim=0)
+        if "action" in td.keys():
+            locs = gather_by_index(locs, td["action"], dim=0)
         else:
-            log.warning('No action in TensorDict, rendering unsorted locs')
+            log.warning("No action in TensorDict, rendering unsorted locs")
 
         # Cat the first node to the end to complete the tour
         locs = torch.cat((locs, locs[0:1]))
@@ -203,7 +203,7 @@ class TSPEnv(RL4COEnvBase):
         # Add arrows between visited nodes as a quiver plot
         dx, dy = np.diff(x), np.diff(y)
         ax.quiver(
-            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color='k'
+            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k"
         )
 
         # Set plot title and axis labels

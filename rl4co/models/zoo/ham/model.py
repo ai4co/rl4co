@@ -11,10 +11,13 @@ class HeterogeneousAttentionModel(REINFORCE):
         env: TorchRL Environment
         policy: Policy
         baseline: REINFORCE Baseline
-    """    
+    """
+
     def __init__(self, env, policy=None, baseline=None):
         super(HeterogeneousAttentionModel, self).__init__(env, policy, baseline)
-        assert self.env.name == "pdp", "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
+        assert (
+            self.env.name == "pdp"
+        ), "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
         self.policy = (
             HeterogeneousAttentionModelPolicy(self.env) if policy is None else policy
         )

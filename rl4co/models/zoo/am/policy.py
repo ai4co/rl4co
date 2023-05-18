@@ -29,10 +29,11 @@ class AttentionModelPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
-        **unused_kw
+        **unused_kw,
     ):
         super(AttentionModelPolicy, self).__init__()
-        if len(unused_kw) > 0: log.warn(f"Unused kwargs: {unused_kw}")
+        if len(unused_kw) > 0:
+            log.warn(f"Unused kwargs: {unused_kw}")
 
         self.env = env
         self.init_embedding = env_init_embedding(

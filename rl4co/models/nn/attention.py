@@ -19,19 +19,21 @@ except ImportError:
         "Alternatively, install Flash Attention https://github.com/HazyResearch/flash-attention"
     )
 
-    def scaled_dot_product_attention(Q, K, V, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None):
+    def scaled_dot_product_attention(
+        Q, K, V, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None
+    ):
         """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
         if scale is None:
             scale = Q.size(-1) ** -0.5  # scale factor
         # compute the attention scores
-        attn_scores = torch.matmul(Q, K.transpose(-2, -1))  / scale
+        attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / scale
         # apply causal masking if required
         if is_causal:
             mask = torch.triu(torch.ones_like(attn_scores), diagonal=1)
-            attn_scores = attn_scores.masked_fill(mask == 0, float('-inf'))
+            attn_scores = attn_scores.masked_fill(mask == 0, float("-inf"))
         # apply attention mask if provided
         if attn_mask is not None:
-            attn_scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+            attn_scores = attn_scores.masked_fill(attn_mask == 0, float("-inf"))
         # compute attention probabilities
         attn_probs = F.softmax(attn_scores, dim=-1)
         # apply dropout
@@ -195,5 +197,5 @@ class LogitAttention(nn.Module):
 
     def _make_heads(self, v):
         return rearrange(v, "b g (h s) -> b h g s", h=self.num_heads)
-    
+
     flash_attn_wrapper = flash_attn_wrapper

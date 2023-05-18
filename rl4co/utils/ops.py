@@ -4,6 +4,7 @@ from tensordict import TensorDict
 import torch
 from torch import Tensor
 
+
 # @torch.jit.script
 def batchify(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, TensorDict]:
     """Same as repeat on dim=0 for Tensordicts as well
@@ -27,7 +28,7 @@ def gather_by_index(src, idx, dim=1):
     Example:
         src: shape (64, 20, 2)
         idx: shape (64, 3) # 3 is the number of idxs on dim 1
-        on dim 1 
+        on dim 1
         Returns: (64, 3, 2)  # get the 3 elements from src at idx
     """
     expanded_shape = list(src.shape)
@@ -39,6 +40,3 @@ def gather_by_index(src, idx, dim=1):
 def distance(x, y):
     """Euclidean distance between two tensors of shape (..., n, dim)"""
     return torch.norm(x - y, p=2, dim=-1)
-
-
-

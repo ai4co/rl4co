@@ -6,7 +6,7 @@ from rl4co.models.nn.env_embedding import env_init_embedding
 
 class CriticNetwork(nn.Module):
     def __init__(
-        self, 
+        self,
         env,
         encoder=None,
         embedding_dim=128,
@@ -33,13 +33,17 @@ class CriticNetwork(nn.Module):
             env.name, {"embedding_dim": embedding_dim}
         )
 
-        self.encoder = GraphAttentionEncoder(
-            n_heads=num_heads,
-            embed_dim=embedding_dim,
-            n_layers=n_layers,
-            normalization=encoder_normalization,
-            feed_forward_hidden=hidden_dim,
-        ) if encoder is None else encoder
+        self.encoder = (
+            GraphAttentionEncoder(
+                n_heads=num_heads,
+                embed_dim=embedding_dim,
+                n_layers=n_layers,
+                normalization=encoder_normalization,
+                feed_forward_hidden=hidden_dim,
+            )
+            if encoder is None
+            else encoder
+        )
 
         self.value_head = nn.Sequential(
             nn.Linear(embedding_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)

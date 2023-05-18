@@ -14,8 +14,8 @@ class AttentionModel(REINFORCE):
         policy: Policy
         baseline: REINFORCE Baseline
     """
-    def __init__(self, env, policy=None, baseline=None):
 
+    def __init__(self, env, policy=None, baseline=None):
         super(AttentionModel, self).__init__(env, policy, baseline)
         self.policy = AttentionModelPolicy(self.env) if policy is None else policy
         self.baseline = (

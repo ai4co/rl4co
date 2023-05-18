@@ -23,10 +23,8 @@ class RL4COLitModule(LightningModule):
         env: Environment to use overridding the config. If None, instantiate from config
         model: Model to use overridding the config. If None, instantiate from config
     """
-    def __init__(self, 
-                 cfg: DictConfig, 
-                 env: EnvBase = None,
-                 model: nn.Module = None):
+
+    def __init__(self, cfg: DictConfig, env: EnvBase = None, model: nn.Module = None):
         if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
@@ -71,15 +69,23 @@ class RL4COLitModule(LightningModule):
         if self.cfg.data.get("train_batch_size", None) is None:
             batch_size = self.cfg.data.get("batch_size", None)
             if batch_size is not None:
-                log.warning(f"batch_size under data specified, using default as {batch_size}")
+                log.warning(
+                    f"batch_size under data specified, using default as {batch_size}"
+                )
                 self.cfg.data.train_batch_size = batch_size
-            log.warning(f"No train_batch_size under data specified, using default as 64")
+            log.warning(
+                f"No train_batch_size under data specified, using default as 64"
+            )
         self.train_batch_size = self.cfg.data.get("train_batch_size", 64)
         self.val_batch_size = self.cfg.data.get("val_batch_size", self.train_batch_size)
-        self.test_batch_size = self.cfg.data.get("test_batch_size", self.train_batch_size)
+        self.test_batch_size = self.cfg.data.get(
+            "test_batch_size", self.train_batch_size
+        )
 
         log.info(f"Setting up datasets")
-        self.train_dataset = self.wrap_dataset(self.env.dataset(self.cfg.data.train_size, "train"))
+        self.train_dataset = self.wrap_dataset(
+            self.env.dataset(self.cfg.data.train_size, "train")
+        )
         self.val_dataset = self.env.dataset(self.cfg.data.val_size, "val")
         test_size = self.cfg.data.get("test_size", self.cfg.data.val_size)
         self.test_dataset = self.env.dataset(test_size, "test")
@@ -90,7 +96,9 @@ class RL4COLitModule(LightningModule):
         train_cfg = self.cfg.get("train", {})
         if train_cfg.get("optimizer", None) is None:
             log.info(f"No optimizer specified, using default")
-        opt_cfg = train_cfg.get("optimizer", DictConfig({'_target_': 'torch.optim.Adam', 'lr': 1e-4}))
+        opt_cfg = train_cfg.get(
+            "optimizer", DictConfig({"_target_": "torch.optim.Adam", "lr": 1e-4})
+        )
         if "_target_" not in opt_cfg:
             log.warning(f"No _target_ specified for optimizer, using default Adam")
             opt_cfg["_target_"] = "torch.optim.Adam"
@@ -120,12 +128,12 @@ class RL4COLitModule(LightningModule):
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
         self.log_dict(
-            metrics, 
-            on_step=log_on_step, 
-            on_epoch=on_epoch, 
-            prog_bar=True, 
-            sync_dist=True, 
-            add_dataloader_idx=False
+            metrics,
+            on_step=log_on_step,
+            on_epoch=on_epoch,
+            prog_bar=True,
+            sync_dist=True,
+            add_dataloader_idx=False,
         )
         return {"loss": out.get("loss", None), **metrics}
 
@@ -153,7 +161,7 @@ class RL4COLitModule(LightningModule):
             self.model.on_train_epoch_end(self)
         train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
         self.train_dataset = self.wrap_dataset(train_dataset)
-    
+
     def wrap_dataset(self, dataset):
         if hasattr(self.model, "wrap_dataset"):
             dataset = self.model.wrap_dataset(self, dataset)

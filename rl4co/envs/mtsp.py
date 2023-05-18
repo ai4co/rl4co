@@ -16,7 +16,6 @@ from rl4co.envs.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, distance
 
 
-
 class MTSPEnv(RL4COEnvBase):
     """Multiple Traveling Salesman Problem environment
     At each step, an agent chooses to visit a city. A maximum of `num_agents` agents can be employed to visit the cities.
@@ -25,9 +24,9 @@ class MTSPEnv(RL4COEnvBase):
         - `sum`: the cost is the sum of the path lengths of all the agents
     Reward is - cost, so the goal is to maximize the reward (minimize the cost).
     """
-        
+
     name = "mtsp"
-    
+
     def __init__(
         self,
         num_loc: int = 20,
@@ -40,7 +39,6 @@ class MTSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -58,8 +56,10 @@ class MTSPEnv(RL4COEnvBase):
         first_node = current_node if is_first_action else td["first_node"]
 
         # Get the locations of the current node and the previous node and the depot
-        cur_loc = gather_by_index(td['locs'], current_node)
-        prev_loc = gather_by_index(td['locs'], td['current_node']) # current_node is the previous node
+        cur_loc = gather_by_index(td["locs"], current_node)
+        prev_loc = gather_by_index(
+            td["locs"], td["current_node"]
+        )  # current_node is the previous node
         depot_loc = td["locs"][..., 0, :]
 
         # If current_node is the depot, then increment agent_idx
@@ -72,7 +72,9 @@ class MTSPEnv(RL4COEnvBase):
         # Available[..., 0] is the depot, which is always available unless:
         # - current_node is the depot
         # - agent_idx greater than num_agents -1
-        available[..., 0] = torch.logical_and(current_node != 0, td['agent_idx'] < td['num_agents'] - 1)
+        available[..., 0] = torch.logical_and(
+            current_node != 0, td["agent_idx"] < td["num_agents"] - 1
+        )
 
         # We are done there are no unvisited locations except the depot
         done = torch.count_nonzero(available[..., 1:], dim=-1) == 0
@@ -81,26 +83,33 @@ class MTSPEnv(RL4COEnvBase):
         available[..., 0] = torch.logical_or(done, available[..., 0])
 
         # If current agent is different from previous agent, then we have a new subtour and reset the length, otherwise we add the new distance
-        current_length = torch.where(cur_agent_idx != td["agent_idx"], 
-                                    torch.zeros_like(td["current_length"]), 
-                                    td["current_length"] + distance(cur_loc, prev_loc)
-                                )
+        current_length = torch.where(
+            cur_agent_idx != td["agent_idx"],
+            torch.zeros_like(td["current_length"]),
+            td["current_length"] + distance(cur_loc, prev_loc),
+        )
 
         # If done, we add the distance from the current_node to the depot as well
-        current_length = torch.where(done, current_length + distance(cur_loc, depot_loc), current_length)
-                                                                                
+        current_length = torch.where(
+            done, current_length + distance(cur_loc, depot_loc), current_length
+        )
+
         # We update the max_subtour_length and reset the current_length
-        max_subtour_length = torch.where(current_length > td["max_subtour_length"], current_length, td["max_subtour_length"])
+        max_subtour_length = torch.where(
+            current_length > td["max_subtour_length"],
+            current_length,
+            td["max_subtour_length"],
+        )
 
         # The reward is the negative of the max_subtour_length (minmax objective)
-        reward = - max_subtour_length
+        reward = -max_subtour_length
 
         # The output must be written in a ``"next"`` entry
         return TensorDict(
             {
                 "next": {
                     "locs": td["locs"],
-                    "num_agents": td['num_agents'],
+                    "num_agents": td["num_agents"],
                     "max_subtour_length": max_subtour_length,
                     "current_length": current_length,
                     "agent_idx": cur_agent_idx,
@@ -126,7 +135,7 @@ class MTSPEnv(RL4COEnvBase):
 
         # Keep track of the agent number to know when to stop
         agent_idx = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
-        
+
         # Make variable for max_subtour_length between subtours
         max_subtour_length = torch.zeros(batch_size, dtype=torch.float32, device=device)
         current_length = torch.zeros(batch_size, dtype=torch.float32, device=device)
@@ -138,11 +147,11 @@ class MTSPEnv(RL4COEnvBase):
         )  # 1 means not visited, i.e. action is allowed
         available[..., 0] = 0  # Depot is not available as first node
         i = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
-        
+
         return TensorDict(
             {
-                "locs": td['locs'], # depot is first node
-                "num_agents": td['num_agents'],
+                "locs": td["locs"],  # depot is first node
+                "num_agents": td["num_agents"],
                 "max_subtour_length": max_subtour_length,
                 "current_length": current_length,
                 "agent_idx": agent_idx,
@@ -211,12 +220,14 @@ class MTSPEnv(RL4COEnvBase):
         # With minmax, get the maximum distance among subtours, calculated in the model
         if self.cost_type == "minmax":
             return td["reward"].squeeze(-1)
-        
+
         # With distance, same as TSP
         elif self.cost_type == "distance":
             locs = td["locs"]
             locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
-            locs_next = torch.roll(locs, 1, dims=1) # roll will also consider last node to depot
+            locs_next = torch.roll(
+                locs, 1, dims=1
+            )  # roll will also consider last node to depot
             return -((locs_next - locs).norm(p=2, dim=2).sum(1))
         else:
             raise ValueError(f"Cost type {self.cost_type} not supported")
@@ -230,19 +241,27 @@ class MTSPEnv(RL4COEnvBase):
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
-        
+
         # Initialize the num_agents: either fixed or random integer between min and max
         if self.min_num_agents == self.max_num_agents:
-            num_agents = torch.ones(batch_size, dtype=torch.int64, device=self.device) * self.min_num_agents
+            num_agents = (
+                torch.ones(batch_size, dtype=torch.int64, device=self.device)
+                * self.min_num_agents
+            )
         else:
             num_agents = torch.randint(
-            self.min_num_agents, self.max_num_agents, size=batch_size, device=self.device
-        )
+                self.min_num_agents,
+                self.max_num_agents,
+                size=batch_size,
+                device=self.device,
+            )
 
-        return TensorDict({
+        return TensorDict(
+            {
                 "locs": locs,
                 "num_agents": num_agents,
-            }, batch_size=batch_size,
+            },
+            batch_size=batch_size,
         )
 
     @staticmethod
@@ -250,7 +269,7 @@ class MTSPEnv(RL4COEnvBase):
         import matplotlib.pyplot as plt
         from matplotlib import colormaps
 
-        def discrete_cmap(num, base_cmap='nipy_spectral'):
+        def discrete_cmap(num, base_cmap="nipy_spectral"):
             """Create an N-bin discrete colormap from the specified input map"""
             base = colormaps[base_cmap]
             color_list = base(np.linspace(0, 1, num))
@@ -265,12 +284,18 @@ class MTSPEnv(RL4COEnvBase):
         num_agents = td["num_agents"]
         locs = td["locs"]
         actions = td["action"]
-        cmap = discrete_cmap(num_agents , 'rainbow')
+        cmap = discrete_cmap(num_agents, "rainbow")
 
         fig, ax = plt.subplots()
 
         # Add depot action = 0 to before first action and after last action
-        actions = torch.cat([torch.zeros(1, dtype=torch.int64), actions, torch.zeros(1, dtype=torch.int64)])
+        actions = torch.cat(
+            [
+                torch.zeros(1, dtype=torch.int64),
+                actions,
+                torch.zeros(1, dtype=torch.int64),
+            ]
+        )
 
         # Make list of colors from matplotlib
         for i, loc in enumerate(locs):
@@ -286,7 +311,8 @@ class MTSPEnv(RL4COEnvBase):
                 color = "tab:blue"
                 label = "Cities"
                 markersize = 8
-            if i > 1: label = ""
+            if i > 1:
+                label = ""
 
             ax.plot(
                 loc[0],

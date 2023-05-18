@@ -32,7 +32,7 @@ class CVRPEnv(RL4COEnvBase):
         - seed <int>: seed for the environment
         - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
     """
-    
+
     name = "cvrp"
 
     def __init__(
@@ -47,7 +47,6 @@ class CVRPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc

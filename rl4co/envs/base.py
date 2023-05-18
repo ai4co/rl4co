@@ -20,6 +20,7 @@ class RL4COEnvBase(EnvBase):
         seed (int): Seed for the environment
         device (str): Device to use. Generally, no need to set as tensors are updated on the fly
     """
+
     batch_locked = False
 
     def __init__(
@@ -33,7 +34,6 @@ class RL4COEnvBase(EnvBase):
         device: str = "cpu",
         **kwargs,
     ):
-
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
         self.train_file = (
