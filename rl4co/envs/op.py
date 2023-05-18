@@ -14,6 +14,20 @@ from rl4co.envs.base import RL4COEnvBase
 
 
 class OPEnv(RL4COEnvBase):
+    """ Orienteering Problem (OP) environment
+    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+
+    Args:
+        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
+        - min_loc <float>: minimum value for the location coordinates
+        - max_loc <float>: maximum value for the location coordinates
+        - length_capacity <float>: capacity of the vehicle of length, i.e. the maximum length the vehicle can travel
+        - td_params <TensorDict>: parameters of the environment
+        - seed <int>: seed for the environment
+        - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
+    Note:
+        - in our setting, the vehicle has to come back to the depot at the end
+    """
     name = "op"
 
     def __init__(
@@ -28,20 +42,6 @@ class OPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """ Orienteering Problem (OP) environment
-        At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
-
-        Args:
-            - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
-            - min_loc <float>: minimum value for the location coordinates
-            - max_loc <float>: maximum value for the location coordinates
-            - length_capacity <float>: capacity of the vehicle of length, i.e. the maximum length the vehicle can travel
-            - td_params <TensorDict>: parameters of the environment
-            - seed <int>: seed for the environment
-            - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
-        Note:
-            - in our setting, the vehicle has to come back to the depot at the end
-        """
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc

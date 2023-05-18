@@ -14,6 +14,21 @@ from rl4co.envs.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
 
 class PDPEnv(RL4COEnvBase):
+    """
+    Pickup and Delivery Problem (PDP) environment
+    The environment is made of num_loc + 1 locations (cities):
+    - 1 depot
+    - num_loc / 2 pickup locations
+    - num_loc / 2 delivery locations
+    The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
+    The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
+
+    Args:
+        num_loc: number of locations (cities) in the TSP
+        td_params: parameters of the environment
+        seed: seed for the environment
+        device: device to use.  Generally, no need to set as tensors are updated on the fly
+    """
     name = "pdp"
 
     def __init__(
@@ -25,21 +40,7 @@ class PDPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """
-        Pickup and Delivery Problem (PDP) environment
-        The environment is made of num_loc + 1 locations (cities):
-        - 1 depot
-        - num_loc / 2 pickup locations
-        - num_loc / 2 delivery locations
-        The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
-        The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
 
-        Args:
-            num_loc: number of locations (cities) in the TSP
-            td_params: parameters of the environment
-            seed: seed for the environment
-            device: device to use.  Generally, no need to set as tensors are updated on the fly
-        """
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc

@@ -29,11 +29,12 @@ class TensorDictDataset(Dataset):
     
 
 class ExtraKeyDataset(Dataset):
+    """Dataset that includes an extra key to add to the data dict
+    This is useful for adding a REINFORCE baseline reward to the data dict
+    We had extra_ to identify the key as an extra key
+    """
     def __init__(self, dataset, extra):
-        """Dataset that includes an extra key to add to the data dict
-        This is useful for adding a REINFORCE baseline reward to the data dict
-        We had extra_ to identify the key as an extra key
-        """
+
         self.data = dataset.data
         self.extra = extra
         assert len(self.data) == len(self.extra), "Data and extra must be same length"

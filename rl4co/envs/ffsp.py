@@ -18,6 +18,12 @@ from rl4co.envs import RL4COEnvBase
 
 
 class FFSPEnv(RL4COEnvBase):
+    """Flexible Flow Shop Problem (FFSP) Environment
+    Args:
+
+    Note: 
+        - [IMPORTANT] This version of ffsp requires the number of machines in each stage to be the same
+    """
     name = "ffsp"
 
     def __init__(
@@ -31,12 +37,6 @@ class FFSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """Flexible Flow Shop Problem (FFSP) Environment
-        Args:
-
-        Note: 
-            - [IMPORTANT] This version of ffsp requires the number of machines in each stage to be the same
-        """
         super().__init__(seed=seed, device=device)
         self.num_stage = num_stage
         self.num_machine = num_machine

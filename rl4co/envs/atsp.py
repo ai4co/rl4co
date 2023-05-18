@@ -18,6 +18,18 @@ log = get_pylogger(__name__)
 
 
 class ATSPEnv(RL4COEnvBase):
+    """
+    Asymmetric Traveling Salesman Problem environment
+    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
+    Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
+
+    Args:
+        num_loc: number of locations (cities) in the TSP
+        td_params: parameters of the environment
+        seed: seed for the environment
+        device: device to use.  Generally, no need to set as tensors are updated on the fly
+    """
     name = "atsp"
 
     def __init__(
@@ -30,18 +42,6 @@ class ATSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """
-        Asymmetric Traveling Salesman Problem environment
-        At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
-        In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
-        Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
-
-        Args:
-            num_loc: number of locations (cities) in the TSP
-            td_params: parameters of the environment
-            seed: seed for the environment
-            device: device to use.  Generally, no need to set as tensors are updated on the fly
-        """
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_dist = min_dist

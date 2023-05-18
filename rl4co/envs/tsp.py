@@ -21,6 +21,17 @@ log = get_pylogger(__name__)
 
 
 class TSPEnv(RL4COEnvBase):
+    """
+    Traveling Salesman Problem environment
+    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
+
+    Args:
+        num_loc: number of locations (cities) in the TSP
+        td_params: parameters of the environment
+        seed: seed for the environment
+        device: device to use.  Generally, no need to set as tensors are updated on the fly
+    """
     name = "tsp"
 
     def __init__(
@@ -32,17 +43,7 @@ class TSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """
-        Traveling Salesman Problem environment
-        At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
-        In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
-
-        Args:
-            num_loc: number of locations (cities) in the TSP
-            td_params: parameters of the environment
-            seed: seed for the environment
-            device: device to use.  Generally, no need to set as tensors are updated on the fly
-        """
+        
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc

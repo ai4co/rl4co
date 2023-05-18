@@ -12,17 +12,17 @@ from rl4co.models.rl.reinforce.base import REINFORCE
 
 
 class POMO(REINFORCE):
-    def __init__(self, env, policy=None, baseline=None, num_augment=8):
-        """
-        POMO Model for neural combinatorial optimization based on REINFORCE
-        Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011
+    """
+    POMO Model for neural combinatorial optimization based on REINFORCE
+    Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011
 
-        Args:
-            env: TorchRL Environment
-            policy: Policy
-            baseline: REINFORCE Baseline
-            num_augment: Number of augmentations (default: 8)
-        """
+    Args:
+        env: TorchRL Environment
+        policy: Policy
+        baseline: REINFORCE Baseline
+        num_augment: Number of augmentations (default: 8)
+    """
+    def __init__(self, env, policy=None, baseline=None, num_augment=8):
         super().__init__(env, policy, baseline)
         self.policy = POMOPolicy(self.env) if policy is None else policy
 

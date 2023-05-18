@@ -10,6 +10,16 @@ from rl4co.data.dataset import TensorDictDataset
 
 
 class RL4COEnvBase(EnvBase):
+    """Base class for RL4CO environments based on TorchRL EnvBase
+
+    Args:
+        data_dir (str): Root directory for the dataset
+        train_file (str): Name of the training file
+        val_file (str): Name of the validation file
+        test_file (str): Name of the test file
+        seed (int): Seed for the environment
+        device (str): Device to use. Generally, no need to set as tensors are updated on the fly
+    """
     batch_locked = False
 
     def __init__(
@@ -23,16 +33,7 @@ class RL4COEnvBase(EnvBase):
         device: str = "cpu",
         **kwargs,
     ):
-        """Base class for RL4CO environments based on TorchRL EnvBase
 
-        Args:
-            data_dir (str): Root directory for the dataset
-            train_file (str): Name of the training file
-            val_file (str): Name of the validation file
-            test_file (str): Name of the test file
-            seed (int): Seed for the environment
-            device (str): Device to use. Generally, no need to set as tensors are updated on the fly
-        """
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
         self.train_file = (

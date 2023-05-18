@@ -7,15 +7,15 @@ from rl4co.utils.lightning import get_lightning_device
 
 
 class REINFORCE(nn.Module):
-    def __init__(self, env, policy=None, baseline=None):
-        """
-        Base model for REINFORCE-based models
+    """Base model for REINFORCE-based models
 
-        Args:
-            env: TorchRL Environment
-            policy: Policy (set up in model)
-            baseline: REINFORCE Baseline (set up in model)
-        """
+    Args:
+        env: TorchRL Environment
+        policy: Policy (set up in model)
+        baseline: REINFORCE Baseline (set up in model)
+    """
+    def __init__(self, env, policy=None, baseline=None):
+
         super(REINFORCE, self).__init__()
         self.env = env
 

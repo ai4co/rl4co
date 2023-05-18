@@ -4,16 +4,15 @@ from rl4co.models.rl.reinforce.base import REINFORCE
 
 
 class HeterogeneousAttentionModel(REINFORCE):
-    def __init__(self, env, policy=None, baseline=None):
-        """
-        Heterogenous Attention Model for solving the Pickup and Delivery Problem based on REINFORCE
-        https://arxiv.org/abs/2110.02634
+    """Heterogenous Attention Model for solving the Pickup and Delivery Problem based on REINFORCE
+    https://arxiv.org/abs/2110.02634
 
-        Args:
-            env: TorchRL Environment
-            policy: Policy
-            baseline: REINFORCE Baseline
-        """
+    Args:
+        env: TorchRL Environment
+        policy: Policy
+        baseline: REINFORCE Baseline
+    """    
+    def __init__(self, env, policy=None, baseline=None):
         super(HeterogeneousAttentionModel, self).__init__(env, policy, baseline)
         assert self.env.name == "pdp", "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
         self.policy = (

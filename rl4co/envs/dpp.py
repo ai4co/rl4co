@@ -23,6 +23,10 @@ log = get_pylogger(__name__)
 
 
 class DPPEnv(RL4COEnvBase):
+    """Decap placement problem as done in DevFormer paper
+
+    https://arxiv.org/abs/2205.13225
+    """
     name = "dpp"
 
     def __init__(
@@ -41,9 +45,7 @@ class DPPEnv(RL4COEnvBase):
         td_params: TensorDict = None,
         **envbase_kwargs,
     ):
-        """
-        Decap placement problem as done in Devformer paper
-        """
+
         envbase_kwargs["data_dir"] = data_dir
         super().__init__(**envbase_kwargs)
 

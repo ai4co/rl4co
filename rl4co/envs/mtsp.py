@@ -18,8 +18,16 @@ from rl4co.utils.ops import gather_by_index, distance
 
 
 class MTSPEnv(RL4COEnvBase):
+    """Multiple Traveling Salesman Problem environment
+    At each step, an agent chooses to visit a city. A maximum of `num_agents` agents can be employed to visit the cities.
+    The cost can be defined in two ways:
+        - `minmax`: (default) the reward is the maximum of the path lengths of all the agents
+        - `sum`: the cost is the sum of the path lengths of all the agents
+    Reward is - cost, so the goal is to maximize the reward (minimize the cost).
+    """
+        
     name = "mtsp"
-
+    
     def __init__(
         self,
         num_loc: int = 20,
@@ -32,14 +40,7 @@ class MTSPEnv(RL4COEnvBase):
         seed: int = None,
         device: str = "cpu",
     ):
-        """Multiple Traveling Salesman Problem environment
-        At each step, an agent chooses to visit a city. A maximum of `num_agents` agents can be employed to visit the cities.
-        The cost can be defined in two ways:
-            - `minmax`: (default) the reward is the maximum of the path lengths of all the agents
-            - `sum`: the cost is the sum of the path lengths of all the agents
-        Reward is - cost, so the goal is to maximize the reward (minimize the cost).
-        """
-        
+
         super().__init__(seed=seed, device=device)
         self.num_loc = num_loc
         self.min_loc = min_loc

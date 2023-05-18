@@ -16,17 +16,17 @@ log = get_pylogger(__name__)
 
 
 class RL4COLitModule(LightningModule):
+    """
+    Base LightningModule for Neural Combinatorial Optimization
+    Args:
+        cfg: Hydra config
+        env: Environment to use overridding the config. If None, instantiate from config
+        model: Model to use overridding the config. If None, instantiate from config
+    """
     def __init__(self, 
                  cfg: DictConfig, 
                  env: EnvBase = None,
                  model: nn.Module = None):
-        """
-        Base LightningModule for Neural Combinatorial Optimization
-        Args:
-            cfg: Hydra config
-            env: Environment to use overridding the config. If None, instantiate from config
-            model: Model to use overridding the config. If None, instantiate from config
-        """
         if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17

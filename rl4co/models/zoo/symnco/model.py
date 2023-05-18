@@ -18,6 +18,19 @@ from rl4co.models.rl.reinforce.base import REINFORCE
 
 
 class SymNCO(REINFORCE):
+    """
+    SymNCO Model for neural combinatorial optimization based on REINFORCE
+    Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209
+
+    Args:
+        env: TorchRL Environment
+        policy: Policy
+        baseline: REINFORCE Baseline
+        num_augment: Number of augmentations (default: 8)
+        alpha: weight for invariance loss
+        beta: weight for solution symmetricity loss
+        augment_test: whether to augment data during testing as well
+    """
     def __init__(
         self,
         env,
@@ -28,19 +41,6 @@ class SymNCO(REINFORCE):
         beta=1,
         augment_test=True,
     ):
-        """
-        SymNCO Model for neural combinatorial optimization based on REINFORCE
-        Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209
-
-        Args:
-            env: TorchRL Environment
-            policy: Policy
-            baseline: REINFORCE Baseline
-            num_augment: Number of augmentations (default: 8)
-            alpha: weight for invariance loss
-            beta: weight for solution symmetricity loss
-            augment_test: whether to augment data during testing as well
-        """
         super(SymNCO, self).__init__(env, policy, baseline)
         self.policy = SymNCOPolicy(self.env) if policy is None else policy
         if baseline is not None:
