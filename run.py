@@ -57,8 +57,15 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     torch.set_float32_matmul_precision(cfg.get("matmul_precision", "medium"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
+    if cfg.trainer.get("reload_dataloaders_every_n_epochs", 1) != 1:
+        log.warning(
+            "We must reload dataloaders every epoch for RL training. Ignoring reload_dataloaders_every_n_epochs key in trainer."
+        )
+    reload_dataloaders_every_n_epochs = 1
+
+
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger
+        cfg.trainer, callbacks=callbacks, logger=logger, reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs
     )
 
     object_dict = {
