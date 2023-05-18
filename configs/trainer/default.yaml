@@ -20,3 +20,6 @@ check_val_every_n_epoch: 1
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds
 deterministic: False
+
+# We must do this each epoch to ensure that the dataloaders are reloaded with new data
+reload_dataloaders_every_n_epochs: 1
