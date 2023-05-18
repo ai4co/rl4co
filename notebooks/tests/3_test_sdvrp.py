@@ -20,7 +20,7 @@ from torchrl.envs.utils import step_mdp
 from tensordict import TensorDict
 
 from rl4co.data.dataset import TensorDictCollate, TensorDictDataset
-from rl4co.models.rl.reinforce import *
+from rl4co.models.rl.baselines import *
 from rl4co.models.zoo.am.context import env_context
 from rl4co.models.zoo.am.embeddings import env_init_embedding, env_dynamic_embedding
 from rl4co.models.zoo.am.encoder import GraphAttentionEncoder
