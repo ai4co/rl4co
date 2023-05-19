@@ -24,7 +24,7 @@ class CVRPEnv(RL4COEnvBase):
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
+        - num_loc <int>: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         - min_loc <float>: minimum value for the location coordinates
         - max_loc <float>: maximum value for the location coordinates
         - capacity <float>: capacity of the vehicle
@@ -154,7 +154,7 @@ class CVRPEnv(RL4COEnvBase):
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc, 2),
+                shape=(self.num_loc+1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -164,11 +164,11 @@ class CVRPEnv(RL4COEnvBase):
             demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc+1, 1),
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc+1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -178,7 +178,7 @@ class CVRPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc,
+            maximum=self.num_loc+1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
@@ -205,8 +205,8 @@ class CVRPEnv(RL4COEnvBase):
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
+                - locs <Tensor> [batch_size, num_loc+1, 2]: locations of the nodes
+                - demand <Tensor> [batch_size, num_loc+1]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
@@ -220,14 +220,14 @@ class CVRPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the demand
         demand = (
-            torch.FloatTensor(*batch_size, self.num_loc)
+            torch.FloatTensor(*batch_size, self.num_loc+1)
             .uniform_(self.min_demand, self.max_demand)
             .to(self.device)
         )
@@ -246,33 +246,3 @@ class CVRPEnv(RL4COEnvBase):
 
     def render(self, td: TensorDict):
         raise NotImplementedError("TODO: render is not implemented yet")
-
-
-if __name__ == "__main__":
-    # Create a CVRP environment
-    env = CVRPEnv(
-        num_loc=10,
-        min_loc=0,
-        max_loc=1,
-        min_demand=1,
-        max_demand=10,
-        capacity=100,
-        batch_size=[32],
-        seed=0,
-        device="cpu",
-    )
-
-    # REVIEW Test the generate_data()
-    td = env.generate_data([64])
-
-    # REVIEW Test the reset()
-    env._reset()
-
-    # REVIEW Test the step()
-    td["action"] = torch.ones((64, 1), dtype=torch.int64)
-    env._step(td)
-
-    # REVIEW Test the reward()
-    actions = torch.range(1, 9, dtype=torch.int64).unsqueeze(0).repeat(64, 1)
-    actions = torch.cat([actions, torch.zeros((64, 1), dtype=torch.int64)], dim=1)
-    print(env.get_reward(td, actions))

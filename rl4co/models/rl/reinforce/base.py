@@ -20,7 +20,7 @@ class REINFORCE(nn.Module):
         self.env = env
 
     def forward(
-        self, td: TensorDict, phase: str = "train", extra_data=None, **policy_kwargs
+        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
     ):
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
@@ -29,8 +29,8 @@ class REINFORCE(nn.Module):
             # REINFORCE loss: we consider the rewards instead of costs to be consistent with the literature
             bl_val, bl_neg_loss = (
                 self.baseline.eval(td, out["reward"])
-                if extra_data is None
-                else (extra_data, 0)
+                if extra is None
+                else (extra, 0)
             )
             advantage = out["reward"] - bl_val  # advantage = reward - baseline
             reinforce_loss = -(advantage * out["log_likelihood"]).mean()

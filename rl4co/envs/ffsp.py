@@ -1,6 +1,3 @@
-from platform import machine
-from re import sub
-import sched
 from typing import Optional
 
 import torch
@@ -13,9 +10,6 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-import sys
-
-sys.path.append(".")
 from rl4co.envs import RL4COEnvBase
 
 

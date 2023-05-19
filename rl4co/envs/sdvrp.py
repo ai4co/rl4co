@@ -20,7 +20,7 @@ class SDVRPEnv(RL4COEnvBase):
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
+        - num_loc <int>: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         - min_loc <float>: minimum value for the location coordinates
         - max_loc <float>: maximum value for the location coordinates
         - capacity <float>: capacity of the vehicle
@@ -33,7 +33,7 @@ class SDVRPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
         min_demand: float = 0.1,
@@ -157,7 +157,7 @@ class SDVRPEnv(RL4COEnvBase):
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc, 2),
+                shape=(self.num_loc+1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -167,11 +167,11 @@ class SDVRPEnv(RL4COEnvBase):
             demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc+1, 1),
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc, 1),
+                shape=(self.num_loc+1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -181,7 +181,7 @@ class SDVRPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc,
+            maximum=self.num_loc+1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
@@ -208,8 +208,8 @@ class SDVRPEnv(RL4COEnvBase):
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
+                - locs <Tensor> [batch_size, num_loc+1, 2]: locations of the nodes
+                - demand <Tensor> [batch_size, num_loc+1]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
@@ -223,14 +223,14 @@ class SDVRPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the demand
         demand = (
-            torch.FloatTensor(*batch_size, self.num_loc)
+            torch.FloatTensor(*batch_size, self.num_loc+1)
             .uniform_(self.min_demand, self.max_demand)
             .to(self.device)
         )
