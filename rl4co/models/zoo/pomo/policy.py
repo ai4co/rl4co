@@ -22,7 +22,7 @@ class POMOPolicy(nn.Module):
         decoder: nn.Module = None,
         embedding_dim: int = 128,
         num_pomo: int = 10,
-        num_encode_layers: int = 6,  # NOTE: used in the original paper, but may not be fair to compare with AM
+        num_encoder_layers: int = 6,
         normalization: str = "batch",
         num_heads: int = 8,
         mask_inner: bool = True,
@@ -45,7 +45,7 @@ class POMOPolicy(nn.Module):
             GraphAttentionEncoder(
                 num_heads=num_heads,
                 embed_dim=embedding_dim,
-                num_layers=num_encode_layers,
+                num_layers=num_encoder_layers,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
             )
