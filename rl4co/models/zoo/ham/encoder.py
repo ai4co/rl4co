@@ -1,10 +1,8 @@
-import torch
 import torch.nn as nn
-import math
-
 
 from rl4co.models.nn.graph import SkipConnection, Normalization
 from rl4co.models.zoo.ham.attention import HeterogenousMHA
+from rl4co.models.nn.env_embedding import env_init_embedding
 
 
 class HeterogeneuousMHALayer(nn.Sequential):
@@ -35,24 +33,25 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
     def __init__(
         self,
         num_heads,
-        embed_dim,
+        embedding_dim,
         num_layers,
-        node_dim=None,
+        env_name='tsp',
         normalization="batch",
         feed_forward_hidden=512,
+        force_flash_attn=False,
     ):
         super(GraphHeterogeneousAttentionEncoder, self).__init__()
 
-        # To map input to embedding space
-        self.init_embed = (
-            nn.Linear(node_dim, embed_dim) if node_dim is not None else None
+        # Map input to embedding space
+        self.init_embedding = env_init_embedding(
+            env_name, {"embedding_dim": embedding_dim}
         )
 
         self.layers = nn.Sequential(
             *(
                 HeterogeneuousMHALayer(
                     num_heads,
-                    embed_dim,
+                    embedding_dim,
                     feed_forward_hidden,
                     normalization,
                 )
@@ -62,13 +61,8 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
 
     def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
-
-        # Batch multiply to get initial embeddings of nodes
-        h = (
-            self.init_embed(x.view(-1, x.size(-1))).view(*x.size()[:2], -1)
-            if self.init_embed is not None
-            else x
-        )
-
-        h = self.layers(h)
-        return h  # (batch_size, graph_size, embed_dim)
+        # initial Embedding from features
+        init_embeds = self.init_embedding(x)  # (batch_size, graph_size, embed_dim)
+        # layers  (batch_size, graph_size, embed_dim)
+        embeds = self.layers(init_embeds)
+        return embeds, init_embeds
