@@ -2,17 +2,13 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
-from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnvBase
-
+from rl4co.envs.utils import batch_to_scalar
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 

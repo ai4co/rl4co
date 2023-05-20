@@ -1,17 +1,13 @@
-import torch
-from tensordict.tensordict import TensorDict
 from typing import Optional
 
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+import torch
+from tensordict.tensordict import TensorDict
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
-
 
 # Default capacities https://arxiv.org/abs/1803.08475
 CAPACITIES = {10: 20.0, 20: 30.0, 50: 40.0, 100: 50.0}

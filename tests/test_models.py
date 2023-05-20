@@ -1,13 +1,6 @@
 import pytest
-
-from rl4co.models import (
-    AttentionModel,
-    PointerNetwork,
-    POMO,
-    SymNCO,
-    HeterogeneousAttentionModel,
-)
-from rl4co.models import SymNCOPolicy
+from rl4co.models import (POMO, AttentionModel, HeterogeneousAttentionModel,
+                          PointerNetwork, SymNCO, SymNCOPolicy)
 from rl4co.utils.test_utils import generate_env_data
 
 

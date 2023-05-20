@@ -2,11 +2,7 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDictBase
-
-from torchrl.data import (
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-)
+from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec
 
 
 def make_composite_from_td(td):

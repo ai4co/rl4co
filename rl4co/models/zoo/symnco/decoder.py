@@ -3,14 +3,13 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
-from rl4co.utils.ops import batchify
-from rl4co.utils import get_pylogger
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.pomo.utils import select_start_nodes
-
+from rl4co.utils import get_pylogger
+from rl4co.utils.ops import batchify
 
 log = get_pylogger(__name__)
 

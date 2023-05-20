@@ -2,14 +2,14 @@ import os
 import re
 import sys
 import textwrap
-import warnings
-import requests
 import urllib
-from urllib.parse import urlparse, parse_qs
+import warnings
+from urllib.parse import parse_qs, urlparse
 
-from rl4co.utils.pylogger import get_pylogger
+import requests
+
 from rl4co.utils.download.constants import USER_AGENT
-
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 

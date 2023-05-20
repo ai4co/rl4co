@@ -2,13 +2,10 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
 

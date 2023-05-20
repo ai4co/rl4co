@@ -1,6 +1,6 @@
 from collections import defaultdict
-from typing import Optional
 from os.path import join as pjoin
+from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict

@@ -1,12 +1,11 @@
 import math
-from einops import rearrange
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 from rl4co.utils import get_pylogger
-
 
 log = get_pylogger(__name__)
 

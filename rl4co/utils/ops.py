@@ -1,7 +1,7 @@
 from typing import Union
 
-from tensordict import TensorDict
 import torch
+from tensordict import TensorDict
 from torch import Tensor
 
 

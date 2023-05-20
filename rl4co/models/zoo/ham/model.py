@@ -1,6 +1,6 @@
-from rl4co.models.rl.reinforce.baselines import WarmupBaseline, RolloutBaseline
-from rl4co.models.zoo.ham.policy import HeterogeneousAttentionModelPolicy
 from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl.reinforce.baselines import RolloutBaseline, WarmupBaseline
+from rl4co.models.zoo.ham.policy import HeterogeneousAttentionModelPolicy
 
 
 class HeterogeneousAttentionModel(REINFORCE):

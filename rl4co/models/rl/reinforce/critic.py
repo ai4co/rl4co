@@ -1,7 +1,7 @@
 from torch import nn
 
-from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.graph import GraphAttentionEncoder
 
 
 class CriticNetwork(nn.Module):

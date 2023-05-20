@@ -1,20 +1,17 @@
-import torch
-from torch import nn
-from tensordict import TensorDict
 import lightning as L
+import torch
+from tensordict import TensorDict
+from torch import nn
 
-from rl4co.utils.ops import unbatchify, gather_by_index
-from rl4co.models.zoo.symnco.policy import SymNCOPolicy
-from rl4co.models.zoo.symnco.augmentations import StateAugmentation
-from rl4co.models.zoo.symnco.losses import (
-    problem_symmetricity_loss,
-    solution_symmetricity_loss,
-    invariance_loss,
-)
-from rl4co.models.rl.reinforce.baselines import NoBaseline
 from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl.reinforce.baselines import NoBaseline
+from rl4co.models.zoo.symnco.augmentations import StateAugmentation
+from rl4co.models.zoo.symnco.losses import (invariance_loss,
+                                            problem_symmetricity_loss,
+                                            solution_symmetricity_loss)
+from rl4co.models.zoo.symnco.policy import SymNCOPolicy
+from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 

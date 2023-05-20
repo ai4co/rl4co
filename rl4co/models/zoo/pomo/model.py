@@ -1,13 +1,13 @@
-import torch
-from torch import nn
-from tensordict import TensorDict
 import lightning as L
+import torch
+from tensordict import TensorDict
+from torch import nn
 
-from rl4co.utils.ops import unbatchify, gather_by_index
-from rl4co.models.zoo.pomo.policy import POMOPolicy
-from rl4co.models.zoo.pomo.augmentations import StateAugmentation
-from rl4co.models.rl.reinforce.baselines import SharedBaseline
 from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl.reinforce.baselines import SharedBaseline
+from rl4co.models.zoo.pomo.augmentations import StateAugmentation
+from rl4co.models.zoo.pomo.policy import POMOPolicy
+from rl4co.utils.ops import gather_by_index, unbatchify
 
 
 class POMO(REINFORCE):

@@ -2,7 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import TensorDictCollate
-from rl4co.envs import TSPEnv, CVRPEnv, SDVRPEnv, DPPEnv, PDPEnv, OPEnv, MTSPEnv
+from rl4co.envs import (CVRPEnv, DPPEnv, MTSPEnv, OPEnv, PDPEnv, SDVRPEnv,
+                        TSPEnv)
 
 
 def get_env(name, size):

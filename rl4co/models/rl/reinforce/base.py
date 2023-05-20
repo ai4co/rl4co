@@ -1,7 +1,7 @@
-import torch
-from torch import nn
-from tensordict import TensorDict
 import lightning as L
+import torch
+from tensordict import TensorDict
+from torch import nn
 
 from rl4co.utils.lightning import get_lightning_device
 

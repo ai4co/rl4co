@@ -1,16 +1,15 @@
-from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
-from hydra.utils import instantiate
-from omegaconf import DictConfig, ListConfig
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from hydra.utils import instantiate
 from lightning import LightningModule
+from omegaconf import DictConfig, ListConfig
+from torch.utils.data import DataLoader
 
-from rl4co.utils.pylogger import get_pylogger
 from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.envs.base import EnvBase
-
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 

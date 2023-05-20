@@ -1,14 +1,13 @@
 import copy
-from scipy.stats import ttest_rel
-from tqdm.auto import tqdm
 
 import torch
 import torch.nn as nn
+from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 
 from rl4co import utils
-from rl4co.data.dataset import ExtraKeyDataset
-from rl4co.data.dataset import tensordict_collate_fn
+from rl4co.data.dataset import ExtraKeyDataset, tensordict_collate_fn
 
 log = utils.get_pylogger(__name__)
 

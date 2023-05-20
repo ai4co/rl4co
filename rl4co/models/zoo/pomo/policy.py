@@ -1,13 +1,11 @@
 import torch.nn as nn
-
-from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
+from torchrl.envs import EnvBase
 
 from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.pomo.decoder import Decoder
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 

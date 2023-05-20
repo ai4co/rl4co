@@ -3,17 +3,13 @@ from typing import Optional
 import numpy as np
 import torch
 from tensordict.tensordict import TensorDict
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
-
-from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnvBase
-from rl4co.utils.ops import gather_by_index, distance
+from rl4co.envs.utils import batch_to_scalar
+from rl4co.utils.ops import distance, gather_by_index
 
 
 class MTSPEnv(RL4COEnvBase):
