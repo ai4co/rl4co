@@ -6,30 +6,58 @@ from torch import Tensor
 
 
 # @torch.jit.script
-def batchify(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, TensorDict]:
-    """Same as repeat on dim=0 for Tensordicts as well
-    Same as einops.repeat(x, 'b ... -> (b r) ...', r=repeats) but ~1.5x faster
-    """
+def _batchify_single(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, TensorDict]:
+    """Same as repeat on dim=0 for Tensordicts as well"""
     s = x.shape
     return x.expand(repeats, *s).contiguous().view(s[0] * repeats, *s[1:])
 
 
-def unbatchify(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, TensorDict]:
-    """Undoes repeat_batch operation for Tensordicts as well
-    Same as einops.rearrange(x, '(r b) ... -> b r ...', r=repeats) but ~2x faster
+def batchify(x: Union[Tensor, TensorDict], shape: Union[tuple, int]) -> Union[Tensor, TensorDict]:
+    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster.
+    Repeats batchify operation `n` times as specified by each shape element
+    If shape is a tuple, iterates over each element and repeats that many times to match the tuple shape.
+
+    Example:
+    >>> x.shape: [20, 42]
+    >>> shape: [10, 5] (i.e. repeat batch dim 5 times and then 10 times)
+    >>> out.shape: [1000, 42] with batch_size=1000
     """
+    shape = [shape] if isinstance(shape, int) else shape
+    for s in reversed(shape):
+        x = _batchify_single(x, s) if s > 0 else x
+    return x
+
+
+def _unbatchify_single(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor, TensorDict]:
+    """Undoes batchify operation for Tensordicts as well"""
     s = x.shape
     return x.view(repeats, s[0] // repeats, *s[1:]).permute(1, 0, *range(2, len(s) + 1))
+
+
+def unbatchify(x: Union[Tensor, TensorDict], shape: Union[tuple, int]) -> Union[Tensor, TensorDict]:
+    """Same as `einops.rearrange(x, '(r b) ... -> b r ...', r=repeats)` but ~2x faster.
+    Repeats unbatchify operation `n` times as specified by each shape element
+    If shape is a tuple, iterates over each element and unbatchifies that many times to match the tuple shape.
+
+    Example:
+    >>> x.shape: [1000, 42] with batch_size=1000
+    >>> shape: [10, 5] (i.e. split batch dim into 10 and 5)
+    >>> out.shape: [20, 10, 5, 42]
+    """
+    shape = [shape] if isinstance(shape, int) else shape
+    for s in reversed(shape): # we need to reverse the shape to unbatchify in the right order
+        x = _unbatchify_single(x, s) if s > 0 else x
+    return x
 
 
 # @torch.jit.script
 def gather_by_index(src, idx, dim=1):
     """Gather elements from src by index idx along specified dim
+
     Example:
-        src: shape (64, 20, 2)
-        idx: shape (64, 3) # 3 is the number of idxs on dim 1
-        on dim 1
-        Returns: (64, 3, 2)  # get the 3 elements from src at idx
+    >>> src: shape [64, 20, 2]
+    >>> idx: shape [64, 3)] # 3 is the number of idxs on dim 1
+    >>> Returns: [64, 3, 2]  # get the 3 elements from src at idx
     """
     expanded_shape = list(src.shape)
     expanded_shape[dim] = -1
@@ -38,5 +66,5 @@ def gather_by_index(src, idx, dim=1):
 
 
 def distance(x, y):
-    """Euclidean distance between two tensors of shape (..., n, dim)"""
+    """Euclidean distance between two tensors of shape `[..., n, dim]`"""
     return torch.norm(x - y, p=2, dim=-1)
