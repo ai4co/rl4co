@@ -35,7 +35,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         num_heads,
         embedding_dim,
         num_layers,
-        env_name='tsp',
+        env_name="tsp",
         normalization="batch",
         feed_forward_hidden=512,
         force_flash_attn=False,

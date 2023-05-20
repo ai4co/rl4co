@@ -28,9 +28,7 @@ class REINFORCE(nn.Module):
         if phase == "train":
             # REINFORCE loss: we consider the rewards instead of costs to be consistent with the literature
             bl_val, bl_neg_loss = (
-                self.baseline.eval(td, out["reward"])
-                if extra is None
-                else (extra, 0)
+                self.baseline.eval(td, out["reward"]) if extra is None else (extra, 0)
             )
             advantage = out["reward"] - bl_val  # advantage = reward - baseline
             reinforce_loss = -(advantage * out["log_likelihood"]).mean()

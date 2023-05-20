@@ -15,6 +15,7 @@ log = utils.get_pylogger(__name__)
 
 class REINFORCEBaseline(nn.Module):
     """Base class for REINFORCE baselines"""
+
     def __init__(self, *args, **kw):
         super().__init__()
         pass

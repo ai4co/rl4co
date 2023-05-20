@@ -24,12 +24,12 @@ class POMO(REINFORCE):
 
     def __init__(self, env, policy=None, baseline=None, num_starts=10, num_augment=8):
         super(POMO, self).__init__(env, policy, baseline)
-        self.policy = POMOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+        self.policy = (
+            POMOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+        )
 
         # TODO: check baseline
-        self.baseline = (
-            SharedBaseline() if baseline is None else baseline
-        )
+        self.baseline = SharedBaseline() if baseline is None else baseline
 
         # POMO parameters
         self.num_augment = num_augment
@@ -79,7 +79,7 @@ class POMO(REINFORCE):
 
             # REINFORCE loss: we consider the rewards instead of costs to be consistent with the literature
             bl_val, bl_neg_loss = (
-                self.baseline.eval(td, reward) # unbatched reward
+                self.baseline.eval(td, reward)  # unbatched reward
                 if extra is None
                 else (extra, 0)
             )
@@ -105,6 +105,12 @@ class POMO(REINFORCE):
             max_aug_reward, max_idxs = reward_.max(dim=1)
             out.update({"max_aug_reward": max_aug_reward})
             if out.get("best_pomo_actions", None) is not None:
-                out.update({"best_aug_actions": gather_by_index(out["best_pomo_actions"], max_idxs)})
+                out.update(
+                    {
+                        "best_aug_actions": gather_by_index(
+                            out["best_pomo_actions"], max_idxs
+                        )
+                    }
+                )
 
         return out

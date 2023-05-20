@@ -40,7 +40,7 @@ class GraphAttentionEncoder(nn.Module):
         num_heads,
         embedding_dim,
         num_layers,
-        env_name='tsp',
+        env_name="tsp",
         normalization="batch",
         feed_forward_hidden=512,
         force_flash_attn=False,
@@ -51,7 +51,7 @@ class GraphAttentionEncoder(nn.Module):
         self.init_embedding = env_init_embedding(
             env_name, {"embedding_dim": embedding_dim}
         )
-        
+
         self.layers = nn.Sequential(
             *(
                 MultiHeadAttentionLayer(

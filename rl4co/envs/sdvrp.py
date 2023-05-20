@@ -157,7 +157,7 @@ class SDVRPEnv(RL4COEnvBase):
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc+1, 2),
+                shape=(self.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -167,11 +167,11 @@ class SDVRPEnv(RL4COEnvBase):
             demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
-                shape=(self.num_loc+1, 1),
+                shape=(self.num_loc + 1, 1),
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc+1, 1),
+                shape=(self.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -181,7 +181,7 @@ class SDVRPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc+1,
+            maximum=self.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
@@ -223,14 +223,14 @@ class SDVRPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
+            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the demand
         demand = (
-            torch.FloatTensor(*batch_size, self.num_loc+1)
+            torch.FloatTensor(*batch_size, self.num_loc + 1)
             .uniform_(self.min_demand, self.max_demand)
             .to(self.device)
         )

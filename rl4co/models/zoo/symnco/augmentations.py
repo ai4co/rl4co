@@ -37,6 +37,7 @@ def env_aug_feats(env_name: str):
 
 class StateAugmentation(nn.Module):
     """Augment state by N times via symmetric rotation/reflection transform"""
+
     def __init__(self, env_name: str):
         super(StateAugmentation, self).__init__()
         self.augmentation = augment_xy_data_by_n_fold

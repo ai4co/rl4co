@@ -63,7 +63,6 @@ class Decoder(nn.Module):
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
     def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
-        
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 

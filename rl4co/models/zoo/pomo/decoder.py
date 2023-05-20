@@ -25,7 +25,9 @@ class PrecomputedCache:
 
 
 class Decoder(nn.Module):
-    def __init__(self, env, embedding_dim, num_heads, num_starts=20, **logit_attn_kwargs):
+    def __init__(
+        self, env, embedding_dim, num_heads, num_starts=20, **logit_attn_kwargs
+    ):
         super(Decoder, self).__init__()
 
         self.env = env
@@ -53,7 +55,14 @@ class Decoder(nn.Module):
         # POMO multi-start sampling
         self.num_starts = max(num_starts, 0)  # num_starts = 0 is just normal REINFORCE
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
+    def forward(
+        self,
+        td,
+        embeddings,
+        decode_type="sampling",
+        softmax_temp=None,
+        single_traj=False,
+    ):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 

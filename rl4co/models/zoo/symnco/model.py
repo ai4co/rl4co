@@ -32,6 +32,7 @@ class SymNCO(REINFORCE):
         beta: weight for solution symmetricity loss
         augment_test: whether to augment data during testing as well
     """
+
     def __init__(
         self,
         env,
@@ -45,7 +46,9 @@ class SymNCO(REINFORCE):
     ):
         super(SymNCO, self).__init__(env, policy, baseline)
 
-        self.policy = SymNCOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+        self.policy = (
+            SymNCOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+        )
         if baseline is not None:
             log.warn(
                 "SymNCO uses shared baselines in the loss functions. Baseline argument will be ignored"
@@ -62,7 +65,9 @@ class SymNCO(REINFORCE):
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
 
-    def forward(self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs):
+    def forward(
+        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
+    ):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0
@@ -101,7 +106,13 @@ class SymNCO(REINFORCE):
             max_aug_reward, max_idxs = reward_.max(dim=1)
             out.update({"max_aug_reward": max_aug_reward})
             if out.get("best_pomo_actions", None) is not None:
-                out.update({"best_aug_actions": gather_by_index(out["best_pomo_actions"], max_idxs)})
+                out.update(
+                    {
+                        "best_aug_actions": gather_by_index(
+                            out["best_pomo_actions"], max_idxs
+                        )
+                    }
+                )
 
         # Main training loss
         if phase == "train":
@@ -116,11 +127,11 @@ class SymNCO(REINFORCE):
             loss = loss_ps + self.beta * loss_ss + self.alpha * loss_inv
             out.update(
                 {
-                "loss": loss,
-                "loss_ss": loss_ss,
-                "loss_ps": loss_ps,
-                "loss_inv": loss_inv,
-            }
-        )
+                    "loss": loss,
+                    "loss_ss": loss_ss,
+                    "loss_ps": loss_ps,
+                    "loss_inv": loss_inv,
+                }
+            )
 
         return out

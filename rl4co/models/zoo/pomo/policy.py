@@ -35,7 +35,7 @@ class POMOPolicy(nn.Module):
             log.warn(f"Unused kwargs: {unused_kw}")
 
         self.env = env
-        
+
         self.encoder = (
             GraphAttentionEncoder(
                 num_heads=num_heads,
@@ -92,4 +92,3 @@ class POMOPolicy(nn.Module):
             out["actions"] = actions
 
         return out
-    
