@@ -3,103 +3,108 @@ from torch import nn
 from tensordict import TensorDict
 import lightning as L
 
-from rl4co.utils.ops import unbatchify
-from rl4co.models.zoo.pomo.utils import get_best_actions
+from rl4co.utils.ops import unbatchify, gather_by_index
 from rl4co.models.zoo.pomo.policy import POMOPolicy
 from rl4co.models.zoo.pomo.augmentations import StateAugmentation
-from rl4co.models.rl.reinforce.baselines import WarmupBaseline, RolloutBaseline
+from rl4co.models.rl.reinforce.baselines import SharedBaseline
 from rl4co.models.rl.reinforce.base import REINFORCE
 
 
 class POMO(REINFORCE):
-    """
-    POMO Model for neural combinatorial optimization based on REINFORCE
+    """POMO Model for neural combinatorial optimization based on REINFORCE
     Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011
 
     Args:
         env: TorchRL Environment
         policy: Policy
         baseline: REINFORCE Baseline
+        num_starts: Number of starting actions (POMO samples) (default: 10)
         num_augment: Number of augmentations (default: 8)
     """
 
-    def __init__(self, env, policy=None, baseline=None, num_augment=8):
-        super().__init__(env, policy, baseline)
-        self.policy = POMOPolicy(self.env) if policy is None else policy
+    def __init__(self, env, policy=None, baseline=None, num_starts=10, num_augment=8):
+        super(POMO, self).__init__(env, policy, baseline)
+        self.policy = POMOPolicy(self.env, num_starts=num_starts) if policy is None else policy
 
         # TODO: check baseline
         self.baseline = (
-            WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
+            SharedBaseline() if baseline is None else baseline
         )
+
         # POMO parameters
-        self.num_pomo = self.policy.num_pomo
         self.num_augment = num_augment
         self.augment = (
             StateAugmentation(self.env.name, num_augment) if num_augment > 1 else None
         )
 
     def forward(
-        self,
-        td: TensorDict,
-        phase: str = "train",
-        decode_type: str = "sampling",
-        return_actions: bool = False,
+        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
     ):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
-        # Augment data if not in training phase
-        if phase != "train" and self.augment is not None:
+        # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0
+        num_starts = getattr(self.policy.decoder, "num_starts", 0)
+        num_augment = self.num_augment
+        if policy_kwargs.get("single_traj", False):
+            num_starts, num_augment = 0, 0
+        # during training, we do not augment the data
+        if phase == "train":
+            num_augment = 0
+        elif num_augment > 1:
             td = self.augment(td)
 
         # Evaluate model, get costs and log probabilities
-        out = self.policy(td, decode_type=decode_type, return_actions=return_actions)
+        out = self.policy(td, phase, **policy_kwargs)
 
-        # Max POMO reward. Decouple augmentation and POMO
-        # [batch, num_pomo, num_augment]
-        reward = unbatchify(
-            unbatchify(out["reward"], self.num_augment if phase != "train" else 1),
-            self.num_pomo,
-        )
-        max_reward, max_idxs = reward.max(dim=1)
-        out.update(
-            {
-                "max_reward": max_reward,
-                "best_actions": get_best_actions(out["actions"], max_idxs)
-                if return_actions
-                else None,
-            }
-        )
+        # Unbatchify reward to [batch_size, num_augment, num_starts].
+        reward = unbatchify(out["reward"], (num_starts, num_augment))
 
+        # Get POMO rewards and best actions
+        if num_starts > 1:
+            # Max POMO reward. Decouple augmentation and POMO
+            max_reward, max_idxs = reward.max(dim=1)
+            out.update({"max_reward": max_reward})
+
+            # Reshape batch to [batch, num_starts, num_augment]
+            if out.get("actions", None) is not None:
+                actions = unbatchify(out["actions"], (num_starts, num_augment))
+                out.update({"best_pomo_actions": gather_by_index(actions, max_idxs)})
+                out["actions"] = actions
+
+        # Training phase
         if phase == "train":
-            costs = unbatchify(-out["reward"], self.policy.num_pomo)
-            ll = unbatchify(out["log_likelihood"], self.policy.num_pomo)
-            bl_val, bl_loss = self.baseline.eval(td, costs)
+            assert num_starts > 1, "num_starts must be > 1 during training"
 
-            # Calculate REINFORCE loss
-            advantage = costs - bl_val
-            reinforce_loss = (advantage * ll).mean()
-            loss = reinforce_loss + bl_loss
+            ll = unbatchify(out["log_likelihood"], num_starts)
+
+            # REINFORCE loss: we consider the rewards instead of costs to be consistent with the literature
+            bl_val, bl_neg_loss = (
+                self.baseline.eval(td, reward) # unbatched reward
+                if extra is None
+                else (extra, 0)
+            )
+
+            advantage = reward - bl_val  # advantage = reward - baseline
+            reinforce_loss = -(advantage * ll).mean()
+            loss = reinforce_loss - bl_neg_loss
             out.update(
                 {
                     "loss": loss,
                     "reinforce_loss": reinforce_loss,
-                    "bl_loss": bl_loss,
+                    "bl_loss": -bl_neg_loss,
                     "bl_val": bl_val,
                 }
             )
 
         # Get augmentation score only during inference
-        if phase != "train" and self.augment is not None:
+        if num_augment > 1:
+            if num_starts > 1:
+                # If POMO is enabled, we use the best POMO rewards
+                reward_ = max_reward
             # [batch, num_augment]
-            aug_reward = unbatchify(max_reward, self.num_augment)
-            max_aug_reward, max_idxs = aug_reward.max(dim=1)
-            out.update(
-                {
-                    "max_aug_reward": max_aug_reward,
-                    "best_aug_actions": get_best_actions(out["actions"], max_idxs)
-                    if return_actions
-                    else None,
-                }
-            )
+            max_aug_reward, max_idxs = reward_.max(dim=1)
+            out.update({"max_aug_reward": max_aug_reward})
+            if out.get("best_pomo_actions", None) is not None:
+                out.update({"best_aug_actions": gather_by_index(out["best_pomo_actions"], max_idxs)})
 
         return out

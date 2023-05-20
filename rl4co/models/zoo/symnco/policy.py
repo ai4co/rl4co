@@ -24,7 +24,7 @@ class SymNCOPolicy(nn.Module):
         embedding_dim: int = 128,
         projection_head: nn.Module = None,
         num_starts: int = 10,
-        num_encode_layers: int = 3,
+        num_encoder_layers: int = 3,
         normalization: str = "batch",
         num_heads: int = 8,
         use_graph_context: bool = True,
@@ -39,16 +39,16 @@ class SymNCOPolicy(nn.Module):
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
 
+        print("policy num_starts", num_starts)
+
         self.env = env
-        self.init_embedding = env_init_embedding(
-            self.env.name, {"embedding_dim": embedding_dim}
-        )
 
         self.encoder = (
             GraphAttentionEncoder(
                 num_heads=num_heads,
-                embed_dim=embedding_dim,
-                num_layers=num_encode_layers,
+                embedding_dim=embedding_dim,
+                num_layers=num_encoder_layers,
+                env_name=self.env.name,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
             )
@@ -88,19 +88,19 @@ class SymNCOPolicy(nn.Module):
         """Given observation, precompute embeddings and rollout"""
 
         # Set decoding type for policy, can be also greedy
-        embeddings = self.init_embedding(td)
-        encoded_inputs = self.encoder(embeddings)
+        embeddings, init_embeds = self.encoder(td)
 
         # Main rollout
-        log_p, actions, td = self.decoder(td, encoded_inputs, **decoder_kwargs)
+        log_p, actions, td = self.decoder(td, embeddings, **decoder_kwargs)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
         ll = get_log_likelihood(log_p, actions, td.get("mask", None))
         out = {
             "reward": td["reward"],
             "log_likelihood": ll,
-            "proj_embeddings": self.projection_head(embeddings),
-            "actions": actions if return_actions else None,
+            "proj_embeddings": self.projection_head(init_embeds),
         }
+        if return_actions:
+            out["actions"] = actions
 
         return out

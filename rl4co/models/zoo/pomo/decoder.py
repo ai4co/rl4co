@@ -25,7 +25,7 @@ class PrecomputedCache:
 
 
 class Decoder(nn.Module):
-    def __init__(self, env, embedding_dim, num_heads, num_pomo=20, **logit_attn_kwargs):
+    def __init__(self, env, embedding_dim, num_heads, num_starts=20, **logit_attn_kwargs):
         super(Decoder, self).__init__()
 
         self.env = env
@@ -50,22 +50,25 @@ class Decoder(nn.Module):
             embedding_dim, num_heads, **logit_attn_kwargs
         )
 
-        # POMO
-        self.num_pomo = max(num_pomo, 1)  # POMO = 1 is just normal REINFORCE
+        # POMO multi-start sampling
+        self.num_starts = max(num_starts, 0)  # num_starts = 0 is just normal REINFORCE
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
+    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
+        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
+        cached_embeds = self._precompute(embeddings)
+
         # Collect outputs
         outputs = []
         actions = []
 
-        if self.num_pomo > 1:
+        if self.num_starts > 1 and not single_traj:
             # POMO: first action is decided via select_start_nodes
             action = select_start_nodes(
-                batch_size=td.shape[0], num_nodes=self.num_pomo, device=td.device
+                batch_size=td.shape[0], num_nodes=self.num_starts, device=td.device
             )
 
-            # # Expand td to batch_size * num_pomo
-            td = batchify(td, self.num_pomo)
+            # # Expand td to batch_size * num_starts
+            td = batchify(td, self.num_starts)
 
             td.set("action", action)
             td = self.env.step(td)["next"]
@@ -76,9 +79,7 @@ class Decoder(nn.Module):
             outputs.append(log_p)
             actions.append(action)
 
-        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute(embeddings)
-
+        # Main decoding
         while not td["done"].all():
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
@@ -106,10 +107,10 @@ class Decoder(nn.Module):
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
-            node_embeddings=batchify(embeddings, self.num_pomo),
-            glimpse_key=batchify(glimpse_key_fixed, self.num_pomo),
-            glimpse_val=batchify(glimpse_val_fixed, self.num_pomo),
-            logit_key=batchify(logit_key_fixed, self.num_pomo),
+            node_embeddings=batchify(embeddings, self.num_starts),
+            glimpse_key=batchify(glimpse_key_fixed, self.num_starts),
+            glimpse_val=batchify(glimpse_val_fixed, self.num_starts),
+            logit_key=batchify(logit_key_fixed, self.num_starts),
         )
 
         return cached_embeds
@@ -119,7 +120,7 @@ class Decoder(nn.Module):
         step_context = self.context(cached.node_embeddings, td)
         glimpse_q = step_context.unsqueeze(
             1
-        )  # in POMO, no graph context (trick for overfit) # [batch, 1, embed_dim]
+        )  # in POMO, no graph context # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (

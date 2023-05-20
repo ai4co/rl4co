@@ -3,8 +3,7 @@ from torch.nn.functional import cosine_similarity
 
 
 def problem_symmetricity_loss(reward, log_likelihood, dim=1):
-    """
-    REINFORCE loss for problem symmetricity
+    """REINFORCE loss for problem symmetricity
     Baseline is the average reward for all augmented problems
     Corresponds to `L_ps` in the SymNCO paper
     """
@@ -17,8 +16,7 @@ def problem_symmetricity_loss(reward, log_likelihood, dim=1):
 
 
 def solution_symmetricity_loss(reward, log_likelihood, dim=2):
-    """
-    REINFORCE loss for solution symmetricity
+    """REINFORCE loss for solution symmetricity
     Baseline is the average reward for all start nodes
     Corresponds to `L_ss` in the SymNCO paper
     """
@@ -31,8 +29,7 @@ def solution_symmetricity_loss(reward, log_likelihood, dim=2):
 
 
 def invariance_loss(proj_embed, num_augment):
-    """
-    Loss for invariant representation on projected nodes
+    """Loss for invariant representation on projected nodes
     Corresponds to `L_inv` in the SymNCO paper
     """
     pe = rearrange(proj_embed, "(b a) ... -> b a ...", a=num_augment)

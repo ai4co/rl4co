@@ -13,14 +13,14 @@ def _batchify_single(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tensor
 
 
 def batchify(x: Union[Tensor, TensorDict], shape: Union[tuple, int]) -> Union[Tensor, TensorDict]:
-    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster.
+    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster and supports TensorDicts
     Repeats batchify operation `n` times as specified by each shape element
     If shape is a tuple, iterates over each element and repeats that many times to match the tuple shape.
 
     Example:
-    >>> x.shape: [20, 42]
-    >>> shape: [10, 5] (i.e. repeat batch dim 5 times and then 10 times)
-    >>> out.shape: [1000, 42] with batch_size=1000
+    >>> x.shape: [a, b, c, ...] 
+    >>> shape: [a, b, c]
+    >>> out.shape: [a*b*c, ...]
     """
     shape = [shape] if isinstance(shape, int) else shape
     for s in reversed(shape):
@@ -35,14 +35,14 @@ def _unbatchify_single(x: Union[Tensor, TensorDict], repeats: int) -> Union[Tens
 
 
 def unbatchify(x: Union[Tensor, TensorDict], shape: Union[tuple, int]) -> Union[Tensor, TensorDict]:
-    """Same as `einops.rearrange(x, '(r b) ... -> b r ...', r=repeats)` but ~2x faster.
+    """Same as `einops.rearrange(x, '(r b) ... -> b r ...', r=repeats)` but ~2x faster and supports TensorDicts
     Repeats unbatchify operation `n` times as specified by each shape element
     If shape is a tuple, iterates over each element and unbatchifies that many times to match the tuple shape.
 
     Example:
-    >>> x.shape: [1000, 42] with batch_size=1000
-    >>> shape: [10, 5] (i.e. split batch dim into 10 and 5)
-    >>> out.shape: [20, 10, 5, 42]
+    >>> x.shape: [a*b*c, ...]
+    >>> shape: [a, b, c]
+    >>> out.shape: [a, b, c, ...]
     """
     shape = [shape] if isinstance(shape, int) else shape
     for s in reversed(shape): # we need to reverse the shape to unbatchify in the right order
