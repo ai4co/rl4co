@@ -14,30 +14,39 @@ log = utils.get_pylogger(__name__)
 
 
 class REINFORCEBaseline(nn.Module):
+    """Base class for REINFORCE baselines"""
     def __init__(self, *args, **kw):
         super().__init__()
         pass
 
     def wrap_dataset(self, dataset, *args, **kw):
+        """Wrap dataset with baseline-specific functionality"""
         return dataset
 
     def eval(self, td, reward):
+        """Evaluate baseline"""
         pass
 
     def epoch_callback(self, *args, **kw):
+        """Callback at the end of each epoch
+        For example, update baseline parameters and obtain baseline values
+        """
         pass
 
     def setup(self, *args, **kw):
+        """To be called before training during setup phase
+        This follow PyTorch Lightning's setup() convention
+        """
         pass
 
 
 class NoBaseline(REINFORCEBaseline):
     def eval(self, td, reward):
-        return 0, 0  # No baseline, no loss
+        return 0, 0  # No baseline, no neg_los
 
 
 class SharedBaseline(REINFORCEBaseline):
-    def eval(self, td, reward, on_dim=0):  # by default e.g. [pomo, batch]
+    def eval(self, td, reward, on_dim=1):  # e.g. [batch, pomo, ...]
         return reward.mean(dim=on_dim, keepdims=True), 0
 
 
