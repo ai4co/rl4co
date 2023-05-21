@@ -7,6 +7,11 @@ from tensordict.tensordict import TensorDict
 from torchrl.envs import EnvBase
 
 from rl4co.data.dataset import TensorDictDataset
+from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.utils.pylogger import get_pylogger
+
+
+log = get_pylogger(__name__)
 
 
 class RL4COEnvBase(EnvBase):
@@ -71,18 +76,25 @@ class RL4COEnvBase(EnvBase):
         """
         f = getattr(self, f"{phase}_file")
         if f is None:
+            if phase != "train":
+                log.warning(f"{phase}_file not set. Generating dataset instead")
             td = self.generate_data(batch_size)
         else:
+            log.info(f"Loading {phase} dataset from {f}")
+            if phase == "train":
+                log.warning("Loading training dataset from file. This may not be desired in RL since "
+                            "the dataset is fixed and the agent will not be able to explore new states")
             td = self.load_data(f, batch_size)
         return TensorDictDataset(td)
 
     def generate_data(self, batch_size):
-        """Dataset generation or loading"""
+        """Dataset generation"""
         raise NotImplementedError
 
     def transform(self):
         """Used for converting TensorDict variables (such as with torch.cat) efficiently
         https://pytorch.org/rl/reference/generated/torchrl.envs.transforms.Transform.html
+        By default, we do not need to transform the environment since we use specific embeddings
         """
         return self
 
@@ -92,8 +104,8 @@ class RL4COEnvBase(EnvBase):
 
     def load_data(self, fpath, batch_size=[]):
         """Dataset loading from file"""
-        raise NotImplementedError
-
+        return load_npz_to_tensordict(fpath)
+    
     def _set_seed(self, seed: Optional[int]):
         """Set the seed for the environment"""
         rng = torch.manual_seed(seed)
