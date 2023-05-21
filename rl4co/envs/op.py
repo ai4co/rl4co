@@ -2,13 +2,9 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
 from rl4co.envs.base import RL4COEnvBase
 
@@ -40,10 +36,9 @@ class OPEnv(RL4COEnvBase):
         max_prize: float = 0.5,
         length_capacity: float = 1,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc

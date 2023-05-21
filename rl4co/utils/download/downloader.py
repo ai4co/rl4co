@@ -4,15 +4,15 @@ import os
 import sys
 import time
 import urllib
-from urllib.parse import urlparse
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import requests
 from tqdm.auto import tqdm
 
-from rl4co.utils.pylogger import get_pylogger
 from rl4co.utils.download.constants import USER_AGENT
 from rl4co.utils.download.gdrive import get_url_filename_drive
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 

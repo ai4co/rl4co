@@ -1,22 +1,24 @@
 import math
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
+from torchrl.envs import EnvBase
 
 
-def env_init_embedding(env_name: str, config: dict) -> object:
-    return env_embedding(env_name, "init", config)
+def env_init_embedding(env: Union[str, EnvBase], config: dict) -> object:
+    return env_embedding(env, "init", config)
 
 
-def env_dynamic_embedding(env_name: str, config: dict) -> object:
-    return env_embedding(env_name, "dynamic", config)
+def env_dynamic_embedding(env: Union[str, EnvBase], config: dict) -> object:
+    return env_embedding(env, "dynamic", config)
 
 
-def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
+def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -> object:
     """Create an embedding object for a given environment name and embedding type.
 
     Args:
-        env_name: The name of the environment.
+        env: Environment or its name.
         config: A dictionary of configuration options for the environment.
         embedding_type: The type of embedding to create, either `init` or `dynamic`.
     """
@@ -56,7 +58,8 @@ def env_embedding(env_name: str, embedding_type: str, config: dict) -> object:
         },
     }
 
-    assert embedding_type in ["init", "dynamic"]
+    assert embedding_type in ["init", "dynamic"], "Unknown embedding type. Must be one of 'init' or 'dynamic'"
+    env_name = env if isinstance(env, str) else env.name
     embedding_class = embedding_classes.get(env_name, {}).get(embedding_type, None)
 
     if embedding_class is None:

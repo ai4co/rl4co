@@ -1,16 +1,16 @@
-from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
-from hydra.utils import instantiate
-from omegaconf import DictConfig, ListConfig
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from hydra.utils import instantiate
 from lightning import LightningModule
+from omegaconf import DictConfig, ListConfig
+from torch.utils.data import DataLoader
 
-from rl4co.utils.pylogger import get_pylogger
 from rl4co.data.dataset import tensordict_collate_fn
+from rl4co.data.generate_data import generate_default_datasets
 from rl4co.envs.base import EnvBase
-
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
@@ -40,6 +40,10 @@ class RL4COLitModule(LightningModule):
         cfg = DictConfig(cfg) if not isinstance(cfg, DictConfig) else cfg
         self.save_hyperparameters(cfg)
         self.cfg = cfg
+
+        # Create datasets automatically. If found, this will skip
+        if self.cfg.data.get("generate_data", True):
+            generate_default_datasets(data_dir=self.cfg.get("paths", {}).get("data_dir", "data/"))
 
         # Instantiate environment, model and metrics
         self.env = env if env is not None else self.instantiate_env()

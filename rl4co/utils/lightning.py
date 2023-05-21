@@ -1,5 +1,5 @@
-import torch
 import lightning as L
+import torch
 
 
 def get_lightning_device(lit_module: L.LightningModule) -> torch.device:

@@ -1,21 +1,11 @@
-from platform import machine
-from re import sub
-import sched
 from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
-
-import sys
-
-sys.path.append(".")
 from rl4co.envs import RL4COEnvBase
 
 
@@ -37,10 +27,9 @@ class FFSPEnv(RL4COEnvBase):
         min_time: float = 0.1,
         max_time: float = 1.0,
         batch_size: list = [50],
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_stage = num_stage
         self.num_machine = num_machine
         self.num_machine_total = num_stage * num_machine

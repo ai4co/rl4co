@@ -33,10 +33,7 @@ trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
   accelerator: "gpu"
-  # precision: "16-mixed" 
-  # Fast distributed training: comment out to use on single GPU
-  # devices: 1 # change number of devices
-
+  
 train:
   optimizer:
     # _partial_: True

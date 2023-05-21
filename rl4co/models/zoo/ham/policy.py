@@ -1,15 +1,13 @@
 import torch
 import torch.nn as nn
-
-from torchrl.envs import EnvBase
 from tensordict.tensordict import TensorDict
+from torchrl.envs import EnvBase
 
 from rl4co.models.nn.env_embedding import env_init_embedding
-from rl4co.models.zoo.am.decoder import Decoder
 from rl4co.models.nn.utils import get_log_likelihood
+from rl4co.models.zoo.am.decoder import Decoder
 from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -21,7 +19,7 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         embedding_dim: int = 128,
-        num_encode_layers: int = 3,
+        num_encoder_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
         mask_inner: bool = True,
@@ -36,15 +34,13 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
             log.warn(f"Unused kwargs: {unused_kw}")
 
         self.env = env
-        self.init_embedding = env_init_embedding(
-            self.env.name, {"embedding_dim": embedding_dim}
-        )
 
         self.encoder = (
             GraphHeterogeneousAttentionEncoder(
                 num_heads=num_heads,
-                embed_dim=embedding_dim,
-                num_layers=num_encode_layers,
+                embedding_dim=embedding_dim,
+                num_layers=num_encoder_layers,
+                env=self.env,
                 normalization=normalization,
             )
             if encoder is None
@@ -53,7 +49,7 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
 
         self.decoder = (
             Decoder(
-                env,
+                self.env,
                 embedding_dim,
                 num_heads,
                 mask_inner=mask_inner,
@@ -74,22 +70,23 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
         return_actions: bool = False,
         **decoder_kwargs,
     ) -> TensorDict:
-        # Encode and get embeddings
-        embedding = self.init_embedding(td)
-        encoded_inputs = self.encoder(embedding)
+        # Encode inputs
+        embeddings, _ = self.encoder(td)
 
         # Get decode type depending on phase
         if decoder_kwargs.get("decode_type", None) is None:
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
-        # Decode to get log_p, action and new state
-        log_p, actions, td = self.decoder(td, encoded_inputs, **decoder_kwargs)
+        # Main rollout: autoregressive decoding
+        log_p, actions, td_out = self.decoder(td, embeddings, **decoder_kwargs)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
-        ll = get_log_likelihood(log_p, actions, td.get("mask", None))
+        ll = get_log_likelihood(log_p, actions, td_out.get("mask", None))
         out = {
-            "reward": td["reward"],
+            "reward": td_out["reward"],
             "log_likelihood": ll,
-            "actions": actions if return_actions else None,
         }
+        if return_actions:
+            out["actions"] = actions
+
         return out

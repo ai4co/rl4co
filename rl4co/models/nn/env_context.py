@@ -1,10 +1,13 @@
+from typing import List, Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
+from torchrl.envs import EnvBase
 
 from rl4co.utils.ops import gather_by_index
 
 
-def env_context(env_name: str, config: dict) -> object:
+def env_context(env: Union[str, EnvBase], config: dict) -> object:
     """Get context object for given environment name"""
     context_classes = {
         "tsp": TSPContext,
@@ -17,6 +20,7 @@ def env_context(env_name: str, config: dict) -> object:
         "mtsp": MTSPContext,
     }
 
+    env_name = env if isinstance(env, str) else env.name
     context_class = context_classes.get(env_name, None)
 
     if context_class is None:
@@ -40,7 +44,7 @@ class EnvContext(nn.Module):
         return cur_node_embedding
 
     def _state_embedding(self, embeddings, td):
-        raise NotImplementedError("To implement for each environment")
+        raise NotImplementedError("Implement for each environment")
 
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
@@ -129,14 +133,14 @@ class PDPContext(EnvContext):
 
 
 class MTSPContext(EnvContext):
+    """NOTE: new made by Fede in free style. May need to be checked
+    We use as features:
+        1. remaining number of agents
+        2. the current length of the tour
+        3. the max subtour length so far
+        4. the current distance from the depot
+    """
     def __init__(self, embedding_dim):
-        """NOTE: new made by Fede in free style. May need to be checked
-        We use as features:
-            1. remaining number of agents
-            2. the current length of the tour
-            3. the max subtour length so far
-            4. the current distance from the depot
-        """
         super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         proj_in_dim = 4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
         self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim)

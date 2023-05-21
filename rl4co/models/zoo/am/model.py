@@ -1,6 +1,6 @@
-from rl4co.models.zoo.am.policy import AttentionModelPolicy
-from rl4co.models.rl.reinforce.baselines import WarmupBaseline, RolloutBaseline
 from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl.reinforce.baselines import RolloutBaseline, WarmupBaseline
+from rl4co.models.zoo.am.policy import AttentionModelPolicy
 
 
 class AttentionModel(REINFORCE):

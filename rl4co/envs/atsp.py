@@ -2,17 +2,13 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import (BoundedTensorSpec, CompositeSpec,
+                          UnboundedContinuousTensorSpec,
+                          UnboundedDiscreteTensorSpec)
 
-from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.utils import batch_to_scalar
 from rl4co.envs.base import RL4COEnvBase
-
+from rl4co.envs.utils import batch_to_scalar
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
@@ -40,10 +36,9 @@ class ATSPEnv(RL4COEnvBase):
         max_dist: float = 1,
         tmat_class: bool = True,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_dist = min_dist
         self.max_dist = max_dist

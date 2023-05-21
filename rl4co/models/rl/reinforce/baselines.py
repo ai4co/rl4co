@@ -1,43 +1,52 @@
 import copy
-from scipy.stats import ttest_rel
-from tqdm.auto import tqdm
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 
 from rl4co import utils
-from rl4co.data.dataset import ExtraKeyDataset
-from rl4co.data.dataset import tensordict_collate_fn
+from rl4co.data.dataset import ExtraKeyDataset, tensordict_collate_fn
 
 log = utils.get_pylogger(__name__)
 
 
 class REINFORCEBaseline(nn.Module):
+    """Base class for REINFORCE baselines"""
     def __init__(self, *args, **kw):
         super().__init__()
         pass
 
     def wrap_dataset(self, dataset, *args, **kw):
+        """Wrap dataset with baseline-specific functionality"""
         return dataset
 
     def eval(self, td, reward):
+        """Evaluate baseline"""
         pass
 
     def epoch_callback(self, *args, **kw):
+        """Callback at the end of each epoch
+        For example, update baseline parameters and obtain baseline values
+        """
         pass
 
     def setup(self, *args, **kw):
+        """To be called before training during setup phase
+        This follow PyTorch Lightning's setup() convention
+        """
         pass
 
 
 class NoBaseline(REINFORCEBaseline):
     def eval(self, td, reward):
-        return 0, 0  # No baseline, no loss
+        return 0, 0  # No baseline, no neg_los
 
 
 class SharedBaseline(REINFORCEBaseline):
-    def eval(self, td, reward, on_dim=0):  # by default e.g. [pomo, batch]
+    def eval(self, td, reward, on_dim=1):  # e.g. [batch, pomo, ...]
         return reward.mean(dim=on_dim, keepdims=True), 0
 
 
@@ -98,6 +107,31 @@ class WarmupBaseline(REINFORCEBaseline):
         self.alpha = (kw["epoch"] + 1) / float(self.n_epochs)
         if kw["epoch"] < self.n_epochs:
             log.info("Set warmup alpha = {}".format(self.alpha))
+
+
+class CriticBaseline(REINFORCEBaseline):
+    def __init__(self, critic, **unused_kw):
+        super(CriticBaseline, self).__init__()
+        self.critic = critic
+
+    def eval(self, x, c):
+        v = self.critic(x)
+        # detach v since actor should not backprop through baseline, only for neg_loss
+        return v.detach(), -F.mse_loss(v, c.detach())
+
+    def get_learnable_parameters(self):
+        return list(self.critic.parameters())
+
+    def state_dict(self):
+        return {
+            'critic': self.critic.state_dict()
+        }
+
+    def load_state_dict(self, state_dict):
+        critic_state_dict = state_dict.get('critic', {})
+        if not isinstance(critic_state_dict, dict):  # backwards compatibility
+            critic_state_dict = critic_state_dict.state_dict()
+        self.critic.load_state_dict({**self.critic.state_dict(), **critic_state_dict})
 
 
 class RolloutBaseline(REINFORCEBaseline):

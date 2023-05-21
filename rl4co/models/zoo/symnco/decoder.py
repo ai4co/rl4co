@@ -3,14 +3,13 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
-from rl4co.utils.ops import batchify
-from rl4co.utils import get_pylogger
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.pomo.utils import select_start_nodes
-
+from rl4co.utils import get_pylogger
+from rl4co.utils.ops import batchify
 
 log = get_pylogger(__name__)
 
@@ -42,9 +41,9 @@ class Decoder(nn.Module):
 
         assert embedding_dim % num_heads == 0
 
-        self.context = env_context(self.env.name, {"embedding_dim": embedding_dim})
+        self.context = env_context(self.env, {"embedding_dim": embedding_dim})
         self.dynamic_embedding = env_dynamic_embedding(
-            self.env.name, {"embedding_dim": embedding_dim}
+            self.env, {"embedding_dim": embedding_dim}
         )
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
@@ -63,6 +62,9 @@ class Decoder(nn.Module):
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
     def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
+        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
+        cached_embeds = self._precompute(embeddings)
+
         # Collect outputs
         outputs = []
         actions = []
@@ -84,9 +86,6 @@ class Decoder(nn.Module):
 
             outputs.append(log_p)
             actions.append(action)
-
-        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute(embeddings)
 
         while not td["done"].all():
             # Compute the logits for the next node
