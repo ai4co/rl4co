@@ -40,7 +40,7 @@ class HeterogeneousAttentionModelPolicy(nn.Module):
                 num_heads=num_heads,
                 embedding_dim=embedding_dim,
                 num_layers=num_encoder_layers,
-                env_name=self.env.name,
+                env=self.env,
                 normalization=normalization,
             )
             if encoder is None

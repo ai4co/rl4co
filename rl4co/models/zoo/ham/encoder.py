@@ -35,7 +35,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         num_heads,
         embedding_dim,
         num_layers,
-        env_name="tsp",
+        env=None,
         normalization="batch",
         feed_forward_hidden=512,
         force_flash_attn=False,
@@ -44,7 +44,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
 
         # Map input to embedding space
         self.init_embedding = env_init_embedding(
-            env_name, {"embedding_dim": embedding_dim}
+            env, {"embedding_dim": embedding_dim}
         )
 
         self.layers = nn.Sequential(

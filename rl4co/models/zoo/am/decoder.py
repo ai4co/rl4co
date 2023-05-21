@@ -36,9 +36,9 @@ class Decoder(nn.Module):
 
         assert embedding_dim % num_heads == 0
 
-        self.context = env_context(self.env.name, {"embedding_dim": embedding_dim})
+        self.context = env_context(self.env, {"embedding_dim": embedding_dim})
         self.dynamic_embedding = env_dynamic_embedding(
-            self.env.name, {"embedding_dim": embedding_dim}
+            self.env, {"embedding_dim": embedding_dim}
         )
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
