@@ -2,6 +2,7 @@ import copy
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -14,7 +15,6 @@ log = utils.get_pylogger(__name__)
 
 class REINFORCEBaseline(nn.Module):
     """Base class for REINFORCE baselines"""
-
     def __init__(self, *args, **kw):
         super().__init__()
         pass
@@ -107,6 +107,31 @@ class WarmupBaseline(REINFORCEBaseline):
         self.alpha = (kw["epoch"] + 1) / float(self.n_epochs)
         if kw["epoch"] < self.n_epochs:
             log.info("Set warmup alpha = {}".format(self.alpha))
+
+
+class CriticBaseline(REINFORCEBaseline):
+    def __init__(self, critic, **unused_kw):
+        super(CriticBaseline, self).__init__()
+        self.critic = critic
+
+    def eval(self, x, c):
+        v = self.critic(x)
+        # detach v since actor should not backprop through baseline, only for neg_loss
+        return v.detach(), -F.mse_loss(v, c.detach())
+
+    def get_learnable_parameters(self):
+        return list(self.critic.parameters())
+
+    def state_dict(self):
+        return {
+            'critic': self.critic.state_dict()
+        }
+
+    def load_state_dict(self, state_dict):
+        critic_state_dict = state_dict.get('critic', {})
+        if not isinstance(critic_state_dict, dict):  # backwards compatibility
+            critic_state_dict = critic_state_dict.state_dict()
+        self.critic.load_state_dict({**self.critic.state_dict(), **critic_state_dict})
 
 
 class RolloutBaseline(REINFORCEBaseline):
