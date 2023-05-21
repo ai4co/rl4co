@@ -94,7 +94,7 @@ class TSPEnv(RL4COEnvBase):
             init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        current_node = torch.zeros((batch_size), dtype=torch.int64, device=device)
         available = torch.ones(
             (*batch_size, self.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
