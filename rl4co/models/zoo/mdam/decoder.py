@@ -7,6 +7,7 @@ from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.attention import LogitAttention
+from rl4co.models.nn.utils import decode_probs
 
 
 @dataclass
@@ -96,7 +97,7 @@ class Decoder(nn.Module):
 
             # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
             fixed = self._precompute(_encoded_inputs, path_index=i)
-            log_p, _ = self._get_log_p_temp(fixed, td_list[i], i)
+            log_p, _ = self._get_log_p(fixed, td_list[i], i)
 
             # Collect output of step
             output_list.append(log_p[:, 0, :]) # TODO: for vrp, ignore the first one (depot)
@@ -135,12 +136,12 @@ class Decoder(nn.Module):
                         mask_attn = mask
                     _encoded_inputs, _ = self.embedder.change(_attn, _V, _h_old, mask_attn, self.is_tsp)
                     fixed = self._precompute(_encoded_inputs, path_index=i)
-                log_p, mask = self._get_log_p_temp(fixed, td_list[i], i)
+                log_p, mask = self._get_log_p(fixed, td_list[i], i)
                 if j == 0:
                     mask_first = mask
 
                 # Select the indices of the next nodes in the sequences, result (batch_size) long
-                action = self._select_node(log_p.exp()[:, 0, :], mask, decode_type=decoder_kwargs["decode_type"])
+                action = decode_probs(log_p.exp()[:, 0, :], mask, decode_type=decoder_kwargs["decode_type"])
 
                 td_list[i].set("action", action)
                 td_list[i] = self.env.step(td_list[i])["next"]
@@ -162,21 +163,6 @@ class Decoder(nn.Module):
         reward = torch.stack(reward_list, 0)
         log_likelihood = torch.stack(ll_list, 0)
         return reward, log_likelihood, loss_kl_divergence, actions
-
-    def _select_node(self, probs, mask, decode_type="sampling"):
-        assert (probs == probs).all(), "Probs should not contain any nans"
-        if decode_type == "greedy":
-            _, selected = probs.max(1)
-            assert not mask.gather(1, selected.unsqueeze(
-                -1)).data.any(), "Decode greedy: infeasible action has maximum probability"
-        elif decode_type == "sampling":
-            selected = probs.multinomial(1).squeeze(1)
-            while mask.gather(1, selected.unsqueeze(-1)).data.any():
-                print('Sampled bad values, resampling!')
-                selected = probs.multinomial(1).squeeze(1)
-        else:
-            assert False, "Unknown decode type"
-        return selected
 
     def _precompute(self, embeddings, num_steps=1, path_index=None):
         # The fixed context projection of the graph embedding is calculated only once for efficiency
@@ -206,39 +192,7 @@ class Decoder(nn.Module):
             .permute(3, 0, 1, 2, 4)  # (n_heads, batch_size, num_steps, graph_size, head_dim)
         )
 
-    def _get_log_p(self, cached, td, path_idx, normalize=True):
-        step_context = self.context[path_idx](cached.node_embeddings, td).to(td.device)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
-
-        # Compute keys and values for the nodes
-        (
-            glimpse_key_dynamic,
-            glimpse_val_dynamic,
-            logit_key_dynamic,
-        ) = self.dynamic_embedding(td)
-        glimpse_k = cached.glimpse_key + glimpse_key_dynamic
-        glimpse_v = cached.glimpse_val + glimpse_val_dynamic
-        logit_k = cached.logit_key + logit_key_dynamic
-
-        # Get the mask
-        mask = ~td["action_mask"]
-        
-        # Compute log prob: MHA + single-head attention
-        log_p, _ = self._one_to_many_logits(
-            glimpse_q,
-            glimpse_k,
-            glimpse_v,
-            logit_k,
-            mask,
-            path_idx
-        )
-
-        if normalize:
-            log_p = F.log_softmax(log_p / 1., dim=-1) # TODO
-
-        return log_p, mask
-
-    def _get_log_p_temp(self, fixed, td, path_index, normalize=True):
+    def _get_log_p(self, fixed, td, path_index, normalize=True):
         # Compute query = context node embedding
         query = fixed.graph_context + \
                 self.project_step_context[path_index](self._get_parallel_step_context(fixed.node_embeddings, td))
