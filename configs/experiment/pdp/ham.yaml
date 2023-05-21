@@ -33,14 +33,7 @@ trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
   accelerator: "gpu"
-  precision: "16-mixed" 
-  # Fast distributed training: comment out to use on single GPU
-  # devices: 1 # change number of devices
-  strategy:
-    _target_: lightning.pytorch.strategies.DDPStrategy
-    find_unused_parameters: True
-    gradient_as_bucket_view: True
-
+  
 train:
   optimizer:
     # _partial_: True
