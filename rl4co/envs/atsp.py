@@ -36,10 +36,9 @@ class ATSPEnv(RL4COEnvBase):
         max_dist: float = 1,
         tmat_class: bool = True,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_dist = min_dist
         self.max_dist = max_dist

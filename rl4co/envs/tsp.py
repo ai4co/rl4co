@@ -36,10 +36,9 @@ class TSPEnv(RL4COEnvBase):
         min_loc: float = 0,
         max_loc: float = 1,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs,
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc

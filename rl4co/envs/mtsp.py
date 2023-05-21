@@ -32,10 +32,9 @@ class MTSPEnv(RL4COEnvBase):
         max_num_agents: int = 5,
         cost_type: str = "minmax",
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc

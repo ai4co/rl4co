@@ -40,10 +40,9 @@ class CVRPEnv(RL4COEnvBase):
         max_demand: float = 10,
         capacity: float = None,
         td_params: TensorDict = None,
-        seed: int = None,
-        device: str = "cpu",
+        **kwargs
     ):
-        super().__init__(seed=seed, device=device)
+        super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc

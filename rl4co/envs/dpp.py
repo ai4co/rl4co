@@ -39,10 +39,10 @@ class DPPEnv(RL4COEnvBase):
         freq_file: str = "freq_201.npy",
         url: str = None,
         td_params: TensorDict = None,
-        **envbase_kwargs,
+        **kwargs
     ):
-        envbase_kwargs["data_dir"] = data_dir
-        super().__init__(**envbase_kwargs)
+        kwargs["data_dir"] = data_dir
+        super().__init__(**kwargs)
 
         self.url = (
             "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
