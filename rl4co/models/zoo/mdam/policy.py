@@ -14,7 +14,7 @@ from rl4co.models.zoo.mdam.decoder import Decoder
 
 
 
-class AttentionModelPolicy(nn.Module):
+class MDAMPolicy(nn.Module):
     def __init__(
         self,
         env: EnvBase,
@@ -56,7 +56,7 @@ class AttentionModelPolicy(nn.Module):
             val_decode_type: decode type for validation
             test_decode_type: decode type for testing
         """
-        super(AttentionModelPolicy, self).__init__()
+        super(MDAMPolicy, self).__init__()
         if len(unused_kw) > 0: print(f"Unused kwargs: {unused_kw}")
 
         self.env = env
@@ -137,7 +137,7 @@ class AttentionModel(REINFORCE):
         """
         super(AttentionModel, self).__init__(env, policy, baseline)
         self.env = env
-        self.policy = AttentionModelPolicy(env) if policy is None else policy
+        self.policy = MDAMPolicy(env) if policy is None else policy
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     td = env.reset(td)
 
     # SECTION: test the policy
-    policy = AttentionModelPolicy(
+    policy = MDAMPolicy(
         env,
     ).to("cuda")
     out = policy(td, decode_type="sampling", return_actions=False)
