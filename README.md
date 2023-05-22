@@ -17,9 +17,9 @@
 Code repository for RL4CO. Based on [TorchRL](https://github.com/pytorch/rl) and the [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) best practices.
 
 
-## How to run
+## Getting started
 
-Colone project and install dependencies:
+Clone project and install dependencies:
 
 ```bash
 git clone https://github.com/kaist-silab/rl4co && cd rl4co
@@ -27,13 +27,15 @@ pip install light-the-torch && python3 -m light_the_torch install --upgrade -r r
 ```
 The above script will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system. Alternatively, you can use `pip install -r requirements.txt`. Alternatively, you can install the package locally with `pip install -e .`.
 
+To get started, we recommend checking out our [quickstart notebook](notebooks/quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
+
+## Usage
+
 
 Train model with default configuration (AM on TSP environment):
 ```bash
 python run.py  
 ```
-
-
 
 
 
@@ -67,45 +69,38 @@ python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
 
 
 
-## Package usage example
+### Minimalistic Example
 
-Here is a minimalistic example training the Attention Model on TSP in less than 100 lines of code:
+Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 50 lines of code:
 
 ```python
 from omegaconf import DictConfig
-import torch
+import lightning as L
 from rl4co.envs import TSPEnv
-from rl4co.models.zoo import AttentionModel
+from rl4co.models.zoo.am import AttentionModel
 from rl4co.tasks.rl4co import RL4COLitModule
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 config = DictConfig(
     {"data": {
             "train_size": 100000,
             "val_size": 10000, 
-            "train_batch_size": 512,
-            "val_batch_size": 1024,
+            "batch_size": 512,
         },
-    "optimizer": {
-            "_target_": "torch.optim.Adam",
-            "lr": 1e-4,
-            "weight_decay": 1e-5,
-        },})
+    "optimizer": {"lr": 1e-4}}
+)
 
 # Environment, Model, and Lightning Module
 env = TSPEnv(num_loc=20)
-model = AttentionModel(env).to(device)
+model = AttentionModel(env)
 lit_module = RL4COLitModule(config, env, model)
 
 # Trainer
 trainer = L.Trainer(
-    max_epochs=10,
-    accelerator="gpu" if torch.cuda.is_available() else "cpu",
+    max_epochs=3, # only few epochs
+    accelerator="gpu", # use GPU if available, else you can use others as "cpu"
     logger=None, # can replace with WandbLogger, TensorBoardLogger, etc.
-    precision="16-mixed", # Lightning will handle casting to float16
-    log_every_n_steps=1,   
-    gradient_clip_val=1.0, # clip gradients to avoid exploding gradients!
+    precision="16-mixed", # Lightning will handle faster training with mixed precision
+    gradient_clip_val=1.0, # clip gradients to avoid exploding gradients
     reload_dataloaders_every_n_epochs=1, # necessary for sampling new data
 )
 
