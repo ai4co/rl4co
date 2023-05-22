@@ -62,11 +62,3 @@ metrics:
   test: ["reward"]
   log_on_step: True
 
-# data
-data:
-  batch_size: 512
-  train_size: 100000
-  val_size: 10000
-  train_batch_size: 512
-  val_batch_size: 1024
-  test_batch_size: 1024

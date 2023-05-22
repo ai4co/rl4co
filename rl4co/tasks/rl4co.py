@@ -41,10 +41,6 @@ class RL4COLitModule(LightningModule):
         self.save_hyperparameters(cfg)
         self.cfg = cfg
 
-        # Create datasets automatically. If found, this will skip
-        if self.cfg.data.get("generate_data", True):
-            generate_default_datasets(data_dir=self.cfg.get("paths", {}).get("data_dir", "data/"))
-
         # Instantiate environment, model and metrics
         self.env = env if env is not None else self.instantiate_env()
         self.model = model if model is not None else self.instantiate_model()
@@ -69,30 +65,58 @@ class RL4COLitModule(LightningModule):
         self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
-        # setup batch sizes
-        if self.cfg.data.get("train_batch_size", None) is None:
-            batch_size = self.cfg.data.get("batch_size", None)
+        log.info(f"Setting up batch sizes for train/val/test")
+        # If any of the batch sizes are specified, use that. Otherwise, use the default batch size
+        
+        data_cfg = self.cfg.get("data", {})
+        batch_size = data_cfg.get("batch_size", None)
+        if data_cfg.get("train_batch_size", None) is not None:
+            train_batch_size = data_cfg.train_batch_size
             if batch_size is not None:
                 log.warning(
-                    f"batch_size under data specified, using default as {batch_size}"
+                    f"`train_batch_size`={train_batch_size} specified, ignoring `batch_size`={batch_size}"
                 )
-                self.cfg.data.train_batch_size = batch_size
-            else:
-                log.warning(
-                    f"No train_batch_size under data specified, using default as 64"
-                )
-        self.train_batch_size = self.cfg.data.get("train_batch_size", 64)
-        self.val_batch_size = self.cfg.data.get("val_batch_size", self.train_batch_size)
-        self.test_batch_size = self.cfg.data.get(
-            "test_batch_size", self.train_batch_size
-        )
+        elif batch_size is not None:
+            train_batch_size = batch_size
+        else:
+            train_batch_size = 64
+            log.warning(
+                f"No batch size specified, using default as {train_batch_size}"
+            )
+        # default all batch sizes to train_batch_size if not specified
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = data_cfg.get("val_batch_size", train_batch_size)
+        self.test_batch_size = data_cfg.get("test_batch_size", train_batch_size)
 
         log.info(f"Setting up datasets")
+
+        # Create datasets automatically. If found, this will skip
+        if data_cfg.get("generate_data", True):
+            generate_default_datasets(data_dir=self.cfg.get("paths", {}).get("data_dir", "data/"))
+
+        # If any of the dataset sizes are specified, use that. Otherwise, use the default dataset size
+        def _get_phase_size(phase):
+            DEFAULT_SIZES = {
+                "train": 100000,
+                "val": 10000,
+                "test": 10000,
+            }
+            size = data_cfg.get(f"{phase}_size", None)
+            if size is None:
+                size = DEFAULT_SIZES[phase]
+                log.warning(
+                    f"No {phase}_size specified, using default as {size}"
+                )
+            return size
+
+        self.train_size = _get_phase_size("train")
+        self.val_size = _get_phase_size("val")
+        self.test_size = _get_phase_size("test")
         self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.cfg.data.train_size, "train")
+            self.env.dataset(self.train_size, "train")
         )
-        self.val_dataset = self.env.dataset(self.cfg.data.val_size, "val")
-        test_size = self.cfg.data.get("test_size", self.cfg.data.val_size)
+        self.val_dataset = self.env.dataset(self.val_size, "val")
+        test_size = data_cfg.get("test_size", self.test_size)
         self.test_dataset = self.env.dataset(test_size, "test")
         if hasattr(self.model, "setup"):
             self.model.setup(self)
@@ -100,12 +124,12 @@ class RL4COLitModule(LightningModule):
     def configure_optimizers(self):
         train_cfg = self.cfg.get("train", {})
         if train_cfg.get("optimizer", None) is None:
-            log.info(f"No optimizer specified, using default")
+            log.warning(f"No optimizer specified, using default")
         opt_cfg = train_cfg.get(
             "optimizer", DictConfig({"_target_": "torch.optim.Adam", "lr": 1e-4})
         )
         if "_target_" not in opt_cfg:
-            log.warning(f"No _target_ specified for optimizer, using default Adam")
+            log.info(f"No _target_ specified for optimizer, using default Adam")
             opt_cfg["_target_"] = "torch.optim.Adam"
 
         log.info(f"Instantiating optimizer <{opt_cfg._target_}>")
@@ -164,7 +188,7 @@ class RL4COLitModule(LightningModule):
     def on_train_epoch_end(self):
         if hasattr(self.model, "on_train_epoch_end"):
             self.model.on_train_epoch_end(self)
-        train_dataset = self.env.dataset(self.cfg.data.train_size, "train")
+        train_dataset = self.env.dataset(self.train_size, "train")
         self.train_dataset = self.wrap_dataset(train_dataset)
 
     def wrap_dataset(self, dataset):
@@ -177,6 +201,6 @@ class RL4COLitModule(LightningModule):
             dataset,
             batch_size=batch_size,
             shuffle=False,  # no need to shuffle, we're resampling every epoch
-            num_workers=self.cfg.data.get("num_workers", 0),
+            num_workers=self.cfg.get('data', {}).get("num_workers", 0),
             collate_fn=tensordict_collate_fn,
         )
