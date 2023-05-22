@@ -50,6 +50,10 @@ class RL4COLitModule(LightningModule):
         self.model = model if model is not None else self.instantiate_model()
         self.instantiate_metrics()
 
+        if cfg.get("train", {}).get("manual_optimization", False):
+            log.info("Manual optimization enabled")
+            self.automatic_optimization = False
+
     def instantiate_env(self):
         log.info(f"Instantiating environment <{self.cfg.env._target_}>")
         return instantiate(self.cfg.env)
@@ -73,23 +77,15 @@ class RL4COLitModule(LightningModule):
         if self.cfg.data.get("train_batch_size", None) is None:
             batch_size = self.cfg.data.get("batch_size", None)
             if batch_size is not None:
-                log.warning(
-                    f"batch_size under data specified, using default as {batch_size}"
-                )
+                log.warning(f"batch_size under data specified, using default as {batch_size}")
                 self.cfg.data.train_batch_size = batch_size
-            log.warning(
-                f"No train_batch_size under data specified, using default as 64"
-            )
+            log.warning(f"No train_batch_size under data specified, using default as 64")
         self.train_batch_size = self.cfg.data.get("train_batch_size", 64)
         self.val_batch_size = self.cfg.data.get("val_batch_size", self.train_batch_size)
-        self.test_batch_size = self.cfg.data.get(
-            "test_batch_size", self.train_batch_size
-        )
+        self.test_batch_size = self.cfg.data.get("test_batch_size", self.train_batch_size)
 
         log.info(f"Setting up datasets")
-        self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.cfg.data.train_size, "train")
-        )
+        self.train_dataset = self.wrap_dataset(self.env.dataset(self.cfg.data.train_size, "train"))
         self.val_dataset = self.env.dataset(self.cfg.data.val_size, "val")
         test_size = self.cfg.data.get("test_size", self.cfg.data.val_size)
         self.test_dataset = self.env.dataset(test_size, "test")
