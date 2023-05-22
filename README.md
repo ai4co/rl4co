@@ -71,8 +71,9 @@ python run.py experiment=tsp/am env.num_loc=42
     <summary>Disable logging</summary>
     
 ```bash
-python run.py experiment=tsp/am logger='null'
+python run.py experiment=test/am logger=none '~callbacks.learning_rate_monitor'
 ```
+Note that `~` is used to disable a callback that would need a logger.
 
 </details>
 
