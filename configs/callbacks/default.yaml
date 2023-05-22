@@ -4,6 +4,7 @@ defaults:
   - model_summary.yaml
   - rich_progress_bar.yaml
   - speed_monitor.yaml
+  - learning_rate_monitor.yaml
   - _self_
 
 model_checkpoint:
