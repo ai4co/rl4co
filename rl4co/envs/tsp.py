@@ -167,7 +167,7 @@ class TSPEnv(RL4COEnvBase):
         return TensorDict({"locs": locs}, batch_size=batch_size)
 
     @staticmethod
-    def render(td, ax=None):
+    def render(td, actions=None, ax=None):
         import matplotlib.pyplot as plt
 
         if ax is None:
@@ -181,12 +181,15 @@ class TSPEnv(RL4COEnvBase):
 
         locs = td["locs"]
 
-        # gather locs in order of action if available
-        if "action" in td.keys():
-            locs = gather_by_index(locs, td["action"], dim=0)
-        else:
-            log.warning("No action in TensorDict, rendering unsorted locs")
+        if actions is None:
+            actions = td.get("action", None)
 
+        # gather locs in order of action if available
+        if actions is None:
+            log.warning("No action in TensorDict, rendering unsorted locs")
+        else:
+            locs = gather_by_index(locs, actions, dim=0)
+        
         # Cat the first node to the end to complete the tour
         locs = torch.cat((locs, locs[0:1]))
         x, y = locs[:, 0], locs[:, 1]

@@ -77,9 +77,10 @@ class RL4COLitModule(LightningModule):
                     f"batch_size under data specified, using default as {batch_size}"
                 )
                 self.cfg.data.train_batch_size = batch_size
-            log.warning(
-                f"No train_batch_size under data specified, using default as 64"
-            )
+            else:
+                log.warning(
+                    f"No train_batch_size under data specified, using default as 64"
+                )
         self.train_batch_size = self.cfg.data.get("train_batch_size", 64)
         self.val_batch_size = self.cfg.data.get("val_batch_size", self.train_batch_size)
         self.test_batch_size = self.cfg.data.get(

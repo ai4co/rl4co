@@ -43,3 +43,10 @@ def decode_probs(probs, mask, decode_type="sampling"):
     else:
         assert False, "Unknown decode type"
     return selected
+
+
+def random_policy(td):
+    """Helper function to select a random action from available actions"""
+    action = torch.multinomial(td["action_mask"].float(), 1).squeeze(-1)
+    td.set("action", action)
+    return td
