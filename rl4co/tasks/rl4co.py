@@ -118,8 +118,8 @@ class RL4COLitModule(LightningModule):
             lr_scheduler = instantiate(train_cfg.scheduler, optimizer)
             return [optimizer], {
                 "scheduler": lr_scheduler,
-                "interval": train_cfg.get("scheduler_interval", "step"),
-                "monitor": train_cfg.get("scheduler_monitor", "val/loss"),
+                "interval": train_cfg.get("scheduler_interval", "epoch"),
+                "monitor": train_cfg.get("scheduler_monitor", "val/reward"),
             }
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
