@@ -1,10 +1,6 @@
 _target_: rl4co.models.POMO
 
-policy:
-  _target_: rl4co.models.POMOPolicy
-  env: ${env}
-  embedding_dim: 128
-  num_pomo: ${env.num_loc}
+num_starts: ${env.num_loc}
 
 baseline:
   _target_: rl4co.models.rl.reinforce.baselines.SharedBaseline

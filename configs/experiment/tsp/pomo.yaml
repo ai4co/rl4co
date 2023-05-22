@@ -40,6 +40,9 @@ train:
     lr: 1e-4
     weight_decay: 1e-5
 
+model:
+  num_starts: ${env.num_loc} # num_pomo
+
 data:
   batch_size: 256
   train_size: 1280000

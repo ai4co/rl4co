@@ -1,11 +1,5 @@
 _target_: rl4co.models.PointerNetwork
 
-policy:
-  _target_: rl4co.models.PointerNetworkPolicy
-  env: ${env}
-  embedding_dim: 128
-  hidden_dim: 128
-
 baseline:
   _target_: rl4co.models.rl.reinforce.baselines.WarmupBaseline
   baseline:
