@@ -22,6 +22,11 @@ logger:
     tags: ${tags}
     group: "tsp${env.num_loc}"
     name: "am"
+
+# modify the log directory to separate between models and envs
+hydra:
+  run:
+    dir: ${paths.log_dir}/${mode}/runs/${logger.wandb.group}/${logger.wandb.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
    
 seed: 12345
 
