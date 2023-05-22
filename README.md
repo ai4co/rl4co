@@ -37,6 +37,8 @@ python3 -m light_the_torch install -r  --upgrade requirements.txt
 
 Alternatively, you can use `pip install -r requirements.txt`.
 
+> Note: `conda` is also a good candidate for hassle-free installation of PyTorch: check out the [PyTorch website](https://pytorch.org/get-started/locally/) for more details.
+
 </details>
 
 
