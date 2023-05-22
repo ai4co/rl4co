@@ -80,8 +80,10 @@ class AttentionModelPolicy(nn.Module):
 
         # Main rollout: autoregressive decoding
         log_p, actions, td_out = self.decoder(td, embeddings, **decoder_kwargs)
+        import pdb
 
-        # Log likelyhood is calculated within the model since returning it per action does not work well with
+        pdb.set_trace()
+        # Log likelihood is calculated within the model since returning it per action does not work well with
         ll = get_log_likelihood(log_p, actions, td_out.get("mask", None))
         out = {
             "reward": td_out["reward"],

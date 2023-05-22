@@ -14,12 +14,18 @@ def get_log_likelihood(log_p, actions, mask):
     if mask is not None:
         log_p[~mask] = 0
 
-    assert (
-        log_p > -1000
-    ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+    assert (log_p > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
     # Calculate log_likelihood
     return log_p.sum(1)
+
+
+def get_entropy(log_p, mask):
+    """
+    masked entropy of log_p
+    """
+    entropy = -log_p * log_p.exp().sum(dim=1)
+    return entropy
 
 
 def decode_probs(probs, mask, decode_type="sampling"):
