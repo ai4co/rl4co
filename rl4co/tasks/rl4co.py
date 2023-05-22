@@ -116,8 +116,7 @@ class RL4COLitModule(LightningModule):
             self.env.dataset(self.train_size, "train")
         )
         self.val_dataset = self.env.dataset(self.val_size, "val")
-        test_size = data_cfg.get("test_size", self.test_size)
-        self.test_dataset = self.env.dataset(test_size, "test")
+        self.test_dataset = self.env.dataset(self.test_size, "test")
         if hasattr(self.model, "setup"):
             self.model.setup(self)
 
