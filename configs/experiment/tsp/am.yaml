@@ -18,11 +18,12 @@ tags: ["tsp", "am"]
 
 logger:
   wandb:
+    mode: "disabled"
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
     name: "am"
-   
+
 seed: 12345
 
 env:
@@ -42,6 +43,8 @@ train:
     weight_decay: 1e-5
 
 data:
-  batch_size: 512
-  train_size: 1280000
+  batch_size: 128
+  # train_size: 1280000
+  train_size: 128
   val_size: 10000
+  val_batch_size: 128

@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
-
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
@@ -52,7 +51,14 @@ class Decoder(nn.Module):
             embedding_dim, num_heads, **logit_attn_kwargs
         )
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
+    def forward(
+        self,
+        td,
+        embeddings,
+        decode_type="sampling",
+        softmax_temp=None,
+        calc_reward: bool = True,
+    ):
         outputs = []
         actions = []
 
@@ -73,7 +79,10 @@ class Decoder(nn.Module):
             actions.append(action)
 
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
-        td.set("reward", self.env.get_reward(td, actions))
+
+        if calc_reward:
+            td.set("reward", self.env.get_reward(td, actions))
+
         return outputs, actions, td
 
     def _precompute(self, embeddings):

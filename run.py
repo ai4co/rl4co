@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 import hydra
 import lightning as L

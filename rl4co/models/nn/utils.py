@@ -5,7 +5,7 @@ from rl4co.utils import get_pylogger
 log = get_pylogger(__name__)
 
 
-def get_log_likelihood(log_p, actions, mask):
+def get_log_likelihood(log_p, actions, mask, return_sum: bool = True):
     """Get log likelihood of selected actions"""
 
     log_p = log_p.gather(2, actions.unsqueeze(-1)).squeeze(-1)
@@ -17,15 +17,10 @@ def get_log_likelihood(log_p, actions, mask):
     assert (log_p > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
     # Calculate log_likelihood
-    return log_p.sum(1)
-
-
-def get_entropy(log_p, mask):
-    """
-    masked entropy of log_p
-    """
-    entropy = -log_p * log_p.exp().sum(dim=1)
-    return entropy
+    if return_sum:
+        return log_p.sum(1)  # [batch]
+    else:
+        return log_p  # [batch, decode_len]
 
 
 def decode_probs(probs, mask, decode_type="sampling"):
