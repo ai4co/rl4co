@@ -2,8 +2,9 @@ from math import log
 
 import torch
 import torch.nn as nn
-from tensordict import TensorDict
 import torch.nn.functional as F
+from sympy import N
+from tensordict import TensorDict
 
 from rl4co.models.rl.reinforce.base import REINFORCE
 from rl4co.utils.pylogger import get_pylogger
@@ -22,7 +23,8 @@ class PPO(REINFORCE):
         mini_batch_size: int = 32,
         vf_lambda: float = 0.5,  # lambda of Value function fitting
         entropy_lambda: float = 0.0,  # lambda of entropy bonus
-        normalize_adv: bool = False,
+        normalize_adv: bool = False,  # whether to normalize advantage
+        max_grad_norm: float = None,
     ):
         super(PPO, self).__init__(env=env)
         self.policy = policy
@@ -35,6 +37,7 @@ class PPO(REINFORCE):
         self.vf_lambda = vf_lambda
         self.entropy_lambda = entropy_lambda
         self.normalize_adv = normalize_adv
+        self.max_grad_norm = max_grad_norm
 
     def forward(
         self,
@@ -43,6 +46,7 @@ class PPO(REINFORCE):
         extra=None,
         policy_kwargs: dict = {},
         critic_kwargs: dict = {},
+        optimizer=None,
     ):
         # Evaluate model, get costs and log probabilities
         with torch.no_grad():
@@ -55,8 +59,6 @@ class PPO(REINFORCE):
             old_values = self.value(td, phase, **critic_kwargs)
 
         if phase == "train":
-            # Construct Datalaoder
-
             for _ in range(self.ppo_epochs):  # loop K
                 batch_size = old_logp.shape[0]
 
@@ -92,11 +94,11 @@ class PPO(REINFORCE):
                     ).mean()
 
                     # compute entropy bonus
-                    entropy_bonus = mini_batched_out["entropy"].mean()s
+                    entropy_bonus = mini_batched_out["entropy"].mean()
 
                     # compute value function loss
                     value = self.critic(mini_batched_td, phase, **critic_kwargs)
-                    value_loss = F.huber_loss(value, rewards[mini_batch_idx])                    
+                    value_loss = F.huber_loss(value, rewards[mini_batch_idx])
                     # value_loss = (value - rewards[mini_batch_idx]).pow(2).mean()
 
                     # compute total loss
@@ -106,6 +108,10 @@ class PPO(REINFORCE):
                         - self.entropy_lambda * entropy_bonus
                     )
 
-                    # update
-                    # !! How to fetch the optimizer in the trainer?...
-                    # Todo gradient clipping
+                    # perform optimization
+                    if optimizer is not None:
+                        optimizer.zero_grad()
+                        loss.backward()
+                        if self.max_grad_norm is not None:
+                            nn.utils.clip_grad_norm_(self.parameters(), self.max_grad_norm)
+                        optimizer.step()
