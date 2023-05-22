@@ -79,7 +79,7 @@ class SymNCO(REINFORCE):
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
 
-        # Unbatchify reward to [batch_size, num_augment, num_starts].
+        # Unbatchify reward to [batch_size, num_starts, num_augment].
         reward = unbatchify(out["reward"], (num_starts, num_augment))
 
         # Get multi-start (=POMO) rewards and best actions

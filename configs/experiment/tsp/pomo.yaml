@@ -41,6 +41,6 @@ train:
     weight_decay: 1e-5
 
 data:
-  batch_size: 64
+  batch_size: 256
   train_size: 1280000
   val_size: 10000
