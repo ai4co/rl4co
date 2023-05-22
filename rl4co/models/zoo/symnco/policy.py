@@ -37,8 +37,6 @@ class SymNCOPolicy(nn.Module):
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
 
-        print("policy num_starts", num_starts)
-
         self.env = env
 
         self.encoder = (
@@ -87,6 +85,7 @@ class SymNCOPolicy(nn.Module):
 
         # Set decoding type for policy, can be also greedy
         embeddings, init_embeds = self.encoder(td)
+        breakpoint()
 
         # Main rollout
         log_p, actions, td = self.decoder(td, embeddings, **decoder_kwargs)
