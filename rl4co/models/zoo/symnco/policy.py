@@ -85,7 +85,6 @@ class SymNCOPolicy(nn.Module):
 
         # Set decoding type for policy, can be also greedy
         embeddings, init_embeds = self.encoder(td)
-        breakpoint()
 
         # Main rollout
         log_p, actions, td = self.decoder(td, embeddings, **decoder_kwargs)
