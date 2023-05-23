@@ -6,13 +6,13 @@ import torch.nn.functional as F
 from sympy import N
 from tensordict import TensorDict
 
-from rl4co.models.rl.reinforce.base import REINFORCE
+# from rl4co.models.rl.reinforce.base import REINFORCE
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class PPO(REINFORCE):
+class PPO(nn.Module):
     def __init__(
         self,
         env,
@@ -26,9 +26,10 @@ class PPO(REINFORCE):
         normalize_adv: bool = False,  # whether to normalize advantage
         max_grad_norm: float = None,
     ):
-        super(PPO, self).__init__(env=env)
-        self.policy = policy
-        self.critic = critic
+        super().__init__()
+        self.env = env
+        # self.policy = policy
+        # self.critic = critic
 
         # PPO hyper params
         self.clip_range = clip_range
@@ -80,10 +81,17 @@ class PPO(REINFORCE):
                     )
 
                     # compute ratio
-                    ratio = torch.exp(mini_batched_out["log_likelihood"] - old_logp[mini_batch_idx])
+                    ratio = torch.exp(
+                        mini_batched_out["log_likelihood"] - old_logp[mini_batch_idx]
+                    ).sum(
+                        dim=-1
+                    )  # [batch size]
 
                     # compute advantage
-                    adv = rewards[mini_batch_idx] - old_values[mini_batch_idx]
+                    adv = rewards[mini_batch_idx] - old_values[mini_batch_idx].view(
+                        -1
+                    )  # [batch size]
+
                     if self.normalize_adv:
                         adv = (adv - adv.mean()) / (adv.std() + 1e-6)
 
@@ -98,7 +106,7 @@ class PPO(REINFORCE):
 
                     # compute value function loss
                     value = self.critic(mini_batched_td, phase, **critic_kwargs)
-                    value_loss = F.huber_loss(value, rewards[mini_batch_idx])
+                    value_loss = F.huber_loss(value, rewards[mini_batch_idx].view(-1, 1))
                     # value_loss = (value - rewards[mini_batch_idx]).pow(2).mean()
 
                     # compute total loss
@@ -115,3 +123,14 @@ class PPO(REINFORCE):
                         if self.max_grad_norm is not None:
                             nn.utils.clip_grad_norm_(self.parameters(), self.max_grad_norm)
                         optimizer.step()
+
+            # log training results
+            out.update(
+                {
+                    "loss": loss,
+                    "surrogate_loss": surrogate_loss,
+                    "value_loss": value_loss,
+                    "entropy_bonus": entropy_bonus,
+                }
+            )
+        return out

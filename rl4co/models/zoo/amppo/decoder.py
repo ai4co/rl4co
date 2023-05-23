@@ -1,5 +1,4 @@
 import torch
-
 from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.am.decoder import Decoder
 
@@ -17,7 +16,7 @@ class PPODecoder(Decoder):
         decode_type="sampling",
         softmax_temp=None,
         calc_reward: bool = True,
-        actions: torch.Tensor = None,  # [batch_size, graph_size]
+        given_actions: torch.Tensor = None,  # [batch_size, graph_size]
     ):
         outputs = []
         actions = []
@@ -31,8 +30,8 @@ class PPODecoder(Decoder):
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
 
-            if actions is not None:
-                action = actions[:, decode_step]
+            if given_actions is not None:
+                action = given_actions[:, decode_step]
             else:
                 action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
 
@@ -40,12 +39,18 @@ class PPODecoder(Decoder):
             td = self.env.step(td)["next"]
 
             # Collect output of step
+            # print("log_p", log_p.shape)
+            # raise RuntimeError("stop")
+
             outputs.append(log_p)
             actions.append(action)
 
             decode_step += 1
 
+        # output: [batch, problem size, decoding steps]
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
+
+        print("outputs", outputs.shape)
 
         if calc_reward:
             td.set("reward", self.env.get_reward(td, actions))

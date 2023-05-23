@@ -46,6 +46,7 @@ class RL4COLitModule(LightningModule):
             generate_default_datasets(data_dir=self.cfg.get("paths", {}).get("data_dir", "data/"))
 
         # Instantiate environment, model and metrics
+
         self.env = env if env is not None else self.instantiate_env()
         self.model = model if model is not None else self.instantiate_model()
         self.instantiate_metrics()

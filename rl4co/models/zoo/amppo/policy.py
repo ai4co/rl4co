@@ -6,13 +6,13 @@ from torchrl.envs import EnvBase
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
-from rl4co.models.zoo.am.decoder import Decoder
+from rl4co.models.zoo.amppo.decoder import PPODecoder
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class AttentionModelPolicy(nn.Module):
+class PPOAttentionModelPolicy(nn.Module):
     def __init__(
         self,
         env: EnvBase,
@@ -29,7 +29,7 @@ class AttentionModelPolicy(nn.Module):
         test_decode_type: str = "greedy",
         **unused_kw,
     ):
-        super(AttentionModelPolicy, self).__init__()
+        super(PPOAttentionModelPolicy, self).__init__()
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
 
@@ -49,7 +49,7 @@ class AttentionModelPolicy(nn.Module):
         )
 
         self.decoder = (
-            Decoder(
+            PPODecoder(
                 env,
                 embedding_dim,
                 num_heads,
@@ -68,7 +68,7 @@ class AttentionModelPolicy(nn.Module):
         self,
         td: TensorDict,
         phase: str = "train",
-        return_actions: bool = False,
+        return_action: bool = False,
         return_entropy: bool = False,
         **decoder_kwargs,
     ) -> TensorDict:
@@ -90,7 +90,7 @@ class AttentionModelPolicy(nn.Module):
             "log_likelihood": ll,  # [batch, decoder steps]
         }
 
-        if return_actions:
+        if return_action:
             out["actions"] = actions  # [batch, decoder steps]
 
         if return_entropy:

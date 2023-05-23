@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /model: am.yaml
+  - override /model: am-ppo.yaml
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
@@ -16,8 +16,12 @@ defaults:
 
 tags: ["tsp", "am"]
 
+task:
+  _target_: rl4co.models.rl.ppo.task.PPOTask
+
 logger:
   wandb:
+    mode: "disabled"
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
@@ -31,8 +35,10 @@ env:
 trainer:
   min_epochs: 10
   max_epochs: 100
-  gradient_clip_val: 1.0
+  gradient_clip_val: Null
   accelerator: "gpu"
+  devices: 1 # Manual optimization does not support multi-gpu training?
+  precision: "32-true"
 
 train:
   optimizer:
