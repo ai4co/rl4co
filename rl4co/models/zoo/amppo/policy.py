@@ -70,6 +70,7 @@ class PPOAttentionModelPolicy(nn.Module):
         phase: str = "train",
         return_action: bool = False,
         return_entropy: bool = False,
+        given_actions: torch.Tensor = None,
         **decoder_kwargs,
     ) -> TensorDict:
         # Encode inputs
@@ -80,7 +81,9 @@ class PPOAttentionModelPolicy(nn.Module):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # Main rollout: autoregressive decoding
-        log_p, actions, td_out = self.decoder(td, embeddings, **decoder_kwargs)
+        log_p, actions, td_out = self.decoder(
+            td, embeddings, given_actions=given_actions, **decoder_kwargs
+        )
 
         # Log likelihood is calculated within the model since returning it per action does not work well with
         ll = get_log_likelihood(log_p, actions, td_out.get("mask", None), return_sum=False)
@@ -89,6 +92,14 @@ class PPOAttentionModelPolicy(nn.Module):
             "reward": td_out["reward"],
             "log_likelihood": ll,  # [batch, decoder steps]
         }
+
+        if given_actions is not None:
+            # TODO: Double check this
+            selected_log_p = get_log_likelihood(
+                log_p, given_actions, td_out.get("mask", None), return_sum=False
+            )
+            assert selected_log_p.isfinite().all(), "Log p is not finite"
+            out["selected_log_p"] = selected_log_p  # [batch, decoder steps]
 
         if return_action:
             out["actions"] = actions  # [batch, decoder steps]

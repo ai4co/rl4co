@@ -1,4 +1,5 @@
 import torch
+
 from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.am.decoder import Decoder
 
@@ -47,11 +48,8 @@ class PPODecoder(Decoder):
 
             decode_step += 1
 
-        # output: [batch, problem size, decoding steps]
+        # output: logprobs [batch, problem size, decoding steps]
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
-
-        print("outputs", outputs.shape)
-
         if calc_reward:
             td.set("reward", self.env.get_reward(td, actions))
 
