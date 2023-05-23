@@ -37,6 +37,10 @@ class Decoder(nn.Module):
             test_decode_type: str = "greedy",
         ):
         super(Decoder, self).__init__()
+        self.dynamic_embedding = env_dynamic_embedding(
+            env, {"embedding_dim": embedding_dim}
+        )
+
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
@@ -62,12 +66,15 @@ class Decoder(nn.Module):
             env.name, {"embedding_dim": embedding_dim}
         )
 
-        self.logit_attention = LogitAttention(
-            embedding_dim, 
-            num_heads, 
-            mask_inner=mask_inner,
-            force_flash_attn=force_flash_attn,
-        )
+        self.logit_attention = [
+            LogitAttention(
+                embedding_dim, 
+                num_heads, 
+                mask_inner=mask_inner,
+                force_flash_attn=force_flash_attn,
+            )
+            for _ in range(num_paths)
+        ]
 
         self.env = env
         self.mask_inner = mask_inner
@@ -100,10 +107,10 @@ class Decoder(nn.Module):
             log_p, _ = self._get_log_p(fixed, td_list[i], i)
 
             # Collect output of step
-            output_list.append(log_p[:, 0, :]) # TODO: for vrp, ignore the first one (depot)
+            output_list.append(log_p[:, 0, :])
             output_list[-1] = torch.max(output_list[-1], torch.ones(output_list[-1].shape, dtype=output_list[-1].dtype, device=output_list[-1].device) * (-1e9)) # for the kl loss
 
-        if self.num_paths > 1: # TODO: add a check for the baseline
+        if self.num_paths > 1: 
             kl_divergences = []
             for _i in range(self.num_paths):
                 for _j in range(self.num_paths):
@@ -193,64 +200,33 @@ class Decoder(nn.Module):
         )
 
     def _get_log_p(self, fixed, td, path_index, normalize=True):
-        # Compute query = context node embedding
-        query = fixed.graph_context + \
-                self.project_step_context[path_index](self._get_parallel_step_context(fixed.node_embeddings, td))
+        step_context = self.context[path_index](fixed.node_embeddings, td)  # [batch, embed_dim]
+        glimpse_q = (fixed.graph_context + step_context.unsqueeze(1))
 
         # Compute keys and values for the nodes
-        glimpse_K, glimpse_V, logit_K = self._get_attention_node_data(fixed, td)
+        (
+            glimpse_key_dynamic,
+            glimpse_val_dynamic,
+            logit_key_dynamic,
+        ) = self.dynamic_embedding(td)
+        glimpse_k = fixed.glimpse_key + glimpse_key_dynamic
+        glimpse_v = fixed.glimpse_val + glimpse_val_dynamic
+        logit_k = fixed.logit_key + logit_key_dynamic
 
         # Compute the mask
         mask = ~td["action_mask"]
 
         # Compute logits (unnormalized log_p)
-        log_p, _ = self._one_to_many_logits(query, glimpse_K, glimpse_V, logit_K, mask, path_index)
-
-        if normalize:
-            log_p = F.log_softmax(log_p / 1., dim=-1) # TODO
-
-        assert not torch.isnan(log_p).any()
-
-        return log_p, mask
-
-    def _get_attention_node_data(self, fixed, td):
-        # TODO: for vrp
-        # glimpse_key_step, glimpse_val_step, logit_key_step = \
-        #     self.project_node_step(td.demands[:, :, :, None].clone()).chunk(3, dim=-1)
-        # return (
-        #     fixed.glimpse_key + self._make_heads(glimpse_key_step),
-        #     fixed.glimpse_val + self._make_heads(glimpse_val_step),
-        #     fixed.logit_key + logit_key_step,
-        # )
-        return fixed.glimpse_key, fixed.glimpse_val, fixed.logit_key
-
-    def _get_parallel_step_context(self, embeddings, td, from_depot=False):
-        current_node = td["current_node"][:, None]
-        batch_size, num_steps = current_node.size()
-
-        if num_steps == 1:  # We need to special case if we have only 1 step, may be the first or not
-            if td["i"][0].item() == 0:
-                # First and only step, ignore prev_a (this is a placeholder)
-                return self.W_placeholder[None, None, :].expand(batch_size, 1, self.W_placeholder.size(-1))
-            else:
-                return embeddings.gather(
-                    1,
-                    torch.cat((td["first_node"][:, None], current_node), -1)[:, :, None].expand(batch_size, 2, embeddings.size(-1))
-                ).view(batch_size, 1, -1)
-        # More than one step, assume always starting with first
-        embeddings_per_step = embeddings.gather(
-            1,
-            current_node[:, 1:, None].expand(batch_size, num_steps - 1, embeddings.size(-1))
+        # log_p, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
+        log_p, _ = self._one_to_many_logits(
+            glimpse_q,
+            glimpse_k,
+            glimpse_v,
+            logit_k,
+            mask,
+            path_index
         )
-        return torch.cat((
-            # First step placeholder, cat in dim 1 (time steps)
-            self.W_placeholder[None, None, :].expand(batch_size, 1, self.W_placeholder.size(-1)),
-            # Second step, concatenate embedding of first with embedding of current/previous (in dim 2, context dim)
-            torch.cat((
-                embeddings_per_step[:, 0:1, :].expand(batch_size, num_steps - 1, embeddings.size(-1)),
-                embeddings_per_step
-            ), 2)
-        ), 1)
+        return log_p, mask
 
     def _one_to_many_logits(self, query, glimpse_K, glimpse_V, logit_K, mask, path_index):
         batch_size, num_steps, embed_dim = query.size()
