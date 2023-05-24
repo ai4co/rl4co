@@ -1,6 +1,6 @@
 from torch import nn
 
-from rl4co.models.nn.graph import GraphAttentionEncoder
+from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 
 
 class CriticNetwork(nn.Module):
