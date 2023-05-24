@@ -45,7 +45,7 @@ def test_symnco(size, batch_size=2, num_augment=8, num_starts=10):
 
 
 @pytest.mark.parametrize("size", [10])
-def test_haam(size, batch_size=2):
+def test_ham(size, batch_size=2):
     env, x = generate_env_data("pdp", size, batch_size)
     td = env.reset(x)
     model = HeterogeneousAttentionModel(env)
