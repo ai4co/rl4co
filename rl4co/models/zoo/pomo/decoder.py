@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from einops import rearrange
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,7 @@ from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
 from rl4co.models.zoo.pomo.utils import select_start_nodes
 from rl4co.utils import get_pylogger
-from rl4co.utils.ops import batchify
+from rl4co.utils.ops import batchify, unbatchify
 
 log = get_pylogger(__name__)
 
@@ -74,7 +75,7 @@ class Decoder(nn.Module):
                 batch_size=td.shape[0], num_nodes=self.num_starts, device=td.device
             )
 
-            # # Expand td to batch_size * num_starts
+            # Expand td to batch_size * num_starts
             td = batchify(td, self.num_starts)
 
             td.set("action", action)
@@ -88,6 +89,7 @@ class Decoder(nn.Module):
 
         # Main decoding
         while not td["done"].all():
+
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
@@ -114,37 +116,44 @@ class Decoder(nn.Module):
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
-            node_embeddings=batchify(embeddings, self.num_starts),
-            glimpse_key=batchify(glimpse_key_fixed, self.num_starts),
-            glimpse_val=batchify(glimpse_val_fixed, self.num_starts),
-            logit_key=batchify(logit_key_fixed, self.num_starts),
+            node_embeddings=embeddings,
+            glimpse_key=glimpse_key_fixed,
+            glimpse_val=glimpse_val_fixed,
+            logit_key=logit_key_fixed,
         )
 
         return cached_embeds
 
     def _get_log_p(self, cached, td, softmax_temp=None):
         # Compute the query based on the context (computes automatically the first and last node context)
-        step_context = self.context(cached.node_embeddings, td)
-        glimpse_q = step_context.unsqueeze(
-            1
-        )  # in POMO, no graph context # [batch, 1, embed_dim]
+
+        # need to unbatchify
+        td_unbatch = unbatchify(td, self.num_starts)
+
+        step_context = self.context(cached.node_embeddings, td_unbatch)
+        glimpse_q = step_context # TODO
 
         # Compute keys and values for the nodes
         (
             glimpse_key_dynamic,
             glimpse_val_dynamic,
             logit_key_dynamic,
-        ) = self.dynamic_embedding(td)
+        ) = self.dynamic_embedding(td_unbatch)
         glimpse_k = cached.glimpse_key + glimpse_key_dynamic
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
         # Get the mask
-        mask = ~td["action_mask"]
+        mask = ~td_unbatch["action_mask"]
 
         # Compute logits
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
+
+        # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
+        # Note that rearranging order is important here
+        log_p = rearrange(log_p, "b s l -> (s b) l")
+        mask = rearrange(mask, "b s l -> (s b) l")
         return log_p, mask
