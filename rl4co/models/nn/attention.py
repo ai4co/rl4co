@@ -151,10 +151,6 @@ class LogitAttention(nn.Module):
         heads = self._inner_mha(query, key, value, mask)
         glimpse = self.project_out(heads)
 
-        print(heads.shape)
-        print(glimpse.shape)
-        raise Exception()
-
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
         logits = (

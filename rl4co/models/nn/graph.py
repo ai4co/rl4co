@@ -2,6 +2,7 @@ import torch.nn as nn
 
 from rl4co.models.nn.attention import NativeFlashMHA
 from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.kooltention import MultiHeadAttention
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
 
@@ -17,9 +18,15 @@ class MultiHeadAttentionLayer(nn.Sequential):
         normalization="batch",
         force_flash_attn=False,
     ):
+        # monkey patch to use Kool's attention implementation.
+
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                NativeFlashMHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)
+                MultiHeadAttention(
+                    n_heads=num_heads,
+                    input_dim=embed_dim,
+                    embed_dim=embed_dim,
+                )
             ),
             Normalization(embed_dim, normalization),
             SkipConnection(
@@ -51,12 +58,10 @@ class GraphAttentionEncoder(nn.Module):
 
         # To map input to embedding space
         if not disable_init_embedding:
-            self.init_embedding = env_init_embedding(
-                env, {"embedding_dim": embedding_dim}
-            )
+            self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
         else:
             log.warning("Disabling init embedding manually for GraphAttentionEncoder")
-            self.init_embedding = nn.Identity() # do nothing
+            self.init_embedding = nn.Identity()  # do nothing
 
         self.layers = nn.Sequential(
             *(

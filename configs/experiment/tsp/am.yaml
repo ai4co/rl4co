@@ -21,19 +21,20 @@ logger:
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
-    name: "am"
-   
+    name: "am-Kool-attn-enc"
+
 seed: 12345
 
 env:
-  num_loc: 50
+  num_loc: 20
 
 trainer:
   min_epochs: 10
   max_epochs: 100
   gradient_clip_val: 1.0
   accelerator: "gpu"
-
+  devices: 1
+  precision: "32-true"
 train:
   optimizer:
     # _partial_: True
