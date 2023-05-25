@@ -74,9 +74,7 @@ class NativeFlashMHA(nn.Module):
         self.attention_dropout = attention_dropout
 
         self.num_heads = num_heads
-        assert (
-            self.embed_dim % num_heads == 0
-        ), "self.kdim must be divisible by num_heads"
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
         assert (
             self.head_dim % 8 == 0 and self.head_dim <= 128
@@ -153,11 +151,14 @@ class LogitAttention(nn.Module):
         heads = self._inner_mha(query, key, value, mask)
         glimpse = self.project_out(heads)
 
+        print(heads.shape)
+        print(glimpse.shape)
+        raise Exception()
+
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
         logits = (
-            torch.bmm(glimpse, logit_key.squeeze(1).transpose(-2, -1))
-            / math.sqrt(glimpse.size(-1))
+            torch.bmm(glimpse, logit_key.squeeze(1).transpose(-2, -1)) / math.sqrt(glimpse.size(-1))
         ).squeeze(1)
 
         # From the logits compute the probabilities by clipping, masking and softmax
@@ -169,9 +170,7 @@ class LogitAttention(nn.Module):
 
         # Normalize with softmax and apply temperature
         if self.normalize:
-            softmax_temp = (
-                softmax_temp if softmax_temp is not None else self.softmax_temp
-            )
+            softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
             logits = torch.log_softmax(logits / softmax_temp, dim=-1)
 
         assert not torch.isnan(logits).any(), "Logits contain NaNs"
@@ -189,9 +188,7 @@ class LogitAttention(nn.Module):
         else:
             attn_mask = None
 
-        heads = self.flash_attn_wrapper(
-            scaled_dot_product_attention, q, k, v, attn_mask=attn_mask
-        )
+        heads = self.flash_attn_wrapper(scaled_dot_product_attention, q, k, v, attn_mask=attn_mask)
         return rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads)
 
     def _make_heads(self, v):
