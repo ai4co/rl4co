@@ -221,11 +221,7 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the demand
-        demand = (
-            torch.FloatTensor(*batch_size, self.num_loc + 1)
-            .uniform_(self.min_demand, self.max_demand)
-            .to(self.device)
-        )
+        demand = torch.randint(self.min_demand, self.max_demand, size=(*batch_size, self.num_loc + 1)).float().to(self.device) / self.capacity
 
         # The first demand is the used capacity
         demand[..., 0] = 0
