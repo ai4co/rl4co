@@ -8,41 +8,48 @@ defaults:
   - override /env: cvrp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
-  # - override /logger: null # comment this line to enable logging
-  - override /logger: wandb.yaml
+  - override /logger: null # comment this line to enable logging
+  # - override /logger: wandb.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cvrp", "am"]
-
-logger:
-  wandb:
-    project: "rl4co"
-    tags: ${tags}
-    group: "cvrp${env.num_loc}"
-    name: "am"
-   
-seed: 12345
-
 env:
-  num_loc: 20 #50
+  num_loc: 20
+
+seed: 1234
 
 trainer:
-  min_epochs: 10
   max_epochs: 100
   gradient_clip_val: 1.0
   accelerator: "gpu"
-  
+  devices: [6]
+  precision: "32-true"
+  # precision: "16-mixed"
+
 train:
   optimizer:
     # _partial_: True
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 0
+  scheduler:
+    _target_: torch.optim.lr_scheduler.MultiStepLR
+    milestones: [80, 95]
+    gamma: 0.1
+  scheduler_interval: epoch
 
 data:
   batch_size: 512
   train_size: 1280000
   val_size: 10000
 
+
+tags: ["am", "cvrp", "20"]
+
+logger:
+  wandb:
+    project: "rl4co"
+    tags: ${tags}
+    group: "cvrp20"
+    name: "am-OURS-cvrp20"

@@ -106,9 +106,6 @@ class NativeFlashMHA(nn.Module):
     flash_attn_wrapper = flash_attn_wrapper
 
 
-
-# NOTE: modified from
-############### KOOL CODE #####################
 class LogitAttention(nn.Module):
     """Calculate logits given query, key and value and logit key
     If we use Flash Attention, then we automatically move to fp16 for inner computations
@@ -149,35 +146,16 @@ class LogitAttention(nn.Module):
         # Projection - query, key, value already include projections
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
 
-    def forward(self, query, key, value, logit_k, mask, softmax_temp=None):
+    def forward(self, query, key, value, logit_key, mask, softmax_temp=None):
         # Compute inner multi-head attention with no projections.
-        # heads = self._inner_mha(query, key, value, mask)
-
-        query, key, value = map(self._make_heads, (query, key, value))
-
-        logit_k = rearrange(logit_k, "b s d -> b 1 s d")
-
-        # Compute the glimpse, rearrange dimensions so the dimensions are (n_heads, batch_size, num_steps, 1, key_size)
-
-        # Batch matrix multiplication to compute compatibilities (n_heads, batch_size, num_steps, graph_size)
-        compatibility = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
-        if self.mask_inner:
-            assert self.mask_logits, "Cannot mask inner without masking logits"
-            compatibility[mask[None, :, None, None, :].expand_as(compatibility)] = -math.inf
-
-        # Batch matrix multiplication to compute heads (n_heads, batch_size, num_steps, val_size)
-        heads = torch.matmul(torch.softmax(compatibility, dim=-1), value)
-
-        # breakpoint()
-
-        # [heads, batch, 1, 1, dim]
-        heads = rearrange(heads, "h b 1 1 d -> b 1 1 (h d)")
-        final_q = self.project_out(heads)
+        heads = self._inner_mha(query, key, value, mask)
+        glimpse = self.project_out(heads)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
-        logits = (torch.matmul(final_q, logit_k.transpose(-2, -1)).squeeze(-2) / math.sqrt(final_q.size(-1))).squeeze(-2)
-
+        logits = (
+            torch.bmm(glimpse, logit_key.squeeze(1).transpose(-2, -1)) / math.sqrt(glimpse.size(-1))
+        ).squeeze(1)
 
         # From the logits compute the probabilities by clipping, masking and softmax
         if self.tanh_clipping > 0:
@@ -195,91 +173,21 @@ class LogitAttention(nn.Module):
 
         return logits
 
+    def _inner_mha(self, query, key, value, mask):
+        q = self._make_heads(query)
+        k = self._make_heads(key)
+        v = self._make_heads(value)
+
+        if self.mask_inner:
+            # need to invert mask: (batch, seqlen) -> (batch, 1, 1, seqlen)
+            attn_mask = ~mask.unsqueeze(1).unsqueeze(2)
+        else:
+            attn_mask = None
+
+        heads = self.flash_attn_wrapper(scaled_dot_product_attention, q, k, v, attn_mask=attn_mask)
+        return rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads)
+
     def _make_heads(self, v):
-        return rearrange(v, "b s (h k) -> h b 1 s k", h=self.num_heads) 
+        return rearrange(v, "b g (h s) -> b h g s", h=self.num_heads)
 
-# class LogitAttentionOURS(nn.Module):
-#     """Calculate logits given query, key and value and logit key
-#     If we use Flash Attention, then we automatically move to fp16 for inner computations
-#     Note: with Flash Attention, masking is not supported
-
-#     Perform the following:
-#         1. Apply cross attention to get the heads
-#         2. Project heads to get glimpse
-#         3. Compute attention score between glimpse and logit key
-#         4. Normalize and mask
-#     """
-
-#     def __init__(
-#         self,
-#         embed_dim,
-#         num_heads,
-#         tanh_clipping=10.0,
-#         mask_inner=True,
-#         mask_logits=True,
-#         normalize=True,
-#         softmax_temp=1.0,
-#         force_flash_attn=False,
-#     ):
-#         super(LogitAttentionOURS, self).__init__()
-#         self.num_heads = num_heads
-#         self.mask_logits = mask_logits
-#         self.mask_inner = mask_inner
-#         self.tanh_clipping = tanh_clipping
-#         self.normalize = normalize
-#         self.softmax_temp = softmax_temp
-#         self.force_flash_attn = force_flash_attn
-
-#         if force_flash_attn and mask_inner:
-#             log.warn(
-#                 "Flash Attention does not support masking, force_flash_attn will only be used for fp16"
-#             )
-
-#         # Projection - query, key, value already include projections
-#         self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
-
-#     def forward(self, query, key, value, logit_key, mask, softmax_temp=None):
-#         # Compute inner multi-head attention with no projections.
-#         heads = self._inner_mha(query, key, value, mask)
-#         glimpse = self.project_out(heads)
-
-#         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
-#         # bmm is slightly faster than einsum and matmul
-#         logits = (
-#             torch.bmm(glimpse, logit_key.squeeze(1).transpose(-2, -1)) / math.sqrt(glimpse.size(-1))
-#         ).squeeze(1)
-
-#         # From the logits compute the probabilities by clipping, masking and softmax
-#         if self.tanh_clipping > 0:
-#             logits = torch.tanh(logits) * self.tanh_clipping
-
-#         if self.mask_logits:
-#             logits[mask] = float("-inf")
-
-#         # Normalize with softmax and apply temperature
-#         if self.normalize:
-#             softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
-#             logits = torch.log_softmax(logits / softmax_temp, dim=-1)
-
-#         assert not torch.isnan(logits).any(), "Logits contain NaNs"
-
-#         return logits
-
-#     def _inner_mha(self, query, key, value, mask):
-#         q = self._make_heads(query)
-#         k = self._make_heads(key)
-#         v = self._make_heads(value)
-
-#         if self.mask_inner:
-#             # need to invert mask: (batch, seqlen) -> (batch, 1, 1, seqlen)
-#             attn_mask = ~mask.unsqueeze(1).unsqueeze(2)
-#         else:
-#             attn_mask = None
-
-#         heads = self.flash_attn_wrapper(scaled_dot_product_attention, q, k, v, attn_mask=attn_mask)
-#         return rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads)
-
-#     def _make_heads(self, v):
-#         return rearrange(v, "b g (h s) -> b h g s", h=self.num_heads)
-
-#     flash_attn_wrapper = flash_attn_wrapper
+    flash_attn_wrapper = flash_attn_wrapper
