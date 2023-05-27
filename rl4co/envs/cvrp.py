@@ -132,7 +132,7 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the capacity
-        capacity = torch.full((*batch_size, 1), self.vehicle_capacity)
+        capacity = torch.full((*batch_size, 1), 1.0)
 
         # Concatenate depot to the locations as the first node
         locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
