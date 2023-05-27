@@ -15,7 +15,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 env:
-  num_loc: 20
+  num_loc: 50
 
 seed: 1234
 
@@ -48,11 +48,11 @@ data:
   train_size: 1280000
   val_size: 10000
 
-tags: ["am", "tsp", "20"]
+tags: ["am", "tsp", "50"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "tsp20"
-    name: "am-OURS-tsp20"
+    group: "tsp50"
+    name: "am-tsp50-in-enc6"
