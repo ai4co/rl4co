@@ -1,7 +1,6 @@
 import pytest
 import torch
-from rl4co.envs import (ATSPEnv, CVRPEnv, DPPEnv, MTSPEnv, PDPEnv, SDVRPEnv,
-                        TSPEnv)
+from rl4co.envs import ATSPEnv, CVRPEnv, DPPEnv, MTSPEnv, PDPEnv, SDVRPEnv, TSPEnv
 
 
 def policy(td):

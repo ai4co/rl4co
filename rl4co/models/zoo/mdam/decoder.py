@@ -1,5 +1,5 @@
 import math
-import torch 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
@@ -21,21 +21,21 @@ class PrecomputedCache:
 
 class Decoder(nn.Module):
     def __init__(
-            self, 
-            env,
-            embedding_dim, 
-            num_heads, 
-            num_paths: int = 5,
-            mask_inner: bool = True,
-            mask_logits: bool = True,
-            eg_step_gap: int = 200,
-            tanh_clipping: float = 10.0,
-            force_flash_attn: bool = False,
-            shrink_size=None,
-            train_decode_type: str = "sampling",
-            val_decode_type: str = "greedy",
-            test_decode_type: str = "greedy",
-        ):
+        self,
+        env,
+        embedding_dim,
+        num_heads,
+        num_paths: int = 5,
+        mask_inner: bool = True,
+        mask_logits: bool = True,
+        eg_step_gap: int = 200,
+        tanh_clipping: float = 10.0,
+        force_flash_attn: bool = False,
+        shrink_size=None,
+        train_decode_type: str = "sampling",
+        val_decode_type: str = "greedy",
+        test_decode_type: str = "greedy",
+    ):
         super(Decoder, self).__init__()
         self.dynamic_embedding = env_dynamic_embedding(
             env, {"embedding_dim": embedding_dim}
@@ -44,22 +44,39 @@ class Decoder(nn.Module):
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
-        
+
         self.W_placeholder = nn.Parameter(torch.Tensor(2 * embedding_dim))
-        self.W_placeholder.data.uniform_(-1, 1)  # Placeholder should be in range of activations
+        self.W_placeholder.data.uniform_(
+            -1, 1
+        )  # Placeholder should be in range of activations
 
-        self.context = [env_context(env.name, {"embedding_dim": embedding_dim}) for _ in range(num_paths)]
+        self.context = [
+            env_context(env.name, {"embedding_dim": embedding_dim})
+            for _ in range(num_paths)
+        ]
 
-        self.project_node_embeddings = [nn.Linear(embedding_dim, 3 * embedding_dim, device=env.device, bias=False) for _ in range(num_paths)]
+        self.project_node_embeddings = [
+            nn.Linear(embedding_dim, 3 * embedding_dim, device=env.device, bias=False)
+            for _ in range(num_paths)
+        ]
         self.project_node_embeddings = nn.ModuleList(self.project_node_embeddings)
 
-        self.project_fixed_context = [nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False) for _ in range(num_paths)]
+        self.project_fixed_context = [
+            nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False)
+            for _ in range(num_paths)
+        ]
         self.project_fixed_context = nn.ModuleList(self.project_fixed_context)
-        
-        self.project_step_context = [nn.Linear(2 * embedding_dim, embedding_dim, device=env.device, bias=False) for _ in range(num_paths)]
+
+        self.project_step_context = [
+            nn.Linear(2 * embedding_dim, embedding_dim, device=env.device, bias=False)
+            for _ in range(num_paths)
+        ]
         self.project_step_context = nn.ModuleList(self.project_step_context)
 
-        self.project_out = [nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False) for _ in range(num_paths)]
+        self.project_out = [
+            nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False)
+            for _ in range(num_paths)
+        ]
         self.project_out = nn.ModuleList(self.project_out)
 
         self.dynamic_embedding = env_dynamic_embedding(
@@ -68,8 +85,8 @@ class Decoder(nn.Module):
 
         self.logit_attention = [
             LogitAttention(
-                embedding_dim, 
-                num_heads, 
+                embedding_dim,
+                num_heads,
                 mask_inner=mask_inner,
                 force_flash_attn=force_flash_attn,
             )
@@ -85,20 +102,12 @@ class Decoder(nn.Module):
         self.tanh_clipping = tanh_clipping
         self.shrink_size = shrink_size
 
-    def forward(
-            self, 
-            td, 
-            encoded_inputs, 
-            attn, 
-            V, 
-            h_old,
-            **decoder_kwargs
-        ):
+    def forward(self, td, encoded_inputs, attn, V, h_old, **decoder_kwargs):
         # SECTION: Decoder first step: calculate for the decoder divergence loss
         # Cost list and log likelihood list along with path
         output_list = []
         td_list = [self.env.reset(td) for i in range(self.num_paths)]
-        for i in range(self.num_paths):  
+        for i in range(self.num_paths):
             # Clone the encoded features for this path
             _encoded_inputs = encoded_inputs.clone()
 
@@ -108,21 +117,36 @@ class Decoder(nn.Module):
 
             # Collect output of step
             output_list.append(log_p[:, 0, :])
-            output_list[-1] = torch.max(output_list[-1], torch.ones(output_list[-1].shape, dtype=output_list[-1].dtype, device=output_list[-1].device) * (-1e9)) # for the kl loss
+            output_list[-1] = torch.max(
+                output_list[-1],
+                torch.ones(
+                    output_list[-1].shape,
+                    dtype=output_list[-1].dtype,
+                    device=output_list[-1].device,
+                )
+                * (-1e9),
+            )  # for the kl loss
 
-        if self.num_paths > 1: 
+        if self.num_paths > 1:
             kl_divergences = []
             for _i in range(self.num_paths):
                 for _j in range(self.num_paths):
-                    if _i==_j:
+                    if _i == _j:
                         continue
-                    kl_divergence = torch.sum(torch.exp(output_list[_i]) * (output_list[_i] - output_list[_j]), -1)
+                    kl_divergence = torch.sum(
+                        torch.exp(output_list[_i])
+                        * (output_list[_i] - output_list[_j]),
+                        -1,
+                    )
                     kl_divergences.append(kl_divergence)
             loss_kl_divergence = torch.stack(kl_divergences, 0).mean()
 
         # SECTION: Decoder rest step: calculate for other decoder divergence loss
         # Cost list and log likelihood list along with path
-        reward_list = []; output_list = []; action_list = []; ll_list = []
+        reward_list = []
+        output_list = []
+        action_list = []
+        ll_list = []
         td_list = [self.env.reset(td) for _ in range(self.num_paths)]
         for i in range(self.num_paths):
             # Clone the encoded features for this path
@@ -141,14 +165,20 @@ class Decoder(nn.Module):
                         mask_attn = mask ^ mask_first
                     else:
                         mask_attn = mask
-                    _encoded_inputs, _ = self.embedder.change(_attn, _V, _h_old, mask_attn, self.is_tsp)
+                    _encoded_inputs, _ = self.embedder.change(
+                        _attn, _V, _h_old, mask_attn, self.is_tsp
+                    )
                     fixed = self._precompute(_encoded_inputs, path_index=i)
                 log_p, mask = self._get_log_p(fixed, td_list[i], i)
                 if j == 0:
                     mask_first = mask
 
                 # Select the indices of the next nodes in the sequences, result (batch_size) long
-                action = decode_probs(log_p.exp()[:, 0, :], mask, decode_type=decoder_kwargs["decode_type"])
+                action = decode_probs(
+                    log_p.exp()[:, 0, :],
+                    mask,
+                    decode_type=decoder_kwargs["decode_type"],
+                )
 
                 td_list[i].set("action", action)
                 td_list[i] = self.env.step(td_list[i])["next"]
@@ -179,8 +209,13 @@ class Decoder(nn.Module):
         fixed_context = self.project_fixed_context[path_index](graph_embed)[:, None, :]
 
         # The projection of the node embeddings for the attention is calculated once up front
-        glimpse_key_fixed, glimpse_val_fixed, logit_key_fixed = \
-            self.project_node_embeddings[path_index](embeddings[:, None, :, :]).chunk(3, dim=-1)
+        (
+            glimpse_key_fixed,
+            glimpse_val_fixed,
+            logit_key_fixed,
+        ) = self.project_node_embeddings[path_index](embeddings[:, None, :, :]).chunk(
+            3, dim=-1
+        )
 
         fixed = PrecomputedCache(
             node_embeddings=embeddings,
@@ -194,14 +229,25 @@ class Decoder(nn.Module):
     def _make_heads(self, v, num_steps=None):
         assert num_steps is None or v.size(1) == 1 or v.size(1) == num_steps
         return (
-            v.contiguous().view(v.size(0), v.size(1), v.size(2), self.num_heads, -1)
-            .expand(v.size(0), v.size(1) if num_steps is None else num_steps, v.size(2), self.num_heads, -1)
-            .permute(3, 0, 1, 2, 4)  # (n_heads, batch_size, num_steps, graph_size, head_dim)
+            v.contiguous()
+            .view(v.size(0), v.size(1), v.size(2), self.num_heads, -1)
+            .expand(
+                v.size(0),
+                v.size(1) if num_steps is None else num_steps,
+                v.size(2),
+                self.num_heads,
+                -1,
+            )
+            .permute(
+                3, 0, 1, 2, 4
+            )  # (n_heads, batch_size, num_steps, graph_size, head_dim)
         )
 
     def _get_log_p(self, fixed, td, path_index, normalize=True):
-        step_context = self.context[path_index](fixed.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (fixed.graph_context + step_context.unsqueeze(1))
+        step_context = self.context[path_index](
+            fixed.node_embeddings, td
+        )  # [batch, embed_dim]
+        glimpse_q = fixed.graph_context + step_context.unsqueeze(1)
 
         # Compute keys and values for the nodes
         (
@@ -219,34 +265,40 @@ class Decoder(nn.Module):
         # Compute logits (unnormalized log_p)
         # log_p, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
         log_p, _ = self._one_to_many_logits(
-            glimpse_q,
-            glimpse_k,
-            glimpse_v,
-            logit_k,
-            mask,
-            path_index
+            glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index
         )
         return log_p, mask
 
-    def _one_to_many_logits(self, query, glimpse_K, glimpse_V, logit_K, mask, path_index):
+    def _one_to_many_logits(
+        self, query, glimpse_K, glimpse_V, logit_K, mask, path_index
+    ):
         batch_size, num_steps, embed_dim = query.size()
         key_size = val_size = embed_dim // self.num_heads
 
         # Compute the glimpse, rearrange dimensions so the dimensions are (n_heads, batch_size, num_steps, 1, key_size)
-        glimpse_Q = query.view(batch_size, num_steps, self.num_heads, 1, key_size).permute(2, 0, 1, 3, 4)
+        glimpse_Q = query.view(
+            batch_size, num_steps, self.num_heads, 1, key_size
+        ).permute(2, 0, 1, 3, 4)
 
         # Batch matrix multiplication to compute compatibilities (n_heads, batch_size, num_steps, graph_size)
-        compatibility = torch.matmul(glimpse_Q, glimpse_K.transpose(-2, -1)) / math.sqrt(glimpse_Q.size(-1))
+        compatibility = torch.matmul(
+            glimpse_Q, glimpse_K.transpose(-2, -1)
+        ) / math.sqrt(glimpse_Q.size(-1))
         if self.mask_inner:
             assert self.mask_logits, "Cannot mask inner without masking logits"
-            compatibility[mask[None, :, None, None, :].expand_as(compatibility)] = -math.inf
+            compatibility[
+                mask[None, :, None, None, :].expand_as(compatibility)
+            ] = -math.inf
 
         # Batch matrix multiplication to compute heads (n_heads, batch_size, num_steps, val_size)
         heads = torch.matmul(F.softmax(compatibility, dim=-1), glimpse_V)
 
         # Project to get glimpse/updated context node embedding (batch_size, num_steps, embedding_dim)
         glimpse = self.project_out[path_index](
-            heads.permute(1, 2, 3, 0, 4).contiguous().view(-1, num_steps, 1, self.num_heads * val_size))
+            heads.permute(1, 2, 3, 0, 4)
+            .contiguous()
+            .view(-1, num_steps, 1, self.num_heads * val_size)
+        )
 
         # Now projecting the glimpse is not needed since this can be absorbed into project_out
         # final_Q = self.project_glimpse(glimpse)
@@ -254,7 +306,9 @@ class Decoder(nn.Module):
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # logits = 'compatibility'
-        logits = torch.matmul(final_Q, logit_K.transpose(-2, -1)).squeeze(-2) / math.sqrt(final_Q.size(-1))
+        logits = torch.matmul(final_Q, logit_K.transpose(-2, -1)).squeeze(
+            -2
+        ) / math.sqrt(final_Q.size(-1))
 
         # From the logits compute the probabilities by clipping, masking and softmax
         if self.tanh_clipping > 0:

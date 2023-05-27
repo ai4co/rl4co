@@ -5,7 +5,7 @@ from rl4co.models.zoo.mdam.policy import MDAMPolicy
 
 
 class MDAM(REINFORCE):
-    """ ! FIX comment
+    """! FIX comment
     Attention Model for neural combinatorial optimization based on REINFORCE
     Based on Wouter Kool et al. (2018) https://arxiv.org/abs/1803.08475
     Refactored from reference implementation: https://github.com/wouterkool/attention-learn-to-route

@@ -2,9 +2,12 @@ from typing import Optional
 
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (BoundedTensorSpec, CompositeSpec,
-                          UnboundedContinuousTensorSpec,
-                          UnboundedDiscreteTensorSpec)
+from torchrl.data import (
+    BoundedTensorSpec,
+    CompositeSpec,
+    UnboundedContinuousTensorSpec,
+    UnboundedDiscreteTensorSpec,
+)
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
@@ -40,7 +43,7 @@ class CVRPEnv(RL4COEnvBase):
         max_demand: float = 10,
         capacity: float = None,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc
@@ -221,7 +224,14 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the demand
-        demand = torch.randint(self.min_demand, self.max_demand, size=(*batch_size, self.num_loc + 1)).float().to(self.device) / self.capacity
+        demand = (
+            torch.randint(
+                self.min_demand, self.max_demand, size=(*batch_size, self.num_loc + 1)
+            )
+            .float()
+            .to(self.device)
+            / self.capacity
+        )
 
         # The first demand is the used capacity
         demand[..., 0] = 0

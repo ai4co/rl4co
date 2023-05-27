@@ -1,7 +1,16 @@
-import sys; sys.path.append('.')
+import sys
+
+sys.path.append(".")
 import pytest
-from rl4co.models import (POMO, AttentionModel, HeterogeneousAttentionModel,
-                          PointerNetwork, SymNCO, SymNCOPolicy, MDAMPolicy)
+from rl4co.models import (
+    POMO,
+    AttentionModel,
+    HeterogeneousAttentionModel,
+    PointerNetwork,
+    SymNCO,
+    SymNCOPolicy,
+    MDAMPolicy,
+)
 from rl4co.utils.test_utils import generate_env_data
 
 
@@ -60,4 +69,7 @@ def test_mdam(size, batch_size=2, num_paths=5):
     model = MDAMPolicy(env, num_paths=num_paths)
     out = model(td, decode_type="sampling")
     print(out["reward"].shape)
-    assert out["reward"].shape == (num_paths, batch_size,)
+    assert out["reward"].shape == (
+        num_paths,
+        batch_size,
+    )

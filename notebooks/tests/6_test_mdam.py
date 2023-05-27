@@ -4,7 +4,11 @@ from torch.utils.data import DataLoader
 from rl4co.envs import TSPEnv
 from rl4co.data.dataset import TensorDictCollate
 from rl4co.models.rl.reinforce.base import REINFORCE
-from rl4co.models.rl.reinforce.baselines import RolloutBaseline, WarmupBaseline, ExponentialBaseline
+from rl4co.models.rl.reinforce.baselines import (
+    RolloutBaseline,
+    WarmupBaseline,
+    ExponentialBaseline,
+)
 from rl4co.models import MDAMPolicy
 
 
@@ -26,6 +30,7 @@ class AttentionModel(REINFORCE):
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )
+
 
 if __name__ == "__main__":
     # SECTION: load the environment with test data
@@ -73,8 +78,8 @@ if __name__ == "__main__":
     config = DictConfig(
         {
             "data": {
-                "train_size": 100000, # with 1 epochs, this is 1k samples
-                "val_size": 10000, 
+                "train_size": 100000,  # with 1 epochs, this is 1k samples
+                "val_size": 10000,
                 "train_batch_size": 512,
                 "val_batch_size": 1024,
             },
@@ -89,7 +94,6 @@ if __name__ == "__main__":
                 "test": ["reward"],
                 "log_on_step": True,
             },
-            
         }
     )
 
@@ -97,6 +101,7 @@ if __name__ == "__main__":
 
     # Set debugging level as info to see all message printouts
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     # Trick to make calculations faster
@@ -104,14 +109,15 @@ if __name__ == "__main__":
 
     # Trainer
     import lightning as L
+
     trainer = L.Trainer(
-        max_epochs=3, # 10
+        max_epochs=3,  # 10
         accelerator="gpu",
-        logger=None, # can replace with WandbLogger, TensorBoardLogger, etc.
-        precision="16-mixed", # Lightning will handle casting to float16
-        log_every_n_steps=1,   
-        gradient_clip_val=1.0, # clip gradients to avoid exploding gradients!
-        reload_dataloaders_every_n_epochs=1, # necessary for sampling new data
+        logger=None,  # can replace with WandbLogger, TensorBoardLogger, etc.
+        precision="16-mixed",  # Lightning will handle casting to float16
+        log_every_n_steps=1,
+        gradient_clip_val=1.0,  # clip gradients to avoid exploding gradients!
+        reload_dataloaders_every_n_epochs=1,  # necessary for sampling new data
     )
 
     # Fit the model

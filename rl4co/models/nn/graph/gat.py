@@ -19,7 +19,9 @@ class MultiHeadAttentionLayer(nn.Sequential):
     ):
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                MultiHeadAttention(embed_dim, num_heads, force_flash_attn=force_flash_attn)
+                MultiHeadAttention(
+                    embed_dim, num_heads, force_flash_attn=force_flash_attn
+                )
             ),
             Normalization(embed_dim, normalization),
             SkipConnection(
@@ -56,7 +58,7 @@ class GraphAttentionEncoder(nn.Module):
             )
         else:
             log.warning("Disabling init embedding manually for GraphAttentionEncoder")
-            self.init_embedding = nn.Identity() # do nothing
+            self.init_embedding = nn.Identity()  # do nothing
 
         self.layers = nn.Sequential(
             *(

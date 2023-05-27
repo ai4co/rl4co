@@ -43,9 +43,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         super(GraphHeterogeneousAttentionEncoder, self).__init__()
 
         # Map input to embedding space
-        self.init_embedding = env_init_embedding(
-            env, {"embedding_dim": embedding_dim}
-        )
+        self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
 
         self.layers = nn.Sequential(
             *(

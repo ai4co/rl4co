@@ -82,8 +82,10 @@ class RL4COEnvBase(EnvBase):
         else:
             log.info(f"Loading {phase} dataset from {f}")
             if phase == "train":
-                log.warning("Loading training dataset from file. This may not be desired in RL since "
-                            "the dataset is fixed and the agent will not be able to explore new states")
+                log.warning(
+                    "Loading training dataset from file. This may not be desired in RL since "
+                    "the dataset is fixed and the agent will not be able to explore new states"
+                )
             try:
                 td = self.load_data(f, batch_size)
             except FileNotFoundError:
@@ -109,7 +111,7 @@ class RL4COEnvBase(EnvBase):
     def load_data(self, fpath, batch_size=[]):
         """Dataset loading from file"""
         return load_npz_to_tensordict(fpath)
-    
+
     def _set_seed(self, seed: Optional[int]):
         """Set the seed for the environment"""
         rng = torch.manual_seed(seed)

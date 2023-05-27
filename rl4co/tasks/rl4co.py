@@ -72,7 +72,7 @@ class RL4COLitModule(LightningModule):
     def setup(self, stage="fit"):
         log.info(f"Setting up batch sizes for train/val/test")
         # If any of the batch sizes are specified, use that. Otherwise, use the default batch size
-        
+
         data_cfg = self.cfg.get("data", {})
         batch_size = data_cfg.get("batch_size", None)
         if data_cfg.get("train_batch_size", None) is not None:
@@ -85,9 +85,7 @@ class RL4COLitModule(LightningModule):
             train_batch_size = batch_size
         else:
             train_batch_size = 64
-            log.warning(
-                f"No batch size specified, using default as {train_batch_size}"
-            )
+            log.warning(f"No batch size specified, using default as {train_batch_size}")
         # default all batch sizes to train_batch_size if not specified
         self.train_batch_size = train_batch_size
         self.val_batch_size = data_cfg.get("val_batch_size", train_batch_size)
@@ -97,7 +95,9 @@ class RL4COLitModule(LightningModule):
 
         # Create datasets automatically. If found, this will skip
         if data_cfg.get("generate_data", True):
-            generate_default_datasets(data_dir=self.cfg.get("paths", {}).get("data_dir", "data/"))
+            generate_default_datasets(
+                data_dir=self.cfg.get("paths", {}).get("data_dir", "data/")
+            )
 
         # If any of the dataset sizes are specified, use that. Otherwise, use the default dataset size
         def _get_phase_size(phase):
@@ -109,9 +109,7 @@ class RL4COLitModule(LightningModule):
             size = data_cfg.get(f"{phase}_size", None)
             if size is None:
                 size = DEFAULT_SIZES[phase]
-                log.warning(
-                    f"No {phase}_size specified, using default as {size}"
-                )
+                log.warning(f"No {phase}_size specified, using default as {size}")
             return size
 
         self.train_size = _get_phase_size("train")
@@ -206,6 +204,6 @@ class RL4COLitModule(LightningModule):
             dataset,
             batch_size=batch_size,
             shuffle=False,  # no need to shuffle, we're resampling every epoch
-            num_workers=self.cfg.get('data', {}).get("num_workers", 0),
+            num_workers=self.cfg.get("data", {}).get("num_workers", 0),
             collate_fn=tensordict_collate_fn,
         )

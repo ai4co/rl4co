@@ -63,15 +63,17 @@ class TSPContext(EnvContext):
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
         # By default, node_dim = -1 (we only have one node embedding per node)
-        node_dim = (-1,) if td["first_node"].dim() == 1 else (embeddings.size(1), -1)  
-        if td["i"][(0,) * td["i"].dim()].item() < 1: # get first item fast
+        node_dim = (-1,) if td["first_node"].dim() == 1 else (embeddings.size(1), -1)
+        if td["i"][(0,) * td["i"].dim()].item() < 1:  # get first item fast
             context_embedding = self.W_placeholder[None, :].expand(
                 batch_size, self.W_placeholder.size(-1)
             )
         else:
             context_embedding = gather_by_index(
                 embeddings,
-                torch.stack([td["first_node"], td["current_node"]], -1).view(batch_size, -1),
+                torch.stack([td["first_node"], td["current_node"]], -1).view(
+                    batch_size, -1
+                ),
             ).view(batch_size, *node_dim)
         return self.project_context(context_embedding)
 
@@ -114,14 +116,17 @@ class DPPContext(EnvContext):
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
         # By default, node_dim = -1 (we only have one node embedding per node)
-        node_dim = (-1,) if td["first_node"].dim() == 1 else (embeddings.size(1), -1)  
-        if td["i"][(0,) * td["i"].dim()].item() < 1: # get first item fast
+        node_dim = (-1,) if td["first_node"].dim() == 1 else (embeddings.size(1), -1)
+        if td["i"][(0,) * td["i"].dim()].item() < 1:  # get first item fast
             context_embedding = self.W_placeholder[None, :].expand(
                 batch_size, self.W_placeholder.size(-1)
             )
         else:
             context_embedding = gather_by_index(
-                embeddings, torch.stack([td["first_node"], td["current_node"]], -1).view(batch_size, -1),
+                embeddings,
+                torch.stack([td["first_node"], td["current_node"]], -1).view(
+                    batch_size, -1
+                ),
             ).view(batch_size, *node_dim)
         return self.project_context(context_embedding)
 
@@ -144,6 +149,7 @@ class MTSPContext(EnvContext):
         3. the max subtour length so far
         4. the current distance from the depot
     """
+
     def __init__(self, embedding_dim):
         super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         proj_in_dim = 4  # remaining_agents, current_length, max_subtour_length, distance_from_depot

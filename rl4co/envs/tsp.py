@@ -3,9 +3,12 @@ from typing import Optional
 import numpy as np
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (BoundedTensorSpec, CompositeSpec,
-                          UnboundedContinuousTensorSpec,
-                          UnboundedDiscreteTensorSpec)
+from torchrl.data import (
+    BoundedTensorSpec,
+    CompositeSpec,
+    UnboundedContinuousTensorSpec,
+    UnboundedDiscreteTensorSpec,
+)
 
 from rl4co.envs.base import RL4COEnvBase
 from rl4co.envs.utils import batch_to_scalar
@@ -189,7 +192,7 @@ class TSPEnv(RL4COEnvBase):
             log.warning("No action in TensorDict, rendering unsorted locs")
         else:
             locs = gather_by_index(locs, actions, dim=0)
-        
+
         # Cat the first node to the end to complete the tour
         locs = torch.cat((locs, locs[0:1]))
         x, y = locs[:, 0], locs[:, 1]

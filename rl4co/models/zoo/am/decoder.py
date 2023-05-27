@@ -37,14 +37,20 @@ class Decoder(nn.Module):
         assert embedding_dim % num_heads == 0
 
         self.context = env_context(self.env, {"embedding_dim": embedding_dim})
-        self.dynamic_embedding = env_dynamic_embedding(self.env, {"embedding_dim": embedding_dim})
+        self.dynamic_embedding = env_dynamic_embedding(
+            self.env, {"embedding_dim": embedding_dim}
+        )
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
-        self.project_node_embeddings = nn.Linear(embedding_dim, 3 * embedding_dim, bias=False)
+        self.project_node_embeddings = nn.Linear(
+            embedding_dim, 3 * embedding_dim, bias=False
+        )
         self.project_fixed_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
 
         # MHA
-        self.logit_attention = LogitAttention(embedding_dim, num_heads, **logit_attn_kwargs)
+        self.logit_attention = LogitAttention(
+            embedding_dim, num_heads, **logit_attn_kwargs
+        )
 
     def forward(
         self,
@@ -89,9 +95,7 @@ class Decoder(nn.Module):
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key_fixed,
-        ) = self.project_node_embeddings(
-            embeddings
-        ).chunk(3, dim=-1)
+        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # Organize in a TensorDict for easy access
         cached_embeds = PrecomputedCache(
@@ -106,7 +110,9 @@ class Decoder(nn.Module):
 
     def _get_log_p(self, cached, td, softmax_temp):
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
+        glimpse_q = (cached.graph_context + step_context).unsqueeze(
+            1
+        )  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (
@@ -122,6 +128,8 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute log prob: MHA + single-head attention
-        log_p = self.logit_attention(glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp)
+        log_p = self.logit_attention(
+            glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
+        )
 
         return log_p, mask
