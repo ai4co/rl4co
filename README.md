@@ -45,7 +45,7 @@ Alternatively, you can use `pip install -r requirements.txt`.
 
 
 
-To get started, we recommend checking out our [quickstart notebook](notebooks/quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
+To get started, we recommend checking out our [quickstart notebook](notebooks/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
 
 ## Usage
 
