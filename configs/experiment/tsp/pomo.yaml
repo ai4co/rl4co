@@ -14,6 +14,36 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
+seed: 12345
+
+env:
+  num_loc: 20
+
+trainer:
+  max_epochs: 510
+  gradient_clip_val: 1.0
+  devices: 1
+
+train:
+  optimizer:
+    # _partial_: True
+    _target_: torch.optim.Adam
+    lr: 1e-4
+    weight_decay: 1e-6
+  scheduler:
+    _target_: torch.optim.lr_scheduler.MultiStepLR
+    milestones: [501]
+    gamma: 0.1
+  scheduler_interval: epoch
+
+model:
+  num_starts: ${env.num_loc} # num_pomo
+
+data:
+  batch_size: 64
+  train_size: 100_000
+  val_size: 10_000
+
 tags: ["tsp", "pomo"]
 
 logger:
@@ -22,28 +52,3 @@ logger:
     tags: ${tags}
     group: "tsp${env.num_loc}"
     name: "pomo"
-
-seed: 12345
-
-env:
-  num_loc: 50
-
-trainer:
-  min_epochs: 10
-  max_epochs: 100
-  gradient_clip_val: 1.0
-
-train:
-  optimizer:
-    # _partial_: True
-    _target_: torch.optim.Adam
-    lr: 1e-4
-    weight_decay: 1e-5
-
-model:
-  num_starts: ${env.num_loc} # num_pomo
-
-data:
-  batch_size: 256
-  train_size: 1280000
-  val_size: 10000
