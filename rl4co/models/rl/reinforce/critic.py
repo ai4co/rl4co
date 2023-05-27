@@ -4,7 +4,7 @@ from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 
 
 class CriticNetwork(nn.Module):
-    """We make the critic network compatible with any problem by using encoder for any environment 
+    """We make the critic network compatible with any problem by using encoder for any environment
     Refactored from Kool et al. (2019) which only worked for TSP
     Reference: https://github.com/wouterkool/attention-learn-to-route
 
@@ -17,6 +17,7 @@ class CriticNetwork(nn.Module):
         num_heads (int, optional): number of attention heads. Defaults to 8.
         encoder_normalization (str, optional): normalization. Defaults to "batch".
     """
+
     def __init__(
         self,
         env=None,
@@ -27,7 +28,6 @@ class CriticNetwork(nn.Module):
         num_heads=8,
         encoder_normalization="batch",
     ):
-
         super(CriticNetwork, self).__init__()
 
         self.encoder = (

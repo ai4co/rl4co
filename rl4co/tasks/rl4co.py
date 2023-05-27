@@ -42,9 +42,14 @@ class RL4COLitModule(LightningModule):
         self.cfg = cfg
 
         # Instantiate environment, model and metrics
+
         self.env = env if env is not None else self.instantiate_env()
         self.model = model if model is not None else self.instantiate_model()
         self.instantiate_metrics()
+
+        if cfg.get("train", {}).get("manual_optimization", False):
+            log.info("Manual optimization enabled")
+            self.automatic_optimization = False
 
     def instantiate_env(self):
         log.info(f"Instantiating environment <{self.cfg.env._target_}>")
@@ -117,6 +122,7 @@ class RL4COLitModule(LightningModule):
         )
         self.val_dataset = self.env.dataset(self.val_size, "val")
         self.test_dataset = self.env.dataset(self.test_size, "test")
+
         if hasattr(self.model, "setup"):
             self.model.setup(self)
 

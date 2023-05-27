@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 import hydra
 import lightning as L
@@ -110,6 +110,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="main.yaml")
+# @hydra.main(version_base="1.3", config_path="configs", config_name="experiment/tsp/am-ppo.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)

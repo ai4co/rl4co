@@ -4,15 +4,15 @@ from tensordict.tensordict import TensorDict
 from torchrl.envs import EnvBase
 
 from rl4co.models.nn.env_embedding import env_init_embedding
-from rl4co.models.nn.graph.gat import GraphAttentionEncoder
+from rl4co.models.nn.graph import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
-from rl4co.models.zoo.am.decoder import Decoder
+from rl4co.models.zoo.amppo.decoder import PPODecoder
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class AttentionModelPolicy(nn.Module):
+class PPOAttentionModelPolicy(nn.Module):
     def __init__(
         self,
         env: EnvBase,
@@ -29,7 +29,7 @@ class AttentionModelPolicy(nn.Module):
         test_decode_type: str = "greedy",
         **unused_kw,
     ):
-        super(AttentionModelPolicy, self).__init__()
+        super(PPOAttentionModelPolicy, self).__init__()
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
 
@@ -49,7 +49,7 @@ class AttentionModelPolicy(nn.Module):
         )
 
         self.decoder = (
-            Decoder(
+            PPODecoder(
                 env,
                 embedding_dim,
                 num_heads,
@@ -68,8 +68,9 @@ class AttentionModelPolicy(nn.Module):
         self,
         td: TensorDict,
         phase: str = "train",
-        return_actions: bool = False,
+        return_action: bool = False,
         return_entropy: bool = False,
+        given_actions: torch.Tensor = None,
         **decoder_kwargs,
     ) -> TensorDict:
         # Encode inputs
@@ -80,17 +81,28 @@ class AttentionModelPolicy(nn.Module):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # Main rollout: autoregressive decoding
-        log_p, actions, td_out = self.decoder(td, embeddings, **decoder_kwargs)
+        log_p, actions, td_out = self.decoder(
+            td, embeddings, given_actions=given_actions, **decoder_kwargs
+        )
 
         # Log likelihood is calculated within the model since returning it per action does not work well with
-        ll = get_log_likelihood(log_p, actions, td_out.get("mask", None))
+        ll = get_log_likelihood(log_p, actions, td_out.get("mask", None), return_sum=False)
 
         out = {
             "reward": td_out["reward"],
-            "log_likelihood": ll,
+            "log_likelihood": ll,  # [batch, decoder steps]
         }
-        if return_actions:
-            out["actions"] = actions
+
+        if given_actions is not None:
+            # TODO: Double check this
+            selected_log_p = get_log_likelihood(
+                log_p, given_actions, td_out.get("mask", None), return_sum=False
+            )
+            assert selected_log_p.isfinite().all(), "Log p is not finite"
+            out["selected_log_p"] = selected_log_p  # [batch, decoder steps]
+
+        if return_action:
+            out["actions"] = actions  # [batch, decoder steps]
 
         if return_entropy:
             entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
