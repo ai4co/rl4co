@@ -106,6 +106,84 @@ class NativeFlashMHA(nn.Module):
     flash_attn_wrapper = flash_attn_wrapper
 
 
+class MultiHeadAttention(nn.Module):
+    """Multi-Head Attention module following Kool et al. (2019)"""
+    def __init__(self, embed_dim, num_heads, **kwargs):
+        super(MultiHeadAttention, self).__init__()
+
+        self.num_heads = num_heads
+        self.embed_dim = embed_dim
+        self.hdim = embed_dim // num_heads
+
+        self.norm_factor = 1 / math.sqrt(self.hdim)  # See Attention is all you need
+
+        self.Wq = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
+        self.Wk = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
+        self.Wv = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
+
+        self.Wout = nn.Parameter(torch.Tensor(num_heads, self.hdim , embed_dim))
+
+        self.init_parameters()
+
+    def init_parameters(self):
+        for param in self.parameters():
+            stdv = 1.0 / math.sqrt(param.size(-1))
+            param.data.uniform_(-stdv, stdv)
+
+    def forward(self, q, h=None, mask=None):
+        """q: queries (batch_size, n_query, input_dim)
+        h: data (batch_size, graph_size, input_dim)
+        mask: mask (batch_size, n_query, graph_size) or viewable as that (i.e. can be 2 dim if n_query == 1)
+        Mask should contain 1 if attention is not possible (i.e. mask is negative adjacency)
+        """
+
+        if h is None:
+            h = q  # compute self-attention
+
+        batch_size, graph_size, input_dim = h.size()
+        n_query = q.size(1)
+        assert q.size(0) == batch_size
+        assert q.size(2) == input_dim
+
+        hflat = h.contiguous().view(-1, input_dim)
+        qflat = q.contiguous().view(-1, input_dim)
+
+        # Last dimension can be different for keys and values
+        shp = (self.num_heads, batch_size, graph_size, -1)
+        shp_q = (self.num_heads, batch_size, n_query, -1)
+
+        # Calculate queries, (num_heads, n_query, graph_size, key/val_size)
+        Q = torch.matmul(qflat, self.Wq).view(shp_q)
+        # Calculate keys and values (num_heads, batch_size, graph_size, key/val_size)
+        K = torch.matmul(hflat, self.Wk).view(shp)
+        V = torch.matmul(hflat, self.Wv).view(shp)
+
+        # Calculate compatibility (num_heads, batch_size, n_query, graph_size)
+        compatibility = self.norm_factor * torch.matmul(Q, K.transpose(2, 3))
+
+        # Optionally apply mask to prevent attention
+        if mask is not None:
+            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(compatibility)
+            compatibility[mask] = float("-inf") #-np.inf
+
+        attn = torch.softmax(compatibility, dim=-1)
+
+        # If there are nodes with no neighbours then softmax returns nan so we fix them to 0
+        if mask is not None:
+            attnc = attn.clone()
+            attnc[mask] = 0
+            attn = attnc
+
+        heads = torch.matmul(attn, V)
+
+        out = torch.mm(
+            heads.permute(1, 2, 0, 3).contiguous().view(-1, self.num_heads * self.hdim),
+            self.Wout.view(-1, self.embed_dim),
+        ).view(batch_size, n_query, self.embed_dim)
+
+        return out
+
+
 class LogitAttention(nn.Module):
     """Calculate logits given query, key and value and logit key
     If we use Flash Attention, then we automatically move to fp16 for inner computations

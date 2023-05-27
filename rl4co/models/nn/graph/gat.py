@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from rl4co.models.nn.attention import NativeFlashMHA
+from rl4co.models.nn.attention import MultiHeadAttention
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
@@ -19,7 +19,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
     ):
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                NativeFlashMHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)
+                MultiHeadAttention(embed_dim, num_heads, force_flash_attn=force_flash_attn)
             ),
             Normalization(embed_dim, normalization),
             SkipConnection(
