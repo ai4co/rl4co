@@ -51,7 +51,7 @@ class SharedBaseline(REINFORCEBaseline):
 
 
 class ExponentialBaseline(REINFORCEBaseline):
-    def __init__(self, beta):
+    def __init__(self, beta=0.8):
         super(REINFORCEBaseline, self).__init__()
 
         self.beta = beta
@@ -118,20 +118,6 @@ class CriticBaseline(REINFORCEBaseline):
         v = self.critic(x)
         # detach v since actor should not backprop through baseline, only for neg_loss
         return v.detach(), -F.mse_loss(v, c.detach())
-
-    def get_learnable_parameters(self):
-        return list(self.critic.parameters())
-
-    def state_dict(self):
-        return {
-            'critic': self.critic.state_dict()
-        }
-
-    def load_state_dict(self, state_dict):
-        critic_state_dict = state_dict.get('critic', {})
-        if not isinstance(critic_state_dict, dict):  # backwards compatibility
-            critic_state_dict = critic_state_dict.state_dict()
-        self.critic.load_state_dict({**self.critic.state_dict(), **critic_state_dict})
 
 
 class RolloutBaseline(REINFORCEBaseline):
