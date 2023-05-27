@@ -7,7 +7,7 @@ def select_start_nodes(batch_size, num_nodes, device="cpu"):
     """Node selection strategy for POMO
     Selects different start nodes for each batch element
     """
-    selected = torch.arange(num_nodes, device=device).repeat(batch_size)  # TODO: check
+    selected = torch.arange(num_nodes, device=device).repeat_interleave(batch_size)
     return selected
 
 

@@ -36,7 +36,7 @@ class SymNCO(REINFORCE):
         policy=None,
         baseline=None,
         num_starts=10,
-        num_augment=8,
+        num_augment=4,
         alpha=0.2,
         beta=1,
         augment_test=True,
@@ -54,9 +54,9 @@ class SymNCO(REINFORCE):
 
         # Multi-start parameters from policy, default to 1
         self.num_augment = num_augment
-        assert (
-            num_augment > 1
-        ), "Number of augmentations must be greater than 1 for SymNCO"
+        # assert ( # NOTE removed assert
+        #     num_augment > 1
+        # ), "Number of augmentations must be greater than 1 for SymNCO"
         self.augment = StateAugmentation(self.env.name)
         self.augment_test = augment_test
         self.alpha = alpha  # weight for invariance loss
@@ -79,7 +79,9 @@ class SymNCO(REINFORCE):
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
 
-        # Unbatchify reward to [batch_size, num_augment, num_starts].
+        # breakpoint()
+
+        # Unbatchify reward to [batch_size, num_starts, num_augment].
         reward = unbatchify(out["reward"], (num_starts, num_augment))
 
         # Get multi-start (=POMO) rewards and best actions
@@ -113,14 +115,17 @@ class SymNCO(REINFORCE):
 
         # Main training loss
         if phase == "train":
-            assert num_starts > 1, "num_starts must be > 1 during training"
-            assert num_augment > 1, "num_augment must be > 1 during training"
 
-            # [batch_size, num_augment, num_starts]
+            # NOTE: removed asserts
+            # assert num_starts > 1, "num_starts must be > 1 during training"
+            # assert num_augment > 1, "num_augment must be > 1 during training"
+
+            # TODO: check, it looks like we do not always augment and also get POMO
+            # [batch_size, num_augment, num_starts] 
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
-            loss_ps = problem_symmetricity_loss(reward, ll)
-            loss_ss = solution_symmetricity_loss(reward, ll)
-            loss_inv = invariance_loss(out["proj_embeddings"], self.num_augment)
+            loss_ps = problem_symmetricity_loss(reward, ll) if num_starts > 1 else 0
+            loss_ss = solution_symmetricity_loss(reward, ll)  if num_augment > 1 else 0
+            loss_inv = invariance_loss(out["proj_embeddings"], num_augment) if num_augment > 1 else 0
             loss = loss_ps + self.beta * loss_ss + self.alpha * loss_inv
             out.update(
                 {

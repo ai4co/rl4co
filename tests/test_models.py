@@ -1,6 +1,7 @@
+import sys; sys.path.append('.')
 import pytest
 from rl4co.models import (POMO, AttentionModel, HeterogeneousAttentionModel,
-                          PointerNetwork, SymNCO, SymNCOPolicy)
+                          PointerNetwork, SymNCO, SymNCOPolicy, MDAMPolicy)
 from rl4co.utils.test_utils import generate_env_data
 
 
@@ -44,9 +45,19 @@ def test_symnco(size, batch_size=2, num_augment=8, num_starts=10):
 
 
 @pytest.mark.parametrize("size", [10])
-def test_haam(size, batch_size=2):
+def test_ham(size, batch_size=2):
     env, x = generate_env_data("pdp", size, batch_size)
     td = env.reset(x)
     model = HeterogeneousAttentionModel(env)
     out = model(td, decode_type="sampling")
     assert out["reward"].shape == (batch_size,)
+
+
+@pytest.mark.parametrize("size", [10])
+def test_mdam(size, batch_size=2, num_paths=5):
+    env, x = generate_env_data("tsp", size, batch_size)
+    td = env.reset(x)
+    model = MDAMPolicy(env, num_paths=num_paths)
+    out = model(td, decode_type="sampling")
+    print(out["reward"].shape)
+    assert out["reward"].shape == (num_paths, batch_size,)

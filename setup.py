@@ -47,6 +47,9 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     url="https://github.com/kaist-silab/rl4co",
     install_requires=requirements,
+    extras_require={
+        "graph": ["torch_geometric"],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",

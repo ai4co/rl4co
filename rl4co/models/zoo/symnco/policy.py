@@ -5,7 +5,7 @@ from torchrl.envs import EnvBase
 from torchrl.modules.models import MLP
 
 from rl4co.models.nn.env_embedding import env_init_embedding
-from rl4co.models.nn.graph import GraphAttentionEncoder
+from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.symnco.decoder import Decoder
 from rl4co.utils.pylogger import get_pylogger
@@ -36,8 +36,6 @@ class SymNCOPolicy(nn.Module):
         super(SymNCOPolicy, self).__init__()
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
-
-        print("policy num_starts", num_starts)
 
         self.env = env
 

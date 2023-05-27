@@ -23,13 +23,17 @@ logger:
     group: "tsp${env.num_loc}"
     name: "symnco"
 
+# modify the log directory to separate between models and envs
+hydra:
+  run:
+    dir: ${paths.log_dir}/${mode}/runs/${logger.wandb.group}/${logger.wandb.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+   
 seed: 12345
 
 env:
   num_loc: 50
 
 trainer:
-  min_epochs: 10
   max_epochs: 100
   gradient_clip_val: 1.0
 
@@ -38,9 +42,13 @@ train:
     # _partial_: True
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 0
 
 data:
   batch_size: 64
-  train_size: 1280000
+  train_size: 80000
   val_size: 10000
+  
+model:
+  num_starts: 1 #${env.num_loc}
+  num_augment: 10

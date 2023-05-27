@@ -15,7 +15,7 @@ def problem_symmetricity_loss(reward, log_likelihood, dim=1):
     return loss.mean()
 
 
-def solution_symmetricity_loss(reward, log_likelihood, dim=2):
+def solution_symmetricity_loss(reward, log_likelihood, dim=-1):
     """REINFORCE loss for solution symmetricity
     Baseline is the average reward for all start nodes
     Corresponds to `L_ss` in the SymNCO paper

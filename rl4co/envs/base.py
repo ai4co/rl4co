@@ -84,7 +84,11 @@ class RL4COEnvBase(EnvBase):
             if phase == "train":
                 log.warning("Loading training dataset from file. This may not be desired in RL since "
                             "the dataset is fixed and the agent will not be able to explore new states")
-            td = self.load_data(f, batch_size)
+            try:
+                td = self.load_data(f, batch_size)
+            except FileNotFoundError:
+                log.error(f"File {f} not found. Generating dataset instead")
+                td = self.generate_data(batch_size)
         return TensorDictDataset(td)
 
     def generate_data(self, batch_size):

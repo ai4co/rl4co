@@ -1,5 +1,5 @@
 # Torch, TorchRL and Lightning
-torch>= 2.0.0
+torch
 torchrl>=0.1.1
 tensordict>=0.1.1
 lightning>=2.0.0

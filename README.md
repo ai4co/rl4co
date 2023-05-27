@@ -19,13 +19,31 @@ Code repository for RL4CO. Based on [TorchRL](https://github.com/pytorch/rl) and
 
 ## Getting started
 
-Clone project and install dependencies:
+Clone project and install project locally with pip:
 
 ```bash
 git clone https://github.com/kaist-silab/rl4co && cd rl4co
-pip install light-the-torch && python3 -m light_the_torch install --upgrade -r requirements.txt
+pip install -e .
 ```
-The above script will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system. Alternatively, you can use `pip install -r requirements.txt`. Alternatively, you can install the package locally with `pip install -e .`.
+<details>
+    <summary>[Optional] Automatically install PyTorch with correct CUDA version</summary>
+
+These commands will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system:
+
+```bash
+pip install light-the-torch
+python3 -m light_the_torch install -r  --upgrade requirements.txt
+```
+
+Alternatively, you can use `pip install -r requirements.txt`.
+
+> Note: `conda` is also a good candidate for hassle-free installation of PyTorch: check out the [PyTorch website](https://pytorch.org/get-started/locally/) for more details.
+
+</details>
+
+
+
+
 
 To get started, we recommend checking out our [quickstart notebook](notebooks/quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
 
@@ -53,8 +71,9 @@ python run.py experiment=tsp/am env.num_loc=42
     <summary>Disable logging</summary>
     
 ```bash
-python run.py experiment=tsp/am logger='null'
+python run.py experiment=test/am logger=none '~callbacks.learning_rate_monitor'
 ```
+Note that `~` is used to disable a callback that would need a logger.
 
 </details>
 

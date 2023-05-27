@@ -179,13 +179,15 @@ class LogitAttention(nn.Module):
         v = self._make_heads(value)
 
         if self.mask_inner:
-            # need to invert mask: (batch, seqlen) -> (batch, 1, 1, seqlen)
-            attn_mask = ~mask.unsqueeze(1).unsqueeze(2)
+            # need to invert mask: (N L S) -> (N 1 L S) 
+            attn_mask = ~mask.unsqueeze(1) if mask.ndim == 3 else ~mask.unsqueeze(1).unsqueeze(2)
         else:
             attn_mask = None
 
-        heads = self.flash_attn_wrapper(scaled_dot_product_attention, q, k, v, attn_mask=attn_mask)
-        return rearrange(heads, "b h 1 g -> b 1 (h g)", h=self.num_heads)
+        heads = self.flash_attn_wrapper(
+            scaled_dot_product_attention, q, k, v, attn_mask=attn_mask
+        )
+        return rearrange(heads, "b h n g -> b n (h g)", h=self.num_heads)
 
     def _make_heads(self, v):
         return rearrange(v, "b g (h s) -> b h g s", h=self.num_heads)

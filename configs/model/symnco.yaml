@@ -1,7 +1,5 @@
 _target_: rl4co.models.SymNCO
 
-policy:
-  _target_: rl4co.models.SymNCOPolicy
-  env: ${env}
-  embedding_dim: 128
-  num_starts: ${env.num_loc}
+num_augment: 4
+num_starts: ${env.num_loc}
+
