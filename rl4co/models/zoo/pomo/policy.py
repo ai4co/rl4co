@@ -4,8 +4,8 @@ from torchrl.envs import EnvBase
 
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.pomo.decoder import Decoder
-# from rl4co.models.zoo.pomo.encoder import GraphAttentionEncoder
-from rl4co.models.nn.graph.gat import GraphAttentionEncoder
+from rl4co.models.zoo.pomo.encoder import GraphAttentionEncoder
+# from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -35,16 +35,13 @@ class POMOPolicy(nn.Module):
 
         self.env = env
 
-        log.warning("MODIFIED from JYP!!!!!!!!")
-
-
         self.encoder = (
             GraphAttentionEncoder(
                 num_heads=num_heads,
                 embedding_dim=embedding_dim,
                 num_layers=num_encoder_layers,
                 env=self.env,
-                normalization=normalization,
+                # normalization=normalization,
                 # force_flash_attn=force_flash_attn,
             )
             if encoder is None
@@ -73,7 +70,7 @@ class POMOPolicy(nn.Module):
         phase: str = "train",
         return_actions: bool = False,
         **decoder_kwargs,
-    ) -> TensorDict:
+    ) -> dict:
         # Encode inputs
         embeddings, _ = self.encoder(td)
 
