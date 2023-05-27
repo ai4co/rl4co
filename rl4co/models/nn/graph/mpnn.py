@@ -31,13 +31,13 @@ class MessagePassingEncoder(nn.Module):
             )
         else:
             log.warning("Disabling init embedding manually for MessagePassingEncoder")
-            self.init_embedding = nn.Identity() # do nothing
+            self.init_embedding = nn.Identity()  # do nothing
 
         self.bias = Parameter(torch.Tensor(embedding_dim))
         self.bias.data.zero_()
 
     def forward(self, x, edge_index, mask=None):
-        # TODO if we set the graph to be fully connected, 
+        # TODO if we set the graph to be fully connected,
         # then the edge index can be moved to the init function
 
         assert mask is None, "Mask not yet supported!"
@@ -47,7 +47,9 @@ class MessagePassingEncoder(nn.Module):
         edge_index, _ = add_self_loops(edge_index, num_nodes=init_embeds.size(-2))
         # graph normalization
         row, col = edge_index
-        deg = degree(col, init_embeds.size(-2), dtype=init_embeds.dtype) # TODO fix the batch processing
+        deg = degree(
+            col, init_embeds.size(-2), dtype=init_embeds.dtype
+        )  # TODO fix the batch processing
         deg_inv_sqrt = deg.pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
         norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]

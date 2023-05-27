@@ -6,9 +6,11 @@ from torch import nn
 from rl4co.models.rl.reinforce.base import REINFORCE
 from rl4co.models.rl.reinforce.baselines import NoBaseline
 from rl4co.models.zoo.symnco.augmentations import StateAugmentation
-from rl4co.models.zoo.symnco.losses import (invariance_loss,
-                                            problem_symmetricity_loss,
-                                            solution_symmetricity_loss)
+from rl4co.models.zoo.symnco.losses import (
+    invariance_loss,
+    problem_symmetricity_loss,
+    solution_symmetricity_loss,
+)
 from rl4co.models.zoo.symnco.policy import SymNCOPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -115,17 +117,20 @@ class SymNCO(REINFORCE):
 
         # Main training loss
         if phase == "train":
-
             # NOTE: removed asserts
             # assert num_starts > 1, "num_starts must be > 1 during training"
             # assert num_augment > 1, "num_augment must be > 1 during training"
 
             # TODO: check, it looks like we do not always augment and also get POMO
-            # [batch_size, num_augment, num_starts] 
+            # [batch_size, num_augment, num_starts]
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
             loss_ps = problem_symmetricity_loss(reward, ll) if num_starts > 1 else 0
-            loss_ss = solution_symmetricity_loss(reward, ll)  if num_augment > 1 else 0
-            loss_inv = invariance_loss(out["proj_embeddings"], num_augment) if num_augment > 1 else 0
+            loss_ss = solution_symmetricity_loss(reward, ll) if num_augment > 1 else 0
+            loss_inv = (
+                invariance_loss(out["proj_embeddings"], num_augment)
+                if num_augment > 1
+                else 0
+            )
             loss = loss_ps + self.beta * loss_ss + self.alpha * loss_inv
             out.update(
                 {

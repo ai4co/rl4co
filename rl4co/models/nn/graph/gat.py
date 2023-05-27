@@ -56,7 +56,7 @@ class GraphAttentionEncoder(nn.Module):
             )
         else:
             log.warning("Disabling init embedding manually for GraphAttentionEncoder")
-            self.init_embedding = nn.Identity() # do nothing
+            self.init_embedding = nn.Identity()  # do nothing
 
         self.layers = nn.Sequential(
             *(

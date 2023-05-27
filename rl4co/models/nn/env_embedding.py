@@ -14,7 +14,9 @@ def env_dynamic_embedding(env: Union[str, EnvBase], config: dict) -> object:
     return env_embedding(env, "dynamic", config)
 
 
-def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -> object:
+def env_embedding(
+    env: Union[str, EnvBase], embedding_type: str, config: dict
+) -> object:
     """Create an embedding object for a given environment name and embedding type.
 
     Args:
@@ -58,7 +60,10 @@ def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -
         },
     }
 
-    assert embedding_type in ["init", "dynamic"], "Unknown embedding type. Must be one of 'init' or 'dynamic'"
+    assert embedding_type in [
+        "init",
+        "dynamic",
+    ], "Unknown embedding type. Must be one of 'init' or 'dynamic'"
     env_name = env if isinstance(env, str) else env.name
     embedding_class = embedding_classes.get(env_name, {}).get(embedding_type, None)
 

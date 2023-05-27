@@ -3,9 +3,12 @@ from typing import Optional
 import numpy as np
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (BoundedTensorSpec, CompositeSpec,
-                          UnboundedContinuousTensorSpec,
-                          UnboundedDiscreteTensorSpec)
+from torchrl.data import (
+    BoundedTensorSpec,
+    CompositeSpec,
+    UnboundedContinuousTensorSpec,
+    UnboundedDiscreteTensorSpec,
+)
 
 from rl4co.envs.base import RL4COEnvBase
 from rl4co.envs.utils import batch_to_scalar
@@ -32,7 +35,7 @@ class MTSPEnv(RL4COEnvBase):
         max_num_agents: int = 5,
         cost_type: str = "minmax",
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc

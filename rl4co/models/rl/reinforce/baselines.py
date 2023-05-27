@@ -15,6 +15,7 @@ log = utils.get_pylogger(__name__)
 
 class REINFORCEBaseline(nn.Module):
     """Base class for REINFORCE baselines"""
+
     def __init__(self, *args, **kw):
         super().__init__()
         pass
@@ -123,12 +124,10 @@ class CriticBaseline(REINFORCEBaseline):
         return list(self.critic.parameters())
 
     def state_dict(self):
-        return {
-            'critic': self.critic.state_dict()
-        }
+        return {"critic": self.critic.state_dict()}
 
     def load_state_dict(self, state_dict):
-        critic_state_dict = state_dict.get('critic', {})
+        critic_state_dict = state_dict.get("critic", {})
         if not isinstance(critic_state_dict, dict):  # backwards compatibility
             critic_state_dict = critic_state_dict.state_dict()
         self.critic.load_state_dict({**self.critic.state_dict(), **critic_state_dict})

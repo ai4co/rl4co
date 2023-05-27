@@ -1,4 +1,6 @@
-import sys; sys.path.append('./')
+import sys
+
+sys.path.append("./")
 
 import math
 from typing import List, Tuple, Optional, NamedTuple, Dict, Union, Any
@@ -22,6 +24,7 @@ from tensordict import TensorDict
 from rl4co.envs import TSPEnv
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.data.dataset import TensorDictCollate, TensorDictDataset
+
 # from rl4co.models import AttentionModel, AttentionModelPolicy # in this notebook, we make them from scratch.uncomment this line if you want to use the original ones.
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.graph import GraphAttentionEncoder
@@ -32,7 +35,11 @@ from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.models.rl.reinforce.baselines import RolloutBaseline, WarmupBaseline, ExponentialBaseline
+from rl4co.models.rl.reinforce.baselines import (
+    RolloutBaseline,
+    WarmupBaseline,
+    ExponentialBaseline,
+)
 from rl4co.tasks.rl4co import RL4COLitModule
 
 
@@ -119,7 +126,9 @@ class Decoder(nn.Module):
 
     def _get_log_p(self, cached, td, softmax_temp):
         step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(1)  # [batch, 1, embed_dim]
+        glimpse_q = (cached.graph_context + step_context).unsqueeze(
+            1
+        )  # [batch, 1, embed_dim]
 
         # Compute keys and values for the nodes
         (
@@ -131,17 +140,16 @@ class Decoder(nn.Module):
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
-
         # Get the mask
         mask = ~td["action_mask"]
-        
+
         # Compute log prob: MHA + single-head attention
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
         return log_p, mask
-    
+
 
 class AttentionModelPolicy(nn.Module):
     def __init__(
@@ -158,10 +166,11 @@ class AttentionModelPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
-        **unused_kw
+        **unused_kw,
     ):
         super(AttentionModelPolicy, self).__init__()
-        if len(unused_kw) > 0: print(f"Unused kwargs: {unused_kw}")
+        if len(unused_kw) > 0:
+            print(f"Unused kwargs: {unused_kw}")
 
         self.env = env
         self.init_embedding = env_init_embedding(
@@ -247,4 +256,3 @@ td = next(iter(dataloader)).to("cuda")
 td = env.reset(td)
 
 out = policy(td, decode_type="sampling", return_actions=False)
-

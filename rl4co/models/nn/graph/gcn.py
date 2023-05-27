@@ -40,17 +40,14 @@ class GCNEncoder(nn.Module):
             )
         else:
             log.warning("Disabling init embedding manually for MessagePassingEncoder")
-            self.init_embedding = nn.Identity() # do nothing
+            self.init_embedding = nn.Identity()  # do nothing
 
         self.layers = nn.Sequential(
-            *(
-                GCNLayer(embedding_dim)
-                for _ in range(num_layers)
-            )
+            *(GCNLayer(embedding_dim) for _ in range(num_layers))
         )
 
     def forward(self, x, edge_index, mask=None):
-        # TODO if we set the graph to be fully connected, 
+        # TODO if we set the graph to be fully connected,
         # then the edge index can be moved to the init function
 
         assert mask is None, "Mask not yet supported!"

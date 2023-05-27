@@ -12,19 +12,26 @@ from einops import rearrange
 
 try:
     from flash_attn.flash_attn_interface import (
-        flash_attn_unpadded_kvpacked_func, flash_attn_unpadded_qkvpacked_func)
+        flash_attn_unpadded_kvpacked_func,
+        flash_attn_unpadded_qkvpacked_func,
+    )
 except ImportError:
     flash_attn_unpadded_qkvpacked_func, flash_attn_unpadded_kvpacked_func = None, None
 
 try:
-    from flash_attn.ops.flash_attn_triton import (flash_attn_kvpacked_func,
-                                                  flash_attn_qkvpacked_func)
+    from flash_attn.ops.flash_attn_triton import (
+        flash_attn_kvpacked_func,
+        flash_attn_qkvpacked_func,
+    )
 except ImportError:
     flash_attn_qkvpacked_func, flash_attn_kvpacked_func = None, None
 
 try:
-    from flash_attn.ops.fused_dense import (ColumnParallelLinear, FusedDense,
-                                            RowParallelLinear)
+    from flash_attn.ops.fused_dense import (
+        ColumnParallelLinear,
+        FusedDense,
+        RowParallelLinear,
+    )
 except ImportError:
     FusedDense, ColumnParallelLinear, RowParallelLinear = None, None, None
 

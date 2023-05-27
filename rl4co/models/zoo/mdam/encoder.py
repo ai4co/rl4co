@@ -218,13 +218,13 @@ class GraphAttentionEncoder(nn.Module):
         self.BN2 = Normalization(embed_dim, normalization)
 
     def forward(self, x, mask=None, return_transform_loss=False):
-        '''
+        """
         Returns:
             - h [batch_size, graph_size, embed_dim]
             - attn [num_head, batch_size, graph_size, graph_size]
             - V [num_head, batch_size, graph_size, key_dim]
             - h_old [batch_size, graph_size, embed_dim]
-        '''
+        """
         assert mask is None, "TODO mask not yet supported!"
 
         h_embeded = x
@@ -248,7 +248,8 @@ class GraphAttentionEncoder(nn.Module):
             )
         else:
             attn = attn / (
-                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9
+                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1)
+                + 1e-9
             )
         heads = torch.matmul(attn, V)
 

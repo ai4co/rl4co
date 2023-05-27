@@ -89,7 +89,6 @@ class Decoder(nn.Module):
 
         # Main decoding
         while not td["done"].all():
-
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
@@ -131,7 +130,7 @@ class Decoder(nn.Module):
         td_unbatch = unbatchify(td, self.num_starts)
 
         step_context = self.context(cached.node_embeddings, td_unbatch)
-        glimpse_q = step_context # TODO
+        glimpse_q = step_context  # TODO
 
         # Compute keys and values for the nodes
         (
@@ -150,7 +149,6 @@ class Decoder(nn.Module):
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
-
 
         # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
         # Note that rearranging order is important here

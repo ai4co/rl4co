@@ -28,7 +28,7 @@ class MDAMPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
-        **unused_kw
+        **unused_kw,
     ):
         """
         Args:
@@ -51,7 +51,8 @@ class MDAMPolicy(nn.Module):
             test_decode_type: decode type for testing
         """
         super(MDAMPolicy, self).__init__()
-        if len(unused_kw) > 0: print(f"Unused kwargs: {unused_kw}")
+        if len(unused_kw) > 0:
+            print(f"Unused kwargs: {unused_kw}")
 
         self.env = env
         self.init_embedding = env_init_embedding(
@@ -73,8 +74,8 @@ class MDAMPolicy(nn.Module):
         self.decoder = (
             Decoder(
                 env=env,
-                embedding_dim=embedding_dim, 
-                num_heads=num_heads, 
+                embedding_dim=embedding_dim,
+                num_heads=num_heads,
                 num_paths=num_paths,
                 mask_inner=mask_inner,
                 mask_logits=mask_logits,
@@ -104,7 +105,9 @@ class MDAMPolicy(nn.Module):
         if decoder_kwargs.get("decode_type", None) is None:
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
-        reward, log_likelihood, kl_divergence, actions = self.decoder(td, encoded_inputs, attn, V, h_old, **decoder_kwargs)
+        reward, log_likelihood, kl_divergence, actions = self.decoder(
+            td, encoded_inputs, attn, V, h_old, **decoder_kwargs
+        )
         out = {
             "reward": reward,
             "log_likelihood": log_likelihood,
