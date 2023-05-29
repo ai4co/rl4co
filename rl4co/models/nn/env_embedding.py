@@ -93,13 +93,14 @@ class VRPInitEmbedding(nn.Module):
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
-        depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
+        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot_embedding = self.init_embed_depot(depot)
         # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
         node_embeddings = self.init_embed(
-            torch.cat((td["locs"], td["demand"][:, :, None]), -1)
+            torch.cat((customers, td["demand"][:, 1:, None]), -1)
         )
         # [batch, n_customer+1, embedding_dim]
-        out = torch.cat((depot_embedding, node_embeddings[..., 1:, :]), 1)
+        out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
 

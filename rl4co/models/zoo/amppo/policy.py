@@ -72,7 +72,7 @@ class PPOAttentionModelPolicy(nn.Module):
         return_entropy: bool = False,
         given_actions: torch.Tensor = None,
         **decoder_kwargs,
-    ) -> TensorDict:
+    ) -> dict:
         # Encode inputs
         embeddings, _ = self.encoder(td)
 

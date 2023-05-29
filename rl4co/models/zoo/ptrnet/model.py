@@ -15,9 +15,9 @@ class PointerNetwork(REINFORCE):
         baseline: REINFORCE Baseline
     """
 
-    def __init__(self, env, policy=None, baseline=None):
+    def __init__(self, env, policy=None, baseline=None, **policy_kwargs):
         super(PointerNetwork, self).__init__(env, policy, baseline)
-        self.policy = PointerNetworkPolicy(self.env) if policy is None else policy
+        self.policy = PointerNetworkPolicy(self.env, **policy_kwargs) if policy is None else policy
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline
         )

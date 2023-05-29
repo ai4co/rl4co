@@ -41,6 +41,7 @@ class CVRPEnv(RL4COEnvBase):
         max_loc: float = 1,
         min_demand: float = 1,
         max_demand: float = 10,
+        vehicle_capacity: float = 1.,
         capacity: float = None,
         td_params: TensorDict = None,
         **kwargs,
@@ -56,6 +57,7 @@ class CVRPEnv(RL4COEnvBase):
             raise ValueError(
                 f"Capacity for {num_loc} locations is not defined. Please provide a capacity manually."
             )
+        self.vehicle_capacity = vehicle_capacity
         self._make_spec(td_params)
 
     @staticmethod
@@ -130,17 +132,23 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the capacity
-        capacity = torch.full((*batch_size, 1), self.capacity)
+        capacity = torch.full((*batch_size, 1), 1.0)
 
+        # Concatenate depot to the locations as the first node
+        locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
+
+        # Concatenate zero as the first node (depot) to the demand
+        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1)
+        
         # Init the action mask
-        action_mask = td["demand"] > 0
+        action_mask = demand > 0
 
         return TensorDict(
             {
-                "locs": td["locs"],
+                "locs": locs,
                 "capacity": capacity,
                 "current_node": current_node,
-                "demand": td["demand"],
+                "demand": demand,
                 "action_mask": action_mask,
             },
             batch_size=batch_size,
@@ -203,11 +211,10 @@ class CVRPEnv(RL4COEnvBase):
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - locs <Tensor> [batch_size, num_loc+1, 2]: locations of the nodes
-                - demand <Tensor> [batch_size, num_loc+1]: demand of the nodes
+                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
+                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
                 - current_node <Tensor> [batch_size, 1]: current node
-                - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
             - the locs includes the depot as the first node
             - the demand includes the used capacity at the first value
@@ -217,29 +224,27 @@ class CVRPEnv(RL4COEnvBase):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = (
+        locs_with_depot = (
             torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
-        # Initialize the demand
+        # Initialize the demand for nodes except the depot
         demand = (
             torch.randint(
-                self.min_demand, self.max_demand, size=(*batch_size, self.num_loc + 1)
+                self.min_demand, self.max_demand, size=(*batch_size, self.num_loc)
             )
             .float()
             .to(self.device)
             / self.capacity
         )
 
-        # The first demand is the used capacity
-        demand[..., 0] = 0
 
         return TensorDict(
             {
-                "locs": locs,
-                "depot": locs[..., 0, :],
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "demand": demand,
             },
             batch_size=batch_size,

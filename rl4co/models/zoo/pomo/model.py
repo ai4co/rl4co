@@ -22,10 +22,10 @@ class POMO(REINFORCE):
         num_augment: Number of augmentations (default: 8)
     """
 
-    def __init__(self, env, policy=None, baseline=None, num_starts=10, num_augment=8):
+    def __init__(self, env, policy=None, baseline=None, num_starts=10, num_augment=8, **policy_kwargs):
         super(POMO, self).__init__(env, policy, baseline)
         self.policy = (
-            POMOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+            POMOPolicy(self.env, num_starts=num_starts, **policy_kwargs) if policy is None else policy
         )
 
         # TODO: check baseline

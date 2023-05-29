@@ -42,11 +42,12 @@ class SymNCO(REINFORCE):
         alpha=0.2,
         beta=1,
         augment_test=True,
+        **policy_kwargs
     ):
         super(SymNCO, self).__init__(env, policy, baseline)
 
         self.policy = (
-            SymNCOPolicy(self.env, num_starts=num_starts) if policy is None else policy
+            SymNCOPolicy(self.env, num_starts=num_starts, **policy_kwargs) if policy is None else policy
         )
         if baseline is not None:
             log.warn(

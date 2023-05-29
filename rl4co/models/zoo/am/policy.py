@@ -71,7 +71,7 @@ class AttentionModelPolicy(nn.Module):
         return_actions: bool = False,
         return_entropy: bool = False,
         **decoder_kwargs,
-    ) -> TensorDict:
+    ) -> dict:
         # Encode inputs
         embeddings, _ = self.encoder(td)
 
