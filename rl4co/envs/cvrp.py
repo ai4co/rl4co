@@ -62,14 +62,7 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
-        """Update the states of the environment
-        Args:
-            - td <TensorDict>: tensor dictionary containing with the action
-                - action <int> [batch_size, 1]: action to take
-        NOTE:
-            - the first node in de demand is larger than 0 or less than 0?
-            - this design is important. For now the design is LESS than 0
-        """
+
         current_node = td["action"][..., None]
         demand = td["demand"]
 
@@ -116,10 +109,6 @@ class CVRPEnv(RL4COEnvBase):
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
     ) -> TensorDict:
-        """
-        Args:
-            - td (Optional) <TensorDict>: tensor dictionary containing the initial state
-        """
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
 
@@ -131,15 +120,15 @@ class CVRPEnv(RL4COEnvBase):
             (*batch_size, 1), dtype=torch.int64, device=self.device
         )
 
-        # Initialize the capacity
-        capacity = torch.full((*batch_size, 1), 1.0)
-
         # Concatenate depot to the locations as the first node
         locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
 
-        # Concatenate zero as the first node (depot) to the demand
-        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1)
-        
+        # Concatenate zero as the first node (depot) to the demand and normalize by the capacity (note that this is not the vehicle capacity)
+        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1) / td['capacity'][..., None]
+
+        # Initialize the vehicle capacity
+        capacity = torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device)
+
         # Init the action mask
         action_mask = demand > 0
 
@@ -191,13 +180,6 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        """
-        Args:
-            - td: <tensor_dict>: tensor dictionary containing the state
-            - actions: [batch_size, TODO] num_loc means a sequence of actions till the task is done
-        NOTE:
-            - about the length of the actions
-        """
         locs = td["locs"]
         # TODO: Check the validation of the tour
         # Gather locations in order of tour and return distance between them (i.e., -reward)
@@ -206,20 +188,7 @@ class CVRPEnv(RL4COEnvBase):
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
-        """
-        Args:
-            - batch_size <int> or <list>: batch size
-        Returns:
-            - td <TensorDict>: tensor dictionary containing the initial state
-                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - demand <Tensor> [batch_size, num_loc]: demand of the nodes
-                - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
-                - current_node <Tensor> [batch_size, 1]: current node
-        NOTE:
-            - the locs includes the depot as the first node
-            - the demand includes the used capacity at the first value
-            - the unvisited variable can be replaced by demand > 0
-        """
+
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
@@ -237,15 +206,20 @@ class CVRPEnv(RL4COEnvBase):
             )
             .float()
             .to(self.device)
-            / self.capacity
         )
 
+        # Support for heterogeneous capacity if provided
+        if not isinstance(self.capacity, torch.Tensor):
+            capacity = torch.full((*batch_size,), self.capacity, device=self.device)
+        else:
+            capacity = self.capacity
 
         return TensorDict(
             {
                 "locs": locs_with_depot[..., 1:, :],
                 "depot": locs_with_depot[..., 0, :],
                 "demand": demand,
+                "capacity": capacity,
             },
             batch_size=batch_size,
         )
