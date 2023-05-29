@@ -1,11 +1,12 @@
 from math import log
+from typing import Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from rl4co.utils.pylogger import get_pylogger
-from sympy import N
 from tensordict import TensorDict
+
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
@@ -18,7 +19,7 @@ class PPO(nn.Module):
         critic: nn.Module,
         clip_range: float = 0.2,  # epsilon of PPO
         ppo_epochs: int = 1,  # K
-        mini_batch_size: int = 16,
+        mini_batch_size: Union[int, float] = 0.25,
         vf_lambda: float = 0.5,  # lambda of Value function fitting
         entropy_lambda: float = 0.0,  # lambda of entropy bonus
         normalize_adv: bool = False,  # whether to normalize advantage
@@ -62,12 +63,13 @@ class PPO(nn.Module):
                 batch_size = old_logp.shape[0]
 
                 if self.mini_batch_size > batch_size:
-                    log.info(
-                        "Mini batch size is larger than batch size, set to batch size"
-                    )
+                    log.info("Mini batch size is larger than batch size, set to batch size")
                     mini_batch_size = batch_size
                 else:
                     mini_batch_size = self.mini_batch_size
+
+                if isinstance(mini_batch_size, float):
+                    mini_batch_size = int(mini_batch_size * batch_size)
 
                 iter_i = 0
                 for mini_batch_idx in torch.randperm(batch_size).split(mini_batch_size):
@@ -102,8 +104,7 @@ class PPO(nn.Module):
                     # compute surrogate loss
                     surrogate_loss = torch.min(
                         ratio * adv,
-                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range)
-                        * adv,
+                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range) * adv,
                     ).mean()
 
                     # compute entropy bonus
@@ -111,9 +112,7 @@ class PPO(nn.Module):
 
                     # compute value function loss
                     value = self.critic(mini_batched_td, **critic_kwargs)
-                    value_loss = F.huber_loss(
-                        value, rewards[mini_batch_idx].view(-1, 1)
-                    )
+                    value_loss = F.huber_loss(value, rewards[mini_batch_idx].view(-1, 1))
                     # value_loss = (value - rewards[mini_batch_idx]).pow(2).mean()
 
                     # compute total loss
@@ -128,9 +127,7 @@ class PPO(nn.Module):
                         optimizer.zero_grad()
                         loss.backward()
                         if self.max_grad_norm is not None:
-                            nn.utils.clip_grad_norm_(
-                                self.parameters(), self.max_grad_norm
-                            )
+                            nn.utils.clip_grad_norm_(self.parameters(), self.max_grad_norm)
                         optimizer.step()
 
             # log training results

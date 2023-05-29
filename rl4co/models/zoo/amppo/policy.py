@@ -4,7 +4,7 @@ from tensordict.tensordict import TensorDict
 from torchrl.envs import EnvBase
 
 from rl4co.models.nn.env_embedding import env_init_embedding
-from rl4co.models.nn.graph import GraphAttentionEncoder
+from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.amppo.decoder import PPODecoder
 from rl4co.utils.pylogger import get_pylogger
@@ -86,9 +86,7 @@ class PPOAttentionModelPolicy(nn.Module):
         )
 
         # Log likelihood is calculated within the model since returning it per action does not work well with
-        ll = get_log_likelihood(
-            log_p, actions, td_out.get("mask", None), return_sum=False
-        )
+        ll = get_log_likelihood(log_p, actions, td_out.get("mask", None), return_sum=False)
 
         out = {
             "reward": td_out["reward"],
@@ -107,8 +105,9 @@ class PPOAttentionModelPolicy(nn.Module):
             out["actions"] = actions  # [batch, decoder steps]
 
         if return_entropy:
-            entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
-            entropy = entropy.sum(dim=1)  # [batch]
+            # log_p [batch, decoder steps, num nodes]
+            entropy = -(log_p.exp() * log_p).nansum(dim=-1)  # [batch, decoder steps]
+            entropy = entropy.sum(dim=1)  # [batch] -- sum over decoding steps
             out["entropy"] = entropy
 
         return out

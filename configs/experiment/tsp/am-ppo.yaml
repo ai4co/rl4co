@@ -14,23 +14,22 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["tsp", "am"]
+env:
+  num_loc: 50
+
+tags: ["tsp", "am-PPO", "50"]
 
 task:
   _target_: rl4co.models.rl.ppo.task.PPOTask
 
 logger:
   wandb:
-    mode: "disabled"
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
-    name: "am"
+    name: "am-PPO"
 
 seed: 12345
-
-env:
-  num_loc: 50
 
 trainer:
   min_epochs: 10
@@ -46,9 +45,13 @@ train:
     _target_: torch.optim.Adam
     lr: 1e-4
     weight_decay: 1e-5
+  scheduler:
+    _target_: torch.optim.lr_scheduler.MultiStepLR
+    milestones: [80, 95]
+    gamma: 0.1
+  scheduler_interval: epoch
 
 data:
-  batch_size: 128
+  batch_size: 512
   train_size: 1280000
   val_size: 10000
-  val_batch_size: 128

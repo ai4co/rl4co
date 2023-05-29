@@ -39,10 +39,6 @@ class PPODecoder(Decoder):
             td.set("action", action)
             td = self.env.step(td)["next"]
 
-            # Collect output of step
-            # print("log_p", log_p.shape)
-            # raise RuntimeError("stop")
-
             outputs.append(log_p)
             actions.append(action)
 

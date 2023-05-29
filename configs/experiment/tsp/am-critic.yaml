@@ -22,7 +22,7 @@ logger:
     tags: ${tags}
     group: "tsp${env.num_loc}"
     name: "am-critic"
-   
+
 seed: 12345
 
 env:
@@ -36,7 +36,6 @@ model:
     critic:
       _target_: rl4co.models.rl.reinforce.critic.CriticNetwork
       env: ${env}
-
 
 trainer:
   min_epochs: 10
