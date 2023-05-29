@@ -1,0 +1,63 @@
+# @package _global_
+
+# In this experiment, we make AM have the same number of samples as POMO. 
+# In POMO, they ran 100,000 * 510 * 50 (if num_loc=50) = ~2,550,000,000 effective samples (this is the batch size)
+# (NOTE: 510 is for TSP20. It looks like they ran a mastodontic 3000+ epochs for TSP100 according to the official implementation)
+# For the AM implementation, if we divide by 1,280,000 samples per epoch, this is almost 2000 epochs. In other words, they are using 20x as many samples.
+# If we account for 3000+ epochs in TSP100, and 100 for batch augmentation, this means that they had more than 100x more samples than the original AM.
+# We can try to see whether training AM for longer makes sense. Let's take TSP50 and batch_size 64 as original = 3200 of batch size.
+# Then, let's train for around 500 epochs (total of 4x less samples than POMO) to see what happens
+
+defaults:
+  - override /model: am.yaml
+  - override /env: cvrp.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  # - override /logger: null # comment this line to enable logging
+  - override /logger: wandb.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+env:
+  num_loc: 50
+
+seed: 1234
+
+trainer:
+  max_epochs: 500
+  gradient_clip_val: 1.0
+  accelerator: "gpu"
+  precision: "16-mixed"
+
+train:
+  optimizer:
+    # _partial_: True
+    _target_: torch.optim.Adam
+    lr: 1e-4
+    weight_decay: 0
+  scheduler:
+    _target_: torch.optim.lr_scheduler.MultiStepLR
+    milestones: [450, 490] # only last few epochs have a decrease in step size
+    gamma: 0.1
+  scheduler_interval: epoch
+  
+# Let's try to make the same architecture as POMO
+model:
+  # policy params
+  normalization: "instance"
+  num_encoder_layers: 6
+
+data:
+  batch_size: 3200
+  train_size: 1280000
+  val_size: 10000
+
+tags: ["am", "cvrp", "50"]
+
+logger:
+  wandb:
+    project: "rl4co"
+    tags: ${tags}
+    group: "cvrp50"
+    name: "am-cvrp50-POMOlike"
