@@ -70,11 +70,13 @@ class RL4COEnvBase(EnvBase):
         """
         raise NotImplementedError
 
-    def dataset(self, batch_size=[], phase="train"):
+    def dataset(self, batch_size=[], phase="train", filename=None):
         """Return a dataset of observations
         Generates the dataset if it does not exist, otherwise loads it from file
         """
-        f = getattr(self, f"{phase}_file")
+        if filename is not None:
+            log.info(f"Overriding dataset filename from {filename}")
+        f = getattr(self, f"{phase}_file") if filename is None else filename
         if f is None:
             if phase != "train":
                 log.warning(f"{phase}_file not set. Generating dataset instead")
@@ -89,8 +91,8 @@ class RL4COEnvBase(EnvBase):
             try:
                 td = self.load_data(f, batch_size)
             except FileNotFoundError:
-                log.error(f"File {f} not found. Generating dataset instead")
-                td = self.generate_data(batch_size)
+                raise Exception(f"Provided file name {f} not found. Make sure to provide a file in the right path first or " \
+                                f"unset {phase}_file to generate data automatically instead")
         return TensorDictDataset(td)
 
     def generate_data(self, batch_size):
