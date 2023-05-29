@@ -1,64 +1,118 @@
+import sys
+from turtle import up; sys.path.append('.')
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_self_loops, degree
+from torch_geometric.data import Data, Batch
 
-from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.utils.pylogger import get_pylogger
+from rl4co.models.nn.mlp import MLP
+from rl4co.models.nn.env_embedding import env_init_embedding
 
 log = get_pylogger(__name__)
 
 
-class MessagePassingEncoder(nn.Module):
+class MessagePassingEncoder(MessagePassing):
     def __init__(
         self,
+        env,
         embedding_dim,
-        env=None,
+        num_nodes,
         aggregation="add",
-        disable_init_embedding=False,
+        residual=False,
+        **mlp_params,
     ):
-        """
-        Args:
-            aggregation: "add" or "mean", pytorch geometric variable
-        """
         super(MessagePassingEncoder, self).__init__(aggr=aggregation)
+        # Define the init embedding
+        self.init_embedding = env_init_embedding(
+            env, {"embedding_dim": embedding_dim}
+        )
 
-        # To map input to embedding space
-        if not disable_init_embedding:
-            self.init_embedding = env_init_embedding(
-                env, {"embedding_dim": embedding_dim}
-            )
-        else:
-            log.warning("Disabling init embedding manually for MessagePassingEncoder")
-            self.init_embedding = nn.Identity()  # do nothing
+        # Generate edge index for a fully connected graph
+        adj_matrix = torch.ones(num_nodes, num_nodes)
+        adj_matrix.fill_diagonal_(0) # No self-loops
+        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(env.device)
 
-        self.bias = Parameter(torch.Tensor(embedding_dim))
-        self.bias.data.zero_()
+        # Init message passing models
+        edge_indim = 1 # Distance
+        edge_outdim = 1
+        node_indim = embedding_dim # Position
+        node_outdim = embedding_dim
+        self.edge_model = MLP(
+            input_dim=edge_indim + 2 * node_indim,
+            output_dim=edge_outdim,
+            **mlp_params
+        )
+        self.node_model = MLP(
+            input_dim=edge_outdim + node_indim,
+            output_dim=node_outdim,
+            **mlp_params
+        )
+        self.residual = residual
 
-    def forward(self, x, edge_index, mask=None):
-        # TODO if we set the graph to be fully connected,
-        # then the edge index can be moved to the init function
-
+    def forward(self, x, mask=None):
+        '''
+        Args:
+            - x <tensorDict>
+        '''
         assert mask is None, "Mask not yet supported!"
-        # initial Embedding from features
-        init_embeds = self.init_embedding(x)
-        # layers  (batch_size, graph_size, embed_dim)
-        edge_index, _ = add_self_loops(edge_index, num_nodes=init_embeds.size(-2))
-        # graph normalization
-        row, col = edge_index
-        deg = degree(
-            col, init_embeds.size(-2), dtype=init_embeds.dtype
-        )  # TODO fix the batch processing
-        deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
-        norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
-        # propagate
-        out = self.propagate(edge_index, x=init_embeds, norm=norm)
-        # add bias
-        out = out + self.bias
-        return out, init_embeds
+        # Initialize embedding
+        node_feature = self.init_embedding(x)
 
-    def message(self, x_j, norm):
-        # normalize the node feature
-        return norm.view(-1, 1) * x_j
+        # Generate edge features: distance
+        edge_feature = torch.norm(
+            node_feature[..., self.edge_index[0], :] - node_feature[..., self.edge_index[1], :],
+            dim=-1,
+            keepdim=True,
+        )
+
+        # Create the batched graph
+        data_list = [
+            Data(x=x, edge_index=self.edge_index, edge_attr=edge_attr)
+            for x, edge_attr in zip(node_feature, edge_feature)
+        ]
+        data_batch = Batch.from_data_list(data_list)
+
+        # Message passing
+        update_edge_feature = self.edge_update(
+            data_batch.x, data_batch.edge_attr, data_batch.edge_index
+        )
+        update_node_feature = self.propagate(
+            data_batch.edge_index, x=data_batch.x, edge_features=update_edge_feature
+        )
+
+        # De-batch the graph
+        input_size = node_feature.size()
+        update_node_feature = update_node_feature.view(*input_size)
+
+        # Update with residual connection
+        if self.residual:
+            update_node_feature = update_node_feature + node_feature
+
+        return update_node_feature, node_feature
+
+    def edge_update(self, nf, ef, edge_index):
+        row, col = edge_index
+        x_i, x_j = nf[row], nf[col]
+        uef = self.edge_model(torch.cat([x_i, x_j, ef], dim=-1))
+        return uef
+
+    def message(self, edge_features: torch.tensor):
+        return edge_features
+
+    def update(self, aggr_msg: torch.tensor, x: torch.tensor):
+        unf = self.node_model(torch.cat([x, aggr_msg], dim=-1))
+        return unf
+
+
+if __name__ == '__main__':
+    from rl4co.envs import TSPEnv
+    env = TSPEnv()
+    model = MessagePassingEncoder(
+        env=env,
+        embedding_dim=128, 
+        num_nodes=20
+    )
+    td = env.reset(batch_size=[32])
+    update_node_feature, _ = model(td)
+    print(update_node_feature.size())
