@@ -41,7 +41,7 @@ class CVRPEnv(RL4COEnvBase):
         max_loc: float = 1,
         min_demand: float = 1,
         max_demand: float = 10,
-        vehicle_capacity: float = 1.,
+        vehicle_capacity: float = 1.0,
         capacity: float = None,
         td_params: TensorDict = None,
         **kwargs,
@@ -62,7 +62,6 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
-
         current_node = td["action"][..., None]
         demand = td["demand"]
 
@@ -116,15 +115,16 @@ class CVRPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         # Initialize the current node
-        current_node = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64, device=self.device
-        )
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         # Concatenate depot to the locations as the first node
         locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
 
         # Concatenate zero as the first node (depot) to the demand and normalize by the capacity (note that this is not the vehicle capacity)
-        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1) / td['capacity'][..., None]
+        demand = (
+            torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1)
+            / td["capacity"][..., None]
+        )
 
         # Initialize the vehicle capacity
         capacity = torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device)
@@ -188,7 +188,6 @@ class CVRPEnv(RL4COEnvBase):
         return -((locs_next - locs).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
-
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
@@ -200,9 +199,19 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the demand for nodes except the depot
+        # demand = (
+        #     torch.randint(self.min_demand, self.max_demand, size=(*batch_size, self.num_loc))
+        #     .float()
+        #     .to(self.device)
+        # )
+
+        # Demand sampling Following Kool et al. (2019)
         demand = (
-            torch.randint(
-                self.min_demand, self.max_demand, size=(*batch_size, self.num_loc)
+            (
+                torch.FloatTensor(*batch_size, self.num_loc)
+                .uniform_(self.min_demand - 1, self.max_demand - 1)
+                .int()
+                + 1
             )
             .float()
             .to(self.device)
