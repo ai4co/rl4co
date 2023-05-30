@@ -47,29 +47,18 @@ class POMO(REINFORCE):
         num_augment = self.num_augment
         if policy_kwargs.get("single_traj", False):
             num_starts, num_augment = 0, 0
+
         # during training, we do not augment the data
         if phase == "train":
             num_augment = 0
         elif num_augment > 1:
-            td = self.augment(td)
+            td = self.augment(td, num_augment)
 
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (num_starts, num_augment))
-
-        # Get POMO rewards and best actions
-        if num_starts > 1:
-            # Max POMO reward. Decouple augmentation and POMO
-            max_reward, max_idxs = reward.max(dim=1)
-            out.update({"max_reward": max_reward})
-
-            # Reshape batch to [batch, num_starts, num_augment]
-            if out.get("actions", None) is not None:
-                actions = unbatchify(out["actions"], (num_starts, num_augment))
-                out.update({"best_pomo_actions": gather_by_index(actions, max_idxs)})
-                out["actions"] = actions
 
         # Training phase
         if phase == "train":
@@ -96,6 +85,19 @@ class POMO(REINFORCE):
                 }
             )
 
+        # Get best actions and rewards
+        # Get POMO rewards and best actions
+        if num_starts > 1:
+            # Max POMO reward. Decouple augmentation and POMO
+            max_reward, max_idxs = reward.max(dim=1)
+            out.update({"max_reward": max_reward})
+
+            # Reshape batch to [batch, num_starts, num_augment]
+            if out.get("actions", None) is not None:
+                actions = unbatchify(out["actions"], (num_starts, num_augment))
+                out.update({"best_multistart_actions": gather_by_index(actions, max_idxs)})
+                out["actions"] = actions
+
         # Get augmentation score only during inference
         if num_augment > 1:
             if num_starts > 1:
@@ -104,11 +106,11 @@ class POMO(REINFORCE):
             # [batch, num_augment]
             max_aug_reward, max_idxs = reward_.max(dim=1)
             out.update({"max_aug_reward": max_aug_reward})
-            if out.get("best_pomo_actions", None) is not None:
+            if out.get("best_multistart_actions", None) is not None:
                 out.update(
                     {
                         "best_aug_actions": gather_by_index(
-                            out["best_pomo_actions"], max_idxs
+                            out["best_multistart_actions"], max_idxs
                         )
                     }
                 )

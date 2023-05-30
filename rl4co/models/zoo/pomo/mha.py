@@ -1,3 +1,6 @@
+# NOTE: this is a sanity check against the MHA implementation in the original POMO codebase
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
