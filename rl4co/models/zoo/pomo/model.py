@@ -52,7 +52,7 @@ class POMO(REINFORCE):
         if phase == "train":
             num_augment = 0
         elif num_augment > 1:
-            td = self.augment(td, num_augment)
+            td = self.augment(td)
 
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
