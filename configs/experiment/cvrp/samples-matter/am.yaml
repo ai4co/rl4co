@@ -20,12 +20,12 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 env:
-  num_loc: 50
+  num_loc: 20
 
 seed: 1234
 
 trainer:
-  max_epochs: 1000
+  max_epochs: 500
   gradient_clip_val: 1.0
   accelerator: "gpu"
   precision: "16-mixed"
@@ -38,7 +38,7 @@ train:
     weight_decay: 1e-6 # same as POMO
   scheduler:
     _target_: torch.optim.lr_scheduler.MultiStepLR
-    milestones: [950, 990] # only last few epochs have a decrease in step size
+    milestones: [480, 495] # only last few epochs have a decrease in step size
     gamma: 0.1
   scheduler_interval: epoch
   
@@ -53,11 +53,11 @@ data:
   train_size: 1280000
   val_size: 10000
 
-tags: ["am", "cvrp", "50"]
+tags: ["am", "cvrp", "20"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "cvrp50"
-    name: "am-cvrp50-samples-matter"
+    group: "cvrp20"
+    name: "am-cvrp20-samples-matter"
