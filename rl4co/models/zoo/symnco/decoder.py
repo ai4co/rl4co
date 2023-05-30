@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from einops import rearrange
 
 import torch
 import torch.nn as nn
@@ -7,9 +8,10 @@ from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.models.zoo.pomo.utils import select_start_nodes
+from rl4co.models.zoo.symnco.utils import select_start_nodes
 from rl4co.utils import get_pylogger
-from rl4co.utils.ops import batchify
+from rl4co.utils.ops import batchify, unbatchify
+
 
 log = get_pylogger(__name__)
 
@@ -61,7 +63,7 @@ class Decoder(nn.Module):
         self.num_starts = max(num_starts, 1)  # POMO = 1 is just normal REINFORCE
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None):
+    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 
@@ -69,7 +71,7 @@ class Decoder(nn.Module):
         outputs = []
         actions = []
 
-        if self.num_starts > 1:
+        if self.num_starts > 1 and not single_traj:
             # POMO: first action is decided via select_start_nodes
             action = select_start_nodes(
                 batch_size=td.shape[0], num_nodes=self.num_starts, device=td.device
@@ -113,49 +115,49 @@ class Decoder(nn.Module):
             logit_key_fixed,
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
-        # In POMO, no graph context (trick for overfit to single graph size) # [batch, 1, embed_dim]
-        graph_context = (
-            batchify(
-                self.project_fixed_context(embeddings.mean(1)),
-                self.num_starts,
-            )
-            if self.use_graph_context
-            else 0
-        )
+        # In POMO, no graph context. However, it was not shown how this could help # [batch, 1, embed_dim]
+        graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), self.num_starts), self.num_starts) if self.use_graph_context else 0
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
-            node_embeddings=batchify(embeddings, self.num_starts),
+            node_embeddings=embeddings,
             graph_context=graph_context,
-            glimpse_key=batchify(glimpse_key_fixed, self.num_starts),
-            glimpse_val=batchify(glimpse_val_fixed, self.num_starts),
-            logit_key=batchify(logit_key_fixed, self.num_starts),
+            glimpse_key=glimpse_key_fixed,
+            glimpse_val=glimpse_val_fixed,
+            logit_key=logit_key_fixed,
         )
         return cached_embeds
 
     def _get_log_p(self, cached, td, softmax_temp=None):
         # Compute the query based on the context (computes automatically the first and last node context)
-        step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(
-            1
-        )  # [batch, 1, embed_dim]
+        
+        # need to unbatchify
+        td_unbatch = unbatchify(td, self.num_starts)
+
+        step_context = self.context(cached.node_embeddings, td_unbatch)
+        glimpse_q = cached.graph_context + step_context 
 
         # Compute keys and values for the nodes
         (
             glimpse_key_dynamic,
             glimpse_val_dynamic,
             logit_key_dynamic,
-        ) = self.dynamic_embedding(td)
+        ) = self.dynamic_embedding(td_unbatch)
         glimpse_k = cached.glimpse_key + glimpse_key_dynamic
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
+
         # Get the mask
-        mask = ~td["action_mask"]
+        mask = ~td_unbatch["action_mask"]
 
         # Compute logits
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
+        # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
+        # Note that rearranging order is important here
+        log_p = rearrange(log_p, "b s l -> (s b) l")
+        mask = rearrange(mask, "b s l -> (s b) l")
         return log_p, mask
