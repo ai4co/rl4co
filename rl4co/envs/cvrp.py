@@ -17,19 +17,21 @@ CAPACITIES = {10: 20.0, 20: 30.0, 50: 40.0, 100: 50.0}
 
 
 class CVRPEnv(RL4COEnvBase):
-    """
-    Capacity Vehicle Routing Problem (CVRP) environment
-    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    """Capacitated Vehicle Routing Problem (CVRP) environment.
+    At each step, the agent chooses a customer to visit depending on the current location and the remaining capacity.
+    When the agent visits a customer, the remaining capacity is updated. If the remaining capacity is not enough to
+    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
-        - min_loc <float>: minimum value for the location coordinates
-        - max_loc <float>: maximum value for the location coordinates
-        - capacity <float>: capacity of the vehicle
-        - td_params <TensorDict>: parameters of the environment
-        - seed <int>: seed for the environment
-        - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
+        num_loc (int): number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        min_loc (float): minimum value for the location coordinates
+        max_loc (float): maximum value for the location coordinates
+        min_demand (float): minimum value for the demand of each customer
+        max_demand (float): maximum value for the demand of each customer
+        vehicle_capacity (float): capacity of the vehicle
+        capacity (float): capacity of the vehicle
+        td_params (TensorDict): parameters of the environment
     """
 
     name = "cvrp"
@@ -62,13 +64,14 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
+
         current_node = td["action"][..., None]
         demand = td["demand"]
 
-        # update the used capacity
+        # Update the used capacity on the depot (its "demand" is with minus sign)
         demand[..., 0] -= torch.gather(demand, 1, current_node).squeeze()
 
-        # set the visited node demand to 0
+        # Set the visited node demand to 0
         demand.scatter_(-1, current_node, 0)
 
         # Get the action mask, no zero demand nodes can be visited
@@ -76,17 +79,15 @@ class CVRPEnv(RL4COEnvBase):
 
         # Nodes exceeding capacity cannot be visited
         available_capacity = td["capacity"] + demand[..., :1]
-        action_mask = torch.logical_and(action_mask, demand <= available_capacity)
+        action_mask = torch.logical_and(action_mask, demand <= available_capacity + 1e-5)
 
         # We are done there are no unvisited locations
-        done = torch.count_nonzero(demand, dim=-1) <= 0
+        done = torch.count_nonzero(demand[...,1:], dim=-1) == 0
 
-        # REVIEW: if all nodes are visited, then set the depot be always available
+        # If all nodes are visited, then set the depot to be always available
         action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
 
-        # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
-        # Note: reward is calculated outside for now via the get_reward function
-        # to calculate here need to pass action sequence or save it as state
+        # Reward is -path length. Final reward is calculated outside of this function for efficiency
         reward = torch.ones_like(done) * float("-inf")
 
         # The output must be written in a ``"next"`` entry
@@ -115,16 +116,15 @@ class CVRPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         # Initialize the current node
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros(
+            (*batch_size, 1), dtype=torch.int64, device=self.device
+        )
 
         # Concatenate depot to the locations as the first node
         locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
 
         # Concatenate zero as the first node (depot) to the demand and normalize by the capacity (note that this is not the vehicle capacity)
-        demand = (
-            torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1)
-            / td["capacity"][..., None]
-        )
+        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1) / td['capacity'][..., None]
 
         # Initialize the vehicle capacity
         capacity = torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device)
@@ -182,12 +182,13 @@ class CVRPEnv(RL4COEnvBase):
     def get_reward(td, actions) -> TensorDict:
         locs = td["locs"]
         # TODO: Check the validation of the tour
-        # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = gather_by_index(locs, actions)
-        locs_next = torch.roll(locs, 1, dims=1)
-        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+        depot = locs[..., 0:1, :]
+        loc_gathered = torch.cat([depot, gather_by_index(locs, actions)], dim=1)
+        loc_gathered_next = torch.roll(loc_gathered, 1, dims=1)
+        return -((loc_gathered_next - loc_gathered).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
+
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
@@ -199,13 +200,8 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Initialize the demand for nodes except the depot
-        # demand = (
-        #     torch.randint(self.min_demand, self.max_demand, size=(*batch_size, self.num_loc))
-        #     .float()
-        #     .to(self.device)
-        # )
-
         # Demand sampling Following Kool et al. (2019)
+        # Generates a slightly different distribution than using torch.randint
         demand = (
             (
                 torch.FloatTensor(*batch_size, self.num_loc)
