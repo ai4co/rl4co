@@ -5,7 +5,7 @@
 
 defaults:
   - override /model: pomo.yaml
-  - override /env: tsp.yaml
+  - override /env: cvrp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -17,7 +17,7 @@ defaults:
 seed: 1234
 
 env:
-  num_loc: 50
+  num_loc: 20
 
 trainer:
   max_epochs: 100
@@ -43,14 +43,14 @@ data:
   train_size: 160_000
   val_size: 10_000
 
-tags: ["tsp", "pomo"]
+tags: ["cvrp", "pomo"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "tsp${env.num_loc}"
-    name: "pomo-tsp${env.num_loc}"
+    group: "cvrp${env.num_loc}"
+    name: "pomo-cvrp${env.num_loc}"
 
 metrics:
   train: ["loss", "reward", "max_reward"]
