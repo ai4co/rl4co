@@ -14,7 +14,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["tsp", "am"]
+tags: ["tsp", "symnco"]
 
 logger:
   wandb:
@@ -39,16 +39,26 @@ trainer:
 
 train:
   optimizer:
-    # _partial_: True
     _target_: torch.optim.Adam
     lr: 1e-4
     weight_decay: 0
+  scheduler:
+    _target_: torch.optim.lr_scheduler.MultiStepLR
+    milestones: [80, 95]
+    gamma: 0.1
+  scheduler_interval: epoch
 
 data:
-  batch_size: 64
-  train_size: 80000
+  batch_size: 512
+  train_size: 1280000
   val_size: 10000
   
 model:
   num_starts: 1 #${env.num_loc}
-  num_augment: 10
+  num_augment: 5
+
+metrics:
+  train: ["loss", "loss_ss", "loss_ps", "loss_inv", "reward", "max_aug_reward"]
+  val: ["reward", "max_aug_reward"]
+  test: ["reward", "max_aug_reward"]
+  log_on_step: True
