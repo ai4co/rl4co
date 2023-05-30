@@ -200,8 +200,8 @@ def generate_dataset(
 
 def generate_default_datasets(data_dir):
     """Generate the default datasets used in the paper and save them to data_dir/problem"""
-    generate_dataset(data_dir=data_dir, name="val", problem="all", seed=1234)
-    generate_dataset(data_dir=data_dir, name="test", problem="all", seed=4321)
+    generate_dataset(data_dir=data_dir, name="val", problem="all", seed=4321)
+    generate_dataset(data_dir=data_dir, name="test", problem="all", seed=1234)
 
 
 if __name__ == "__main__":
