@@ -11,7 +11,7 @@ defaults:
 env:
   num_loc: 50
 
-tags: ["am", "tsp", "${env.num_loc}"]
+tags: ["am", "tsp"]
 
 logger:
   wandb:

@@ -28,7 +28,6 @@ seed: 12345
 trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
-  devices: 1
 
 train:
   optimizer:
