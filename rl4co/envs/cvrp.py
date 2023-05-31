@@ -1,6 +1,5 @@
-from typing import Optional
-
 import torch
+from typing import Optional
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -11,6 +10,8 @@ from torchrl.data import (
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
+from rl4co.data.utils import load_npz_to_tensordict
+
 
 # Default capacities https://arxiv.org/abs/1803.08475
 CAPACITIES = {10: 20.0, 20: 30.0, 50: 40.0, 100: 50.0}
@@ -64,41 +65,53 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
+        # Update the state
+        current_node = td["action"][:, None]  # Add dimension for step
+        n_loc = td["demand"].size(-1)  # Excludes depot
 
-        current_node = td["action"][..., None]
-        demand = td["demand"]
+        # Get current coordinate given action
+        cur_coord = gather_by_index(td["locs"], current_node, squeeze=False)
 
-        # Update the used capacity on the depot (its "demand" is with minus sign)
-        demand[..., 0] -= torch.gather(demand, 1, current_node).squeeze()
+        # Not selected_demand is demand of first node (by clamp) so incorrect for nodes that visit depot!
+        selected_demand = gather_by_index(td["demand"], torch.clamp(current_node - 1, 0, n_loc - 1), squeeze=False)
 
-        # Set the visited node demand to 0
-        demand.scatter_(-1, current_node, 0)
+        # Increase capacity if depot is not visited, otherwise set to 0
+        used_capacity = (td["used_capacity"] + selected_demand) * (current_node != 0).float()
 
-        # Get the action mask, no zero demand nodes can be visited
-        action_mask = torch.abs(demand) > 0
+        # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
+        # Add one dimension since we write a single value
+        visited = td["visited"].scatter(-1, current_node[..., None], 1)
 
-        # Nodes exceeding capacity cannot be visited
-        available_capacity = td["capacity"] + demand[..., :1]
-        action_mask = torch.logical_and(action_mask, demand <= available_capacity + 1e-5)
+        # SECTION: get mask
+        visited_loc = visited[..., 1:]
 
-        # We are done there are no unvisited locations
-        done = torch.count_nonzero(demand[...,1:], dim=-1) == 0
+        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
+        exceeds_cap = (td["demand"][:, None, :] + used_capacity[..., None] > 1.0)
 
-        # If all nodes are visited, then set the depot to be always available
-        action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
+        # Nodes that cannot be visited are already visited or too much demand to be served now
+        mask_loc = visited_loc.to(exceeds_cap.dtype) | exceeds_cap
 
-        # Reward is -path length. Final reward is calculated outside of this function for efficiency
+        # Cannot visit the depot if just visited and still unserved nodes
+        mask_depot = (current_node == 0) & ((mask_loc == 0).int().sum(-1) > 0)
+
+        # Action mask will be inverse of unfeasible actions
+        feasible_actions = ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
+
+        # SECTION: get done
+        done = visited.sum(-1) == visited.size(-1)
         reward = torch.ones_like(done) * float("-inf")
 
-        # The output must be written in a ``"next"`` entry
         return TensorDict(
             {
                 "next": {
                     "locs": td["locs"],
-                    "capacity": td["capacity"],
+                    "demand": td["demand"],
                     "current_node": current_node,
-                    "demand": demand,
-                    "action_mask": action_mask,
+                    "used_capacity": used_capacity,
+                    "vehicle_capacity": td["vehicle_capacity"],
+                    "visited": visited,
+                    "cur_coord": cur_coord,
+                    "action_mask": feasible_actions,
                     "reward": reward,
                     "done": done,
                 }
@@ -107,7 +120,7 @@ class CVRPEnv(RL4COEnvBase):
         )
 
     def _reset(
-        self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
+        self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None,
     ) -> TensorDict:
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
@@ -115,30 +128,48 @@ class CVRPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        # Initialize the current node
-        current_node = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64, device=self.device
+        self.device = td.device
+
+        locs = torch.cat((td['depot'][:, None, :], td['locs']), -2)
+        current_node = torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device)
+        used_capacity = torch.zeros((*batch_size, 1), device=self.device)
+
+        _, n_loc, _ = td['locs'].size()
+        visited = torch.zeros(
+            (*batch_size, 1, n_loc + 1),
+            dtype=torch.uint8, device=self.device
         )
 
-        # Concatenate depot to the locations as the first node
-        locs = torch.cat((td["depot"][..., None, :], td["locs"]), dim=-2)
+        lengths=torch.zeros((*batch_size, 1), device=self.device)
+        cur_coord=td['depot'][:, None, :]  # Add step dimension
 
-        # Concatenate zero as the first node (depot) to the demand and normalize by the capacity (note that this is not the vehicle capacity)
-        demand = torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), dim=-1) / td['capacity'][..., None]
+        # SECTION: get mask
+        visited_loc = visited[..., 1:]
 
-        # Initialize the vehicle capacity
-        capacity = torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device)
+        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
+        exceeds_cap = (td["demand"][:, None, :]  + used_capacity[..., None]  > 1.0)
 
-        # Init the action mask
-        action_mask = demand > 0
+        # Nodes that cannot be visited are already visited or too much demand to be served now
+        mask_loc = visited_loc.to(exceeds_cap.dtype) | exceeds_cap
+
+        # Cannot visit the depot if just visited and still unserved nodes
+        mask_depot = (current_node == 0) & ((mask_loc == 0).int().sum(-1) > 0)
+        feasible_actions = ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
+
+        # Vehicle capacity as a feature
+        vehicle_capacity = torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device)
 
         return TensorDict(
             {
                 "locs": locs,
-                "capacity": capacity,
+                "demand": td['demand'],
                 "current_node": current_node,
-                "demand": demand,
-                "action_mask": action_mask,
+                "used_capacity": used_capacity,
+                "vehicle_capacity": vehicle_capacity,
+                "visited": visited,
+                "lengths": lengths,
+                "cur_coord": cur_coord,
+                "action_mask": feasible_actions,
             },
             batch_size=batch_size,
         )
@@ -181,7 +212,6 @@ class CVRPEnv(RL4COEnvBase):
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
         locs = td["locs"]
-        # TODO: Check the validation of the tour
         depot = locs[..., 0:1, :]
         loc_gathered = torch.cat([depot, gather_by_index(locs, actions)], dim=1)
         loc_gathered_next = torch.roll(loc_gathered, 1, dims=1)
@@ -223,11 +253,19 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": locs_with_depot[..., 1:, :],
                 "depot": locs_with_depot[..., 0, :],
-                "demand": demand,
+                "demand": demand / CAPACITIES[self.num_loc],
                 "capacity": capacity,
             },
             batch_size=batch_size,
         )
+    
+    def load_data(self, fpath, batch_size=[]):
+        """Dataset loading from file
+        Normalize demand by capacity to be in [0, 1]
+        """
+        td_load = load_npz_to_tensordict(fpath)
+        td_load.set_('demand', td_load['demand'] / td_load['capacity'][:, None])
+        return td_load
 
     def render(self, td: TensorDict):
         raise NotImplementedError("TODO: render is not implemented yet")
