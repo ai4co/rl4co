@@ -12,14 +12,14 @@ defaults:
 env:
   num_loc: 50
 
-tags: ["tsp", "symnco"]
+tags: ["cvrp", "symnco"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "tsp${env.num_loc}"
-    name: "symnco-tsp${env.num_loc}"
+    group: "cvrp${env.num_loc}"
+    name: "symnco-cvrp${env.num_loc}"
 
 
 seed: 12345
