@@ -1,8 +1,5 @@
 # @package _global_
 
-# to execute this experiment run:
-# python train.py experiment=example
-
 defaults:
   - override /model: ptrnet.yaml
   - override /env: tsp.yaml
@@ -11,8 +8,6 @@ defaults:
   # - override /logger: null # comment this line to enable logging
   - override /logger: wandb.yaml
 
-# all parameters below will be merged with parameters from default configurations set above
-# this allows you to overwrite only specified parameters
 
 tags: ["tsp", "ptrnet"]
 

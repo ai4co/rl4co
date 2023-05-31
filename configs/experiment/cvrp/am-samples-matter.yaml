@@ -19,12 +19,12 @@ logger:
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
-    name: "am-tsp${env.num_loc}"
+    name: "am-tsp${env.num_loc}-sm"
 
 seed: 12345
 
 trainer:
-  max_epochs: 100
+  max_epochs: 500
   gradient_clip_val: 1.0
   accelerator: "gpu"
   precision: "16-mixed"
@@ -36,12 +36,12 @@ train:
     weight_decay: 0
   scheduler:
     _target_: torch.optim.lr_scheduler.MultiStepLR
-    milestones: [80, 95]
+    milestones: [480, 495]
     gamma: 0.1
   scheduler_interval: epoch
 
 data:
-  batch_size: 512
+  batch_size: 2048
   train_size: 1_280_000
   val_size: 10_000
 
