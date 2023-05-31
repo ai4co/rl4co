@@ -2,7 +2,7 @@ import sys
 from turtle import up; sys.path.append('.')
 import torch
 import torch.nn as nn
-from torch_geometric.nn import MessagePassing, radius_graph, knn_graph
+from torch_geometric.nn import MessagePassing
 from torch_geometric.data import Data, Batch
 
 from rl4co.utils.pylogger import get_pylogger
@@ -74,33 +74,20 @@ class MessagePassingEncoder(nn.Module):
         num_nodes,
         num_mpnn_layer,
         aggregation="add",
-        graph_constructor="fully_connected",
-        knn_neighbors=5, 
-        radius=0.5,
         residual=False,
         **mlp_params,
     ):
-        '''
-        Args:
-            - graph_constructor <str>: "fully_connected", "knn", or "radius
-        '''
         super(MessagePassingEncoder, self).__init__()
         # Define the init embedding
         self.init_embedding = env_init_embedding(
             env, {"embedding_dim": embedding_dim}
         )
 
-        self.graph_constructor = graph_constructor
-        if graph_constructor == "fully_connected":
-            # Generate edge index for a fully connected graph
-            adj_matrix = torch.ones(num_nodes, num_nodes)
-            adj_matrix.fill_diagonal_(0) # No self-loops
-            self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-            # self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:7')
-        elif graph_constructor == "knn" or graph_constructor == "radius":
-            pass
-        else:
-            raise NotImplementedError
+        # Generate edge index for a fully connected graph
+        adj_matrix = torch.ones(num_nodes, num_nodes)
+        adj_matrix.fill_diagonal_(0) # No self-loops
+        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:0')
+        # self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
 
         # Init message passing models
         self.mpnn_layers = nn.ModuleList([
@@ -109,34 +96,19 @@ class MessagePassingEncoder(nn.Module):
                 node_outdim=embedding_dim,
                 edge_indim=1,
                 edge_outdim=1,
-                aggregation=aggregation,
                 residual=residual,
             )
             for _ in range(num_mpnn_layer)
         ])
-
-        self.knn_neighbors = knn_neighbors
-        self.radius = radius
 
     def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
         # Initialize embedding
         node_feature = self.init_embedding(x)
 
-        # Initialize edge index
-        if self.graph_constructor == "fully_connected":
-            edge_index = self.edge_index
-        elif self.graph_constructor == "knn":
-            output = knn_graph(x=x['locs'][0], k=self.knn_neighbors)
-            edge_index_list = [knn_graph(x=x[batch_idx], k=self.knn_neighbors) for batch_idx in range(x.size(0))]
-            edge_index = torch.stack(edge_index_list, dim=0)
-        elif self.graph_constructor == "radius":
-            edge_index_list = [radius_graph(x=x[batch_idx], r=self.radius) for batch_idx in range(x.size(0))]
-            edge_index = torch.stack(edge_index_list, dim=0)
-
         # Generate edge features: distance
         edge_feature = torch.norm(
-            node_feature[..., edge_index[0], :] - node_feature[..., edge_index[1], :],
+            node_feature[..., self.edge_index[0], :] - node_feature[..., self.edge_index[1], :],
             dim=-1,
             keepdim=True,
         )
@@ -182,8 +154,7 @@ if __name__ == '__main__':
         env=env,
         embedding_dim=128, 
         num_nodes=20,
-        num_mpnn_layer=3,
-        graph_constructor="knn"
+        num_mpnn_layer=3
     )
     td = env.reset(batch_size=[32])
     update_node_feature, _ = model(td)
