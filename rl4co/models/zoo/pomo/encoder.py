@@ -1,3 +1,11 @@
+# NOTE: this is a sanity check against the MHA implementation in the original POMO codebase
+# The major changes compared to the original AM are:
+# 1. encoding layers 3 -> 6
+# 2. normalization: batch -> instance
+# 3. slightly different MHA implementation
+# By default, we will use our implementation that is more similar to the original AM
+# and just changes the default parameters
+
 import torch.nn as nn
 
 from rl4co.models.nn.env_embedding import env_init_embedding
@@ -14,9 +22,9 @@ class GraphAttentionEncoder(nn.Module):
         embedding_dim,
         num_layers,
         env=None,
-        # normalization="batch",
+        normalization="batch", # unused
         feed_forward_hidden=512,
-        # force_flash_attn=False,
+        force_flash_attn=False, # unused
         disable_init_embedding=False,
     ):
         super(GraphAttentionEncoder, self).__init__()

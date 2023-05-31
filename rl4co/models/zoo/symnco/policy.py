@@ -86,6 +86,10 @@ class SymNCOPolicy(nn.Module):
         # Set decoding type for policy, can be also greedy
         embeddings, init_embeds = self.encoder(td)
 
+        # Get decode type depending on phase
+        if decoder_kwargs.get("decode_type", None) is None:
+            decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
+            
         # Main rollout
         log_p, actions, td = self.decoder(td, embeddings, **decoder_kwargs)
 

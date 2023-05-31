@@ -3,12 +3,11 @@ import torch
 from rl4co.utils.ops import unbatchify
 
 
-def select_start_nodes(batch_size, num_nodes, device="cpu"):
-    """Node selection strategy for SymNCO
+def select_start_nodes(batch_size, num_nodes, device="cpu", problem="tsp"):
+    """Node selection strategy for POMO
     Selects different start nodes for each batch element
     """
-    # TODO: reduced size action selection for SymNCO based on env
-    selected = torch.arange(num_nodes, device=device).repeat(batch_size)
+    selected = torch.arange(num_nodes, device=device).repeat_interleave(batch_size)
     return selected
 
 

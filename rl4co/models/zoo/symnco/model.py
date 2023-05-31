@@ -57,9 +57,6 @@ class SymNCO(REINFORCE):
 
         # Multi-start parameters from policy, default to 1
         self.num_augment = num_augment
-        # assert ( # NOTE removed assert
-        #     num_augment > 1
-        # ), "Number of augmentations must be greater than 1 for SymNCO"
         self.augment = StateAugmentation(self.env.name)
         self.augment_test = augment_test
         self.alpha = alpha  # weight for invariance loss
@@ -73,16 +70,15 @@ class SymNCO(REINFORCE):
         # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0
         num_starts = getattr(self.policy.decoder, "num_starts", 0)
         num_augment = self.num_augment
+
         if policy_kwargs.get("single_traj", False):
             num_starts, num_augment = 0, 0
 
         if num_augment > 1:
-            td = self.augment(td)
+            td = self.augment(td, num_augment)
 
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
-
-        # breakpoint()
 
         # Unbatchify reward to [batch_size, num_starts, num_augment].
         reward = unbatchify(out["reward"], (num_starts, num_augment))
@@ -97,35 +93,34 @@ class SymNCO(REINFORCE):
             if out.get("actions", None) is not None:
                 # TODO: actions are not unbatchified correctly
                 actions = unbatchify(out["actions"], (num_starts, num_augment))
-                out.update({"best_pomo_actions": gather_by_index(actions, max_idxs)})
+                out.update({"best_multistart_actions": gather_by_index(actions, max_idxs)})
                 out["actions"] = actions
 
         # Get augmentation score only during inference
         if num_augment > 1:
-            # If POMO is enabled, we use the best POMO rewards
+            # If multistart is enabled, we use the best multistart rewards
             reward_ = max_reward if num_starts > 1 else reward
             # [batch, num_augment]
             max_aug_reward, max_idxs = reward_.max(dim=1)
             out.update({"max_aug_reward": max_aug_reward})
-            if out.get("best_pomo_actions", None) is not None:
+            if out.get("best_multistart_actions", None) is not None:
                 out.update(
                     {
                         "best_aug_actions": gather_by_index(
-                            out["best_pomo_actions"], max_idxs
+                            out["best_multistart_actions"], max_idxs
                         )
                     }
                 )
 
+        # Get best actions and rewards
         # Main training loss
         if phase == "train":
 
-            # NOTE: removed asserts
-            # assert num_starts > 1, "num_starts must be > 1 during training"
-            # assert num_augment > 1, "num_augment must be > 1 during training"
-
-            # TODO: check, it looks like we do not always augment and also get POMO
-            # [batch_size, num_augment, num_starts]
+            # [batch_size, num_starts, num_augment]
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
+
+            # Calculate losses: problem symmetricity, solution symmetricity, invariance
+
             loss_ps = problem_symmetricity_loss(reward, ll) if num_starts > 1 else 0
             loss_ss = solution_symmetricity_loss(reward, ll) if num_augment > 1 else 0
             loss_inv = (

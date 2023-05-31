@@ -4,9 +4,13 @@ from torchrl.envs import EnvBase
 
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.pomo.decoder import Decoder
-from rl4co.models.zoo.pomo.encoder import GraphAttentionEncoder
-# from rl4co.models.nn.graph.gat import GraphAttentionEncoder
+from rl4co.models.nn.graph.gat import GraphAttentionEncoder 
 from rl4co.utils.pylogger import get_pylogger
+
+
+## Uncomment the below to use the original implementation from POMO
+# from rl4co.models.zoo.pomo.encoder import GraphAttentionEncoder
+
 
 log = get_pylogger(__name__)
 
@@ -41,8 +45,8 @@ class POMOPolicy(nn.Module):
                 embedding_dim=embedding_dim,
                 num_layers=num_encoder_layers,
                 env=self.env,
-                # normalization=normalization,
-                # force_flash_attn=force_flash_attn,
+                normalization=normalization,
+                force_flash_attn=force_flash_attn,
             )
             if encoder is None
             else encoder
