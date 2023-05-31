@@ -28,7 +28,7 @@ class GCNEncoder(nn.Module):
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
         adj_matrix.fill_diagonal_(0) # No self-loops
-        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(env.device)
+        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:0')
         
         # Define the GCN layers
         self.conv1 = GCNConv(embedding_dim, embedding_dim)
@@ -55,6 +55,9 @@ class GCNEncoder(nn.Module):
         # De-batch the graph
         input_size = node_feature.size()
         update_node_feature = update_node_feature.view(*input_size)
+
+        # Residual
+        update_node_feature = update_node_feature + node_feature
 
         return update_node_feature, node_feature
 

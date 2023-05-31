@@ -2,7 +2,7 @@ import sys
 from turtle import up; sys.path.append('.')
 import torch
 import torch.nn as nn
-from torch_geometric.nn import MessagePassing
+from torch_geometric.nn import MessagePassing, radius_graph, knn_graph
 from torch_geometric.data import Data, Batch
 
 from rl4co.utils.pylogger import get_pylogger
@@ -12,32 +12,19 @@ from rl4co.models.nn.env_embedding import env_init_embedding
 log = get_pylogger(__name__)
 
 
-class MessagePassingEncoder(MessagePassing):
+class MessagePassingLayer(MessagePassing):
     def __init__(
         self,
-        env,
-        embedding_dim,
-        num_nodes,
+        node_indim, 
+        node_outdim, 
+        edge_indim, 
+        edge_outdim,
         aggregation="add",
         residual=False,
         **mlp_params,
     ):
-        super(MessagePassingEncoder, self).__init__(aggr=aggregation)
-        # Define the init embedding
-        self.init_embedding = env_init_embedding(
-            env, {"embedding_dim": embedding_dim}
-        )
-
-        # Generate edge index for a fully connected graph
-        adj_matrix = torch.ones(num_nodes, num_nodes)
-        adj_matrix.fill_diagonal_(0) # No self-loops
-        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(env.device)
-
+        super(MessagePassingLayer, self).__init__(aggr=aggregation)
         # Init message passing models
-        edge_indim = 1 # Distance
-        edge_outdim = 1
-        node_indim = embedding_dim # Position
-        node_outdim = embedding_dim
         self.edge_model = MLP(
             input_dim=edge_indim + 2 * node_indim,
             output_dim=edge_outdim,
@@ -50,18 +37,106 @@ class MessagePassingEncoder(MessagePassing):
         )
         self.residual = residual
 
-    def forward(self, x, mask=None):
+    def forward(self, node_feature, edge_feature, edge_index, mask=None):
+        # Message passing
+        update_edge_feature = self.edge_update(
+            node_feature, edge_feature, edge_index
+        )
+        update_node_feature = self.propagate(
+            edge_index, x=node_feature, edge_features=update_edge_feature
+        )
+
+        # Update with residual connection
+        if self.residual:
+            update_node_feature = update_node_feature + node_feature
+
+        return update_node_feature, update_edge_feature
+
+    def edge_update(self, nf, ef, edge_index):
+        row, col = edge_index
+        x_i, x_j = nf[row], nf[col]
+        uef = self.edge_model(torch.cat([x_i, x_j, ef], dim=-1))
+        return uef
+
+    def message(self, edge_features: torch.tensor):
+        return edge_features
+
+    def update(self, aggr_msg: torch.tensor, x: torch.tensor):
+        unf = self.node_model(torch.cat([x, aggr_msg], dim=-1))
+        return unf
+
+
+class MessagePassingEncoder(nn.Module):
+    def __init__(
+        self,
+        env,
+        embedding_dim,
+        num_nodes,
+        num_mpnn_layer,
+        aggregation="add",
+        graph_constructor="fully_connected",
+        knn_neighbors=5, 
+        radius=0.5,
+        residual=False,
+        **mlp_params,
+    ):
         '''
         Args:
-            - x <tensorDict>
+            - graph_constructor <str>: "fully_connected", "knn", or "radius
         '''
+        super(MessagePassingEncoder, self).__init__()
+        # Define the init embedding
+        self.init_embedding = env_init_embedding(
+            env, {"embedding_dim": embedding_dim}
+        )
+
+        self.graph_constructor = graph_constructor
+        if graph_constructor == "fully_connected":
+            # Generate edge index for a fully connected graph
+            adj_matrix = torch.ones(num_nodes, num_nodes)
+            adj_matrix.fill_diagonal_(0) # No self-loops
+            self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+            # self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:7')
+        elif graph_constructor == "knn" or graph_constructor == "radius":
+            pass
+        else:
+            raise NotImplementedError
+
+        # Init message passing models
+        self.mpnn_layers = nn.ModuleList([
+            MessagePassingLayer(
+                node_indim=embedding_dim,
+                node_outdim=embedding_dim,
+                edge_indim=1,
+                edge_outdim=1,
+                aggregation=aggregation,
+                residual=residual,
+            )
+            for _ in range(num_mpnn_layer)
+        ])
+
+        self.knn_neighbors = knn_neighbors
+        self.radius = radius
+
+    def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
         # Initialize embedding
         node_feature = self.init_embedding(x)
 
+        # Initialize edge index
+        if self.graph_constructor == "fully_connected":
+            edge_index = self.edge_index
+        elif self.graph_constructor == "knn":
+            output = knn_graph(x=x['locs'][0], k=self.knn_neighbors)
+            edge_index_list = [knn_graph(x=x[batch_idx], k=self.knn_neighbors) for batch_idx in range(x.size(0))]
+            edge_index = torch.stack(edge_index_list, dim=0)
+        elif self.graph_constructor == "radius":
+            edge_index_list = [radius_graph(x=x[batch_idx], r=self.radius) for batch_idx in range(x.size(0))]
+            edge_index = torch.stack(edge_index_list, dim=0)
+
         # Generate edge features: distance
         edge_feature = torch.norm(
-            node_feature[..., self.edge_index[0], :] - node_feature[..., self.edge_index[1], :],
+            node_feature[..., edge_index[0], :] - node_feature[..., edge_index[1], :],
             dim=-1,
             keepdim=True,
         )
@@ -72,22 +147,17 @@ class MessagePassingEncoder(MessagePassing):
             for x, edge_attr in zip(node_feature, edge_feature)
         ]
         data_batch = Batch.from_data_list(data_list)
+        update_node_feature = data_batch.x
+        update_edge_feature = data_batch.edge_attr
+        edge_index = data_batch.edge_index
 
         # Message passing
-        update_edge_feature = self.edge_update(
-            data_batch.x, data_batch.edge_attr, data_batch.edge_index
-        )
-        update_node_feature = self.propagate(
-            data_batch.edge_index, x=data_batch.x, edge_features=update_edge_feature
-        )
+        for layer in self.mpnn_layers:
+            update_node_feature, update_edge_feature = layer(update_node_feature, update_edge_feature, edge_index)
 
         # De-batch the graph
         input_size = node_feature.size()
         update_node_feature = update_node_feature.view(*input_size)
-
-        # Update with residual connection
-        if self.residual:
-            update_node_feature = update_node_feature + node_feature
 
         return update_node_feature, node_feature
 
@@ -111,7 +181,9 @@ if __name__ == '__main__':
     model = MessagePassingEncoder(
         env=env,
         embedding_dim=128, 
-        num_nodes=20
+        num_nodes=20,
+        num_mpnn_layer=3,
+        graph_constructor="knn"
     )
     td = env.reset(batch_size=[32])
     update_node_feature, _ = model(td)

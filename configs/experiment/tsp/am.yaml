@@ -50,4 +50,4 @@ logger:
     project: "rl4co"
     tags: ${tags}
     group: "tsp20"
-    name: "am-OURS-MPNNEncoder-tsp20"
+    name: "am-OURS-GCNEncoder-tsp20"

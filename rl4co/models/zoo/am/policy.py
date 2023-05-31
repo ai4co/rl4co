@@ -6,6 +6,7 @@ from torchrl.envs import EnvBase
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.models.nn.graph.mpnn import MessagePassingEncoder
+from rl4co.models.nn.graph.gcn import GCNEncoder
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.am.decoder import Decoder
 from rl4co.utils.pylogger import get_pylogger
@@ -48,11 +49,22 @@ class AttentionModelPolicy(nn.Module):
         #     if encoder is None
         #     else encoder
         # )
+        # self.encoder = (
+        #     MessagePassingEncoder(
+        #         env=self.env,
+        #         embedding_dim=embedding_dim,
+        #         num_nodes=51,
+        #         num_mpnn_layer=3,
+        #         residual=True
+        #     )
+        #     if encoder is None
+        #     else encoder
+        # )
         self.encoder = (
-            MessagePassingEncoder(
+            GCNEncoder(
                 env=self.env,
                 embedding_dim=embedding_dim,
-                num_nodes=20,
+                num_nodes=51,
             )
             if encoder is None
             else encoder
