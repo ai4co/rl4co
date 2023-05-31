@@ -12,7 +12,7 @@ defaults:
 env:
   num_loc: 50
 
-tags: ["am", "cvrp", "${env.num_loc}"]
+tags: ["am", "cvrp"]
 
 logger:
   wandb:
