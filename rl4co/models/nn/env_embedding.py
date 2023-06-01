@@ -178,14 +178,12 @@ class MDPPInitEmbedding(nn.Module):
         super(MDPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
         self.init_embed = nn.Linear(node_dim, embedding_dim // 2)  # locs
-        self.init_embed_probes = nn.Linear(node_dim + 1, embedding_dim // 2)  # locs + is_probe
+        self.init_embed_probes = nn.Linear(1, embedding_dim // 2)  # is_probe
 
     def forward(self, td):
         node_embeddings = self.init_embed(td["locs"])
-        probes_with_locs = torch.cat(
-            [td["locs"], td["probe"].float()[...,None]], dim=-1
-        )  # [batch, n_locs, 3] # x, y, is_probe
-        probes_embedding = self.init_embed_probes(probes_with_locs)
+        probes = td["probe"].float()[...,None] # [batch, n_locs, 1] # x, y, is_probe
+        probes_embedding = self.init_embed_probes(probes)
         return torch.cat([node_embeddings, probes_embedding], -1)
 
 
