@@ -37,34 +37,14 @@ class AttentionModelPolicy(nn.Module):
 
         self.env = env
 
-        # self.encoder = (
-        #     GraphAttentionEncoder(
-        #         num_heads=num_heads,
-        #         embedding_dim=embedding_dim,
-        #         num_layers=num_encoder_layers,
-        #         env=self.env,
-        #         normalization=normalization,
-        #         force_flash_attn=force_flash_attn,
-        #     )
-        #     if encoder is None
-        #     else encoder
-        # )
-        # self.encoder = (
-        #     MessagePassingEncoder(
-        #         env=self.env,
-        #         embedding_dim=embedding_dim,
-        #         num_nodes=51,
-        #         num_mpnn_layer=3,
-        #         residual=True
-        #     )
-        #     if encoder is None
-        #     else encoder
-        # )
         self.encoder = (
-            GCNEncoder(
-                env=self.env,
+            GraphAttentionEncoder(
+                num_heads=num_heads,
                 embedding_dim=embedding_dim,
-                num_nodes=51,
+                num_layers=num_encoder_layers,
+                env=self.env,
+                normalization=normalization,
+                force_flash_attn=force_flash_attn,
             )
             if encoder is None
             else encoder
