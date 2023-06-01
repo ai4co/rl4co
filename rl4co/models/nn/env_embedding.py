@@ -172,20 +172,28 @@ class DPPInitEmbedding(nn.Module):
         probe_loc = torch.gather(locs, 1, probe.unsqueeze(-1).expand(-1, -1, 2))
         return torch.norm(locs - probe_loc, dim=-1).unsqueeze(-1)
 
-
 class MDPPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(MDPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim // 2)  # locs
-        self.init_embed_probes = nn.Linear(1, embedding_dim // 2)  # is_probe
+        self.init_embed = nn.Linear(node_dim, embedding_dim)  # locs
+        self.init_embed_probes = nn.Linear(1, embedding_dim)  # is_probe
+        self.init_embed_probe_midpoint = nn.Linear(1, embedding_dim)  # probe_midpoint
+        self.project_out = nn.Linear(embedding_dim * 3, embedding_dim)
 
     def forward(self, td):
         node_embeddings = self.init_embed(td["locs"])
         probes = td["probe"].float()[...,None] # [batch, n_locs, 1] # x, y, is_probe
         probes_embedding = self.init_embed_probes(probes)
-        return torch.cat([node_embeddings, probes_embedding], -1)
+        probe_midpoint_embedding = self.init_embed_probe_midpoint(self._distance_probe_midpoint(td["locs"], probes))
+        return self.project_out(torch.cat([node_embeddings, probes_embedding, probe_midpoint_embedding], -1))
 
+    def _distance_probe_midpoint(self, locs, probes):
+        # Euclidean distance from midpoint of probes to all locations
+        num_probes = torch.count_nonzero(probes, dim=-2)
+        midpoint_loc = torch.sum(locs * probes.expand_as(locs), dim=-2) / num_probes
+        return torch.norm(locs - midpoint_loc[..., None, :], dim=-1)[..., None]
+    
 
 class PDPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
