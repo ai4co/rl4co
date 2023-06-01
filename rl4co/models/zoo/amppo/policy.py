@@ -1,3 +1,5 @@
+from math import e
+
 import torch
 import torch.nn as nn
 from tensordict.tensordict import TensorDict
@@ -94,7 +96,6 @@ class PPOAttentionModelPolicy(nn.Module):
         }
 
         if given_actions is not None:
-            # TODO: Double check this
             selected_log_p = get_log_likelihood(
                 log_p, given_actions, td_out.get("mask", None), return_sum=False
             )
@@ -106,8 +107,10 @@ class PPOAttentionModelPolicy(nn.Module):
 
         if return_entropy:
             # log_p [batch, decoder steps, num nodes]
-            entropy = -(log_p.exp() * log_p).nansum(dim=-1)  # [batch, decoder steps]
+            log_p = torch.nan_to_num(log_p, nan=0.0)
+            entropy = -(log_p.exp() * log_p).sum(dim=-1)  # [batch, decoder steps]
             entropy = entropy.sum(dim=1)  # [batch] -- sum over decoding steps
+            assert entropy.isfinite().all(), "Entropy is not finite"
             out["entropy"] = entropy
 
         return out

@@ -15,36 +15,44 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 env:
-  num_loc: 50
+  num_loc: 20
 
-tags: ["tsp", "am-PPO", "50"]
+tags: ["tsp", "am-PPO", "20"]
 
 task:
   _target_: rl4co.models.rl.ppo.task.PPOTask
 
 logger:
   wandb:
-    project: "rl4co"
+    project: "rl4co-PPO"
     tags: ${tags}
     group: "tsp${env.num_loc}"
     name: "am-PPO"
 
 seed: 12345
 
+model:
+  clip_range: 0.1
+  ppo_epochs: 2
+  mini_batch_size: 0.25
+  vf_lambda: 0.5
+  entropy_bonus: 0.0
+  normalize_adv: True
+  max_grad_norm: 0.5
+
 trainer:
   min_epochs: 10
   max_epochs: 100
-  gradient_clip_val: Null
+  gradient_clip_val: Null # Will be done internally due to the manual optimization
   accelerator: "gpu"
-  devices: 1 # Manual optimization does not support multi-gpu training?
+  # devices: [1] # Manual optimization does not support multi-gpu training?
   precision: "32-true"
 
 train:
   optimizer:
-    # _partial_: True
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 0
   scheduler:
     _target_: torch.optim.lr_scheduler.MultiStepLR
     milestones: [80, 95]
@@ -53,5 +61,8 @@ train:
 
 data:
   batch_size: 512
-  train_size: 1280000
-  val_size: 10000
+  train_size: 1_280_000
+  val_size: 10_000
+
+metrics:
+  train: ["loss", "reward", "surrogate_loss", "value_loss", "entropy_bonus"]

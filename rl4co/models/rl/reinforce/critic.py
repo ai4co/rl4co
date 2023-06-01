@@ -50,4 +50,7 @@ class CriticNetwork(nn.Module):
     def forward(self, td):
         graph_embeddings, _ = self.encoder(td)
         # graph_embedings: [batch_size, graph_size, input_dim]
-        return self.value_head(graph_embeddings.mean(1))
+        # return self.value_head(graph_embeddings.mean(1))
+
+        # L2D style
+        return self.value_head(graph_embeddings).mean(1)
