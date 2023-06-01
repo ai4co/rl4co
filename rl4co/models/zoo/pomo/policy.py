@@ -4,7 +4,7 @@ from torchrl.envs import EnvBase
 
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.pomo.decoder import Decoder
-from rl4co.models.nn.graph.gat import GraphAttentionEncoder 
+from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.utils.pylogger import get_pylogger
 
 

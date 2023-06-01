@@ -50,7 +50,9 @@ class MultiHeadAttentionLayer(nn.Module):
 class Add_And_Normalization_Module(nn.Module):
     def __init__(self, embedding_dim):
         super().__init__()
-        self.norm = nn.InstanceNorm1d(embedding_dim, affine=True, track_running_stats=False)
+        self.norm = nn.InstanceNorm1d(
+            embedding_dim, affine=True, track_running_stats=False
+        )
 
     def forward(self, input1, input2):
         # input.shape: (batch, problem, embedding)

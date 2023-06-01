@@ -22,16 +22,18 @@ class GraphAttentionEncoder(nn.Module):
         embedding_dim,
         num_layers,
         env=None,
-        normalization="batch", # unused
+        normalization="batch",  # unused
         feed_forward_hidden=512,
-        force_flash_attn=False, # unused
+        force_flash_attn=False,  # unused
         disable_init_embedding=False,
     ):
         super(GraphAttentionEncoder, self).__init__()
 
         # To map input to embedding space
         if not disable_init_embedding:
-            self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
+            self.init_embedding = env_init_embedding(
+                env, {"embedding_dim": embedding_dim}
+            )
         else:
             log.warning("Disabling init embedding manually for GraphAttentionEncoder")
             self.init_embedding = nn.Identity()  # do nothing

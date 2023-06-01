@@ -93,6 +93,7 @@ class DPPEnv(RL4COEnvBase):
                     "current_node": current_node,
                     "i": td["i"] + 1,
                     "action_mask": available,
+                    "keepout": td["keepout"],
                     "reward": reward,
                     "done": done,
                 }

@@ -63,7 +63,9 @@ class PPO(nn.Module):
                 batch_size = old_logp.shape[0]
 
                 if self.mini_batch_size > batch_size:
-                    log.info("Mini batch size is larger than batch size, set to batch size")
+                    log.info(
+                        "Mini batch size is larger than batch size, set to batch size"
+                    )
                     mini_batch_size = batch_size
                 else:
                     mini_batch_size = self.mini_batch_size
@@ -104,16 +106,18 @@ class PPO(nn.Module):
                     # compute surrogate loss
                     surrogate_loss = torch.min(
                         ratio * adv,
-                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range) * adv,
+                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range)
+                        * adv,
                     ).mean()
 
                     # compute entropy bonus
                     entropy_bonus = mini_batched_out["entropy"].mean()
 
                     # compute value function loss
-                    value = self.critic(mini_batched_td, **critic_kwargs)
-                    value_loss = F.huber_loss(value, rewards[mini_batch_idx].view(-1, 1))
-                    # value_loss = (value - rewards[mini_batch_idx]).pow(2).mean()
+                    # value = self.critic(mini_batched_td, **critic_kwargs)
+                    value_loss = F.huber_loss(
+                        value_pred, rewards[mini_batch_idx].view(-1, 1)
+                    )
 
                     # compute total loss
                     loss = (
@@ -127,7 +131,9 @@ class PPO(nn.Module):
                         optimizer.zero_grad()
                         loss.backward()
                         if self.max_grad_norm is not None:
-                            nn.utils.clip_grad_norm_(self.parameters(), self.max_grad_norm)
+                            nn.utils.clip_grad_norm_(
+                                self.parameters(), self.max_grad_norm
+                            )
                         optimizer.step()
 
             # log training results

@@ -63,7 +63,14 @@ class Decoder(nn.Module):
         self.num_starts = num_starts  # POMO = 1 is just normal REINFORCE
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
+    def forward(
+        self,
+        td,
+        embeddings,
+        decode_type="sampling",
+        softmax_temp=None,
+        single_traj=False,
+    ):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 
@@ -116,7 +123,16 @@ class Decoder(nn.Module):
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # In POMO, no graph context. However, it was not shown how this could help # [batch, 1, embed_dim]
-        graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), self.num_starts), self.num_starts) if self.use_graph_context else 0
+        graph_context = (
+            unbatchify(
+                batchify(
+                    self.project_fixed_context(embeddings.mean(1)), self.num_starts
+                ),
+                self.num_starts,
+            )
+            if self.use_graph_context
+            else 0
+        )
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
@@ -130,12 +146,12 @@ class Decoder(nn.Module):
 
     def _get_log_p(self, cached, td, softmax_temp=None):
         # Compute the query based on the context (computes automatically the first and last node context)
-        
+
         # need to unbatchify
         td_unbatch = unbatchify(td, self.num_starts)
 
         step_context = self.context(cached.node_embeddings, td_unbatch)
-        glimpse_q = cached.graph_context + step_context 
+        glimpse_q = cached.graph_context + step_context
 
         # Unsqueeze if glimpse_q is 2d to [batch_size, key_len, embedding_dim]
         glimpse_q = glimpse_q if self.num_starts > 1 else glimpse_q.unsqueeze(1)
@@ -151,7 +167,6 @@ class Decoder(nn.Module):
         glimpse_k = cached.glimpse_key + glimpse_key_dynamic
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
-
 
         # Get the mask
         mask = ~td_unbatch["action_mask"]

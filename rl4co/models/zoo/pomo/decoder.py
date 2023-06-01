@@ -89,7 +89,6 @@ class Decoder(nn.Module):
 
         # Main decoding
         while not td["done"].all():
-
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long

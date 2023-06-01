@@ -19,7 +19,9 @@ class HeterogeneousAttentionModel(REINFORCE):
             self.env.name == "pdp"
         ), "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
         self.policy = (
-            HeterogeneousAttentionModelPolicy(self.env, **policy_kwargs) if policy is None else policy
+            HeterogeneousAttentionModelPolicy(self.env, **policy_kwargs)
+            if policy is None
+            else policy
         )
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline

@@ -169,6 +169,33 @@ class DPPInitEmbedding(nn.Module):
         return torch.norm(locs - probe_loc, dim=-1).unsqueeze(-1)
 
 
+class MDPPInitEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super(MDPPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed = nn.Linear(node_dim, embedding_dim)  # locs
+        self.init_embed_probes = nn.Linear(1, embedding_dim)  # is_probe
+        self.init_embed_probe_midpoint = nn.Linear(1, embedding_dim)  # probe_midpoint
+        self.project_out = nn.Linear(embedding_dim * 3, embedding_dim)
+
+    def forward(self, td):
+        node_embeddings = self.init_embed(td["locs"])
+        probes = td["probe"].float()[..., None]  # [batch, n_locs, 1] # x, y, is_probe
+        probes_embedding = self.init_embed_probes(probes)
+        probe_midpoint_embedding = self.init_embed_probe_midpoint(
+            self._distance_probe_midpoint(td["locs"], probes)
+        )
+        return self.project_out(
+            torch.cat([node_embeddings, probes_embedding, probe_midpoint_embedding], -1)
+        )
+
+    def _distance_probe_midpoint(self, locs, probes):
+        # Euclidean distance from midpoint of probes to all locations
+        num_probes = torch.count_nonzero(probes, dim=-2)
+        midpoint_loc = torch.sum(locs * probes.expand_as(locs), dim=-2) / num_probes
+        return torch.norm(locs - midpoint_loc[..., None, :], dim=-1)[..., None]
+
+
 class PDPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(PDPInitEmbedding, self).__init__()
@@ -216,6 +243,26 @@ class SDVRPDynamicEmbedding(nn.Module):
         demands_with_depot[..., 0, :] = 0
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
             demands_with_depot
+        ).chunk(3, dim=-1)
+        return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
+
+
+class DPPDynamicEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super(DPPDynamicEmbedding, self).__init__()
+        self.projection = nn.Linear(2, 3 * embedding_dim, bias=False)
+
+    def forward(self, td):
+        unavailable, keepouts, probes = (
+            ~td["action_mask"].clone(),
+            td["keepout"].clone(),
+            td["probe"].clone(),
+        )
+        placed_decaps = unavailable & ~(keepouts | probes)
+        decaps_and_probes = torch.stack([placed_decaps.float(), probes.float()], dim=-1)
+
+        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
+            decaps_and_probes
         ).chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
 

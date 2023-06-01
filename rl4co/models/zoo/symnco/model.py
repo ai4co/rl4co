@@ -47,7 +47,9 @@ class SymNCO(REINFORCE):
         super(SymNCO, self).__init__(env, policy, baseline)
 
         self.policy = (
-            SymNCOPolicy(self.env, num_starts=num_starts, **policy_kwargs) if policy is None else policy
+            SymNCOPolicy(self.env, num_starts=num_starts, **policy_kwargs)
+            if policy is None
+            else policy
         )
         if baseline is not None:
             log.warn(
@@ -93,7 +95,9 @@ class SymNCO(REINFORCE):
             if out.get("actions", None) is not None:
                 # TODO: actions are not unbatchified correctly
                 actions = unbatchify(out["actions"], (num_starts, num_augment))
-                out.update({"best_multistart_actions": gather_by_index(actions, max_idxs)})
+                out.update(
+                    {"best_multistart_actions": gather_by_index(actions, max_idxs)}
+                )
                 out["actions"] = actions
 
         # Get augmentation score only during inference
@@ -115,7 +119,6 @@ class SymNCO(REINFORCE):
         # Get best actions and rewards
         # Main training loss
         if phase == "train":
-
             # [batch_size, num_starts, num_augment]
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
 
