@@ -41,15 +41,25 @@ class GCNEncoder(nn.Module):
 
         # Record parameters
         self.residual = residual
+        self.self_loop = self_loop
 
     def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
         # initial Embedding from features
         node_feature = self.init_embedding(x)
 
+        # Check to update the edge index with different number of node
+        if node_feature.size(1) != self.edge_index.max().item() + 1:
+            adj_matrix = torch.ones(x.size(1), x.size(1))
+            if self.self_loop:
+                adj_matrix.fill_diagonal_(0)
+            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+        else: 
+            edge_index = self.edge_index
+
         # Create the batched graph
         data_list = [
-            Data(x=x, edge_index=self.edge_index)
+            Data(x=x, edge_index=edge_index)
             for x in node_feature
         ]
         data_batch = Batch.from_data_list(data_list)

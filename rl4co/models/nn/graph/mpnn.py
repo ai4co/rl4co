@@ -104,21 +104,33 @@ class MessagePassingEncoder(nn.Module):
             for _ in range(num_mpnn_layer)
         ])
 
+        # Record parameters
+        self.self_loop = self_loop
+
     def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
         # Initialize embedding
         node_feature = self.init_embedding(x)
 
+        # Check to update the edge index with different number of node
+        if node_feature.shape[1] != self.edge_index.max().item() + 1:
+            adj_matrix = torch.ones(x.size(1), x.size(1))
+            if self.self_loop:
+                adj_matrix.fill_diagonal_(0)
+            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+        else: 
+            edge_index = self.edge_index
+
         # Generate edge features: distance
         edge_feature = torch.norm(
-            node_feature[..., self.edge_index[0], :] - node_feature[..., self.edge_index[1], :],
+            node_feature[..., edge_index[0], :] - node_feature[..., edge_index[1], :],
             dim=-1,
             keepdim=True,
         )
 
         # Create the batched graph
         data_list = [
-            Data(x=x, edge_index=self.edge_index, edge_attr=edge_attr)
+            Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
             for x, edge_attr in zip(node_feature, edge_feature)
         ]
         data_batch = Batch.from_data_list(data_list)
