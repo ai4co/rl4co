@@ -1,5 +1,3 @@
-import sys
-from turtle import up; sys.path.append('.')
 import torch
 import torch.nn as nn
 from torch_geometric.nn import MessagePassing
