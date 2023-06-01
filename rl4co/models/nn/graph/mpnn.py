@@ -74,9 +74,13 @@ class MessagePassingEncoder(nn.Module):
         num_nodes,
         num_mpnn_layer,
         aggregation="add",
-        residual=False,
-        **mlp_params,
+        self_loop=False,
+        residual=True,
     ):
+        '''
+        Note:
+            - Support fully connected graph for now.
+        '''
         super(MessagePassingEncoder, self).__init__()
         # Define the init embedding
         self.init_embedding = env_init_embedding(
@@ -85,9 +89,9 @@ class MessagePassingEncoder(nn.Module):
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
-        adj_matrix.fill_diagonal_(0) # No self-loops
-        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:0')
-        # self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+        if self_loop:
+            adj_matrix.fill_diagonal_(0) # No self-loops
+        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
 
         # Init message passing models
         self.mpnn_layers = nn.ModuleList([
@@ -96,6 +100,7 @@ class MessagePassingEncoder(nn.Module):
                 node_outdim=embedding_dim,
                 edge_indim=1,
                 edge_outdim=1,
+                aggregation=aggregation,
                 residual=residual,
             )
             for _ in range(num_mpnn_layer)

@@ -18,6 +18,9 @@ class GCNEncoder(nn.Module):
         env,
         embedding_dim,
         num_nodes,
+        num_gcn_layer,
+        self_loop=False,
+        residual=True,
     ):
         super(GCNEncoder, self).__init__()
         # Define the init embedding
@@ -27,12 +30,18 @@ class GCNEncoder(nn.Module):
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
-        adj_matrix.fill_diagonal_(0) # No self-loops
-        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to('cuda:0')
+        if self_loop:
+            adj_matrix.fill_diagonal_(0) # No self-loops
+        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
         
         # Define the GCN layers
-        self.conv1 = GCNConv(embedding_dim, embedding_dim)
-        self.conv2 = GCNConv(embedding_dim, embedding_dim)
+        self.gcn_layers = nn.ModuleList([
+            GCNConv(embedding_dim, embedding_dim)
+            for _ in range(num_gcn_layer)
+        ])
+
+        # Record parameters
+        self.residual = residual
 
     def forward(self, x, mask=None):
         assert mask is None, "Mask not yet supported!"
@@ -46,10 +55,15 @@ class GCNEncoder(nn.Module):
         ]
         data_batch = Batch.from_data_list(data_list)
 
-        update_node_feature = self.conv1(data_batch.x, self.edge_index)
-        update_node_feature = F.relu(update_node_feature)
-        update_node_feature = F.dropout(update_node_feature, training=self.training)
-        update_node_feature = self.conv2(update_node_feature, self.edge_index)
+        # GCN process
+        update_node_feature = data_batch.x
+        edge_index = data_batch.edge_index
+        for layer in self.gcn_layers[:-1]:
+            update_node_feature = layer(update_node_feature, edge_index)
+            update_node_feature = F.relu(update_node_feature)
+            update_node_feature = F.dropout(update_node_feature, training=self.training)
+
+        update_node_feature = self.gcn_layers[-1](update_node_feature, edge_index)
         update_node_feature = F.log_softmax(update_node_feature, dim=-1)
 
         # De-batch the graph
@@ -69,6 +83,7 @@ if __name__ == '__main__':
         env=env,
         embedding_dim=128, 
         num_nodes=20,
+        num_gcn_layer=3,
     )
     td = env.reset(batch_size=[32])
     update_node_feature, _ = model(td)
