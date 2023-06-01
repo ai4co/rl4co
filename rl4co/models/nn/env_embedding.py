@@ -50,6 +50,10 @@ def env_embedding(
             "init": DPPInitEmbedding,
             "dynamic": StaticEmbedding,
         },
+        "mdpp": {
+            "init": MDPPInitEmbedding,
+            "dynamic": DPPDynamicEmbedding,
+        },
         "pdp": {
             "init": PDPInitEmbedding,
             "dynamic": StaticEmbedding,
@@ -97,7 +101,7 @@ class VRPInitEmbedding(nn.Module):
         depot_embedding = self.init_embed_depot(depot)
         # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
         node_embeddings = self.init_embed(
-            torch.cat((customers, td["demand"][:, 1:, None]), -1)
+            torch.cat((customers, td["demand"][..., None]), -1)
         )
         # [batch, n_customer+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
@@ -169,6 +173,22 @@ class DPPInitEmbedding(nn.Module):
         return torch.norm(locs - probe_loc, dim=-1).unsqueeze(-1)
 
 
+class MDPPInitEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super(MDPPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed = nn.Linear(node_dim, embedding_dim // 2)  # locs
+        self.init_embed_probes = nn.Linear(node_dim + 1, embedding_dim // 2)  # locs + is_probe
+
+    def forward(self, td):
+        node_embeddings = self.init_embed(td["locs"])
+        probes_with_locs = torch.cat(
+            [td["locs"], td["probe"].float()[...,None]], dim=-1
+        )  # [batch, n_locs, 3] # x, y, is_probe
+        probes_embedding = self.init_embed_probes(probes_with_locs)
+        return torch.cat([node_embeddings, probes_embedding], -1)
+
+
 class PDPInitEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(PDPInitEmbedding, self).__init__()
@@ -206,39 +226,32 @@ class MTSPInitEmbedding(nn.Module):
         return torch.cat([depot_embedding, node_embedding], -2)
 
 
-# class MTSPDynamicEmbedding(nn.Module):
-#     def __init__(self, embedding_dim):
-#         """NOTE: new made by Fede. May need to be checked
-#         We use the current agent idx, the current length of the tour and the max subtour length
-#         to modify key, value and logit of multi-head attention
-#         """
-#         super(MTSPDynamicEmbedding, self).__init__()
-#         proj_in_dim = 3  # remaining_agents, current_length, max_subtour_length
-#         self.projection = nn.Linear(proj_in_dim, 3 * embedding_dim, bias=False)
-
-#     def forward(self, td):
-#         #  [batch, 3]
-#         remaining_agents = td["num_agents"] - td["agent_idx"]
-#         feats = torch.stack([remaining_agents, td["current_length"], td["max_subtour_length"]], dim=-1)
-#         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
-#             feats[..., None, :]
-#         ).chunk(3, dim=-1)
-#         def _expand(x):
-#             return x.expand(-1, td['locs'].size(-2), -1)
-#         out = _expand(glimpse_key_dynamic), _expand(glimpse_val_dynamic), _expand(logit_key_dynamic)
-#         return out
-
-
 class SDVRPDynamicEmbedding(nn.Module):
     def __init__(self, embedding_dim):
         super(SDVRPDynamicEmbedding, self).__init__()
         self.projection = nn.Linear(1, 3 * embedding_dim, bias=False)
 
     def forward(self, td):
-        demands_with_depot = td["demand"][..., :, None].clone()
+        demands_with_depot = td["demand"][..., None].clone()
         demands_with_depot[..., 0, :] = 0
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
             demands_with_depot
+        ).chunk(3, dim=-1)
+        return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
+
+
+class DPPDynamicEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super(DPPDynamicEmbedding, self).__init__()
+        self.projection = nn.Linear(2, 3 * embedding_dim, bias=False)
+
+    def forward(self, td):
+        unavailable, keepouts, probes = ~td["action_mask"].clone(), td["keepout"].clone(), td["probe"].clone()
+        placed_decaps = unavailable  & ~(keepouts | probes)
+        decaps_and_probes = torch.stack([placed_decaps.float(), probes.float()], dim=-1)
+        
+        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
+            decaps_and_probes
         ).chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
 

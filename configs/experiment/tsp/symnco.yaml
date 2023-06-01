@@ -1,8 +1,5 @@
 # @package _global_
 
-# to execute this experiment run:
-# python train.py experiment=example
-
 defaults:
   - override /model: symnco.yaml
   - override /env: tsp.yaml
@@ -11,8 +8,9 @@ defaults:
   # - override /logger: null # comment this line to enable logging
   - override /logger: wandb.yaml
 
-# all parameters below will be merged with parameters from default configurations set above
-# this allows you to overwrite only specified parameters
+
+env:
+  num_loc: 50
 
 tags: ["tsp", "symnco"]
 
@@ -21,17 +19,10 @@ logger:
     project: "rl4co"
     tags: ${tags}
     group: "tsp${env.num_loc}"
-    name: "symnco"
+    name: "symnco-tsp${env.num_loc}"
 
-# modify the log directory to separate between models and envs
-hydra:
-  run:
-    dir: ${paths.log_dir}/${mode}/runs/${logger.wandb.group}/${logger.wandb.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
-   
 seed: 12345
 
-env:
-  num_loc: 50
 
 trainer:
   max_epochs: 100
@@ -50,15 +41,15 @@ train:
 
 data:
   batch_size: 512
-  train_size: 1280000
-  val_size: 10000
+  train_size: 1_280_000
+  val_size: 10_000
   
 model:
-  num_starts: 1 #${env.num_loc}
-  num_augment: 5
+  num_starts: 0 # 0 for no augmentation for multi-starts
+  num_augment: 10
 
 metrics:
-  train: ["loss", "loss_ss", "loss_ps", "loss_inv", "reward", "max_aug_reward"]
+  train: ["loss", "loss_ss", "loss_inv", "reward", "max_aug_reward"]
   val: ["reward", "max_aug_reward"]
   test: ["reward", "max_aug_reward"]
   log_on_step: True

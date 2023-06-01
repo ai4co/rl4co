@@ -70,7 +70,6 @@ class DPPEnv(RL4COEnvBase):
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"]
-        first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
         # Set available to 0 (i.e., already placed) if the current node is the first node
         available = td["action_mask"].scatter(
@@ -89,10 +88,9 @@ class DPPEnv(RL4COEnvBase):
                 "next": {
                     "locs": td["locs"],
                     "probe": td["probe"],
-                    "first_node": first_node,
-                    "current_node": current_node,
                     "i": td["i"] + 1,
                     "action_mask": available,
+                    "keepout": td['keepout'],
                     "reward": reward,
                     "done": done,
                 }
@@ -111,19 +109,15 @@ class DPPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         # Other variables
-        current_node = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64, device=self.device
-        )
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         return TensorDict(
             {
                 "locs": td["locs"],
                 "probe": td["probe"],
-                "first_node": current_node,
-                "current_node": current_node,
                 "i": i,
                 "action_mask": td["action_mask"],
+                "keepout": ~td["action_mask"],
             },
             batch_size=batch_size,
         )
@@ -141,13 +135,9 @@ class DPPEnv(RL4COEnvBase):
                 shape=(1),
                 dtype=torch.int64,
             ),
-            first_node=UnboundedDiscreteTensorSpec(
-                shape=(1),
-                dtype=torch.int64,
-            ),
-            current_node=UnboundedDiscreteTensorSpec(
-                shape=(1),
-                dtype=torch.int64,
+            keepout=UnboundedDiscreteTensorSpec(
+                shape=(self.size**2),
+                dtype=torch.bool,
             ),
             i=UnboundedDiscreteTensorSpec(
                 shape=(1),

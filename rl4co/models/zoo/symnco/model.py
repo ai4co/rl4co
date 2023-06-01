@@ -77,8 +77,6 @@ class SymNCO(REINFORCE):
         if num_augment > 1:
             td = self.augment(td, num_augment)
 
-        # TODO: test cascade batchify function
-
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
 
@@ -118,10 +116,11 @@ class SymNCO(REINFORCE):
         # Main training loss
         if phase == "train":
 
-            # [batch_size, num_augment, num_starts]
+            # [batch_size, num_starts, num_augment]
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
 
             # Calculate losses: problem symmetricity, solution symmetricity, invariance
+
             loss_ps = problem_symmetricity_loss(reward, ll) if num_starts > 1 else 0
             loss_ss = solution_symmetricity_loss(reward, ll) if num_augment > 1 else 0
             loss_inv = (

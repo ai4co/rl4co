@@ -16,6 +16,7 @@ def env_context(env: Union[str, EnvBase], config: dict) -> object:
         "pctsp": PCTSPContext,
         "op": OPContext,
         "dpp": DPPContext,
+        "mdpp": DPPContext,
         "pdp": PDPContext,
         "mtsp": MTSPContext,
     }
@@ -75,6 +76,7 @@ class TSPContext(EnvContext):
                     batch_size, -1
                 ),
             ).view(batch_size, *node_dim)
+
         return self.project_context(context_embedding)
 
 
@@ -83,8 +85,7 @@ class VRPContext(EnvContext):
         super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        # TODO: check compatibility between CVRP and SDVRP
-        state_embedding = td["capacity"] + td["demand"][..., :1]
+        state_embedding = td["vehicle_capacity"] - td['used_capacity']
         return state_embedding
 
 
@@ -108,28 +109,13 @@ class OPContext(EnvContext):
 
 class DPPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super(DPPContext, self).__init__(embedding_dim, 2 * embedding_dim)
-        self.W_placeholder = nn.Parameter(
-            torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1)
-        )
+        super(DPPContext, self).__init__(embedding_dim)
 
     def forward(self, embeddings, td):
-        batch_size = embeddings.size(0)
-        # By default, node_dim = -1 (we only have one node embedding per node)
-        node_dim = (-1,) if td["first_node"].dim() == 1 else (embeddings.size(1), -1)
-        if td["i"][(0,) * td["i"].dim()].item() < 1:  # get first item fast
-            context_embedding = self.W_placeholder[None, :].expand(
-                batch_size, self.W_placeholder.size(-1)
-            )
-        else:
-            context_embedding = gather_by_index(
-                embeddings,
-                torch.stack([td["first_node"], td["current_node"]], -1).view(
-                    batch_size, -1
-                ),
-            ).view(batch_size, *node_dim)
-        return self.project_context(context_embedding)
-
+        """Context cannot be defined by a single node embedding for DPP, hence 0. 
+        We modify the dynamic embedding instead to capture placed items
+        """
+        return embeddings.new_zeros(embeddings.size(0), self.embedding_dim)
 
 class PDPContext(EnvContext):
     def __init__(self, embedding_dim):

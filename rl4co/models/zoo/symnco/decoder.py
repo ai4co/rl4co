@@ -60,7 +60,7 @@ class Decoder(nn.Module):
         )
 
         # POMO
-        self.num_starts = max(num_starts, 1)  # POMO = 1 is just normal REINFORCE
+        self.num_starts = num_starts  # POMO = 1 is just normal REINFORCE
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
     def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
@@ -137,6 +137,11 @@ class Decoder(nn.Module):
         step_context = self.context(cached.node_embeddings, td_unbatch)
         glimpse_q = cached.graph_context + step_context 
 
+        # Unsqueeze if glimpse_q is 2d to [batch_size, key_len, embedding_dim]
+        glimpse_q = glimpse_q if self.num_starts > 1 else glimpse_q.unsqueeze(1)
+
+        # breakpoint()
+
         # Compute keys and values for the nodes
         (
             glimpse_key_dynamic,
@@ -158,6 +163,6 @@ class Decoder(nn.Module):
 
         # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
         # Note that rearranging order is important here
-        log_p = rearrange(log_p, "b s l -> (s b) l")
-        mask = rearrange(mask, "b s l -> (s b) l")
+        log_p = rearrange(log_p, "b s l -> (s b) l") if self.num_starts > 1 else log_p
+        mask = rearrange(mask, "b s l -> (s b) l") if self.num_starts > 1 else mask
         return log_p, mask
