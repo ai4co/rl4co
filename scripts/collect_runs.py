@@ -6,9 +6,11 @@ import re
 
 # Checkpoint sizes: get last epoch and epoch such that sample sizes are normalized
 checkpoint_epochs = {   'am-*': ['049', '099'],
+                        'am-critic*': ['099', '099'],
                         'pomo-*': ['015', '099'],
                         'symnco-*': ['009', '099'],
                         'am-*-sm*': ['049', '499'],
+                        'am-sm*': ['049', '499'], # backup for am-*-sm
                     }
 
 def get_checkpoint_epochs(key):
