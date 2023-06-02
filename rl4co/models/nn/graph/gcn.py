@@ -73,7 +73,6 @@ class GCNEncoder(nn.Module):
             update_node_feature = F.dropout(update_node_feature, training=self.training)
 
         update_node_feature = self.gcn_layers[-1](update_node_feature, edge_index)
-        update_node_feature = F.log_softmax(update_node_feature, dim=-1)
 
         # De-batch the graph
         input_size = node_feature.size()
