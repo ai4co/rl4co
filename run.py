@@ -8,7 +8,7 @@ from lightning import Callback, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
 
-pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+pyrootutils.setup_root(__file__, indicator=".gitignore", pythonpath=True)
 
 from rl4co import utils
 
