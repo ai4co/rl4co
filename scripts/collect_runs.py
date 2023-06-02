@@ -47,6 +47,8 @@ if __name__ == "__main__":
     exps = [model+'-'+env_name for model in models for env_name in env_names]
     exps.extend(['am-'+env_name+'-sm'  for env_name in env_names])
     exps.extend(['am-'+env_name+'-sm-xl'  for env_name in env_names])
+    exps.extend(['am-sm-'+env_name for env_name in env_names])
+    exps.extend(['am-critic-'+env_name for env_name in env_names])
 
 
     # Go into logs/train/runs folder and collect all the runs
