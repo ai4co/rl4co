@@ -32,10 +32,8 @@ These commands will [automatically install](https://github.com/pmeier/light-the-
 
 ```bash
 pip install light-the-torch
-python3 -m light_the_torch install -r  --upgrade requirements.txt
+python3 -m light_the_torch install -r  --upgrade torch
 ```
-
-Alternatively, you can use `pip install -r requirements.txt`.
 
 > Note: `conda` is also a good candidate for hassle-free installation of PyTorch: check out the [PyTorch website](https://pytorch.org/get-started/locally/) for more details.
 

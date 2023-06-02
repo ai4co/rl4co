@@ -1,25 +1,62 @@
-[tool.pytest.ini_options]
-addopts = [
-  "--color=yes",
-  "--durations=0",
-  "--strict-markers",
-  "--doctest-modules",
-]
-filterwarnings = [
-  "ignore::DeprecationWarning",
-  "ignore::UserWarning",
-]
-log_cli = "True"
-markers = [
-  "slow: slow tests",
-]
-minversion = "6.0"
-testpaths = "tests/"
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: nocover",
-    "raise NotImplementedError",
-    "raise NotImplementedError()",
-    "if __name__ == .__main__.:",
+[tool.setuptools]
+packages = [
+    "rl4co",
 ]
+
+[project]
+name = "rl4co"
+readme = "README.md"
+
+description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
+authors = [
+    {name = "Federico Berto", email = "berto.federico2@gmail.com"},
+    {name = "Chuanbo Hua", email="cbhua@kaist.ac.kr"},
+    {name = "Junyoung Park", email="junyoungpark.ml@gmail.com"},
+  ]
+dynamic = ["version"]
+
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python"
+]
+
+dependencies = [
+    "torch",
+    "torchrl>=0.1.1",
+    "tensordict>=0.1.1",
+    "lightning>=2.0.0",
+    "hydra-core",
+    "hydra-colorlog",
+    "omegaconf",
+    "pyrootutils",
+    "rich",
+    "numpy",
+    "einops",
+    "wandb",
+    "pre-commit",
+    "pytest",
+    "matplotlib",
+    "scipy",
+]
+
+# Automatically determine version from package
+[tool.setuptools.dynamic]
+version = {attr = "rl4co.__version__"}
+
+[project.optional-dependencies]
+graph = ["torch_geometric"]
+
+[project.urls]
+Homepage = "https://github.com/kaist-silab/rl4co"
+
