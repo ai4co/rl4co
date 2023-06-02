@@ -110,7 +110,8 @@ class RL4COEnvBase(EnvBase):
         """Render the environment"""
         raise NotImplementedError
 
-    def load_data(self, fpath, batch_size=[]):
+    @staticmethod
+    def load_data(fpath, batch_size=[]):
         """Dataset loading from file"""
         return load_npz_to_tensordict(fpath)
 

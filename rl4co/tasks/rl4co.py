@@ -109,7 +109,8 @@ class RL4COLitModule(LightningModule):
             size = data_cfg.get(f"{phase}_size", None)
             if size is None:
                 size = DEFAULT_SIZES[phase]
-                log.warning(f"No {phase}_size specified, using default as {size}")
+                message = f"No {phase}_size specified, using default as {size}"
+                log.warning(message) if phase == "train" else log.info(message)
             return size
 
         self.train_size = _get_phase_size("train")

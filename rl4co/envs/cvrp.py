@@ -259,7 +259,8 @@ class CVRPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
     
-    def load_data(self, fpath, batch_size=[]):
+    @staticmethod
+    def load_data(fpath, batch_size=[]):
         """Dataset loading from file
         Normalize demand by capacity to be in [0, 1]
         """
