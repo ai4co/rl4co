@@ -21,6 +21,7 @@ class PointerNetworkPolicy(nn.Module):
     ):
         super(PointerNetworkPolicy, self).__init__()
 
+        # torch.backends.cudnn.enabled=False
         self.env = env
         assert self.env.name == "tsp", "Only the Euclidean TSP env supported"
 
@@ -49,6 +50,14 @@ class PointerNetworkPolicy(nn.Module):
     def forward(
         self, td, phase: str = "train", decode_type="sampling", eval_tours=None
     ):
+        
+        # Set train or eval mode. Although this is already done by PyTorch Lightning, 
+        # there still is an exception raised otherwise https://github.com/pytorch/captum/issues/564
+        if phase == "train":
+            self.train()
+        else:
+            self.eval()
+
         batch_size, graph_size, input_dim = td["locs"].size()
 
         embedded_inputs = torch.mm(
