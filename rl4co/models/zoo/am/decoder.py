@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from einops import rearrange
 
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
+from rl4co.utils.ops import batchify, unbatchify, select_start_nodes
 
 
 @dataclass
@@ -19,15 +21,15 @@ class PrecomputedCache:
 
 
 class Decoder(nn.Module):
-    def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
-        """
-        Auto-regressive decoder for the Attention Model for constructing solutions
+    """Auto-regressive decoder for the Attention Model for constructing solutions
+    We additionally include support for greedy multi-starts during inference (as in POMO)
 
-        Args:
-            env: Environment to solve
-            embedding_dim: Dimension of the embeddings
-            num_heads: Number of heads for the attention
-        """
+    Args:
+        env: Environment to solve
+        embedding_dim: Dimension of the embeddings
+        num_heads: Number of heads for the attention
+    """
+    def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
         super(Decoder, self).__init__()
 
         self.env = env
@@ -58,16 +60,41 @@ class Decoder(nn.Module):
         embeddings,
         decode_type="sampling",
         softmax_temp=None,
-        calc_reward: bool = True,
+        num_starts=None,
+        calc_reward=True,
     ):
+        
+        # Greedy multi-start decoding if num_starts > 1
+        num_starts = 0 if num_starts is None else num_starts
+        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+
+        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
+        cached_embeds = self._precompute(embeddings, num_starts=num_starts)
+
+        # Collect outputs
         outputs = []
         actions = []
 
-        # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute(embeddings)
+        # Multi-start decoding: first action is chosen by ad-hoc node selection
+        if num_starts > 1 or "multistart" in decode_type:
+            action = select_start_nodes(td, num_starts, self.env)
 
+            # Expand td to batch_size * num_starts
+            td = batchify(td, num_starts)
+
+            td.set("action", action)
+            td = self.env.step(td)["next"]
+            log_p = torch.zeros_like(
+                td["action_mask"], device=td.device
+            )  # first log_p is 0, so p = log_p.exp() = 1
+
+            outputs.append(log_p)
+            actions.append(action)
+
+        # Main decoding
         while not td["done"].all():
-            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
+
+            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
@@ -80,16 +107,12 @@ class Decoder(nn.Module):
             actions.append(action)
 
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
-
         if calc_reward:
             td.set("reward", self.env.get_reward(td, actions))
 
         return outputs, actions, td
 
-    def _precompute(self, embeddings):
-        # The fixed context projection of the graph embedding is calculated only once for efficiency
-        graph_embed = embeddings.mean(1)
-
+    def _precompute(self, embeddings, num_starts=0):
         # The projection of the node embeddings for the attention is calculated once up front
         (
             glimpse_key_fixed,
@@ -97,10 +120,14 @@ class Decoder(nn.Module):
             logit_key_fixed,
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
-        # Organize in a TensorDict for easy access
+        # Batchify and unbatchify have no effect if num_starts = 0.
+        # Otherwise, we need to batchify the embeddings to modify key value (i.e. for the lenght of queries)
+        graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), num_starts), num_starts)
+
+        # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
             node_embeddings=embeddings,
-            graph_context=self.project_fixed_context(graph_embed),
+            graph_context=graph_context,
             glimpse_key=glimpse_key_fixed,
             glimpse_val=glimpse_val_fixed,
             logit_key=logit_key_fixed,
@@ -108,28 +135,37 @@ class Decoder(nn.Module):
 
         return cached_embeds
 
-    def _get_log_p(self, cached, td, softmax_temp):
-        step_context = self.context(cached.node_embeddings, td)  # [batch, embed_dim]
-        glimpse_q = (cached.graph_context + step_context).unsqueeze(
-            1
-        )  # [batch, 1, embed_dim]
+    def _get_log_p(self, cached, td, softmax_temp=None, num_starts=0):
+        # Compute the query based on the context (computes automatically the first and last node context)
+
+        # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
+        td_unbatch = unbatchify(td, num_starts)
+
+        step_context = self.context(cached.node_embeddings, td_unbatch)
+        glimpse_q = step_context + cached.graph_context
+        glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
 
         # Compute keys and values for the nodes
         (
             glimpse_key_dynamic,
             glimpse_val_dynamic,
             logit_key_dynamic,
-        ) = self.dynamic_embedding(td)
+        ) = self.dynamic_embedding(td_unbatch)
         glimpse_k = cached.glimpse_key + glimpse_key_dynamic
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
         # Get the mask
-        mask = ~td["action_mask"]
+        mask = ~td_unbatch["action_mask"]
 
-        # Compute log prob: MHA + single-head attention
+        # Compute logits
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
+        # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
+        # Note that rearranging order is important here
+        log_p = rearrange(log_p, "b s l -> (s b) l") if num_starts > 1 else log_p
+        mask = rearrange(mask, "b s l -> (s b) l") if num_starts > 1 else mask
         return log_p, mask
+

@@ -30,13 +30,13 @@ def decode_probs(probs, mask, decode_type="sampling"):
 
     assert (probs == probs).all(), "Probs should not contain any nans"
 
-    if decode_type == "greedy":
+    if "greedy" in decode_type:
         _, selected = probs.max(1)
         assert not mask.gather(
             1, selected.unsqueeze(-1)
         ).data.any(), "Decode greedy: infeasible action has maximum probability"
 
-    elif decode_type == "sampling":
+    elif "sampling" in decode_type:
         selected = torch.multinomial(probs, 1).squeeze(1)
 
         while mask.gather(1, selected.unsqueeze(-1)).data.any():
@@ -44,7 +44,7 @@ def decode_probs(probs, mask, decode_type="sampling"):
             selected = probs.multinomial(1).squeeze(1)
 
     else:
-        assert False, "Unknown decode type"
+        assert False, "Unknown decode type: {}".format(decode_type)
     return selected
 
 

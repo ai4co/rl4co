@@ -8,10 +8,6 @@ from rl4co.models.nn.graph.gat import GraphAttentionEncoder
 from rl4co.utils.pylogger import get_pylogger
 
 
-## Uncomment the below to use the original implementation from POMO
-# from rl4co.models.zoo.pomo.encoder import GraphAttentionEncoder
-
-
 log = get_pylogger(__name__)
 
 

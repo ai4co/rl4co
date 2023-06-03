@@ -78,3 +78,22 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
 def distance(x, y):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
     return torch.norm(x - y, p=2, dim=-1)
+
+
+def select_start_nodes(td, num_nodes, env=None):
+    """Node selection strategy as proposed in POMO (Kwon et al. 2020) 
+    and extended in SymNCO (Kim et al. 2022).
+    Selects different start nodes for each batch element
+
+    Args:
+        td: TensorDict containing the data. We may need to access the available actions to select the start nodes
+        num_nodes: Number of nodes to select
+        env: (TODO) Environment may determine the node selection strategy 
+    """
+    selected = torch.arange(num_nodes, device=td.device).repeat_interleave(td.shape[0])
+    return selected
+
+
+def get_best_actions(actions, max_idxs):
+    actions = unbatchify(actions, max_idxs.shape[0])
+    return actions.gather(0, max_idxs[..., None, None])

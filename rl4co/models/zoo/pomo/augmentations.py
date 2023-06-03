@@ -40,7 +40,7 @@ class StateAugmentation(nn.Module):
         self.augmentation = augment_xy_data_by_8_fold
         self.feats = env_aug_feats(env_name)
 
-    def forward(self, td: TensorDict) -> TensorDict:
+    def forward(self, td: TensorDict, **unused_kwargs) -> TensorDict:
         td_aug = batchify(td, self.num_augment)
         for feat in self.feats:
             aug_feat = self.augmentation(td[feat])

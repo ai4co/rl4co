@@ -8,9 +8,8 @@ from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.models.zoo.pomo.utils import select_start_nodes
 from rl4co.utils import get_pylogger
-from rl4co.utils.ops import batchify, unbatchify
+from rl4co.utils.ops import batchify, unbatchify, select_start_nodes
 
 log = get_pylogger(__name__)
 
@@ -53,7 +52,7 @@ class Decoder(nn.Module):
 
         # POMO multi-start sampling
         self.num_starts = max(num_starts, 0)  # num_starts = 0 is just normal REINFORCE
-
+   
     def forward(
         self,
         td,
@@ -61,7 +60,13 @@ class Decoder(nn.Module):
         decode_type="sampling",
         softmax_temp=None,
         single_traj=False,
+        num_starts=None,
     ):
+          
+        # Greedy multi-start decoding if num_starts > 1
+        num_starts = self.num_starts if num_starts is None else num_starts # substitute self.num_starts with num_starts
+        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
 
@@ -69,14 +74,12 @@ class Decoder(nn.Module):
         outputs = []
         actions = []
 
-        if self.num_starts > 1 and not single_traj:
+        if num_starts > 1 and not single_traj or "multistart" in decode_type:
             # POMO: first action is decided via select_start_nodes
-            action = select_start_nodes(
-                batch_size=td.shape[0], num_nodes=self.num_starts, device=td.device
-            )
+            action = select_start_nodes(td, num_starts, self.env)
 
             # Expand td to batch_size * num_starts
-            td = batchify(td, self.num_starts)
+            td = batchify(td, num_starts)
 
             td.set("action", action)
             td = self.env.step(td)["next"]
@@ -90,7 +93,7 @@ class Decoder(nn.Module):
         # Main decoding
         while not td["done"].all():
 
-            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
+            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
@@ -114,6 +117,7 @@ class Decoder(nn.Module):
             logit_key_fixed,
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
+
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
             node_embeddings=embeddings,
@@ -124,14 +128,15 @@ class Decoder(nn.Module):
 
         return cached_embeds
 
-    def _get_log_p(self, cached, td, softmax_temp=None):
+    def _get_log_p(self, cached, td, softmax_temp=None, num_starts=0):
         # Compute the query based on the context (computes automatically the first and last node context)
 
-        # need to unbatchify
-        td_unbatch = unbatchify(td, self.num_starts)
+        # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
+        td_unbatch = unbatchify(td, num_starts)
 
         step_context = self.context(cached.node_embeddings, td_unbatch)
-        glimpse_q = step_context  # TODO
+        glimpse_q = step_context # in POMO, no graph context is used to compute query
+        glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
 
         # Compute keys and values for the nodes
         (
@@ -153,6 +158,6 @@ class Decoder(nn.Module):
 
         # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
         # Note that rearranging order is important here
-        log_p = rearrange(log_p, "b s l -> (s b) l")
-        mask = rearrange(mask, "b s l -> (s b) l")
+        log_p = rearrange(log_p, "b s l -> (s b) l") if num_starts > 1 else log_p
+        mask = rearrange(mask, "b s l -> (s b) l") if num_starts > 1 else mask
         return log_p, mask

@@ -35,17 +35,29 @@ def env_aug_feats(env_name: str):
     return ("locs", "depot") if env_name == "op" else ("locs",)
 
 
+def min_max_normalize(x):
+    return (x - x.min()) / (x.max() - x.min())
+
+
 class StateAugmentation(nn.Module):
     """Augment state by N times via symmetric rotation/reflection transform"""
 
-    def __init__(self, env_name: str):
+    def __init__(self, env_name: str, num_augment: int = 8, normalize: bool = False):
         super(StateAugmentation, self).__init__()
         self.augmentation = augment_xy_data_by_n_fold
         self.feats = env_aug_feats(env_name)
+        self.num_augment = num_augment
+        self.normalize = normalize
 
-    def forward(self, td: TensorDict, num_augment: int = 8) -> TensorDict:
+    def forward(self, td: TensorDict, num_augment: int = None, normalize: bool = False) -> TensorDict:
+        num_augment = num_augment if num_augment is not None else self.num_augment
+        normalize = normalize if normalize is not None else False
+        
         td_aug = batchify(td, num_augment)
         for feat in self.feats:
             aug_feat = self.augmentation(td_aug[feat], num_augment)
             td_aug[feat] = aug_feat
+            if normalize:
+                td_aug[feat] = min_max_normalize(td_aug[feat])
+
         return td_aug

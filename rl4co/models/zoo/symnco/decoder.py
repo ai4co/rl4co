@@ -8,9 +8,8 @@ from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.models.zoo.symnco.utils import select_start_nodes
 from rl4co.utils import get_pylogger
-from rl4co.utils.ops import batchify, unbatchify
+from rl4co.utils.ops import batchify, unbatchify, select_start_nodes
 
 
 log = get_pylogger(__name__)
@@ -63,22 +62,33 @@ class Decoder(nn.Module):
         self.num_starts = num_starts  # POMO = 1 is just normal REINFORCE
         self.use_graph_context = use_graph_context  # disabling makes it like in POMO
 
-    def forward(self, td, embeddings, decode_type="sampling", softmax_temp=None, single_traj=False):
+    def forward(
+        self,
+        td,
+        embeddings,
+        decode_type="sampling",
+        softmax_temp=None,
+        single_traj=False,
+        num_starts=None,
+    ):
+          
+        # Greedy multi-start decoding if num_starts > 1
+        num_starts = self.num_starts if num_starts is None else num_starts # substitute self.num_starts with num_starts
+        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute(embeddings)
+        cached_embeds = self._precompute(embeddings, num_starts=num_starts)
 
         # Collect outputs
         outputs = []
         actions = []
 
-        if self.num_starts > 1 and not single_traj:
-            # POMO: first action is decided via select_start_nodes
-            action = select_start_nodes(
-                batch_size=td.shape[0], num_nodes=self.num_starts, device=td.device
-            )
+        # Multi-start decoding: first action is chosen by ad-hoc node selection
+        if num_starts > 1 and not single_traj or "multistart" in decode_type:
+            action = select_start_nodes(td, num_starts, self.env)
 
-            # # Expand td to batch_size * num_starts
-            td = batchify(td, self.num_starts)
+            # Expand td to batch_size * num_starts
+            td = batchify(td, num_starts)
 
             td.set("action", action)
             td = self.env.step(td)["next"]
@@ -89,9 +99,10 @@ class Decoder(nn.Module):
             outputs.append(log_p)
             actions.append(action)
 
+        # Main decoding
         while not td["done"].all():
-            # Compute the logits for the next node
-            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
+
+            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
             action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
@@ -107,7 +118,7 @@ class Decoder(nn.Module):
         td.set("reward", self.env.get_reward(td, actions))
         return outputs, actions, td
 
-    def _precompute(self, embeddings):
+    def _precompute(self, embeddings, num_starts=0):
         # The projection of the node embeddings for the attention is calculated once up front
         (
             glimpse_key_fixed,
@@ -115,8 +126,12 @@ class Decoder(nn.Module):
             logit_key_fixed,
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
-        # In POMO, no graph context. However, it was not shown how this could help # [batch, 1, embed_dim]
-        graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), self.num_starts), self.num_starts) if self.use_graph_context else 0
+        # By default, the query is modified with the graph context.
+        # In POMO, the graph context is not used
+        if self.use_graph_context:
+            graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), num_starts), num_starts)
+        else:
+            graph_context = 0
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
@@ -126,21 +141,18 @@ class Decoder(nn.Module):
             glimpse_val=glimpse_val_fixed,
             logit_key=logit_key_fixed,
         )
+
         return cached_embeds
 
-    def _get_log_p(self, cached, td, softmax_temp=None):
+    def _get_log_p(self, cached, td, softmax_temp=None, num_starts=0):
         # Compute the query based on the context (computes automatically the first and last node context)
-        
-        # need to unbatchify
-        td_unbatch = unbatchify(td, self.num_starts)
+
+        # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
+        td_unbatch = unbatchify(td, num_starts)
 
         step_context = self.context(cached.node_embeddings, td_unbatch)
-        glimpse_q = cached.graph_context + step_context 
-
-        # Unsqueeze if glimpse_q is 2d to [batch_size, key_len, embedding_dim]
-        glimpse_q = glimpse_q if self.num_starts > 1 else glimpse_q.unsqueeze(1)
-
-        # breakpoint()
+        glimpse_q = step_context + cached.graph_context
+        glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
 
         # Compute keys and values for the nodes
         (
@@ -152,7 +164,6 @@ class Decoder(nn.Module):
         glimpse_v = cached.glimpse_val + glimpse_val_dynamic
         logit_k = cached.logit_key + logit_key_dynamic
 
-
         # Get the mask
         mask = ~td_unbatch["action_mask"]
 
@@ -163,6 +174,6 @@ class Decoder(nn.Module):
 
         # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
         # Note that rearranging order is important here
-        log_p = rearrange(log_p, "b s l -> (s b) l") if self.num_starts > 1 else log_p
-        mask = rearrange(mask, "b s l -> (s b) l") if self.num_starts > 1 else mask
+        log_p = rearrange(log_p, "b s l -> (s b) l") if num_starts > 1 else log_p
+        mask = rearrange(mask, "b s l -> (s b) l") if num_starts > 1 else mask
         return log_p, mask
