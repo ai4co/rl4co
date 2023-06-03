@@ -9,19 +9,30 @@
 ![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)
 <!-- ![testing](https://github.com/kaist-silab/ncobench/actions/workflows/tests.yml/badge.svg) -->
 
-[[Notion Page]](https://www.notion.so/kaistsilab/RL4CO-NIPS-23-f9b2e557d6834739a776f595453bae0d?pvs=4) [[Sofware Practices]](https://www.notion.so/kaistsilab/Software-929d1248c13a4cb0911d317311787f3e?pvs=4)
 </div>
-
 
 
 ## Description
 
-Code repository for RL4CO. Based on [TorchRL](https://github.com/pytorch/rl) and the [Lightning-Hydra-Template](https://github.com/ashleve/lightning-hydra-template) best practices.
+RL4CO is an extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering. 
+
+Our library is built upon:
+- [TorchRL](https://github.com/pytorch/rl): official PyTorch project providing a unified framework for RL algorithms and vectorized environments on GPU
+- [TensorDict](https://github.com/pytorch-labs/tensordict): a library to easily handle heterogeneous data such as states, actions and rewards
+- [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
+- [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
+
 
 
 ## Getting started
 
-Clone project and install project locally with pip:
+RL4CO is now available for installation on `pip`!
+```bash
+pip install rl4co
+```
+
+### Local install and development
+If you want to develop RL4CO or access the latest builds, we recommend you to install it locally with `pip` in editable mode:
 
 ```bash
 git clone https://github.com/kaist-silab/rl4co && cd rl4co
