@@ -11,6 +11,7 @@ checkpoint_epochs = {   'am-*': ['049', '099'],
                         'symnco-*': ['009', '099'],
                         'am-*-sm*': ['049', '499'],
                         'am-sm*': ['049', '499'], # backup for am-*-sm
+                        'ptrnet-*': ['049', '099'],
                     }
 
 def get_checkpoint_epochs(key):
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Collect and copy checkpoint files for specific experiments')
     parser.add_argument('--save_folder', type=str, default='saved_checkpoints', help='Path to the folder where checkpoint files will be saved')
     parser.add_argument('--env_names', nargs='+', default=['tsp20', 'tsp50', 'cvrp20', 'cvrp50'], help='List of environment names')
-    parser.add_argument('--models', nargs='+', default=['am', 'pomo', 'symnco'], help='List of models')
+    parser.add_argument('--models', nargs='+', default=['am', 'pomo', 'symnco', 'ptrnet'], help='List of models')
     parser.add_argument('--zip', action=argparse.BooleanOptionalAction, default=True, help='Whether to zip the folder. Use --no-zip False to disable')
     args = parser.parse_args()
 
@@ -78,9 +79,8 @@ if __name__ == "__main__":
                 for checkpoint_folder in checkpoint_folders:
                     # get all files inside checkpoint folder
                     files = glob.glob(os.path.join(checkpoint_folder, '*'))
-                    # print(files)
-                    # get all files that contain epoch_sizes[0] and epoch_sizes[1]
 
+                    # get all files that contain epoch_sizes[0] and epoch_sizes[1]
                     files = [file for file in files if epoch_sizes[0] in file or epoch_sizes[1] in file]
                     # if files is not empty, add the folder to the list
 
@@ -88,6 +88,7 @@ if __name__ == "__main__":
                         print("Found checkpoint for experiment: {} in folder: {}".format(exp, checkpoint_folder))
 
                     experiment_files.extend(files)
+
 
                 # check if experiment_files is empty
                 if len(experiment_files) == 0:
@@ -119,6 +120,11 @@ if __name__ == "__main__":
                 # create folder if it does not exist elseskip
                 if not os.path.exists(subfolder):
                     os.makedirs(subfolder, exist_ok=True)
+
+                # Load config.yaml. This file is under ../wandb/latest-run
+                # and contains the hyperparameters of the experiment
+                config_file = os.path.join(os.path.dirname(os.path.dirname(experiment_files[0])), 'wandb/latest-run/files/config.yaml')  
+                experiment_files.append(config_file)
 
                 # copy files to save_folder
                 for file in experiment_files:
