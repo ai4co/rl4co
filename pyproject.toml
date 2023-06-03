@@ -20,7 +20,7 @@ authors = [
 dynamic = ["version"]
 
 license = {file = "LICENSE"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -32,7 +32,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch",
+    "torch>=2.0.0",
     "torchrl>=0.1.1",
     "tensordict>=0.1.1",
     "lightning>=2.0.0",
