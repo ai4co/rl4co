@@ -42,7 +42,6 @@ class RL4COLitModule(LightningModule):
         self.cfg = cfg
 
         # Instantiate environment, model and metrics
-
         self.env = env if env is not None else self.instantiate_env()
         self.model = model if model is not None else self.instantiate_model()
         self.instantiate_metrics()
@@ -122,7 +121,7 @@ class RL4COLitModule(LightningModule):
         self.val_dataset = self.env.dataset(self.val_size, "val")
         self.test_dataset = self.env.dataset(self.test_size, "test")
 
-        if hasattr(self.model, "setup"):
+        if hasattr(self.model, "setup") and not self.cfg.get("disable_model_setup", False):
             self.model.setup(self)
 
     def configure_optimizers(self):
@@ -196,7 +195,7 @@ class RL4COLitModule(LightningModule):
         self.train_dataset = self.wrap_dataset(train_dataset)
 
     def wrap_dataset(self, dataset):
-        if hasattr(self.model, "wrap_dataset"):
+        if hasattr(self.model, "wrap_dataset") and not self.cfg.get('disable_wrap_dataset', False):
             dataset = self.model.wrap_dataset(self, dataset)
         return dataset
 
