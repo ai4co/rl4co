@@ -3,18 +3,20 @@ from typing import List
 
 
 class MLP(nn.Module):
-    def __init__(self,
-                 input_dim: int,
-                 output_dim: int,
-                 num_neurons: List[int] = [64, 32],
-                 hidden_act: str = 'ReLU',
-                 out_act: str = 'Identity',
-                 input_norm: str = 'None',
-                 output_norm: str = 'None'):
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        num_neurons: List[int] = [64, 32],
+        hidden_act: str = "ReLU",
+        out_act: str = "Identity",
+        input_norm: str = "None",
+        output_norm: str = "None",
+    ):
         super(MLP, self).__init__()
 
-        assert input_norm in ['Batch', 'Layer', 'None']
-        assert output_norm in ['Batch', 'Layer', 'None']
+        assert input_norm in ["Batch", "Layer", "None"]
+        assert output_norm in ["Batch", "Layer", "None"]
 
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -44,14 +46,16 @@ class MLP(nn.Module):
 
     @staticmethod
     def _get_norm_layer(norm_method, dim):
-        if norm_method == 'Batch':
+        if norm_method == "Batch":
             in_norm = nn.BatchNorm1d(dim)
-        elif norm_method == 'Layer':
+        elif norm_method == "Layer":
             in_norm = nn.LayerNorm(dim)
-        elif norm_method == 'None':
+        elif norm_method == "None":
             in_norm = nn.Identity()  # kinda placeholder
         else:
-            raise RuntimeError("Not implemented normalization layer type {}".format(norm_method))
+            raise RuntimeError(
+                "Not implemented normalization layer type {}".format(norm_method)
+            )
         return in_norm
 
     def _get_act(self, is_last):

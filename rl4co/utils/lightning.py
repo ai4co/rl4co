@@ -20,7 +20,7 @@ def get_lightning_device(lit_module: L.LightningModule) -> torch.device:
     return lit_module.device
 
 
-def remove_key(config, key='wandb'):
+def remove_key(config, key="wandb"):
     """Remove keys containing 'key`"""
     new_config = {}
     for k, v in config.items():
@@ -31,7 +31,7 @@ def remove_key(config, key='wandb'):
     return new_config
 
 
-def clean_hydra_config(config, keep_value_only=True, remove_keys='wandb'):
+def clean_hydra_config(config, keep_value_only=True, remove_keys="wandb"):
     """Clean hydra config by nesting dictionary and cleaning values"""
     # Remove keys containing `remove_keys`
     if not isinstance(remove_keys, list):
@@ -43,23 +43,30 @@ def clean_hydra_config(config, keep_value_only=True, remove_keys='wandb'):
     # Iterate over config dictionary
     for key, value in config.items():
         # If key contains slash, split it and create nested dictionary recursively
-        if '/' in key:
-            keys = key.split('/')
+        if "/" in key:
+            keys = key.split("/")
             d = new_config
             for k in keys[:-1]:
                 d = d.setdefault(k, {})
-            d[keys[-1]] = value['value'] if keep_value_only else value
+            d[keys[-1]] = value["value"] if keep_value_only else value
         else:
-            new_config[key] = value['value'] if keep_value_only else value
+            new_config[key] = value["value"] if keep_value_only else value
 
     return DictConfig(new_config)
 
 
-def load_model_from_checkpoint(config, checkpoint_path, device='cpu', only_policy=True, 
-                               disable_model_setup=True, disable_wrap_dataset=True, validate_only=True,
-                               phase='test'):
+def load_model_from_checkpoint(
+    config,
+    checkpoint_path,
+    device="cpu",
+    only_policy=True,
+    disable_model_setup=True,
+    disable_wrap_dataset=True,
+    validate_only=True,
+    phase="test",
+):
     """Load model from checkpoint
-    
+
     Args:
         config: Hydra config or its path
         checkpoint_path: Path to checkpoint
@@ -70,35 +77,37 @@ def load_model_from_checkpoint(config, checkpoint_path, device='cpu', only_polic
         validate_only: If True, only load model for validation and make train size small
     """
     if only_policy and not (disable_model_setup or disable_wrap_dataset):
-        log.warning('only_policy is True, but disable_model_setup and disable_wrap_dataset are False. '\
-                    'This may cause errors due to missing model setup and dataset wrapping. ')
-        
+        log.warning(
+            "only_policy is True, but disable_model_setup and disable_wrap_dataset are False. "
+            "This may cause errors due to missing model setup and dataset wrapping. "
+        )
+
     # Load config if path is given
     if not isinstance(config, DictConfig or dict):
-        log.info(f'Loading config from {config}')
-        with open(config, 'r') as stream:
+        log.info(f"Loading config from {config}")
+        with open(config, "r") as stream:
             config = yaml.safe_load(stream)
 
     # Clean hydra config
     config = clean_hydra_config(config)
 
     # Add to cfg disable_model_setup and disable_wrap_dataset
-    config['disable_model_setup'] = disable_model_setup
-    config['disable_wrap_dataset'] = disable_wrap_dataset
+    config["disable_model_setup"] = disable_model_setup
+    config["disable_wrap_dataset"] = disable_wrap_dataset
     if validate_only:
-        config['train_size'] = 10 # dummy
+        config["train_size"] = 10  # dummy
 
     # Load model and checkpoint
-    lit_module = RL4COLitModule(config) 
+    lit_module = RL4COLitModule(config)
     checkpoint_path = torch.load(checkpoint_path, map_location=device)
 
     # Load model from checkpoint: only policy parameters or full model
     if only_policy:
-        state_dict = checkpoint_path['state_dict']
+        state_dict = checkpoint_path["state_dict"]
         # get only policy parameters
-        state_dict = {k: v for k, v in state_dict.items() if 'policy' in k}
+        state_dict = {k: v for k, v in state_dict.items() if "policy" in k}
         # remove leading 'policy.' from keys
-        state_dict = {k.replace('model.policy.', ''): v for k, v in state_dict.items()}
+        state_dict = {k.replace("model.policy.", ""): v for k, v in state_dict.items()}
         # load policy state_dict
         lit_module.model.policy.load_state_dict(state_dict)
     else:

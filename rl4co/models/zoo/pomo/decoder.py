@@ -52,7 +52,7 @@ class Decoder(nn.Module):
 
         # POMO multi-start sampling
         self.num_starts = max(num_starts, 0)  # num_starts = 0 is just normal REINFORCE
-   
+
     def forward(
         self,
         td,
@@ -62,10 +62,14 @@ class Decoder(nn.Module):
         single_traj=False,
         num_starts=None,
     ):
-          
+
         # Greedy multi-start decoding if num_starts > 1
-        num_starts = self.num_starts if num_starts is None else num_starts # substitute self.num_starts with num_starts
-        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+        num_starts = (
+            self.num_starts if num_starts is None else num_starts
+        )  # substitute self.num_starts with num_starts
+        assert not (
+            "multistart" in decode_type and num_starts <= 1
+        ), "Multi-start decoding requires `num_starts` > 1"
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings)
@@ -117,7 +121,6 @@ class Decoder(nn.Module):
             logit_key_fixed,
         ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
-
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
             node_embeddings=embeddings,
@@ -135,7 +138,7 @@ class Decoder(nn.Module):
         td_unbatch = unbatchify(td, num_starts)
 
         step_context = self.context(cached.node_embeddings, td_unbatch)
-        glimpse_q = step_context # in POMO, no graph context is used to compute query
+        glimpse_q = step_context  # in POMO, no graph context is used to compute query
         glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
 
         # Compute keys and values for the nodes

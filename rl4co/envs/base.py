@@ -91,8 +91,10 @@ class RL4COEnvBase(EnvBase):
             try:
                 td = self.load_data(f, batch_size)
             except FileNotFoundError:
-                raise Exception(f"Provided file name {f} not found. Make sure to provide a file in the right path first or " \
-                                f"unset {phase}_file to generate data automatically instead")
+                raise Exception(
+                    f"Provided file name {f} not found. Make sure to provide a file in the right path first or "
+                    f"unset {phase}_file to generate data automatically instead"
+                )
         return TensorDictDataset(td)
 
     def generate_data(self, batch_size):

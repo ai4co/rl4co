@@ -50,8 +50,8 @@ class PointerNetworkPolicy(nn.Module):
     def forward(
         self, td, phase: str = "train", decode_type="sampling", eval_tours=None
     ):
-        
-        # Set train or eval mode. Although this is already done by PyTorch Lightning, 
+
+        # Set train or eval mode. Although this is already done by PyTorch Lightning,
         # there still is an exception raised otherwise https://github.com/pytorch/captum/issues/564
         if phase == "train":
             self.train()

@@ -13,9 +13,9 @@ log = get_pylogger(__name__)
 class MessagePassingLayer(MessagePassing):
     def __init__(
         self,
-        node_indim, 
-        node_outdim, 
-        edge_indim, 
+        node_indim,
+        node_outdim,
+        edge_indim,
         edge_outdim,
         aggregation="add",
         residual=False,
@@ -24,22 +24,16 @@ class MessagePassingLayer(MessagePassing):
         super(MessagePassingLayer, self).__init__(aggr=aggregation)
         # Init message passing models
         self.edge_model = MLP(
-            input_dim=edge_indim + 2 * node_indim,
-            output_dim=edge_outdim,
-            **mlp_params
+            input_dim=edge_indim + 2 * node_indim, output_dim=edge_outdim, **mlp_params
         )
         self.node_model = MLP(
-            input_dim=edge_outdim + node_indim,
-            output_dim=node_outdim,
-            **mlp_params
+            input_dim=edge_outdim + node_indim, output_dim=node_outdim, **mlp_params
         )
         self.residual = residual
 
     def forward(self, node_feature, edge_feature, edge_index, mask=None):
         # Message passing
-        update_edge_feature = self.edge_update(
-            node_feature, edge_feature, edge_index
-        )
+        update_edge_feature = self.edge_update(node_feature, edge_feature, edge_index)
         update_node_feature = self.propagate(
             edge_index, x=node_feature, edge_features=update_edge_feature
         )
@@ -75,34 +69,34 @@ class MessagePassingEncoder(nn.Module):
         self_loop=False,
         residual=True,
     ):
-        '''
+        """
         Note:
             - Support fully connected graph for now.
-        '''
+        """
         super(MessagePassingEncoder, self).__init__()
         # Define the init embedding
-        self.init_embedding = env_init_embedding(
-            env, {"embedding_dim": embedding_dim}
-        )
+        self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
         if self_loop:
-            adj_matrix.fill_diagonal_(0) # No self-loops
+            adj_matrix.fill_diagonal_(0)  # No self-loops
         self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
 
         # Init message passing models
-        self.mpnn_layers = nn.ModuleList([
-            MessagePassingLayer(
-                node_indim=embedding_dim,
-                node_outdim=embedding_dim,
-                edge_indim=1,
-                edge_outdim=1,
-                aggregation=aggregation,
-                residual=residual,
-            )
-            for _ in range(num_mpnn_layer)
-        ])
+        self.mpnn_layers = nn.ModuleList(
+            [
+                MessagePassingLayer(
+                    node_indim=embedding_dim,
+                    node_outdim=embedding_dim,
+                    edge_indim=1,
+                    edge_outdim=1,
+                    aggregation=aggregation,
+                    residual=residual,
+                )
+                for _ in range(num_mpnn_layer)
+            ]
+        )
 
         # Record parameters
         self.self_loop = self_loop
@@ -118,7 +112,7 @@ class MessagePassingEncoder(nn.Module):
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
             edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-        else: 
+        else:
             edge_index = self.edge_index
 
         # Generate edge features: distance
@@ -140,7 +134,9 @@ class MessagePassingEncoder(nn.Module):
 
         # Message passing
         for layer in self.mpnn_layers:
-            update_node_feature, update_edge_feature = layer(update_node_feature, update_edge_feature, edge_index)
+            update_node_feature, update_edge_feature = layer(
+                update_node_feature, update_edge_feature, edge_index
+            )
 
         # De-batch the graph
         input_size = node_feature.size()
@@ -162,14 +158,12 @@ class MessagePassingEncoder(nn.Module):
         return unf
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from rl4co.envs import TSPEnv
+
     env = TSPEnv()
     model = MessagePassingEncoder(
-        env=env,
-        embedding_dim=128, 
-        num_nodes=20,
-        num_mpnn_layer=3
+        env=env, embedding_dim=128, num_nodes=20, num_mpnn_layer=3
     )
     td = env.reset(batch_size=[32])
     update_node_feature, _ = model(td)

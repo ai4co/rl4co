@@ -35,18 +35,18 @@ def generate_vrp_data(dataset_size, vrp_size, capacities=None):
 
     # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
     CAPACITIES = {
-                    10: 20.0, 
-                    20: 30.0,
-                    50: 40.0,
-                    75: 45.0,
-                    100: 50.0,
-                    125: 55.0,
-                    150: 60.0,
-                    200: 70.0,
-                    500: 100.0,
-                    1000: 150.0,
-                  }
-    
+        10: 20.0,
+        20: 30.0,
+        50: 40.0,
+        75: 45.0,
+        100: 50.0,
+        125: 55.0,
+        150: 60.0,
+        200: 70.0,
+        500: 100.0,
+        1000: 150.0,
+    }
+
     # If capacities are provided, replace keys in CAPACITIES with provided values if they exist
     if capacities is not None:
         for k, v in capacities.items():

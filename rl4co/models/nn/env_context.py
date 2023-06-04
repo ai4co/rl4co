@@ -85,7 +85,7 @@ class VRPContext(EnvContext):
         super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["vehicle_capacity"] - td['used_capacity']
+        state_embedding = td["vehicle_capacity"] - td["used_capacity"]
         return state_embedding
 
 
@@ -112,10 +112,11 @@ class DPPContext(EnvContext):
         super(DPPContext, self).__init__(embedding_dim)
 
     def forward(self, embeddings, td):
-        """Context cannot be defined by a single node embedding for DPP, hence 0. 
+        """Context cannot be defined by a single node embedding for DPP, hence 0.
         We modify the dynamic embedding instead to capture placed items
         """
         return embeddings.new_zeros(embeddings.size(0), self.embedding_dim)
+
 
 class PDPContext(EnvContext):
     def __init__(self, embedding_dim):

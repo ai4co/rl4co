@@ -22,10 +22,20 @@ class POMO(REINFORCE):
         num_augment: Number of augmentations (default: 8)
     """
 
-    def __init__(self, env, policy=None, baseline=None, num_starts=10, num_augment=8, **policy_kwargs):
+    def __init__(
+        self,
+        env,
+        policy=None,
+        baseline=None,
+        num_starts=10,
+        num_augment=8,
+        **policy_kwargs
+    ):
         super(POMO, self).__init__(env, policy, baseline)
         self.policy = (
-            POMOPolicy(self.env, num_starts=num_starts, **policy_kwargs) if policy is None else policy
+            POMOPolicy(self.env, num_starts=num_starts, **policy_kwargs)
+            if policy is None
+            else policy
         )
 
         # TODO: check baseline
@@ -95,7 +105,9 @@ class POMO(REINFORCE):
             # Reshape batch to [batch, num_starts, num_augment]
             if out.get("actions", None) is not None:
                 actions = unbatchify(out["actions"], (num_starts, num_augment))
-                out.update({"best_multistart_actions": gather_by_index(actions, max_idxs)})
+                out.update(
+                    {"best_multistart_actions": gather_by_index(actions, max_idxs)}
+                )
                 out["actions"] = actions
 
         # Get augmentation score only during inference

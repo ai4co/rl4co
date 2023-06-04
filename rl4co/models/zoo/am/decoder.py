@@ -29,6 +29,7 @@ class Decoder(nn.Module):
         embedding_dim: Dimension of the embeddings
         num_heads: Number of heads for the attention
     """
+
     def __init__(self, env, embedding_dim, num_heads, **logit_attn_kwargs):
         super(Decoder, self).__init__()
 
@@ -63,10 +64,12 @@ class Decoder(nn.Module):
         num_starts=None,
         calc_reward=True,
     ):
-        
+
         # Greedy multi-start decoding if num_starts > 1
         num_starts = 0 if num_starts is None else num_starts
-        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+        assert not (
+            "multistart" in decode_type and num_starts <= 1
+        ), "Multi-start decoding requires `num_starts` > 1"
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings, num_starts=num_starts)
@@ -122,7 +125,10 @@ class Decoder(nn.Module):
 
         # Batchify and unbatchify have no effect if num_starts = 0.
         # Otherwise, we need to batchify the embeddings to modify key value (i.e. for the lenght of queries)
-        graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), num_starts), num_starts)
+        graph_context = unbatchify(
+            batchify(self.project_fixed_context(embeddings.mean(1)), num_starts),
+            num_starts,
+        )
 
         # Organize in a dataclass for easy access
         cached_embeds = PrecomputedCache(
@@ -168,4 +174,3 @@ class Decoder(nn.Module):
         log_p = rearrange(log_p, "b s l -> (s b) l") if num_starts > 1 else log_p
         mask = rearrange(mask, "b s l -> (s b) l") if num_starts > 1 else mask
         return log_p, mask
-
