@@ -17,7 +17,8 @@ class OPEnv(RL4COEnvBase):
     At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
+        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is not included
+            i.e. for example, if num_loc=20, there would be 21 nodes in total including the depot
         - min_loc <float>: minimum value for the location coordinates
         - max_loc <float>: maximum value for the location coordinates
         - length_capacity <float>: capacity of the vehicle of length, i.e. the maximum length the vehicle can travel
@@ -129,9 +130,11 @@ class OPEnv(RL4COEnvBase):
         """
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
-        device = td.device if td is not None else self.device
+
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
+
+        device = td.device if td is not None else self.device
 
         # Initialize the current node
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -229,9 +232,15 @@ class OPEnv(RL4COEnvBase):
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
+        # Check that tours are valid, i.e. contain 0 to n-1
+        sorted_actions = actions.data.sort(1)[0]
+        # Make sure each node visited once at most (except for depot)
+        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+
+        # Calculate the reward
         return td["prize_collect"].squeeze(-1)
 
-    def generate_data(self, batch_size):
+    def generate_data(self, batch_size, prize_type=):
         """
         Args:
             - batch_size <int> or <list>: batch size
@@ -251,8 +260,8 @@ class OPEnv(RL4COEnvBase):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+        locs_with_depot = (
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
@@ -269,8 +278,8 @@ class OPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": locs,
-                "depot": locs[..., 0, :],
+                "observation": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "prize": prize,
             },
             batch_size=batch_size,
