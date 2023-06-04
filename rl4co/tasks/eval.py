@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from rl4co.models.zoo.symnco.augmentations import StateAugmentation as StateAugmentationN
-from rl4co.models.zoo.pomo.augmentations import StateAugmentation as StateAugmentation8
+from rl4co.models.zoo.pomo.augmentations import StateAugmentation as Dihedral8StateAugmentation
+from rl4co.models.zoo.symnco.augmentations import StateAugmentation as SymmetricStateAugmentation
 from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.utils.ops import batchify, unbatchify, gather_by_index
 
@@ -106,10 +106,9 @@ class AugmentationEval(EvalBase):
         
         assert not  (num_augment != 8 and force_dihedral_8), "Cannot force dihedral when num_augment != 8"
         if num_augment == 8 and not force_dihedral_8:
-            self.augmentation = StateAugmentation8(env.name, num_augment=num_augment)
+            self.augmentation = Dihedral8StateAugmentation(env.name, num_augment=num_augment)
         else:
-            self.augmentation = StateAugmentationN(env.name, num_augment=num_augment, normalize=True)
-
+            self.augmentation = SymmetricStateAugmentation(env.name, num_augment=num_augment)
     def _inner(self, policy, td, num_augment=None):
         if num_augment is None:
             num_augment = self.augmentation.num_augment
@@ -219,9 +218,9 @@ class GreedyMultiStartAugmentEval(EvalBase):
         self.num_starts = num_starts
         assert not  (num_augment != 8 and force_dihedral_8), "Cannot force dihedral 8 when num_augment != 8"
         if num_augment == 8 and not force_dihedral_8:
-            self.augmentation = StateAugmentation8(env.name, num_augment=num_augment)
+            self.augmentation = Dihedral8StateAugmentation(env.name, num_augment=num_augment)
         else:
-            self.augmentation = StateAugmentationN(env.name, num_augment=num_augment)
+            self.augmentation = SymmetricStateAugmentation(env.name, num_augment=num_augment)
             
     def _inner(self, policy, td, num_augment=None):
         if num_augment is None:
