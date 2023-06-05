@@ -137,8 +137,15 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
 
 
 def generate_mdpp_data(dataset_size, size=10, num_probes_min=2, num_probes_max=5, 
-                  num_keepout_min=1, num_keepout_max=50):
-    
+                  num_keepout_min=1, num_keepout_max=50, lock_size=True):
+    """Generate data for the nDPP problem.
+    If `lock_size` is True, then the size if fixed and we skip the `size` argument if it is not 10.
+    This is because the RL environment is based on a real-world PCB (parametrized with data)
+    """
+    if lock_size and size != 10:
+        # log.info("Locking size to 10, skipping generate_mdpp_data with size {}".format(size))
+        return None
+        
     bs = dataset_size # bs = batch_size to generate data in batch
     m = n = size
     if isinstance(bs, int):
@@ -252,9 +259,11 @@ def generate_dataset(
                 dataset = generate_env_data(
                     problem, dataset_size, graph_size, distribution
                 )
-
-                # Save to disk as dict
-                np.savez(fname, **dataset)
+                
+                # A function can return None in case of an error or a skip
+                if dataset is not None:
+                    # Save to disk as dict
+                    np.savez(fname, **dataset)
 
 
 def generate_default_datasets(data_dir):
