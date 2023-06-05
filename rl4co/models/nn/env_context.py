@@ -48,8 +48,6 @@ class EnvContext(nn.Module):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
         state_embedding = self._state_embedding(embeddings, td)
-        print("context embedding")
-        print(cur_node_embedding.shape, state_embedding.shape)
         context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
 

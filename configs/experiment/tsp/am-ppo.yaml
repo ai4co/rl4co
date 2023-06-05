@@ -15,7 +15,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 env:
-  num_loc: 20
+  num_loc: 10
 
 tags: ["tsp", "am-PPO", "20"]
 
@@ -33,8 +33,8 @@ seed: 12345
 
 model:
   clip_range: 0.1
-  ppo_epochs: 2
-  mini_batch_size: 10
+  ppo_epochs: 15
+  mini_batch_size: 21
   vf_lambda: 0.5
   entropy_bonus: 0.0
   normalize_adv: True

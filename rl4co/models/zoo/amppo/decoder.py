@@ -26,13 +26,16 @@ class PPODecoder(Decoder):
         cached_embeds = self._precompute(embeddings)
 
         decode_step = 0
+
+        print(td["locs"].mean())
+
         while not td["done"].all():
-            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp)
+            log_p, mask = self._get_log_p(cached_embeds, td.clone(), softmax_temp)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long
 
             if given_actions is not None:
-                action = given_actions[:, decode_step]
+                action = given_actions[..., decode_step]
             else:
                 action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
 
@@ -45,8 +48,9 @@ class PPODecoder(Decoder):
             decode_step += 1
 
         if given_actions is not None:
-            if decode_step != (given_actions.shape[1]):
+            if len(outputs) != given_actions.shape[1]:
                 print(given_actions.shape, decode_step)
+
                 print(td["done"].all())
                 raise ValueError(
                     f"Given actions have {given_actions.shape[1]} steps, but we decoded {decode_step} steps."
