@@ -1,10 +1,12 @@
 from math import log
+from random import shuffle
 from typing import Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tensordict import TensorDict
+from torch.utils.data import DataLoader, TensorDataset
 
 from rl4co.utils.pylogger import get_pylogger
 
@@ -21,7 +23,7 @@ class PPO(nn.Module):
         ppo_epochs: int = 2,  # K
         mini_batch_size: Union[int, float] = 0.25,  # 0.25,
         vf_lambda: float = 0.5,  # lambda of Value function fitting
-        entropy_lambda: float = 0.01,  # lambda of entropy bonus
+        entropy_lambda: float = 0.0,  # lambda of entropy bonus
         normalize_adv: bool = False,  # whether to normalize advantage
         max_grad_norm: float = 0.5,  # max gradient norm
         **unused_kw,
@@ -61,29 +63,18 @@ class PPO(nn.Module):
 
         iter_i = 0
         if phase == "train":
-            for k in range(self.ppo_epochs):  # loop K
-                print(f"PPO Epoch {k} !!!!!!!!!!!!!!!!!!!!!!!!!!")
-                batch_size = old_logp.shape[0]
+            batch_size = old_logp.shape[0]
 
-                if self.mini_batch_size > batch_size:
-                    log.info("Mini batch size is larger than batch size, set to batch size")
-                    mini_batch_size = batch_size
-                else:
-                    mini_batch_size = self.mini_batch_size
+            if isinstance(self.mini_batch_size, float):
+                mini_batch_size = int(self.mini_batch_size * batch_size)
+            if self.mini_batch_size >= batch_size:
+                mini_batch_size = batch_size
 
-                if isinstance(mini_batch_size, float):
-                    mini_batch_size = int(mini_batch_size * batch_size)
-
-                # for mini_batch_idx in torch.randperm(batch_size).split(mini_batch_size):
-                for mini_batch_idx in torch.arange(batch_size).split(mini_batch_size):
-                    mini_batch_idx = torch.arange(batch_size)
-
-                    print(f"mini batch len: {len(mini_batch_idx)}")
-                    mini_batched_td = td[mini_batch_idx].clone()
-
+            for _ in range(self.ppo_epochs):  # loop K
+                for mini_batch_idx in torch.randperm(batch_size).split(mini_batch_size):
                     # compute a and logp
                     mini_batched_out = self.policy(
-                        mini_batched_td.clone(),
+                        td[mini_batch_idx].clone(),
                         phase,
                         given_actions=actions[mini_batch_idx],
                         return_entropy=True,
@@ -99,12 +90,8 @@ class PPO(nn.Module):
 
                     # compute advantage
 
-                    value_pred = self.critic(mini_batched_td.clone(), **critic_kwargs)
+                    value_pred = self.critic(td[mini_batch_idx], **critic_kwargs)
                     adv = rewards[mini_batch_idx] - value_pred.detach()  # [batch size]
-
-                    # adv = rewards[mini_batch_idx] - old_values[mini_batch_idx].view(
-                    #     -1
-                    # )  # [batch size]
 
                     if self.normalize_adv:
                         adv = (adv - adv.mean()) / (adv.std() + 1e-6)
@@ -137,7 +124,6 @@ class PPO(nn.Module):
                         optimizer.step()
 
                         iter_i += 1
-            raise RuntimeError("Not implemented")
 
             # log training results
             out.update(
