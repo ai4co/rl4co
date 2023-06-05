@@ -5,7 +5,7 @@
 
 defaults:
   - override /model: am-ppo.yaml
-  - override /env: tsp.yaml
+  - override /env: cvrp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -15,9 +15,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 env:
-  num_loc: 20
+  num_loc: 50
 
-tags: ["tsp", "am-PPO", "20"]
+tags: ["cvrp", "am-PPO", "50"]
 
 task:
   _target_: rl4co.models.rl.ppo.task.PPOTask
@@ -27,7 +27,7 @@ logger:
     project: "rl4co-PPO"
     tags: ${tags}
     group: "tsp${env.num_loc}"
-    name: "am-PPO"
+    name: "am-PPO-cvrp"
 
 seed: 12345
 
@@ -37,11 +37,10 @@ model:
   mini_batch_size: 0.25
   vf_lambda: 0.5
   entropy_bonus: 0.0
-  normalize_adv: True
+  normalize_adv: False
   max_grad_norm: 0.5
 
 trainer:
-  min_epochs: 10
   max_epochs: 100
   gradient_clip_val: Null # Will be done internally due to the manual optimization
   accelerator: "gpu"
