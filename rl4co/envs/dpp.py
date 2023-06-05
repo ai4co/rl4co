@@ -13,7 +13,7 @@ from torchrl.data import (
 )
 
 from rl4co.envs.base import RL4COEnvBase
-from rl4co.envs.utils import batch_to_scalar
+from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.utils.download.downloader import download_url
 from rl4co.utils.pylogger import get_pylogger
 
@@ -323,10 +323,11 @@ class DPPEnv(RL4COEnvBase):
         os.remove(os.path.join(self.data_dir, "data.zip"))
 
     def load_data(self, fpath, batch_size=[]):
-        data = dict(np.load(fpath))
-        batch_size = data["observation"].shape[0]
-        data["locs"] = data.pop("observation")  # rename observation to locs
-        return TensorDict(data, batch_size=batch_size)
+        data = load_npz_to_tensordict(fpath)
+        # rename key if necessary (old dpp version)
+        if "observation" in data.keys():
+            data["locs"] = data.pop("observation")
+        return  data
 
     def render(self, decaps, probe, action_mask, ax=None, legend=True):
         """

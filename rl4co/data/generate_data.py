@@ -136,6 +136,43 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
     }
 
 
+def generate_mdpp_data(dataset_size, size=10, num_probes_min=2, num_probes_max=5, 
+                  num_keepout_min=1, num_keepout_max=50):
+    
+    bs = dataset_size # bs = batch_size to generate data in batch
+    m = n = size
+    if isinstance(bs, int):
+        bs = [bs]
+
+    locs = np.stack(np.meshgrid(np.arange(m), np.arange(n)), axis=-1).reshape(-1, 2)
+    locs = locs / np.array([m, n], dtype=np.float32)
+    locs = np.expand_dims(locs, axis=0)
+    locs = np.repeat(locs, bs[0], axis=0)
+
+    available = np.ones((bs[0], m * n), dtype=bool)
+
+    probe = np.random.randint(0, high=m*n, size=(bs[0], 1))
+    np.put_along_axis(available, probe, False, axis=1)
+
+    num_probe = np.random.randint(num_probes_min, num_probes_max+1, size=(bs[0], 1))
+    probes = np.zeros((bs[0], m * n), dtype=bool)
+    for i in range(bs[0]):
+        p = np.random.choice(m*n, num_probe[i], replace=False)
+        np.put_along_axis(available[i], p, False, axis=0)
+        np.put_along_axis(probes[i], p, True, axis=0)
+
+    num_keepout = np.random.randint(num_keepout_min, num_keepout_max+1, size=(bs[0], 1))
+    for i in range(bs[0]):
+        k = np.random.choice(m*n, num_keepout[i], replace=False)
+        np.put_along_axis(available[i], k, False, axis=0)
+
+    return {
+        "locs": locs.astype(np.float32),
+        "probe": probes.astype(bool),
+        "action_mask": available.astype(bool),
+    }
+
+
 def generate_dataset(
     filename=None,
     data_dir="data",
@@ -160,6 +197,7 @@ def generate_dataset(
         "vrp": [None],
         "pctsp": [None],
         "op": ["const", "unif", "dist"],
+        "mdpp": [None],
     }
     if problem == "all":
         problems = distributions_per_problem
@@ -223,6 +261,7 @@ def generate_default_datasets(data_dir):
     """Generate the default datasets used in the paper and save them to data_dir/problem"""
     generate_dataset(data_dir=data_dir, name="val", problem="all", seed=4321)
     generate_dataset(data_dir=data_dir, name="test", problem="all", seed=1234)
+    generate_dataset(data_dir=data_dir, name="test", problem="mdpp", seed=1234, graph_sizes=[10], dataset_size=100)  # EDA (mDPP)
 
 
 if __name__ == "__main__":
