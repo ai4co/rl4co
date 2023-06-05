@@ -32,7 +32,7 @@ class PPODecoder(Decoder):
             # Select the indices of the next nodes in the sequences, result (batch_size) long
 
             if given_actions is not None:
-                action = given_actions[:, decode_step]
+                action = given_actions[..., decode_step]
             else:
                 action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
 
@@ -43,6 +43,14 @@ class PPODecoder(Decoder):
             actions.append(action)
 
             decode_step += 1
+
+        if given_actions is not None:
+            if len(outputs) != given_actions.shape[1]:
+                # print(given_actions.shape, decode_step)
+                # print(td["done"].all())
+                raise ValueError(
+                    f"Given actions have {given_actions.shape[1]} steps, but we decoded {decode_step} steps."
+                )
 
         # output: logprobs [batch, problem size, decoding steps]
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
