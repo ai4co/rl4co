@@ -19,11 +19,11 @@ log = get_pylogger(__name__)
 
 class MDPPEnv(DPPEnv):
     """Multiple decap placement problem (mDPP) environment
-    This is a modified version of the DPP environment where we allow multiple probing ports 
+    This is a modified version of the DPP environment where we allow multiple probing ports
     The reward can be calculated as:
         - minmax: min of the max of the decap scores
         - meansum: mean of the sum of the decap scores
-    The minmax is more challenging as it requires to find the best decap location for the worst case    
+    The minmax is more challenging as it requires to find the best decap location for the worst case
     """
 
     name = "mdpp"
@@ -40,7 +40,10 @@ class MDPPEnv(DPPEnv):
         super().__init__(**kwargs)
         self.num_probes_min = num_probes_min
         self.num_probes_max = num_probes_max
-        assert reward_type in ["minmax", "meansum"], "reward_type must be minmax or meansum"
+        assert reward_type in [
+            "minmax",
+            "meansum",
+        ], "reward_type must be minmax or meansum"
         self.reward_type = reward_type
         self._make_spec(td_params)
 
@@ -55,7 +58,7 @@ class MDPPEnv(DPPEnv):
         # Action mask is 0 if both action_mask (e.g. keepout) and probe are 0
         action_mask = torch.logical_and(td_reset["action_mask"], ~td_reset["probe"])
         # Keepout regions are the inverse of action_mask
-        td_reset.set_("keepout", ~td_reset["action_mask"]) 
+        td_reset.set_("keepout", ~td_reset["action_mask"])
         td_reset.set_("action_mask", action_mask)
         return td_reset
 
@@ -71,7 +74,7 @@ class MDPPEnv(DPPEnv):
             probe=UnboundedDiscreteTensorSpec(
                 shape=(self.size**2),
                 dtype=torch.bool,
-            ), # probe is a boolean of multiple locations (1=probe, 0=not probe)
+            ),  # probe is a boolean of multiple locations (1=probe, 0=not probe)
             keepout=UnboundedDiscreteTensorSpec(
                 shape=(self.size**2),
                 dtype=torch.bool,
@@ -107,21 +110,23 @@ class MDPPEnv(DPPEnv):
 
         # Reward calculation is expensive since we need to run decap simulation (not vectorizable)
         reward = torch.stack(
-            [self._single_env_reward(td_single, action) for td_single, action in zip(td, actions)]
+            [
+                self._single_env_reward(td_single, action)
+                for td_single, action in zip(td, actions)
+            ]
         )
         return reward
-    
-    def _single_env_reward(self, td, actions):
-        """Get reward for single environment. We
-        """
 
-        list_probe = torch.nonzero(td['probe']).squeeze()
+    def _single_env_reward(self, td, actions):
+        """Get reward for single environment. We"""
+
+        list_probe = torch.nonzero(td["probe"]).squeeze()
         scores = torch.zeros_like(list_probe, dtype=torch.float32)
         for i, probe in enumerate(list_probe):
             # Get the decap scores for the probe location
             scores[i] = self._decap_simulator(probe, actions)
         # If minmax, return min of max decap scores else mean
-        return scores.min() if self.reward_type == "minmax" else scores.mean()    
+        return scores.min() if self.reward_type == "minmax" else scores.mean()
 
     def generate_data(self, batch_size):
         """
@@ -136,9 +141,7 @@ class MDPPEnv(DPPEnv):
         bs = [1] if not batched else batch_size
 
         # Create a list of locs on a grid
-        locs = torch.meshgrid(
-            torch.arange(m), torch.arange(n)
-        )
+        locs = torch.meshgrid(torch.arange(m), torch.arange(n))
         locs = torch.stack(locs, dim=-1).reshape(-1, 2)
         # normalize the locations by the number of rows and columns
         locs = locs / torch.tensor([m, n], dtype=torch.float)
@@ -151,14 +154,14 @@ class MDPPEnv(DPPEnv):
         probe = torch.randint(m * n, size=(*bs, 1))
         available.scatter_(1, probe, False)
 
-        # Sample probe locatins        
+        # Sample probe locatins
         num_probe = torch.randint(
             self.num_probes_min,
             self.num_probes_max,
             size=(*bs, 1),
         )
         probe = [torch.randperm(m * n)[:p] for p in num_probe]
-        probes=torch.zeros((*bs, m * n), dtype=torch.bool)
+        probes = torch.zeros((*bs, m * n), dtype=torch.bool)
         for i, (a, p) in enumerate(zip(available, probe)):
             available[i] = a.scatter(0, p, False)
             probes[i] = probes[i].scatter(0, p, True)
@@ -182,7 +185,6 @@ class MDPPEnv(DPPEnv):
             batch_size=batch_size,
         )
 
-    
     def render(self, td, actions=None, ax=None, legend=True, settings=None):
         """Plot a grid of squares representing the environment.
         The keepout regions are the action_mask - decaps - probe
@@ -200,41 +202,69 @@ class MDPPEnv(DPPEnv):
                 "decap": {"color": "tab:blue", "label": "decap"},
             }
 
-        def draw_capacitor(ax, x, y, color='black'):
+        def draw_capacitor(ax, x, y, color="black"):
             # Backgrund rectangle: same as color but with alpha=0.5
             ax.add_patch(Rectangle((x, y), 1, 1, color=color, alpha=0.5))
 
             # Create the plates of the capacitor
-            plate_width, plate_height = 0.3, 0.1  # Width and height switched to make vertical
+            plate_width, plate_height = (
+                0.3,
+                0.1,
+            )  # Width and height switched to make vertical
             plate_gap = 0.2
-            plate1 = Rectangle((x + 0.5 - plate_width / 2, y + 0.5 - plate_height - plate_gap/2), 
-                            plate_width, plate_height, color=color)
-            plate2 = Rectangle((x + 0.5 - plate_width / 2, y + 0.5 + plate_gap/2), 
-                            plate_width, plate_height, color=color)
+            plate1 = Rectangle(
+                (x + 0.5 - plate_width / 2, y + 0.5 - plate_height - plate_gap / 2),
+                plate_width,
+                plate_height,
+                color=color,
+            )
+            plate2 = Rectangle(
+                (x + 0.5 - plate_width / 2, y + 0.5 + plate_gap / 2),
+                plate_width,
+                plate_height,
+                color=color,
+            )
 
             # Add the plates to the axes
             ax.add_patch(plate1)
             ax.add_patch(plate2)
-            
+
             # Add connection lines (wires)
             line_length = 0.2
-            line1 = Line2D([x + 0.5, x + 0.5], [y + 0.5 - plate_height - plate_gap/2 - line_length, y + 0.5 - plate_height - plate_gap/2], color=color)
-            line2 = Line2D([x + 0.5, x + 0.5], [y + 0.5 + plate_height + plate_gap/2, y + 0.5 + plate_height + plate_gap/2 + line_length], color=color)
+            line1 = Line2D(
+                [x + 0.5, x + 0.5],
+                [
+                    y + 0.5 - plate_height - plate_gap / 2 - line_length,
+                    y + 0.5 - plate_height - plate_gap / 2,
+                ],
+                color=color,
+            )
+            line2 = Line2D(
+                [x + 0.5, x + 0.5],
+                [
+                    y + 0.5 + plate_height + plate_gap / 2,
+                    y + 0.5 + plate_height + plate_gap / 2 + line_length,
+                ],
+                color=color,
+            )
 
             # Add the lines to the axes
             ax.add_line(line1)
             ax.add_line(line2)
 
-        def draw_probe(ax, x, y, color='black'):
+        def draw_probe(ax, x, y, color="black"):
             # Backgrund rectangle: same as color but with alpha=0.5
             ax.add_patch(Rectangle((x, y), 1, 1, color=color, alpha=0.5))
-            ax.add_patch(Annulus((x + 0.5, y + 0.5), (0.2, 0.2), .1, color=color))
+            ax.add_patch(Annulus((x + 0.5, y + 0.5), (0.2, 0.2), 0.1, color=color))
 
-        def draw_keepout(ax, x, y, color='black'):
+        def draw_keepout(ax, x, y, color="black"):
             # Backgrund rectangle: same as color but with alpha=0.5
             ax.add_patch(Rectangle((x, y), 1, 1, color=color, alpha=0.5))
-            ax.add_patch(RegularPolygon((x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color))
-
+            ax.add_patch(
+                RegularPolygon(
+                    (x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color
+                )
+            )
 
         size = self.size
         td = td.detach().cpu()
@@ -250,8 +280,8 @@ class MDPPEnv(DPPEnv):
         decaps.scatter_(0, actions, 1)
         decaps = decaps.reshape(size, size)
 
-        keepout = ~td['action_mask'].reshape(size, size)
-        probes = td['probe'].reshape(size, size)
+        keepout = ~td["action_mask"].reshape(size, size)
+        probes = td["probe"].reshape(size, size)
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(6, 6))
@@ -275,7 +305,7 @@ class MDPPEnv(DPPEnv):
                     draw_probe(ax, x, y, color=settings["probe"]["color"])
                 elif keepout[i, j] == 1:
                     draw_keepout(ax, x, y, color=settings["keepout"]["color"])
-            
+
         ax.grid(
             which="major", axis="both", linestyle="-", color="k", linewidth=1, alpha=0.5
         )
@@ -288,10 +318,12 @@ class MDPPEnv(DPPEnv):
 
         # # Add legend
         if legend:
-            colors = [settings[k]['color'] for k in settings.keys()]
-            labels = [settings[k]['label'] for k in settings.keys()]
+            colors = [settings[k]["color"] for k in settings.keys()]
+            labels = [settings[k]["label"] for k in settings.keys()]
             handles = [
-                plt.Rectangle((0, 0), 1, 1, color=c, edgecolor="k", linestyle="-", linewidth=1)
+                plt.Rectangle(
+                    (0, 0), 1, 1, color=c, edgecolor="k", linestyle="-", linewidth=1
+                )
                 for c in colors
             ]
             ax.legend(

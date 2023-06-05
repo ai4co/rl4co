@@ -81,14 +81,14 @@ def distance(x, y):
 
 
 def select_start_nodes(td, num_nodes, env=None):
-    """Node selection strategy as proposed in POMO (Kwon et al. 2020) 
+    """Node selection strategy as proposed in POMO (Kwon et al. 2020)
     and extended in SymNCO (Kim et al. 2022).
     Selects different start nodes for each batch element
 
     Args:
         td: TensorDict containing the data. We may need to access the available actions to select the start nodes
         num_nodes: Number of nodes to select
-        env: (TODO) Environment may determine the node selection strategy 
+        env: (TODO) Environment may determine the node selection strategy
     """
     selected = torch.arange(num_nodes, device=td.device).repeat_interleave(td.shape[0])
     return selected

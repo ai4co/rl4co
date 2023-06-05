@@ -71,10 +71,14 @@ class Decoder(nn.Module):
         single_traj=False,
         num_starts=None,
     ):
-          
+
         # Greedy multi-start decoding if num_starts > 1
-        num_starts = self.num_starts if num_starts is None else num_starts # substitute self.num_starts with num_starts
-        assert not ("multistart" in decode_type and num_starts <= 1), "Multi-start decoding requires `num_starts` > 1" 
+        num_starts = (
+            self.num_starts if num_starts is None else num_starts
+        )  # substitute self.num_starts with num_starts
+        assert not (
+            "multistart" in decode_type and num_starts <= 1
+        ), "Multi-start decoding requires `num_starts` > 1"
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute(embeddings, num_starts=num_starts)
@@ -129,7 +133,10 @@ class Decoder(nn.Module):
         # By default, the query is modified with the graph context.
         # In POMO, the graph context is not used
         if self.use_graph_context:
-            graph_context = unbatchify(batchify(self.project_fixed_context(embeddings.mean(1)), num_starts), num_starts)
+            graph_context = unbatchify(
+                batchify(self.project_fixed_context(embeddings.mean(1)), num_starts),
+                num_starts,
+            )
         else:
             graph_context = 0
 

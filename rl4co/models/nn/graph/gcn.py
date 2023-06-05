@@ -23,21 +23,18 @@ class GCNEncoder(nn.Module):
     ):
         super(GCNEncoder, self).__init__()
         # Define the init embedding
-        self.init_embedding = env_init_embedding(
-            env, {"embedding_dim": embedding_dim}
-        )
+        self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
         if self_loop:
-            adj_matrix.fill_diagonal_(0) # No self-loops
+            adj_matrix.fill_diagonal_(0)  # No self-loops
         self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-        
+
         # Define the GCN layers
-        self.gcn_layers = nn.ModuleList([
-            GCNConv(embedding_dim, embedding_dim)
-            for _ in range(num_gcn_layer)
-        ])
+        self.gcn_layers = nn.ModuleList(
+            [GCNConv(embedding_dim, embedding_dim) for _ in range(num_gcn_layer)]
+        )
 
         # Record parameters
         self.residual = residual
@@ -54,14 +51,11 @@ class GCNEncoder(nn.Module):
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
             edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-        else: 
+        else:
             edge_index = self.edge_index
 
         # Create the batched graph
-        data_list = [
-            Data(x=x, edge_index=edge_index)
-            for x in node_feature
-        ]
+        data_list = [Data(x=x, edge_index=edge_index) for x in node_feature]
         data_batch = Batch.from_data_list(data_list)
 
         # GCN process
@@ -84,12 +78,13 @@ class GCNEncoder(nn.Module):
         return update_node_feature, node_feature
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from rl4co.envs import TSPEnv
+
     env = TSPEnv()
     model = GCNEncoder(
         env=env,
-        embedding_dim=128, 
+        embedding_dim=128,
         num_nodes=20,
         num_gcn_layer=3,
     )

@@ -90,7 +90,7 @@ class DPPEnv(RL4COEnvBase):
                     "probe": td["probe"],
                     "i": td["i"] + 1,
                     "action_mask": available,
-                    "keepout": td['keepout'],
+                    "keepout": td["keepout"],
                     "reward": reward,
                     "done": done,
                 }

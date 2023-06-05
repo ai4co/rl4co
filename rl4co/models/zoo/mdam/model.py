@@ -18,7 +18,9 @@ class MDAM(REINFORCE):
 
     def __init__(self, env, policy=None, baseline=None, **policy_kwargs):
         super(MDAM, self).__init__(env, policy, baseline)
-        self.policy = MDAMPolicy(self.env, **policy_kwargs) if policy is None else policy
+        self.policy = (
+            MDAMPolicy(self.env, **policy_kwargs) if policy is None else policy
+        )
 
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline

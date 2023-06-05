@@ -49,10 +49,12 @@ class StateAugmentation(nn.Module):
         self.num_augment = num_augment
         self.normalize = normalize
 
-    def forward(self, td: TensorDict, num_augment: int = None, normalize: bool = False) -> TensorDict:
+    def forward(
+        self, td: TensorDict, num_augment: int = None, normalize: bool = False
+    ) -> TensorDict:
         num_augment = num_augment if num_augment is not None else self.num_augment
         normalize = normalize if normalize is not None else False
-        
+
         td_aug = batchify(td, num_augment)
         for feat in self.feats:
             aug_feat = self.augmentation(td_aug[feat], num_augment)
