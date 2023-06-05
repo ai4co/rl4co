@@ -10,6 +10,11 @@ from torchrl.data import (
 )
 
 from rl4co.envs.base import RL4COEnvBase
+from rl4co.utils.ops import gather_by_index
+
+
+# Default length capacity
+LENGTH_CAPACITY = {20: 2., 50: 3., 100: 4.}
 
 
 class OPEnv(RL4COEnvBase):
@@ -17,7 +22,8 @@ class OPEnv(RL4COEnvBase):
     At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
+        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is not included
+            i.e. for example, if num_loc=20, there would be 21 nodes in total including the depot
         - min_loc <float>: minimum value for the location coordinates
         - max_loc <float>: maximum value for the location coordinates
         - length_capacity <float>: capacity of the vehicle of length, i.e. the maximum length the vehicle can travel
@@ -32,7 +38,7 @@ class OPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
         min_prize: float = 0.1,
@@ -59,45 +65,35 @@ class OPEnv(RL4COEnvBase):
             - the first node in de prize is larger than 0 or less than 0?
             - this design is important. For now the design is LESS than 0
         """
-        current_node = td["action"][..., None]
-        current_node_expand = current_node[..., None].repeat_interleave(2, dim=-1)
-        length_capacity = td["length_capacity"]
-        prize = td["prize"]
-        prize_collect = td["prize_collect"]
+        # Update the state
+        current_node = td["action"][:, None]
 
-        # Collect prize
-        prize_collect += torch.gather(prize, -1, current_node)
+        # Add the length
+        current_coord = gather_by_index(td["locs"], current_node, squeeze=False)
+        previous_coord = gather_by_index(td["locs"], td["current_node"], squeeze=False)
+        used_capacity = td["used_capacity"] + (current_coord - previous_coord).norm(p=2, dim=-1)
 
-        # Set the visited node prize to -1
-        prize.scatter_(-1, current_node, 0)
+        # Add the collected prize
+        selected_prize = gather_by_index(td["prize"], current_node, squeeze=False)
+        prize_collect = td["prize_collect"] + selected_prize
 
-        # Update the used length capacity
-        length_capacity -= (
-            torch.gather(td["observation"], -2, current_node_expand)
-            - torch.gather(
-                td["observation"],
-                -2,
-                td["current_node"][..., None].repeat_interleave(2, dim=-1),
-            )
-        ).norm(p=2, dim=-1)
+        # SECTION: calculate the action mask
+        visited = td["visited"].scatter(-1, current_node[..., None], 1)
 
-        # Get the action mask, no zero prize nodes can be visited
-        action_mask = prize > 0
-
-        # Nodes distance exceeding length capacity cannot be visited
-        length_to_next_node = (
-            td["observation"] - torch.gather(td["observation"], -2, current_node_expand)
-        ).norm(p=2, dim=-1)
-        length_to_next_node_and_return = length_to_next_node + td["length_to_depot"]
-        action_mask = torch.logical_and(
-            action_mask, length_to_next_node_and_return <= length_capacity
+        # Get action mask
+        exceeds_length = (
+            used_capacity + (td['locs'] - current_coord).norm(p=2, dim=-1)
+            > td["length_capacity"]
         )
+        visited = visited.to(exceeds_length.dtype)
+        feasible_actions = ~(visited | visited[..., :1] | exceeds_length[..., None, :])
+
+        # Depot can always be visited
+        # (so we do not hardcode knowledge that this is strictly suboptimal if other options are available)
+        feasible_actions[..., 0] = 1
 
         # We are done if run out the lenght capacity, i.e. no available node to visit
-        done = torch.count_nonzero(action_mask.float(), dim=-1) <= 0
-
-        # If done, then set the depot be always available
-        action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
+        done = visited.sum(-1) == visited.size(-1)
 
         # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
         # Note: reward is calculated outside for now via the get_reward function
@@ -108,13 +104,14 @@ class OPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
+                    "used_capacity": used_capacity,
                     "length_capacity": td["length_capacity"],
-                    "length_to_depot": td["length_to_depot"],
                     "current_node": current_node,
-                    "prize": prize,
+                    "prize": td["prize"],
                     "prize_collect": prize_collect,
-                    "action_mask": action_mask,
+                    "visited": visited,
+                    "action_mask": feasible_actions,
                     "reward": reward,
                     "done": done,
                 }
@@ -128,47 +125,65 @@ class OPEnv(RL4COEnvBase):
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
         """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
-        device = td.device if td is not None else self.device
+            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
+
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
+
+        device = td.device if td is not None else self.device
+
+        # Create loc with depot
+        loc_with_depot = torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2)
 
         # Initialize the current node
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Initialize the capacity
-        length_capacity = torch.full(
-            (*batch_size, 1), self.length_capacity, dtype=torch.float32, device=device
-        )
+        length_capacity = torch.tensor(LENGTH_CAPACITY[self.num_loc], device=device) - \
+            (td['depot'][..., None, :] - loc_with_depot).norm(p=2, dim=-1) - 1e-6
 
         # Calculate the lenght of each node back to the depot
-        length_to_depot = (td["observation"] - td["depot"][..., None, :]).norm(
+        length_to_depot = (loc_with_depot - td["depot"][..., None, :]).norm(
             p=2, dim=-1
         )
 
-        # Init the action mask
-        action_mask = td["prize"] > 0
+        used_capacity = torch.zeros((*batch_size, 1)).to(device)
 
-        # Calculate the distance of each node at this moment
-        current_node_loccation = torch.gather(
-            td["observation"], -2, current_node[..., None].repeat_interleave(2, dim=-1)
+        # Initialize the prize collected
+        prize_collect = torch.zeros((*batch_size, 1)).to(device)
+
+        # SECTION: calculate the action mask
+        # Visited as mask is easier to understand, as long more memory efficient
+        # Keep visited_ with depot so we can scatter efficiently (if there is an action for depot)
+        visited=(
+            torch.zeros(
+                (*batch_size, 1, self.num_loc + 1),
+                dtype=torch.uint8, device=device
+            )
         )
-        length_to_next_node = (td["observation"] - current_node_loccation).norm(
-            p=2, dim=-1
+
+        # Get action mask
+        exceeds_length = (
+            used_capacity + (loc_with_depot - td['depot'][..., None, :]).norm(p=2, dim=-1)
+            > length_capacity
         )
-        length_to_next_node_and_return = length_to_next_node + length_to_depot
-        action_mask = torch.logical_and(
-            action_mask, length_to_next_node_and_return <= length_capacity
-        )
+        visited = visited.to(exceeds_length.dtype)
+        action_mask = visited | visited[..., 0:1] | exceeds_length
+
+        # Depot can always be visited
+        # (so we do not hardcode knowledge that this is strictly suboptimal if other options are available)
+        action_mask[:, :, 0] = 0
 
         return TensorDict(
             {
-                "observation": td["observation"],
+                "locs": loc_with_depot,
+                "prize": td["prize"],
+                "used_capacity": used_capacity,
                 "length_capacity": length_capacity,
                 "length_to_depot": length_to_depot,
                 "current_node": current_node,
-                "prize": td["prize"],
-                "prize_collect": torch.zeros_like(length_capacity),
+                "prize_collect": prize_collect,
+                "visited": visited,
                 "action_mask": action_mask,
             },
             batch_size=batch_size,
@@ -229,19 +244,23 @@ class OPEnv(RL4COEnvBase):
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
+        # Check that tours are valid, i.e. contain 0 to n-1
+        sorted_actions = actions.data.sort(1)[0]
+        # Make sure each node visited once at most (except for depot)
+        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+
+        # Calculate the reward
         return td["prize_collect"].squeeze(-1)
 
-    def generate_data(self, batch_size):
+    def generate_data(self, batch_size, prize_type='dist'):
         """
         Args:
             - batch_size <int> or <list>: batch size
         Returns:
             - td <TensorDict>: tensor dictionary containing the initial state
-                - observation <Tensor> [batch_size, num_loc, 2]: locations of the nodes
+                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
                 - prize <Tensor> [batch_size, num_loc]: prize of the nodes
                 - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
-                - current_node <Tensor> [batch_size, 1]: current node
-                - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
             - the observation includes the depot as the first node
             - the prize includes the used capacity at the first value
@@ -251,26 +270,30 @@ class OPEnv(RL4COEnvBase):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+        locs_with_depot = (
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the prize
-        prize = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_prize, self.max_prize)
-            .to(self.device)
-        )
+        if prize_type == 'const':
+            prize = torch.ones(*batch_size, self.num_loc).to(self.device)
+        elif prize_type == 'unif':
+            prize = (1 + torch.randint(0, 100, size=(*batch_size, self.num_loc))) / 100.
+        elif prize_type == 'dist':
+            dist = (locs_with_depot[..., :1, :] - locs_with_depot[..., 1:, :]).norm(p=2, dim=-1)
+            prize = (1 + (dist / dist.max(dim=-1, keepdim=True)[0] * 99).int()).float() / 100.
+        else:
+            raise NotImplementedError('Unknown prize type')
 
         # Depot has no prize
-        prize[..., 0] = 0
+        prize = torch.cat([torch.zeros(*batch_size, 1).to(self.device), prize], dim=-1)
 
         return TensorDict(
             {
-                "observation": locs,
-                "depot": locs[..., 0, :],
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "prize": prize,
             },
             batch_size=batch_size,
