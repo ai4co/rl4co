@@ -59,7 +59,14 @@ class EvalBase:
                 actions_list.append(actions)
 
             rewards = torch.cat(rewards_list)
-            actions = torch.cat(actions_list)
+
+            # Padding: pad actions to the same length with zeros
+            max_length = max(action.size(-1) for action in actions)
+            actions = torch.cat(
+                [torch.nn.functional.pad(action, (0, max_length - action.size(-1))) for action in actions],
+                0
+            ) 
+
 
         end_event.record()
         torch.cuda.synchronize()
@@ -96,7 +103,7 @@ class GreedyEval(EvalBase):
 
     def _inner(self, policy, td):
         out = policy(
-            td.clone(), decode_type="greedy", num_starts=0, return_actions=True
+            td.clone(), decode_type="greedy", num_starts=0, return_actions=True,
         )
         rewards = self.env.get_reward(td, out["actions"])
         return out["actions"], rewards
@@ -293,7 +300,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
         return self.augmentation.num_augment
 
 
-def get_automatic_batch_size(eval_fn, start_batch_size=32_768, max_batch_size=4096):
+def get_automatic_batch_size(eval_fn, start_batch_size=16_384, max_batch_size=4096):
     """Automatically reduces the batch size based on the eval function
 
     Args:
@@ -331,7 +338,7 @@ def evaluate_policy(
     method="greedy",
     batch_size=None,
     max_batch_size=4096,
-    start_batch_size=32_768,
+    start_batch_size=16_384,
     auto_batch_size=True,
     save_results=False,
     save_fname="results.npz",
