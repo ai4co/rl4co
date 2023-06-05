@@ -91,7 +91,7 @@ class NativeFlashMHA(nn.Module):
         """
         # Project query, key, value
         q, k, v = rearrange(
-            self.Wqkv(x), "b s (three h d) -> three b s h d", three=3, h=self.num_heads
+            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads
         ).unbind(dim=0)
 
         # Scaled dot product attention
@@ -103,7 +103,7 @@ class NativeFlashMHA(nn.Module):
             attn_mask=key_padding_mask,
             dropout_p=self.attention_dropout,
         )
-        return self.out_proj(rearrange(out, "b s h d -> b s (h d)"))
+        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
 
     flash_attn_wrapper = flash_attn_wrapper
 
