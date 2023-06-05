@@ -197,7 +197,7 @@ class CVRPEnv(RL4COEnvBase):
             demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
-                shape=(self.num_loc + 1, 1),
+                shape=(self.num_loc, 1), # demand is only for customers
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
@@ -218,9 +218,37 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
-        locs = td["locs"]
-        depot = locs[..., 0:1, :]
-        loc_gathered = torch.cat([depot, gather_by_index(locs, actions)], dim=1)
+        # Check if tour is valid, i.e. contain 0 to n-1
+        batch_size, graph_size = td['demand'].size()
+        sorted_pi = actions.data.sort(1)[0]
+
+        # Sorting it should give all zeros at front and then 1...n
+        assert (
+            torch.arange(1, graph_size + 1, out=sorted_pi.data.new()).view(1, -1).expand(batch_size, graph_size) ==
+            sorted_pi[:, -graph_size:]
+        ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
+
+        # Visiting depot resets capacity so we add demand = -capacity (we make sure it does not become negative)
+        demand_with_depot = torch.cat(
+            (
+                -td['vehicle_capacity'],
+                td['demand']
+            ),
+            1
+        )
+        d = demand_with_depot.gather(1, actions)
+
+        used_cap = torch.zeros_like(td['demand'][:, 0])
+        for i in range(actions.size(1)):
+            used_cap += d[:, i]  # This will reset/make capacity negative if i == 0, e.g. depot visited
+            # Cannot use less than 0
+            used_cap[used_cap < 0] = 0
+            assert (used_cap <= td['vehicle_capacity'] + 1e-5).all(), "Used more than capacity"
+
+        # Calculate the reward: - distance from all locations. 
+        # We add the depot as first so we calculate also depot-first and depot-last tours with roll
+        depot = td["locs"][..., 0:1, :]
+        loc_gathered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
         loc_gathered_next = torch.roll(loc_gathered, 1, dims=1)
         return -((loc_gathered_next - loc_gathered).norm(p=2, dim=2).sum(1))
 
