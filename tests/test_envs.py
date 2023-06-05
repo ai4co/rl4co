@@ -13,7 +13,7 @@ def policy(td):
 def rollout(env, td, policy):
     """Helper function to rollout a policy"""
     actions = []
-    while not td["done"].any():
+    while not td["done"].all():
         td = policy(td)
         actions.append(td["action"])
         td = env.step(td)["next"]
