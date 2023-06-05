@@ -44,7 +44,7 @@ trainer:
   max_epochs: 100
   gradient_clip_val: Null # Will be done internally due to the manual optimization
   accelerator: "gpu"
-  devices: [0, 1] # Manual optimization does not support multi-gpu training?
+  devices: [0] # Manual optimization does not support multi-gpu training?
   precision: "32-true"
 
 train:
@@ -59,9 +59,9 @@ train:
   scheduler_interval: epoch
 
 data:
-  batch_size: 512
-  train_size: 1_280_000
-  val_size: 10_000
+  batch_size: 1 #512
+  train_size: 100 #1_280_000
+  val_size: 10 #10_000
 
 metrics:
   train: ["loss", "reward", "surrogate_loss", "value_loss", "entropy_bonus"]

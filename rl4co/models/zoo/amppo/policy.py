@@ -88,9 +88,7 @@ class PPOAttentionModelPolicy(nn.Module):
         )
 
         # Log likelihood is calculated within the model since returning it per action does not work well with
-        ll = get_log_likelihood(
-            log_p, actions, td_out.get("mask", None), return_sum=False
-        )
+        ll = get_log_likelihood(log_p, actions, td_out.get("mask", None), return_sum=False)
 
         out = {
             "reward": td_out["reward"],

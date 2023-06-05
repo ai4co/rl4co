@@ -44,6 +44,14 @@ class PPODecoder(Decoder):
 
             decode_step += 1
 
+        if given_actions is not None:
+            if decode_step != (given_actions.shape[1]):
+                print(given_actions.shape, decode_step)
+                print(td["done"].all())
+                raise ValueError(
+                    f"Given actions have {given_actions.shape[1]} steps, but we decoded {decode_step} steps."
+                )
+
         # output: logprobs [batch, problem size, decoding steps]
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         if calc_reward:
