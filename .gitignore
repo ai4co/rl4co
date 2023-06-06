@@ -4,6 +4,7 @@
 *.npz
 *.npy
 *.pkl
+*.txt
 
 # Logs
 /logs
