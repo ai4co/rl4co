@@ -4,8 +4,12 @@ import torch
 import torch.nn as nn
 
 from rl4co.models.nn.utils import get_log_likelihood
+from rl4co.utils.pylogger import get_pylogger
 from rl4co.models.zoo.ptrnet.decoder import Decoder
 from rl4co.models.zoo.ptrnet.encoder import Encoder
+
+
+log = get_pylogger(__name__)
 
 
 class PointerNetworkPolicy(nn.Module):
@@ -48,8 +52,10 @@ class PointerNetworkPolicy(nn.Module):
         self.embedding.data.uniform_(-std, std)
 
     def forward(
-        self, td, phase: str = "train", decode_type="sampling", eval_tours=None
+        self, td, phase: str = "train", decode_type="sampling", eval_tours=None, **unused_kwargs
     ):
+        if len(unused_kwargs) > 0:
+            log.info(f"Unused kwargs for {self.__class__.__name__}: {unused_kwargs}")
 
         # Set train or eval mode. Although this is already done by PyTorch Lightning,
         # there still is an exception raised otherwise https://github.com/pytorch/captum/issues/564
