@@ -5,7 +5,7 @@
 # RUN FOR ALL 
 # NUM_NODES: 20, 50, 100
 # ENV: tsp, cvrp
-# EXP_NAME: am-critic, am, pomo, symnco
+# EXP_NAME: am-critic, am, pomo, symnco, am-ppo
 
 # 1 epoch: 20k samples for all models!!
 # 100 epochs: 20k x 100 = 2M samples
@@ -13,7 +13,7 @@
 
 NUM_NODES=50
 ENV=tsp
-EXP_NAME='am-critic'
+EXP_NAME='am-ppo'
 export CUDA_VISIBLE_DEVICES=0 # change device id
 
 # DO NOT CHANGE
@@ -92,5 +92,19 @@ for seed in 1234, 1235, 1236;
         data.train_size=2000 \
         data.batch_size=50 \
         trainer.max_epochs=${MAX_EPOCHS}
+    
+    elif [ $EXP_NAME == 'am-ppo' ]; then
+        # AM-PPO
+        # 20, 50, 100 nodes
+        python run.py experiment=${ENV}/am-ppo \
+        env.num_loc=${NUM_NODES} \
+        seed=$seed \
+        logger.wandb.name=am-critic-${ENV}-${NUM_NODES} \
+        logger.wandb.project=rl4co-sample-efficiency2 \
+        data.train_size=20000 \
+        data.batch_size=500 \
+        trainer.devices=1 \
+        trainer.max_epochs=${MAX_EPOCHS}
     fi
+
 done
