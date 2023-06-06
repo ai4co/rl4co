@@ -1,6 +1,9 @@
 # Data folder. If needed, add files with git add -f <file>
 # only at the project root (leading /)
 /data 
+*.npz
+*.npy
+*.pkl
 
 # Logs
 /logs
