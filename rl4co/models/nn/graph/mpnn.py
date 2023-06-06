@@ -111,9 +111,9 @@ class MessagePassingEncoder(nn.Module):
             adj_matrix = torch.ones(x.size(1), x.size(1))
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
-            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(x.device)
         else:
-            edge_index = self.edge_index
+            edge_index = self.edge_index.to(x.device)
 
         # Generate edge features: distance
         edge_feature = torch.norm(
