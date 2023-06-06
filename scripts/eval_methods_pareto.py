@@ -21,7 +21,7 @@ if __name__ == "__main__":
     argparser.add_argument("--out_dir", type=str, default="results/eval_methods_pareto")
     argparser.add_argument("--gpus", type=int, default=1)
     argparser.add_argument("--gpu_id", type=int, default=0)
-    argparser.add_argument("--start_batch_size", type=int, default=4096, help="Batch size for scaling evaluation")
+    argparser.add_argument("--start_batch_size", type=int, default=8192, help="Batch size for scaling evaluation")
     argparser.add_argument("--data_path", type=str, default=None)
 
     args = argparser.parse_args()
@@ -55,14 +55,14 @@ if __name__ == "__main__":
     # Insert here experiments to run. Here we run different evaluation methods on the same
     # dataset with different sample sizes to campare the Pareto efficient ones
 
-    # num_augment_sizes = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1280]
-    # num_augment_after_multistart = [2, 4, 8, 16, 32]
-    # # softmax_temps = [0.1, 0.5, 1.0, 1.5]
-    # softmax_temps = [1.0] # Only one softmax temp for now
+    num_augment_sizes = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1280]
+    num_augment_after_multistart = [2, 4, 8, 16]
+    # softmax_temps = [0.1, 0.5, 1.0, 1.5]
+    softmax_temps = [1.0] # Only one softmax temp for now
 
-    num_augment_sizes = [2]
-    num_augment_after_multistart = [2]
-    softmax_temps = [1.0]
+    # num_augment_sizes = [20]
+    # num_augment_after_multistart = [2]
+    # softmax_temps = [1.0]
 
 
     experiments = {

@@ -300,7 +300,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
         return self.augmentation.num_augment
 
 
-def get_automatic_batch_size(eval_fn, start_batch_size=4096, max_batch_size=4096):
+def get_automatic_batch_size(eval_fn, start_batch_size=8192, max_batch_size=4096):
     """Automatically reduces the batch size based on the eval function
 
     Args:
@@ -338,7 +338,7 @@ def evaluate_policy(
     method="greedy",
     batch_size=None,
     max_batch_size=4096,
-    start_batch_size=4096,
+    start_batch_size=8192,
     auto_batch_size=True,
     save_results=False,
     save_fname="results.npz",
