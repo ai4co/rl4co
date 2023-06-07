@@ -45,7 +45,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
             cfg.transfer.source.config, cfg.transfer.source.checkpoint_path, device=device
         )
 
-        transplant_weights(pretrained_model, model)
+        transplant_weights(pretrained_model, model, **cfg.transfer.transfer_config)
         del pretrained_model
 
     log.info("Instantiating callbacks...")

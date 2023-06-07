@@ -12,8 +12,7 @@
 # we want to normalize the number of samples AND gradient steps
 
 NUM_NODES=50
-ENV="tsp"
-EXP_NAME='am'
+EXP_NAME='symnco'
 export CUDA_VISIBLE_DEVICES=0 # change device id
 
 # DO NOT CHANGE
@@ -81,11 +80,10 @@ for seed in 1234, 1235, 1236;
     elif [ $EXP_NAME == 'symnco' ]; then
         # SYMNCO (by default, 10 augment)
         # 20, 50, 100 nodes
-        python run.py experiment=${ENV}/symnco \
+        python run.py experiment=transfer/symnco \
+        transfer.target.size=${NUM_NODES} \
         env.num_loc=${NUM_NODES} \
         seed=$seed \
-        logger.wandb.name=symnco-${ENV}-${NUM_NODES} \
-        logger.wandb.project=rl4co-sample-efficiency2 \
         data.train_size=2000 \
         data.batch_size=50 \
         trainer.max_epochs=${MAX_EPOCHS}
