@@ -107,13 +107,13 @@ class MessagePassingEncoder(nn.Module):
         node_feature = self.init_embedding(x)
 
         # Check to update the edge index with different number of node
-        if node_feature.shape[1] != self.edge_index.max().item() + 1:
-            adj_matrix = torch.ones(x.size(1), x.size(1))
+        if node_feature.shape[-2] != self.edge_index.max().item() + 1:
+            adj_matrix = torch.ones(node_feature.size(-2), node_feature.size(-2))            
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
-            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(x.device)
         else:
-            edge_index = self.edge_index
+            edge_index = self.edge_index.to(x.device)
 
         # Generate edge features: distance
         edge_feature = torch.norm(

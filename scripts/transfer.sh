@@ -12,8 +12,9 @@
 # we want to normalize the number of samples AND gradient steps
 
 NUM_NODES=50
-EXP_NAME='symnco'
-export CUDA_VISIBLE_DEVICES=0 # change device id
+EXP_NAME='pomo'
+NUM_NODES=50
+export CUDA_VISIBLE_DEVICES=2 # change device id
 
 # DO NOT CHANGE
 MAX_EPOCHS=100 
@@ -21,7 +22,7 @@ MAX_EPOCHS=100
 ##################################
 
 
-for seed in 1234, 1235, 1236;
+for seed in 123456, 1235, 1236;
     do
     if [ $EXP_NAME == 'am-critic' ]; then
         # AM-CRITIC
@@ -47,23 +48,24 @@ for seed in 1234, 1235, 1236;
 
         if [ $NUM_NODES == 20 ]; then
             # POMO (20 nodes)
-            python run.py experiment=${ENV}/pomo \
-            env.num_loc=${NUM_NODES} \
+            python run.py experiment=transfer/pomo \
+            transfer.source.size=${NUM_NODES} \
+            transfer.target.size=${NUM_NODES} \
             seed=$seed \
-            logger.wandb.name=pomo-${ENV}-${NUM_NODES} \
-            logger.wandb.project=rl4co-sample-efficiency2 \
             data.train_size=1000 \
             data.batch_size=25 \
+            +data.val_batch_size=200 \
             trainer.max_epochs=${MAX_EPOCHS}
         elif [ $NUM_NODES == 50 ]; then
             # POMO (50 nodes)
-            python run.py experiment=${ENV}/pomo \
-            env.num_loc=${NUM_NODES} \
+            python run.py experiment=transfer/pomo \
             seed=$seed \
-            logger.wandb.name=pomo-${ENV}-${NUM_NODES} \
-            logger.wandb.project=rl4co-sample-efficiency2 \
+            transfer.source.size=${NUM_NODES} \
+            transfer.target.size=${NUM_NODES} \
             data.train_size=400 \
             data.batch_size=10 \
+            +data.val_batch_size=200 
+
             trainer.max_epochs=${MAX_EPOCHS}
         elif [ $NUM_NODES == 100 ]; then
             # POMO (100 nodes)
@@ -74,6 +76,7 @@ for seed in 1234, 1235, 1236;
             logger.wandb.project=rl4co-sample-efficiency2 \
             data.train_size=200 \
             data.batch_size=5 \
+            +data.val_batch_size=200 \
             trainer.max_epochs=${MAX_EPOCHS}
         fi
 
