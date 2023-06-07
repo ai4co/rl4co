@@ -109,6 +109,7 @@ class MessagePassingEncoder(nn.Module):
         # Check to update the edge index with different number of node
         if node_feature.shape[-2] != self.edge_index.max().item() + 1:
             adj_matrix = torch.ones(node_feature.size(-2), node_feature.size(-2))            
+
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
             edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(x.device)

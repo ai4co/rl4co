@@ -13,8 +13,23 @@ from rl4co.utils.ops import gather_by_index
 from rl4co.data.utils import load_npz_to_tensordict
 
 
-# Default capacities https://arxiv.org/abs/1803.08475
-CAPACITIES = {10: 20.0, 20: 30.0, 50: 40.0, 100: 50.0}
+# From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
+CAPACITIES = {
+        10: 20.0,
+        15: 25.0,
+        20: 30.0,
+        30: 33.0,
+        40: 37.0,
+        50: 40.0,
+        60: 43.0,
+        75: 45.0,
+        100: 50.0,
+        125: 55.0,
+        150: 60.0,
+        200: 70.0,
+        500: 100.0,
+        1000: 150.0,
+    }
 
 
 class CVRPEnv(RL4COEnvBase):
