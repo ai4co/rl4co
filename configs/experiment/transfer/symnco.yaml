@@ -2,7 +2,7 @@
 
 defaults:
   - override /model: symnco.yaml
-  - override /env: tsp.yaml
+  - override /env: cvrp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -10,13 +10,13 @@ defaults:
 
 transfer: # transfer to 
   source:
-    problem: 'cvrp'
+    problem: 'tsp'
     size: 50
     model: 'symnco-${transfer.source.problem}${transfer.source.size}'
     config: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/symnco-${transfer.source.problem}${transfer.source.size}/config.yaml"
     checkpoint_path: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/symnco-${transfer.source.problem}${transfer.source.size}/epoch_099.ckpt"
   target:
-    problem: 'tsp'
+    problem: 'cvrp'
     size: 50
   transfer_config:
     load_encoder: True
@@ -26,7 +26,7 @@ transfer: # transfer to
 env:
   num_loc: ${transfer.target.size}
 
-tags: ["am", "transfer", "tsp"]
+tags: ["am", "transfer", "cvrp"]
 
 logger:
   wandb:
