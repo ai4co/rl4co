@@ -32,7 +32,7 @@ class Decoder(nn.Module):
         num_heads,
         num_starts=20,
         use_graph_context=True,
-        **logit_attn_kwargs
+        **logit_attn_kwargs,
     ):
         super(Decoder, self).__init__()
 
@@ -71,7 +71,6 @@ class Decoder(nn.Module):
         single_traj=False,
         num_starts=None,
     ):
-
         # Greedy multi-start decoding if num_starts > 1
         num_starts = (
             self.num_starts if num_starts is None else num_starts
@@ -105,7 +104,6 @@ class Decoder(nn.Module):
 
         # Main decoding
         while not td["done"].all():
-
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long

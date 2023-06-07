@@ -14,7 +14,7 @@ from rl4co.utils.ops import gather_by_index
 
 
 # Default length capacity
-LENGTH_CAPACITY = {20: 2., 50: 3., 100: 4.}
+LENGTH_CAPACITY = {20: 2.0, 50: 3.0, 100: 4.0}
 
 
 class OPEnv(RL4COEnvBase):
@@ -45,7 +45,7 @@ class OPEnv(RL4COEnvBase):
         max_prize: float = 0.5,
         length_capacity: float = 1,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc
@@ -71,7 +71,9 @@ class OPEnv(RL4COEnvBase):
         # Add the length
         current_coord = gather_by_index(td["locs"], current_node, squeeze=False)
         previous_coord = gather_by_index(td["locs"], td["current_node"], squeeze=False)
-        used_capacity = td["used_capacity"] + (current_coord - previous_coord).norm(p=2, dim=-1)
+        used_capacity = td["used_capacity"] + (current_coord - previous_coord).norm(
+            p=2, dim=-1
+        )
 
         # Add the collected prize
         selected_prize = gather_by_index(td["prize"], current_node, squeeze=False)
@@ -82,7 +84,7 @@ class OPEnv(RL4COEnvBase):
 
         # Get action mask
         exceeds_length = (
-            used_capacity + (td['locs'] - current_coord).norm(p=2, dim=-1)
+            used_capacity + (td["locs"] - current_coord).norm(p=2, dim=-1)
             > td["length_capacity"]
         )
         visited = visited.to(exceeds_length.dtype)
@@ -139,13 +141,14 @@ class OPEnv(RL4COEnvBase):
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Initialize the capacity
-        length_capacity = torch.tensor(LENGTH_CAPACITY[self.num_loc], device=device) - \
-            (td['depot'][..., None, :] - loc_with_depot).norm(p=2, dim=-1) - 1e-6
+        length_capacity = (
+            torch.tensor(LENGTH_CAPACITY[self.num_loc], device=device)
+            - (td["depot"][..., None, :] - loc_with_depot).norm(p=2, dim=-1)
+            - 1e-6
+        )
 
         # Calculate the lenght of each node back to the depot
-        length_to_depot = (loc_with_depot - td["depot"][..., None, :]).norm(
-            p=2, dim=-1
-        )
+        length_to_depot = (loc_with_depot - td["depot"][..., None, :]).norm(p=2, dim=-1)
 
         used_capacity = torch.zeros((*batch_size, 1)).to(device)
 
@@ -155,16 +158,14 @@ class OPEnv(RL4COEnvBase):
         # SECTION: calculate the action mask
         # Visited as mask is easier to understand, as long more memory efficient
         # Keep visited_ with depot so we can scatter efficiently (if there is an action for depot)
-        visited=(
-            torch.zeros(
-                (*batch_size, 1, self.num_loc + 1),
-                dtype=torch.uint8, device=device
-            )
+        visited = torch.zeros(
+            (*batch_size, 1, self.num_loc + 1), dtype=torch.uint8, device=device
         )
 
         # Get action mask
         exceeds_length = (
-            used_capacity + (loc_with_depot - td['depot'][..., None, :]).norm(p=2, dim=-1)
+            used_capacity
+            + (loc_with_depot - td["depot"][..., None, :]).norm(p=2, dim=-1)
             > length_capacity
         )
         visited = visited.to(exceeds_length.dtype)
@@ -247,12 +248,15 @@ class OPEnv(RL4COEnvBase):
         # Check that tours are valid, i.e. contain 0 to n-1
         sorted_actions = actions.data.sort(1)[0]
         # Make sure each node visited once at most (except for depot)
-        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+        assert (
+            (sorted_actions[:, 1:] == 0)
+            | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
+        ).all(), "Duplicates"
 
         # Calculate the reward
         return td["prize_collect"].squeeze(-1)
 
-    def generate_data(self, batch_size, prize_type='dist'):
+    def generate_data(self, batch_size, prize_type="dist"):
         """
         Args:
             - batch_size <int> or <list>: batch size
@@ -271,21 +275,27 @@ class OPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs_with_depot = (
-            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
+            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the prize
-        if prize_type == 'const':
+        if prize_type == "const":
             prize = torch.ones(*batch_size, self.num_loc).to(self.device)
-        elif prize_type == 'unif':
-            prize = (1 + torch.randint(0, 100, size=(*batch_size, self.num_loc))) / 100.
-        elif prize_type == 'dist':
-            dist = (locs_with_depot[..., :1, :] - locs_with_depot[..., 1:, :]).norm(p=2, dim=-1)
-            prize = (1 + (dist / dist.max(dim=-1, keepdim=True)[0] * 99).int()).float() / 100.
+        elif prize_type == "unif":
+            prize = (
+                1 + torch.randint(0, 100, size=(*batch_size, self.num_loc))
+            ) / 100.0
+        elif prize_type == "dist":
+            dist = (locs_with_depot[..., :1, :] - locs_with_depot[..., 1:, :]).norm(
+                p=2, dim=-1
+            )
+            prize = (
+                1 + (dist / dist.max(dim=-1, keepdim=True)[0] * 99).int()
+            ).float() / 100.0
         else:
-            raise NotImplementedError('Unknown prize type')
+            raise NotImplementedError("Unknown prize type")
 
         # Depot has no prize
         prize = torch.cat([torch.zeros(*batch_size, 1).to(self.device), prize], dim=-1)

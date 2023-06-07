@@ -12,7 +12,6 @@ from rl4co.utils.lightning import load_model_from_checkpoint
 from rl4co.tasks.eval import evaluate_policy
 
 
-
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--dir", type=str, default=None)
@@ -21,15 +20,24 @@ if __name__ == "__main__":
     argparser.add_argument("--out_dir", type=str, default="results/eval_methods_pareto")
     argparser.add_argument("--gpus", type=int, default=1)
     argparser.add_argument("--gpu_id", type=int, default=0)
-    argparser.add_argument("--start_batch_size", type=int, default=8192, help="Batch size for scaling evaluation")
+    argparser.add_argument(
+        "--start_batch_size",
+        type=int,
+        default=8192,
+        help="Batch size for scaling evaluation",
+    )
     argparser.add_argument("--data_path", type=str, default=None)
 
     args = argparser.parse_args()
 
     cfg_path = Path(args.dir) / args.config
     checkpoint_path = Path(args.dir) / args.checkpoint
-    
-    print("Loading model from config: {} and checkpoint: {}".format(cfg_path, checkpoint_path))
+
+    print(
+        "Loading model from config: {} and checkpoint: {}".format(
+            cfg_path, checkpoint_path
+        )
+    )
     lit_module = load_model_from_checkpoint(cfg_path, checkpoint_path)
 
     # Set gpu number
@@ -51,19 +59,17 @@ if __name__ == "__main__":
     policy.eval()
     dataset = lit_module.test_dataset
 
-
     # Insert here experiments to run. Here we run different evaluation methods on the same
     # dataset with different sample sizes to campare the Pareto efficient ones
 
     num_augment_sizes = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1280]
     num_augment_after_multistart = [2, 4, 8, 16]
     # softmax_temps = [0.1, 0.5, 1.0, 1.5]
-    softmax_temps = [1.0] # Only one softmax temp for now
+    softmax_temps = [1.0]  # Only one softmax temp for now
 
     # num_augment_sizes = [20]
     # num_augment_after_multistart = [2]
     # softmax_temps = [1.0]
-
 
     experiments = {
         "greedy": {},
@@ -71,17 +77,21 @@ if __name__ == "__main__":
         "augment_dihedral_8": {"num_augment": 8, "force_dihedral": True},
         "sampling": {"samples": num_augment_sizes, "softmax_temp": softmax_temps},
         "greedy_multistart": {"num_starts": env.num_loc},
-        "greedy_multistart_augment_dihedral_8": {"num_starts": env.num_loc, "num_augment": 8, "force_dihedral": True},
-        "greedy_multistart_augment": {"num_starts": env.num_loc, "num_augment": num_augment_after_multistart},
+        "greedy_multistart_augment_dihedral_8": {
+            "num_starts": env.num_loc,
+            "num_augment": 8,
+            "force_dihedral": True,
+        },
+        "greedy_multistart_augment": {
+            "num_starts": env.num_loc,
+            "num_augment": num_augment_after_multistart,
+        },
     }
-
 
     # Evaluate all experiments
     results = defaultdict(list)
 
-
     for exp_name, exp_kwargs in tqdm(experiments.items(), desc="Total progress"):
-
         kwargs = {}
 
         # Make kwargs into list
@@ -93,16 +103,26 @@ if __name__ == "__main__":
 
         # Make all combinations
         kwargs = list(itertools.product(*kwargs.values()))
-        
-        # set keys  
+
+        # set keys
         kwargs = [dict(zip(exp_kwargs.keys(), k)) for k in kwargs]
 
         for kws_single_exp in kwargs:
-
             tqdm.write("=====================================")
-            tqdm.write("Running experiment: {} with kwargs: {}".format(exp_name, kws_single_exp))
-            
-            retvals = evaluate_policy(env, policy, dataset, method=exp_name, start_batch_size=args.start_batch_size, **kws_single_exp)
+            tqdm.write(
+                "Running experiment: {} with kwargs: {}".format(
+                    exp_name, kws_single_exp
+                )
+            )
+
+            retvals = evaluate_policy(
+                env,
+                policy,
+                dataset,
+                method=exp_name,
+                start_batch_size=args.start_batch_size,
+                **kws_single_exp,
+            )
 
             # Add to retvals the exp_name and exp_kwargs
             retvals["exp_name"] = exp_name
@@ -110,7 +130,6 @@ if __name__ == "__main__":
 
             # Add to results
             results[exp_name].append(retvals)
-
 
     # Finish
     out_dir = Path(args.out_dir)
@@ -127,11 +146,3 @@ if __name__ == "__main__":
     fpath = out_dir / "results.pkl"
     print("Saving results to: {}".format(fpath))
     pickle.dump(results, open(fpath, "wb"))
-
-
-
-
-
-
-
-

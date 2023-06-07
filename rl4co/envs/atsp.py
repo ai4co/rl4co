@@ -39,7 +39,7 @@ class ATSPEnv(RL4COEnvBase):
         max_dist: float = 1,
         tmat_class: bool = True,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc

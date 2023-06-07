@@ -42,7 +42,9 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
         log.info(f"load pretrained model")
         device = model.device
         pretrained_model = load_model_from_checkpoint(
-            cfg.transfer.source.config, cfg.transfer.source.checkpoint_path, device=device
+            cfg.transfer.source.config,
+            cfg.transfer.source.checkpoint_path,
+            device=device,
         )
 
         transplant_weights(pretrained_model, model, **cfg.transfer.transfer_config)

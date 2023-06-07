@@ -42,7 +42,7 @@ class PCTSPEnv(RL4COEnvBase):
         require_prize: float = 1,
         batch_size: list = [],
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc

@@ -35,7 +35,9 @@ class EnvContext(nn.Module):
         """Get environment context and project it to embedding space"""
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
-        step_context_dim = step_context_dim if step_context_dim is not None else embedding_dim
+        step_context_dim = (
+            step_context_dim if step_context_dim is not None else embedding_dim
+        )
         self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
 
     def _cur_node_embedding(self, embeddings, td):
@@ -55,7 +57,9 @@ class EnvContext(nn.Module):
 class TSPContext(EnvContext):
     def __init__(self, embedding_dim):
         super(TSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
-        self.W_placeholder = nn.Parameter(torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1))
+        self.W_placeholder = nn.Parameter(
+            torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1)
+        )
 
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
@@ -68,7 +72,9 @@ class TSPContext(EnvContext):
         else:
             context_embedding = gather_by_index(
                 embeddings,
-                torch.stack([td["first_node"], td["current_node"]], -1).view(batch_size, -1),
+                torch.stack([td["first_node"], td["current_node"]], -1).view(
+                    batch_size, -1
+                ),
             ).view(batch_size, *node_dim)
 
         return self.project_context(context_embedding)

@@ -38,7 +38,7 @@ class PDPEnv(RL4COEnvBase):
         min_loc: float = 0,
         max_loc: float = 1,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc

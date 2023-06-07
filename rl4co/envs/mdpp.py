@@ -35,7 +35,7 @@ class MDPPEnv(DPPEnv):
         num_probes_max: int = 5,
         reward_type: str = "minmax",
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_probes_min = num_probes_min
