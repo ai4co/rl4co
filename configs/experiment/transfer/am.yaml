@@ -26,10 +26,10 @@ tags: ["am", "transfer", "cvrp"]
 
 logger:
   wandb:
-    project: "transfer"
+    project: "Transferred"
     tags: ${tags}
     group: "${transfer.target.problem}${env.num_loc}"
-    name: "am-${transfer.target.problem}${env.num_loc}"
+    name: "AM:${transfer.source.problem}${transfer.source.size}->${transfer.target.problem}${env.num_loc}"
 
 seed: 12345
 
@@ -51,7 +51,7 @@ train:
   scheduler_interval: epoch
 
 data:
-  batch_size: 36 #512
-  train_size: 100 #1_280_000
-  val_size: 36 #10_000
+  batch_size: 512
+  train_size: 1_280_000
+  val_size: 10_000
 
