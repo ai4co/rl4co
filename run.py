@@ -35,6 +35,19 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     log.info(f"Instantiating task <{cfg.task._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.task, cfg, _recursive_=False)
 
+    if cfg.get("transfer"):
+        from rl4co.utils.lightning import load_model_from_checkpoint
+        from rl4co.utils.transfer import transplant_weights
+
+        log.info(f"load pretrained model")
+        device = model.device
+        pretrained_model = load_model_from_checkpoint(
+            cfg.transfer.source.config, cfg.transfer.source.checkpoint_path, device=device
+        )
+
+        transplant_weights(pretrained_model, model)
+        del pretrained_model
+
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
