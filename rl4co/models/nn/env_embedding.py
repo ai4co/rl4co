@@ -100,6 +100,8 @@ class VRPInitEmbedding(nn.Module):
         depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
         # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
+        print(customers.shape)
+        print(td["demand"].shape)
         node_embeddings = self.init_embed(
             torch.cat((customers, td["demand"][..., None]), -1)
         )
