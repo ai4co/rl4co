@@ -18,10 +18,9 @@ logger:
     name: "am-ppo-mdpp"
 
 data:
-  batch_size: 2
+  batch_size: 16
   train_size: 1000
   val_size: 100
-
 
 seed: 12345
 
@@ -35,22 +34,13 @@ model:
   max_grad_norm: 0.5
 
 trainer:
-  min_epochs: 10
-  max_epochs: 100
+  max_epochs: 10
   gradient_clip_val: Null # Will be done internally due to the manual optimization
   accelerator: "gpu"
   precision: "32-true"
-
-
 
 train:
   optimizer:
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 0
-
-  # scheduler:
-  #   _target_: torch.optim.lr_scheduler.MultiStepLR
-  #   milestones: [80, 95]
-  #   gamma: 0.1
-  # scheduler_interval: epoch
+    weight_decay: 1e-5

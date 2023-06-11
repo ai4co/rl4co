@@ -178,26 +178,23 @@ class MDPPInitEmbedding(nn.Module):
         super(MDPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
         self.init_embed = nn.Linear(node_dim, embedding_dim)  # locs
-        self.init_embed_probes = nn.Linear(1, embedding_dim)  # is_probe
-        self.init_embed_probe_midpoint = nn.Linear(1, embedding_dim)  # probe_midpoint
-        self.project_out = nn.Linear(embedding_dim * 3, embedding_dim)
+        self.init_embed_probe_distance = nn.Linear(1, embedding_dim)  # probe_distance
+        self.project_out = nn.Linear(embedding_dim * 2, embedding_dim)
 
     def forward(self, td):
-        node_embeddings = self.init_embed(td["locs"])
-        probes = td["probe"].float()[..., None]  # [batch, n_locs, 1] # x, y, is_probe
-        probes_embedding = self.init_embed_probes(probes)
-        probe_midpoint_embedding = self.init_embed_probe_midpoint(
-            self._distance_probe_midpoint(td["locs"], probes)
-        )
-        return self.project_out(
-            torch.cat([node_embeddings, probes_embedding, probe_midpoint_embedding], -1)
-        )
+        probes = td['probe']
+        locs = td['locs']
+        node_embeddings = self.init_embed(locs)
 
-    def _distance_probe_midpoint(self, locs, probes):
-        # Euclidean distance from midpoint of probes to all locations
-        num_probes = torch.count_nonzero(probes, dim=-2)
-        midpoint_loc = torch.sum(locs * probes.expand_as(locs), dim=-2) / num_probes
-        return torch.norm(locs - midpoint_loc[..., None, :], dim=-1)[..., None]
+        # Get the shortest distance from any probe       
+        dist = torch.cdist(locs, locs, p=2)
+        dist[~probes] = float("inf")
+        min_dist, _ = torch.min(dist, dim=1)
+        min_probe_dist_embedding = self.init_embed_probe_distance(min_dist[...,None])
+
+        return self.project_out(
+            torch.cat([node_embeddings, min_probe_dist_embedding], -1)
+        )
 
 
 class PDPInitEmbedding(nn.Module):
@@ -252,8 +249,14 @@ class SDVRPDynamicEmbedding(nn.Module):
 
 
 class DPPDynamicEmbedding(nn.Module):
-    def __init__(self, embedding_dim):
+    """Dynamic embedding for DPP. Features include:
+    1. location of placed decaps (to know where to place the next one)
+    2. decap density around each location (to know if an area has been covered)
+    """
+    def __init__(self, embedding_dim, radius=0.4, scale=20):
         super(DPPDynamicEmbedding, self).__init__()
+        self.radius = radius
+        self.scale = scale
         self.projection = nn.Linear(2, 3 * embedding_dim, bias=False)
 
     def forward(self, td):
@@ -262,13 +265,23 @@ class DPPDynamicEmbedding(nn.Module):
             td["keepout"].clone(),
             td["probe"].clone(),
         )
-        placed_decaps = unavailable & ~(keepouts | probes)
-        decaps_and_probes = torch.stack([placed_decaps.float(), probes.float()], dim=-1)
 
+        placed_decaps = unavailable & ~(keepouts | probes)
+        decap_density = self._calculate_decap_density(td['locs'], placed_decaps, radius=self.radius) / self.scale
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
-            decaps_and_probes
+            torch.stack([placed_decaps.float(), decap_density.float()], dim=-1)
         ).chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
+    
+    @staticmethod
+    def _calculate_decap_density(x, is_target, radius=0.4):
+        dists = torch.cdist(x, x, p=2)
+        infinity = torch.full_like(dists, float('inf'))
+        mask = ~is_target.unsqueeze(1).expand_as(dists)
+        dists_masked = torch.where(mask, infinity, dists)
+        density = (dists_masked < radius).sum(dim=-1)
+        return density
+
 
 
 class StaticEmbedding(nn.Module):
