@@ -1,5 +1,3 @@
-#!/bin/bash
-
 
 ##################################
 # RUN FOR ALL 
@@ -11,10 +9,10 @@
 # 100 epochs: 20k x 100 = 2M samples
 # we want to normalize the number of samples AND gradient steps
 
-NUM_NODES=50
+NUM_NODES=100
 ENV=tsp
-EXP_NAME='am-ppo'
-export CUDA_VISIBLE_DEVICES=0 # change device id
+EXP_NAME='am'
+export CUDA_VISIBLE_DEVICES=1 # change device id
 
 # DO NOT CHANGE
 MAX_EPOCHS=100 
@@ -22,7 +20,7 @@ MAX_EPOCHS=100
 ##################################
 
 
-for seed in 1234, 1235, 1236;
+for seed in 1121
     do
 
     if [ $EXP_NAME == 'am-critic' ]; then
