@@ -99,7 +99,7 @@ for seed in 1234, 1235, 1236;
         python run.py experiment=${ENV}/am-ppo \
         env.num_loc=${NUM_NODES} \
         seed=$seed \
-        logger.wandb.name=am-critic-${ENV}-${NUM_NODES} \
+        logger.wandb.name=am-ppo-${ENV}-${NUM_NODES} \
         logger.wandb.project=rl4co-sample-efficiency2 \
         data.train_size=20000 \
         data.batch_size=500 \
