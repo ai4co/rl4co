@@ -1,5 +1,6 @@
 _target_: rl4co.envs.op.OPEnv
 
 num_loc: 20
-val_file: op${env.num_loc}_val_seed1234.npz
-test_file: op${env.num_loc}_test_seed4321.npz
+data_dir: ${paths.root_dir}/data/op
+val_file: op_dist${env.num_loc}_val_seed4321.npz
+test_file: op_dist${env.num_loc}_test_seed1234.npz

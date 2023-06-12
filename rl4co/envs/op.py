@@ -129,9 +129,10 @@ class OPEnv(RL4COEnvBase):
         """
         if batch_size is None:
             batch_size = self.batch_size if td is None else td["prize"].shape[:-1]
-        device = td.device if td is not None else self.device
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
+        device = td.device
+
         # else:
         #     td = TensorDict({
         #         "observation": torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2),
@@ -140,6 +141,7 @@ class OPEnv(RL4COEnvBase):
         #     }, 
         #     batch_size=batch_size
         # )
+
         observation = torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2)
         prize_depot = torch.zeros((*batch_size, 1), device=device)
         prize = torch.cat([prize_depot, td["prize"]], dim=-1)
@@ -240,6 +242,22 @@ class OPEnv(RL4COEnvBase):
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
+        # Check that tours are valid, i.e. contain 0 to n -1
+        sorted_actions = actions.data.sort(1)[0]
+        # Make sure each node visited once at most (except for depot)
+        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+
+        d = td['observation'].gather(1, actions[..., None].expand(*actions.size(), td['observation'].size(-1)))
+        length = (
+            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
+            + (d[:, 0] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Depot to first
+            + (d[:, -1] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Last to depot, will be 0 if depot is last
+        )
+        print(actions.size())
+        length_to_depot = td['length_to_depot'].gather(1, actions[..., -1:])
+        # assert (length <= td['length_capacity'] + length_to_depot + 1e-5).all(), \
+        #     "Max length exceeded by {}".format((length - td['length_capacity']).max())
+
         return td["prize_collect"].squeeze(-1)
 
     def generate_data(self, batch_size):
@@ -263,26 +281,20 @@ class OPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the prize
-        prize = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_prize, self.max_prize)
-            .to(self.device)
-        )
-
-        # Depot has no prize
-        prize[..., 0] = 0
+        prize_ = (locs[..., :1, :] - locs[..., 1:, :]).norm(p=2, dim=-1)
+        prize = (1 + (prize_ / prize_.max(dim=-1, keepdim=True)[0] * 99).int()).float() / 100.
 
         return TensorDict(
             {
                 "locs": locs[..., 1:, :],
                 "depot": locs[..., 0, :],
-                "prize": prize[..., 1:],
+                "prize": prize,
             },
             batch_size=batch_size,
         )
