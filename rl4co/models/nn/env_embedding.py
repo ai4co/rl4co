@@ -101,15 +101,13 @@ class VRPInitEmbedding(nn.Module):
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
-        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
-        # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
-        print(customers.shape)
-        print(td["demand"].shape)
+        # [batch, n_city, 2, batch, n_city, 1]  -> [batch, n_city, embedding_dim]
         node_embeddings = self.init_embed(
-            torch.cat((customers, td["demand"][..., None]), -1)
+            torch.cat((cities, td["demand"][..., None]), -1)
         )
-        # [batch, n_customer+1, embedding_dim]
+        # [batch, n_city+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
@@ -119,24 +117,23 @@ class PCTSPInitEmbedding(nn.Module):
         super(PCTSPInitEmbedding, self).__init__()
         node_dim = 4  # x, y, prize, penalty
         self.init_embed = nn.Linear(node_dim, embedding_dim)
-        self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
+        self.init_embed_depot = nn.Linear(2, embedding_dim) 
 
-    def forward(self, td):  # dict of 'loc', 'deterministic_prize', 'penalty', 'depot'
-        # batch, 1, 2 -> batch, 1, embedding_dim
-        depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
-        # [batch, n_customer, 2, batch, n_customer, 1, batch, n_customer, 1]  -> batch, n_customer, embedding_dim
+    def forward(self, td):
+        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
                 (
-                    td["observation"][..., 1:, :],
-                    td["prize"][..., 1:, None],
+                    cities,
+                    td["expected_prize"][..., None],
                     td["penalty"][..., 1:, None],
                 ),
                 -1,
             )
         )
-        # batch, n_customer+1, embedding_dim
-        out = torch.cat((depot_embedding, node_embeddings), 1)
+        # batch, n_city+1, embedding_dim
+        out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
 
@@ -147,14 +144,14 @@ class OPInitEmbedding(nn.Module):
         self.init_embed = nn.Linear(node_dim, embedding_dim)
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
-    def forward(self, td):  # dict of 'loc', 'prize', 'depot'
+    def forward(self, td):
         # batch, 1, 2 -> batch, 1, embedding_dim
         depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
-        # [batch, n_customer, 2, batch, n_customer, 1, batch, n_customer, 1]  -> batch, n_customer, embedding_dim
+        # [batch, n_city, 2, batch, n_city, 1, batch, n_city, 1]  -> batch, n_city, embedding_dim
         node_embeddings = self.init_embed(
-            torch.cat((td["observation"], td["prize"][:, :, None]), -1)
+            torch.cat((td["locs"], td["prize"][:, :, None]), -1)
         )
-        # batch, n_customer+1, embedding_dim
+        # batch, n_city+1, embedding_dim
         out = torch.cat((depot_embedding, node_embeddings[..., 1:, :]), 1)
         return out
 
@@ -234,7 +231,6 @@ class MTSPInitEmbedding(nn.Module):
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
     def forward(self, td):
-        # embeddings: [batch, n_cities + 1, embedding_dim]
         depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
         node_embedding = self.init_embed(td["locs"][..., 1:, :])
         return torch.cat([depot_embedding, node_embedding], -2)
