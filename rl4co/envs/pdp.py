@@ -14,8 +14,7 @@ from rl4co.utils.ops import gather_by_index
 
 
 class PDPEnv(RL4COEnvBase):
-    """
-    Pickup and Delivery Problem (PDP) environment
+    """Pickup and Delivery Problem (PDP) environment
     The environment is made of num_loc + 1 locations (cities):
     - 1 depot
     - num_loc / 2 pickup locations
@@ -65,7 +64,8 @@ class PDPEnv(RL4COEnvBase):
         )
 
         # Action is feasible if the node is not visited and is to deliver
-        action_mask = torch.logical_and(available, to_deliver)
+        # action_mask = torch.logical_and(available, to_deliver)
+        action_mask = available & to_deliver
 
         # We are done there are no unvisited locations
         done = torch.count_nonzero(available, dim=-1) == 0
@@ -91,24 +91,24 @@ class PDPEnv(RL4COEnvBase):
         )
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        # Initialize locations
-        init_locs = td["locs"] if td is not None else None
         if batch_size is None:
-            batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        self.device = device = (
-            init_locs.device if init_locs is not None else self.device
-        )
-        if init_locs is None:
-            init_locs = self.generate_data(batch_size=batch_size)["locs"].to(device)
+            batch_size = self.batch_size if td is None else td.batch_size
+
+        if td is None or td.is_empty():
+            td = self.generate_data(batch_size=batch_size)
+
+        self.device = td.device
+
+        locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
         # Pick is 1, deliver is 0 [batch_size, graph_size+1], [1,1...1, 0...0]
         to_deliver = torch.cat(
             [
                 torch.ones(
-                    *batch_size, self.num_loc // 2 + 1, dtype=torch.bool, device=device
+                    *batch_size, self.num_loc // 2 + 1, dtype=torch.bool, device=self.device
                 ),
                 torch.zeros(
-                    *batch_size, self.num_loc // 2, dtype=torch.bool, device=device
+                    *batch_size, self.num_loc // 2, dtype=torch.bool, device=self.device
                 ),
             ],
             dim=-1,
@@ -116,18 +116,18 @@ class PDPEnv(RL4COEnvBase):
 
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
-            (*batch_size, self.num_loc + 1), dtype=torch.bool, device=device
+            (*batch_size, self.num_loc + 1), dtype=torch.bool, device=self.device
         )
         action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
         action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         return TensorDict(
             {
-                "locs": init_locs,  # init_locs [..., 0] is depot
+                "locs": locs,
                 "current_node": current_node,
                 "to_deliver": to_deliver,
                 "available": available,
@@ -143,7 +143,7 @@ class PDPEnv(RL4COEnvBase):
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc, 2),
+                shape=(self.num_loc+1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -159,7 +159,7 @@ class PDPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc),
+                shape=(self.num_loc+1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -169,13 +169,14 @@ class PDPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc,
+            maximum=self.num_loc+1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
-        assert (actions[:, 0] == 0).all(), "Not starting at depot"
+    @staticmethod
+    def get_reward(td, actions) -> TensorDict:
+        # assert (actions[:, 0] == 0).all(), "Not starting at depot"
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
@@ -200,13 +201,17 @@ class PDPEnv(RL4COEnvBase):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
-        locs = (
+        locs_with_depot = (
             torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
+
         return TensorDict(
-            {"locs": locs},
+            {
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
+            },
             batch_size=batch_size,
         )
 
