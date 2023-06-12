@@ -157,7 +157,7 @@ class OPEnv(RL4COEnvBase):
         # Keep visited_ with depot so we can scatter efficiently (if there is an action for depot)
         visited=(
             torch.zeros(
-                (*batch_size, 1, self.num_loc + 1),
+                (*batch_size, self.num_loc + 1),
                 dtype=torch.uint8, device=device
             )
         )
@@ -172,7 +172,7 @@ class OPEnv(RL4COEnvBase):
 
         # Depot can always be visited
         # (so we do not hardcode knowledge that this is strictly suboptimal if other options are available)
-        action_mask[:, :, 0] = 0
+        action_mask[:, 0] = 0
 
         return TensorDict(
             {
@@ -192,7 +192,7 @@ class OPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict = None):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),

@@ -1,3 +1,4 @@
+from turtle import pen
 from typing import Optional
 
 import torch
@@ -11,6 +12,11 @@ from torchrl.data import (
 
 from rl4co.envs import RL4COEnvBase
 
+MAX_LENGTHS = {
+    20: 2.,
+    50: 3.,
+    100: 4.
+}
 
 class PCTSPEnv(RL4COEnvBase):
     """
@@ -35,10 +41,7 @@ class PCTSPEnv(RL4COEnvBase):
         num_loc: int = 10,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_prize: float = 0.1,
-        max_prize: float = 0.5,
-        min_penalty: float = 0.1,
-        max_penalty: float = 0.5,
+        penalty_factor: float = 3,
         require_prize: float = 1,
         batch_size: list = [],
         td_params: TensorDict = None,
@@ -48,10 +51,7 @@ class PCTSPEnv(RL4COEnvBase):
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
-        self.min_prize = min_prize
-        self.max_prize = max_prize
-        self.min_penalty = min_penalty
-        self.max_penalty = max_penalty
+        self.penalty_factor = penalty_factor
         self.require_prize = require_prize
         self.batch_size = batch_size
 
@@ -66,17 +66,17 @@ class PCTSPEnv(RL4COEnvBase):
             - this design is important. For now the design is LESS than 0
         """
         current_node = td["action"][..., None]
-        prize = td["prize"]
+        deterministic_prize = td["deterministic_prize"]
         prize_collect = td["prize_collect"]
 
         # Collect the prize
-        prize_collect += torch.gather(td["prize"], 1, current_node)
+        prize_collect += torch.gather(td["deterministic_prize"], 1, current_node)
 
         # Update the prize
-        prize.scatter_(-1, current_node, 0)
+        deterministic_prize.scatter_(-1, current_node, 0)
 
         # Get the action mask, no zero demand nodes can be visited
-        action_mask = prize > 0
+        action_mask = deterministic_prize > 0
 
         # If collected prize is larger than required prize, then the depot is allowed to visit
         action_mask[..., :1] = torch.logical_or(
@@ -84,7 +84,7 @@ class PCTSPEnv(RL4COEnvBase):
         )
 
         # Force to done when there are no unvisited locations
-        done = (torch.count_nonzero(prize, dim=-1) <= 0)[..., None]
+        done = (torch.count_nonzero(deterministic_prize, dim=-1) <= 0)[..., None]
 
         # We can choose to finish when we meet the required prize
         # The mark of finish is back to the depot
@@ -107,9 +107,9 @@ class PCTSPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "current_node": current_node,
-                    "prize": prize,
+                    "deterministic_prize": deterministic_prize,
                     "prize_collect": prize_collect,
                     "prize_require": td["prize_require"],
                     "penalty": td["penalty"],
@@ -129,12 +129,22 @@ class PCTSPEnv(RL4COEnvBase):
             - td (Optional) <TensorDict>: tensor dictionary containing the initial state
         """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
+            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        locs = torch.cat([td["depot"][..., None, :], td["observation"]], dim=-2)
+        self.device = td.device
+
+        locs = torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2)
+        deterministic_prize = torch.cat([
+            torch.zeros([*batch_size, 1], dtype=torch.float32, device=self.device),
+            td["deterministic_prize"]
+        ], dim=-1)
+        penalty = torch.cat([
+            torch.zeros([*batch_size, 1], dtype=torch.float32, device=self.device),
+            td["penalty"]
+        ], dim=-1)
 
         # Initialize the current node
         current_node = torch.zeros(
@@ -155,16 +165,16 @@ class PCTSPEnv(RL4COEnvBase):
         )
 
         # Init the action mask
-        action_mask = td["prize"] > 0
+        action_mask = deterministic_prize > 0
 
         return TensorDict(
             {
-                "observation": locs,
+                "locs": locs,
                 "current_node": current_node,
-                "prize": td["prize"],
+                "deterministic_prize": deterministic_prize,
                 "prize_collect": prize_collect,
                 "prize_require": prize_require,
-                "penalty": td["penalty"],
+                "penalty": penalty,
                 "action_mask": action_mask,
             },
             batch_size=batch_size,
@@ -173,7 +183,7 @@ class PCTSPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -183,7 +193,7 @@ class PCTSPEnv(RL4COEnvBase):
                 shape=(1),
                 dtype=torch.int64,
             ),
-            prize=BoundedTensorSpec(
+            deterministic_prize=BoundedTensorSpec(
                 minimum=self.min_prize,
                 maximum=self.max_prize,
                 shape=(self.num_loc),
@@ -211,15 +221,32 @@ class PCTSPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
+        if actions.size(-1) == 1:  # In case all tours directly return to depot, prevent further problems
+            assert (actions == 0).all(), "If all length 1 tours, they should be zero"
+            # Return
+            return torch.zeros(actions.size(0), dtype=torch.float, device=actions.device), None
+
+        # Check that tours are valid, i.e. contain 0 to n -1
+        sorted_actions = actions.data.sort(1)[0]
+        # Make sure each node visited once at most (except for depot)
+        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+
+        # Either prize constraint shouldi be satisfied or all prizes should be visited
+        p = td['deterministic_prize'].gather(1, actions)
+        assert (
+            (p.sum(-1) + td['prize_collect'] >= 1 - 1e-5) |
+            (sorted_actions.size(-1) - (sorted_actions == 0).int().sum(-1) == (td['locs'].size(-2) - 1))
+        ).all(), "Total prize does not satisfy min total prize"
+
         # Calculate the length
-        locs = td["observation"]
+        locs = td["locs"]
         locs = locs.gather(1, actions[..., None].expand(*actions.size(), locs.size(-1)))
         locs_next = torch.roll(locs, 1, dims=1)
-        length = -((locs_next - locs).norm(p=2, dim=2).sum(1))
+        length = (locs_next - locs).norm(p=2, dim=2).sum(1)
 
         # Calculate the penalty
-        penalty = torch.sum(td["penalty"] * (td["prize"] > 0).float(), dim=-1)
-        return length + penalty
+        penalty = torch.sum(td["penalty"] * (td["deterministic_prize"] > 0).float(), dim=-1)
+        return -(length + penalty)
 
     def generate_data(self, batch_size) -> TensorDict:
         """
@@ -233,43 +260,46 @@ class PCTSPEnv(RL4COEnvBase):
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
-            - the observation includes the depot as the first node
-            - the demand includes the used capacity at the first value
-            - the unvisited variable can be replaced by demand > 0
+            - deterministric_prize not include the depot
+            - penalty not include the depot
         """
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
+            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
-        # Initialize the prize
-        prize = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_prize, self.max_prize)
-            .to(self.device)
-        )
-
         # Initialize the penalty
-        penalty = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_penalty, self.max_penalty)
-            .to(self.device)
-        )
+        MAX_LENGTHS = {
+            20: 2.,
+            50: 3.,
+            100: 4.
+        }
+        penalty_max = MAX_LENGTHS[self.num_loc] * (self.penalty_factor) / float(self.num_loc)
+        penalty = torch.rand((*batch_size, self.num_loc)) * penalty_max
 
-        # The depot prize and penalty are zero
-        prize[..., 0] = 0
-        penalty[..., 0] = 0
+        # Take uniform prizes
+        # Now expectation is 0.5 so expected total prize is n / 2, we want to force to visit approximately half of the nodes
+        # so the constraint will be that total prize >= (n / 2) / 2 = n / 4
+        # equivalently, we divide all prizes by n / 4 and the total prize should be >= 1
+        deterministic_prize = torch.rand((*batch_size, self.num_loc)) * 4 / float(self.num_loc)
+
+        # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
+        # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
+        # stochastic prize is only revealed once the node is visited
+        # Stochastic prize is between (0, 2 * expected_prize) such that E(stochastic prize) = E(deterministic_prize)
+        stochastic_prize = torch.rand((*batch_size, self.num_loc)) * deterministic_prize * 2
 
         return TensorDict(
             {
-                "observation": locs[..., 1:, :],
+                "locs": locs[..., 1:, :],
                 "depot": locs[..., 0, :],
-                "prize": prize,
+                "deterministic_prize": deterministic_prize,
+                "stochastic_prize": stochastic_prize,
                 "penalty": penalty,
             },
             batch_size=batch_size,
