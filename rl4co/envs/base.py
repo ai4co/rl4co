@@ -77,6 +77,8 @@ class RL4COEnvBase(EnvBase):
         if filename is not None:
             log.info(f"Overriding dataset filename from {filename}")
         f = getattr(self, f"{phase}_file") if filename is None else filename
+        if f is not None:
+            f = f[:5] + 'op/' + f[5:7] + '_const' + f[7:]
         if f is None:
             if phase != "train":
                 log.warning(f"{phase}_file not set. Generating dataset instead")
