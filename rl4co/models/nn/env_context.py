@@ -11,6 +11,7 @@ def env_context(env: Union[str, EnvBase], config: dict) -> object:
     """Get context object for given environment name"""
     context_classes = {
         "tsp": TSPContext,
+        "atsp": TSPContext,
         "cvrp": VRPContext,
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,

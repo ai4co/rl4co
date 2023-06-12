@@ -30,6 +30,10 @@ def env_embedding(
             "init": TSPInitEmbedding,
             "dynamic": StaticEmbedding,
         },
+        "atsp": {
+            "init": TSPInitEmbedding,
+            "dynamic": StaticEmbedding,
+        },
         "cvrp": {
             "init": VRPInitEmbedding,
             "dynamic": StaticEmbedding,
