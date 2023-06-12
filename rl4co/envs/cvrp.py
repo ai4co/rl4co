@@ -84,9 +84,6 @@ class CVRPEnv(RL4COEnvBase):
         current_node = td["action"][:, None]  # Add dimension for step
         n_loc = td["demand"].size(-1)  # Excludes depot
 
-        # Get current coordinate given action
-        cur_coord = gather_by_index(td["locs"], current_node, squeeze=False)
-
         # Not selected_demand is demand of first node (by clamp) so incorrect for nodes that visit depot!
         selected_demand = gather_by_index(
             td["demand"], torch.clamp(current_node - 1, 0, n_loc - 1), squeeze=False
@@ -129,7 +126,6 @@ class CVRPEnv(RL4COEnvBase):
                     "used_capacity": used_capacity,
                     "vehicle_capacity": td["vehicle_capacity"],
                     "visited": visited,
-                    "cur_coord": cur_coord,
                     "action_mask": feasible_actions,
                     "reward": reward,
                     "done": done,
@@ -160,9 +156,6 @@ class CVRPEnv(RL4COEnvBase):
             (*batch_size, 1, n_loc + 1), dtype=torch.uint8, device=self.device
         )
 
-        lengths = torch.zeros((*batch_size, 1), device=self.device)
-        cur_coord = td["depot"][:, None, :]  # Add step dimension
-
         # SECTION: get mask
         visited_loc = visited[..., 1:]
 
@@ -189,8 +182,6 @@ class CVRPEnv(RL4COEnvBase):
                 "used_capacity": used_capacity,
                 "vehicle_capacity": vehicle_capacity,
                 "visited": visited,
-                "lengths": lengths,
-                "cur_coord": cur_coord,
                 "action_mask": feasible_actions,
             },
             batch_size=batch_size,
