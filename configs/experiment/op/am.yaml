@@ -9,7 +9,7 @@ defaults:
   - override /logger: wandb.yaml
 
 env:
-  num_loc: 50
+  num_loc: 20
 
 tags: ["am", "op"]
 

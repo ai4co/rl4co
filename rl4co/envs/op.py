@@ -1,3 +1,4 @@
+from tkinter.tix import MAX
 from typing import Optional
 
 import torch
@@ -10,6 +11,13 @@ from torchrl.data import (
 )
 
 from rl4co.envs.base import RL4COEnvBase
+
+
+MAX_LENGTHS = {
+    20: 2.,
+    50: 3.,
+    100: 4.
+}
 
 
 class OPEnv(RL4COEnvBase):
@@ -37,7 +45,6 @@ class OPEnv(RL4COEnvBase):
         max_loc: float = 1,
         min_prize: float = 0.01,
         max_prize: float = 1.01,
-        length_capacity: float = 2,
         td_params: TensorDict = None,
         **kwargs
     ):
@@ -47,7 +54,7 @@ class OPEnv(RL4COEnvBase):
         self.max_loc = max_loc
         self.min_prize = min_prize
         self.max_prize = max_prize
-        self.length_capacity = length_capacity
+        self.length_capacity = MAX_LENGTHS[num_loc]
         self._make_spec(td_params)
 
     def _step(self, td: TensorDict) -> TensorDict:
@@ -253,10 +260,8 @@ class OPEnv(RL4COEnvBase):
             + (d[:, 0] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Depot to first
             + (d[:, -1] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Last to depot, will be 0 if depot is last
         )
-        print(actions.size())
-        length_to_depot = td['length_to_depot'].gather(1, actions[..., -1:])
-        # assert (length <= td['length_capacity'] + length_to_depot + 1e-5).all(), \
-        #     "Max length exceeded by {}".format((length - td['length_capacity']).max())
+        assert (length <= self.length_capacity + 1e-5).all(), \
+            "Max length exceeded by {}".format((length - td['length_capacity']).max())
 
         return td["prize_collect"].squeeze(-1)
 
