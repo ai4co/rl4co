@@ -88,6 +88,7 @@ class PCTSPEnv(RL4COEnvBase):
             {
                 "next": {
                     "locs": td["locs"],
+                    "locs": td["locs"],
                     "current_node": current_node,
                     "expected_prize": td["expected_prize"],
                     "real_prize": td["real_prize"],
@@ -143,6 +144,7 @@ class PCTSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
+                "locs": locs,
                 "locs": locs,
                 "current_node": current_node,
                 "expected_prize": expected_prize,
@@ -279,6 +281,11 @@ class PCTSPEnv(RL4COEnvBase):
         # equivalently, we divide all prizes by n / 4 and the total prize should be >= 1
         deterministic_prize = torch.rand((*batch_size, self.num_loc)) * 4 / float(self.num_loc)
 
+        # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
+        # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
+        # stochastic prize is only revealed once the node is visited
+        # Stochastic prize is between (0, 2 * expected_prize) such that E(stochastic prize) = E(deterministic_prize)
+        stochastic_prize = torch.rand((*batch_size, self.num_loc)) * deterministic_prize * 2
         # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
         # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
         # stochastic prize is only revealed once the node is visited

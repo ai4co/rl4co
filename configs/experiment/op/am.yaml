@@ -9,7 +9,7 @@ defaults:
   - override /logger: wandb.yaml
 
 env:
-  num_loc: 50
+  num_loc: 20
 
 tags: ["am", "op"]
 
@@ -41,6 +41,7 @@ train:
 
 data:
   batch_size: 512
+  # train_size: 1_000
   train_size: 1_280_000
   val_size: 10_000
 
