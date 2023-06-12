@@ -14,9 +14,9 @@ from rl4co.models import (
 from rl4co.utils.test_utils import generate_env_data
 
 
-@pytest.mark.parametrize("size", [10])
+@pytest.mark.parametrize("size", [20])
 @pytest.mark.parametrize(
-    "env_name", ["tsp", "cvrp", "mtsp", "op", "dpp"]
+    "env_name", ["tsp", "cvrp", "mtsp", "op", "dpp", "pctsp"]
 )  # todo: sdvrp
 def test_am(size, env_name, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
@@ -26,7 +26,7 @@ def test_am(size, env_name, batch_size=2):
     assert out["reward"].shape == (batch_size,)
 
 
-@pytest.mark.parametrize("size", [10])
+@pytest.mark.parametrize("size", [20])
 def test_ptrnet(size, batch_size=2):
     env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
@@ -35,18 +35,17 @@ def test_ptrnet(size, batch_size=2):
     assert out["reward"].shape == (batch_size,)
 
 
-@pytest.mark.parametrize("size", [10])
+@pytest.mark.parametrize("size", [20])
 def test_pomo(size, batch_size=2):
     env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
-    model = POMO(env)
-    model.policy.num_pomo = num_pomo = 10
+    model = POMO(env, num_starts=size)
     out = model(td, decode_type="sampling")
-    assert out["reward"].shape == (batch_size * num_pomo,)
+    assert out["reward"].shape == (batch_size * size,)
 
 
-@pytest.mark.parametrize("size", [10])
-def test_symnco(size, batch_size=2, num_augment=8, num_starts=10):
+@pytest.mark.parametrize("size", [20])
+def test_symnco(size, batch_size=2, num_augment=8, num_starts=20):
     env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
     policy = SymNCOPolicy(env, num_starts=num_starts)
@@ -55,7 +54,7 @@ def test_symnco(size, batch_size=2, num_augment=8, num_starts=10):
     assert out["reward"].shape == (batch_size * num_augment * num_starts,)
 
 
-@pytest.mark.parametrize("size", [10])
+@pytest.mark.parametrize("size", [20])
 def test_ham(size, batch_size=2):
     env, x = generate_env_data("pdp", size, batch_size)
     td = env.reset(x)
@@ -64,7 +63,7 @@ def test_ham(size, batch_size=2):
     assert out["reward"].shape == (batch_size,)
 
 
-@pytest.mark.parametrize("size", [10])
+@pytest.mark.parametrize("size", [20])
 def test_mdam(size, batch_size=2, num_paths=5):
     env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
