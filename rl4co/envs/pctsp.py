@@ -134,6 +134,8 @@ class PCTSPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
+        locs = torch.cat([td["depot"][..., None, :], td["observation"]], dim=-2)
+
         # Initialize the current node
         current_node = torch.zeros(
             (*batch_size, 1), dtype=torch.int64, device=self.device
@@ -157,7 +159,7 @@ class PCTSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": td["observation"],
+                "observation": locs,
                 "current_node": current_node,
                 "prize": td["prize"],
                 "prize_collect": prize_collect,
@@ -265,7 +267,7 @@ class PCTSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": locs,
+                "observation": locs[..., 1:, :],
                 "depot": locs[..., 0, :],
                 "prize": prize,
                 "penalty": penalty,
