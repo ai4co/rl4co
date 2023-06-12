@@ -9,6 +9,27 @@ from rl4co.models.zoo.mdam.decoder import Decoder
 
 
 class MDAMPolicy(nn.Module):
+    """
+    Args:
+        env: environment to solve
+        encoder: encoder module
+        decoder: decoder module
+        embedding_dim: embedding dimension/hidden dimension
+        num_encode_layers: number of layers in encoder
+        num_heads: number of heads in multi-head attention
+        num_paths: number of paths to sample (specific feature for MDAM)
+        eg_step_gap: number of steps between each path sampling (specific feature for MDAM)
+        normalization: normalization type
+        mask_inner: whether to mask the inner product in attention
+        mask_logits: whether to mask the logits in attention
+        tanh_clipping: tanh clipping value
+        shrink_size: shrink size for the decoder
+        use_native_sdpa: whether to use native sdpa (scaled dot product attention)
+        force_flash_attn: whether to force use flash attention
+        train_decode_type: decode type for training
+        val_decode_type: decode type for validation
+        test_decode_type: decode type for testing
+    """
     def __init__(
         self,
         env: EnvBase,
@@ -24,32 +45,14 @@ class MDAMPolicy(nn.Module):
         mask_logits: bool = True,
         tanh_clipping: float = 10.0,
         shrink_size=None,
+        use_native_sdpa: bool = False,
         force_flash_attn: bool = False,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
         **unused_kw,
     ):
-        """
-        Args:
-            env: environment to solve
-            encoder: encoder module
-            decoder: decoder module
-            embedding_dim: embedding dimension/hidden dimension
-            num_encode_layers: number of layers in encoder
-            num_heads: number of heads in multi-head attention
-            num_paths: number of paths to sample (specific feature for MDAM)
-            eg_step_gap: number of steps between each path sampling (specific feature for MDAM)
-            normalization: normalization type
-            mask_inner: whether to mask the inner product in attention
-            mask_logits: whether to mask the logits in attention
-            tanh_clipping: tanh clipping value
-            shrink_size: shrink size for the decoder
-            force_flash_attn: whether to force use flash attention
-            train_decode_type: decode type for training
-            val_decode_type: decode type for validation
-            test_decode_type: decode type for testing
-        """
+
         super(MDAMPolicy, self).__init__()
         if len(unused_kw) > 0:
             print(f"Unused kwargs: {unused_kw}")
@@ -65,6 +68,7 @@ class MDAMPolicy(nn.Module):
                 embed_dim=embedding_dim,
                 num_layers=num_encode_layers,
                 normalization=normalization,
+                use_native_sdpa=use_native_sdpa,
                 force_flash_attn=force_flash_attn,
             )
             if encoder is None
