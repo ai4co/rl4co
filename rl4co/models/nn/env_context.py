@@ -97,7 +97,6 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        # state_embedding = td["real_length_capacity"]
         state_embedding = td["length_capacity"]
         return state_embedding
 
