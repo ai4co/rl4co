@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from rl4co.models.nn.attention import MultiHeadAttention
+from rl4co.models.nn.attention import MultiHeadAttention, NativeFlashMHA
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
@@ -15,11 +15,13 @@ class MultiHeadAttentionLayer(nn.Sequential):
         embed_dim,
         feed_forward_hidden=512,
         normalization="batch",
+        use_native_sdpa=False,
         force_flash_attn=False,
     ):
+        MHA = NativeFlashMHA if use_native_sdpa else MultiHeadAttention
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                MultiHeadAttention(
+                MHA(
                     embed_dim, num_heads, force_flash_attn=force_flash_attn
                 )
             ),
@@ -38,6 +40,12 @@ class MultiHeadAttentionLayer(nn.Sequential):
 
 
 class GraphAttentionEncoder(nn.Module):
+    """Graph Attention Encoder with a series of MHA layers
+    Multi-Head Attention Layer with normalization and feed-forward layer
+    If use_native_sdpa is True, use NativeFlashMHA instead of MultiHeadAttention:
+    native PyTorch `scaled_dot_product_attention` implementation, available from 2.0
+    You may force FlashAttention by setting force_flash_attn to True (move to half precision)
+    """
     def __init__(
         self,
         num_heads,
@@ -46,6 +54,7 @@ class GraphAttentionEncoder(nn.Module):
         env=None,
         normalization="batch",
         feed_forward_hidden=512,
+        use_native_sdpa=False,
         force_flash_attn=False,
         disable_init_embedding=False,
     ):
@@ -65,9 +74,10 @@ class GraphAttentionEncoder(nn.Module):
                 MultiHeadAttentionLayer(
                     num_heads,
                     embedding_dim,
-                    feed_forward_hidden,
-                    normalization,
-                    force_flash_attn,
+                    feed_forward_hidden=feed_forward_hidden,
+                    normalization=normalization,
+                    use_native_sdpa=use_native_sdpa,
+                    force_flash_attn=force_flash_attn,
                 )
                 for _ in range(num_layers)
             )

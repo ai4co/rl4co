@@ -36,12 +36,3 @@ train:
     lr: 1e-4
     weight_decay: 1e-5
 
-model:
-  _target_: rl4co.models.AttentionModel
-  env: ${env}
-  baseline:
-    _target_: rl4co.models.rl.reinforce.baselines.CriticBaseline
-    critic:
-      _target_: rl4co.models.rl.reinforce.critic.CriticNetwork
-      env: ${env}
-  

@@ -25,6 +25,7 @@ class PPOAttentionModelPolicy(nn.Module):
         num_heads: int = 8,
         normalization: str = "batch",
         mask_inner: bool = True,
+        use_native_sdpa: bool = False,
         force_flash_attn: bool = False,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
@@ -44,6 +45,7 @@ class PPOAttentionModelPolicy(nn.Module):
                 num_layers=num_encoder_layers,
                 env=self.env,
                 normalization=normalization,
+                use_native_sdp=use_native_sdpa,
                 force_flash_attn=force_flash_attn,
             )
             if encoder is None

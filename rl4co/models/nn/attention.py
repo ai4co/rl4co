@@ -64,7 +64,7 @@ class NativeFlashMHA(nn.Module):
         causal=False,
         device=None,
         dtype=None,
-        force_flash_attn=True,
+        force_flash_attn=False,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()

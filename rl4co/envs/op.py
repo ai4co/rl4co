@@ -115,7 +115,7 @@ class OPEnv(RL4COEnvBase):
         return TensorDict(
             {
                 "next": {
-                    "observation": td["observation"],
+                    "locs": td["locs"],
                     "length_capacity": td["length_capacity"],
                     "length_to_depot": td["length_to_depot"],
                     "current_node": current_node,
@@ -183,7 +183,7 @@ class OPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "observation": observation,
+                "locs": observation,
                 "length_capacity": length_capacity,
                 "length_to_depot": length_to_depot,
                 "current_node": current_node,
@@ -197,7 +197,7 @@ class OPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict = None):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
-            observation=BoundedTensorSpec(
+            locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
                 shape=(self.num_loc, 2),
@@ -277,7 +277,7 @@ class OPEnv(RL4COEnvBase):
                 - current_node <Tensor> [batch_size, 1]: current node
                 - i <Tensor> [batch_size, 1]: number of visited nodes
         NOTE:
-            - the observation includes the depot as the first node
+            - the locs includes the depot as the first node
             - the prize includes the used capacity at the first value
             - the unvisited variable can be replaced by prize > 0
         """

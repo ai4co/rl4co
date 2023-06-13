@@ -2,7 +2,7 @@
 
 defaults:
   - override /model: am.yaml
-  - override /env: op.yaml
+  - override /env: pctsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -11,16 +11,19 @@ defaults:
 env:
   num_loc: 20
 
-tags: ["am", "op"]
+tags: ["am", "pctsp"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "op${env.num_loc}"
-    name: "am-op${env.num_loc}"
+    group: "pctsp${env.num_loc}"
+    name: "am-pctsp${env.num_loc}"
 
 seed: 12345
+
+model:
+  use_native_sdpa: true
 
 trainer:
   max_epochs: 100
@@ -41,7 +44,6 @@ train:
 
 data:
   batch_size: 512
-  # train_size: 1_000
   train_size: 1_280_000
   val_size: 10_000
 

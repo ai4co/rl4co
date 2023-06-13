@@ -90,7 +90,10 @@ def select_start_nodes(td, num_nodes, env=None):
         num_nodes: Number of nodes to select
         env: (TODO) Environment may determine the node selection strategy
     """
-    selected = torch.arange(num_nodes, device=td.device).repeat_interleave(td.shape[0])
+    if env.name != "pctsp":
+        selected = torch.arange(num_nodes, device=td.device).repeat_interleave(td.shape[0])
+    else:
+        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(td.shape[0])
     return selected
 
 

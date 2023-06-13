@@ -11,6 +11,7 @@ def env_context(env: Union[str, EnvBase], config: dict) -> object:
     """Get context object for given environment name"""
     context_classes = {
         "tsp": TSPContext,
+        "atsp": TSPContext,
         "cvrp": VRPContext,
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
@@ -88,7 +89,8 @@ class PCTSPContext(EnvContext):
         super(PCTSPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["prize_require"] - td["prize_collect"]
+        # Remaining prize to collect 
+        state_embedding = torch.clamp(td["prize_required"] - td["cur_total_prize"], min=0)[..., None]
         return state_embedding
 
 

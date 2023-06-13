@@ -133,8 +133,8 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
     )
 
     return {
-        "depot": depot.astype(np.float32),
         "locs": loc.astype(np.float32),
+        "depot": depot.astype(np.float32),
         "penalty": penalty.astype(np.float32),
         "deterministic_prize": deterministic_prize.astype(np.float32),
         "stochastic_prize": stochastic_prize.astype(np.float32),
@@ -258,9 +258,6 @@ def generate_dataset(
                 np.random.seed(seed)
 
                 # Automatically generate dataset
-                log.info(
-                    "Generating {} dataset and saving to {}".format(problem, fname)
-                )
                 dataset = generate_env_data(
                     problem, dataset_size, graph_size, distribution
                 )
@@ -268,6 +265,7 @@ def generate_dataset(
                 # A function can return None in case of an error or a skip
                 if dataset is not None:
                     # Save to disk as dict
+                    log.info("Saving {} dataset to {}".format(problem, fname))
                     np.savez(fname, **dataset)
 
 
