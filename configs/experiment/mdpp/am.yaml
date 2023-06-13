@@ -13,12 +13,15 @@ tags: ["am", "mdpp"]
 env:
   reward_type: "minmax"
 
+model:
+  use_native_sdpa: true
+
 logger:
   wandb:
     project: "rl4co-mdpp"
     tags: ${tags}
     group: "mdpp-${env.reward_type}"
-    name: "am-rollout"
+    name: "am"
 
 data:
   batch_size: 64
