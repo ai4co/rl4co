@@ -99,8 +99,7 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        # FIXME
-        state_embedding = td["used_capacity"]
+        state_embedding = td["length_capacity"]
         return state_embedding
 
 
