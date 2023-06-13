@@ -10,15 +10,18 @@ defaults:
 
 tags: ["am", "mdpp"]
 
+env:
+  reward_type: "minmax"
+
 logger:
   wandb:
     project: "rl4co-mdpp"
     tags: ${tags}
-    group: "mdpp"
-    name: "am-critic-mdpp"
+    group: "mdpp-${env.reward_type}"
+    name: "am-critic"
 
 data:
-  batch_size: 16
+  batch_size: 64
   train_size: 1000
   val_size: 100
 
@@ -34,7 +37,7 @@ train:
   optimizer:
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 1e-3
 
 model:
   _target_: rl4co.models.AttentionModel

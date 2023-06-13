@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - override /model: am-ppo.yaml
+  - override /model: am.yaml
   - override /env: mdpp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
@@ -10,28 +10,22 @@ defaults:
 
 tags: ["am", "mdpp"]
 
+env:
+  reward_type: "minmax"
+
 logger:
   wandb:
     project: "rl4co-mdpp"
     tags: ${tags}
-    group: "mdpp"
-    name: "am-ppo-mdpp"
+    group: "mdpp-${env.reward_type}"
+    name: "am-ppo"
 
 data:
-  batch_size: 16
+  batch_size: 64
   train_size: 1000
   val_size: 100
 
 seed: 12345
-
-model:
-  clip_range: 0.2
-  ppo_epochs: 2
-  mini_batch_size: ${..data.batch_size}
-  vf_lambda: 0.5
-  entropy_lambda: 0.01
-  normalize_adv: False
-  max_grad_norm: 0.5
 
 trainer:
   max_epochs: 10
@@ -43,4 +37,13 @@ train:
   optimizer:
     _target_: torch.optim.Adam
     lr: 1e-4
-    weight_decay: 1e-5
+    weight_decay: 1e-3
+
+model:
+  clip_range: 0.2
+  ppo_epochs: 2
+  mini_batch_size: ${..data.batch_size}
+  vf_lambda: 0.5
+  entropy_lambda: 0.01
+  normalize_adv: False
+  max_grad_norm: 0.5
