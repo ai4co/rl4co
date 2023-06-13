@@ -45,7 +45,7 @@ class PPOAttentionModelPolicy(nn.Module):
                 num_layers=num_encoder_layers,
                 env=self.env,
                 normalization=normalization,
-                use_native_sdp=use_native_sdpa,
+                use_native_sdpa=use_native_sdpa,
                 force_flash_attn=force_flash_attn,
             )
             if encoder is None

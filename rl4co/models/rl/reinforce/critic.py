@@ -27,6 +27,8 @@ class CriticNetwork(nn.Module):
         num_layers=3,
         num_heads=8,
         encoder_normalization="batch",
+        use_native_sdpa=False,
+        force_flash_attn=False,
     ):
         super(CriticNetwork, self).__init__()
 
@@ -38,6 +40,8 @@ class CriticNetwork(nn.Module):
                 env=env,
                 normalization=encoder_normalization,
                 feed_forward_hidden=hidden_dim,
+                use_native_sdpa=use_native_sdpa,
+                force_flash_attn=force_flash_attn,
             )
             if encoder is None
             else encoder
