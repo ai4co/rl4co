@@ -593,7 +593,7 @@ class MHA(nn.Module):
         max_seqlen=None,
         mixer_subset=None,
         inference_params=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Arguments:
@@ -679,7 +679,7 @@ class MHA(nn.Module):
                         *inference_params.key_value_memory_dict[self.layer_idx],
                         inference_params.lengths_per_sample,
                         inference_params.sequence_len_offset,
-                        self.rotary_emb_dim
+                        self.rotary_emb_dim,
                     )
                     context = rearrange(context, "b h d -> b 1 h d")
         else:

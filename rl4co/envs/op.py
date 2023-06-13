@@ -13,11 +13,7 @@ from torchrl.data import (
 from rl4co.envs.base import RL4COEnvBase
 
 
-MAX_LENGTHS = {
-    20: 2.,
-    50: 3.,
-    100: 4.
-}
+MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 
 
 class OPEnv(RL4COEnvBase):
@@ -46,7 +42,7 @@ class OPEnv(RL4COEnvBase):
         min_prize: float = 0.01,
         max_prize: float = 1.01,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc
@@ -145,7 +141,7 @@ class OPEnv(RL4COEnvBase):
         #         "observation": torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2),
         #         "depot": td["depot"],
         #         "prize": torch.cat([torch.zeros((*batch_size, 1)), td["prize"]], dim=-1),
-        #     }, 
+        #     },
         #     batch_size=batch_size
         # )
 
@@ -162,9 +158,7 @@ class OPEnv(RL4COEnvBase):
         )
 
         # Calculate the lenght of each node back to the depot
-        length_to_depot = (observation - td["depot"][..., None, :]).norm(
-            p=2, dim=-1
-        )
+        length_to_depot = (observation - td["depot"][..., None, :]).norm(p=2, dim=-1)
 
         # Init the action mask
         action_mask = prize > 1e-5
@@ -173,9 +167,7 @@ class OPEnv(RL4COEnvBase):
         current_node_loccation = torch.gather(
             observation, -2, current_node[..., None].repeat_interleave(2, dim=-1)
         )
-        length_to_next_node = (observation - current_node_loccation).norm(
-            p=2, dim=-1
-        )
+        length_to_next_node = (observation - current_node_loccation).norm(p=2, dim=-1)
         length_to_next_node_and_return = length_to_next_node + length_to_depot
         action_mask = torch.logical_and(
             action_mask, length_to_next_node_and_return <= length_capacity
@@ -252,16 +244,30 @@ class OPEnv(RL4COEnvBase):
         # Check that tours are valid, i.e. contain 0 to n -1
         sorted_actions = actions.data.sort(1)[0]
         # Make sure each node visited once at most (except for depot)
-        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+        assert (
+            (sorted_actions[:, 1:] == 0)
+            | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
+        ).all(), "Duplicates"
 
-        d = td['observation'].gather(1, actions[..., None].expand(*actions.size(), td['observation'].size(-1)))
-        length = (
-            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
-            + (d[:, 0] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Depot to first
-            + (d[:, -1] - td['observation'][..., 0, :]).norm(p=2, dim=-1)  # Last to depot, will be 0 if depot is last
+        d = td["observation"].gather(
+            1, actions[..., None].expand(*actions.size(), td["observation"].size(-1))
         )
-        assert (length <= self.length_capacity + 1e-5).all(), \
-            "Max length exceeded by {}".format((length - td['length_capacity']).max())
+        length = (
+            (d[:, 1:] - d[:, :-1])
+            .norm(p=2, dim=-1)
+            .sum(1)  # Prevent error if len 1 seq
+            + (d[:, 0] - td["observation"][..., 0, :]).norm(
+                p=2, dim=-1
+            )  # Depot to first
+            + (d[:, -1] - td["observation"][..., 0, :]).norm(
+                p=2, dim=-1
+            )  # Last to depot, will be 0 if depot is last
+        )
+        assert (
+            length <= self.length_capacity + 1e-5
+        ).all(), "Max length exceeded by {}".format(
+            (length - td["length_capacity"]).max()
+        )
 
         return td["prize_collect"].squeeze(-1)
 
@@ -286,14 +292,16 @@ class OPEnv(RL4COEnvBase):
 
         # Initialize the locations (including the depot which is always the first node)
         locs = (
-            torch.FloatTensor(*batch_size, self.num_loc+1, 2)
+            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
             .uniform_(self.min_loc, self.max_loc)
             .to(self.device)
         )
 
         # Initialize the prize
         prize_ = (locs[..., :1, :] - locs[..., 1:, :]).norm(p=2, dim=-1)
-        prize = (1 + (prize_ / prize_.max(dim=-1, keepdim=True)[0] * 99).int()).float() / 100.
+        prize = (
+            1 + (prize_ / prize_.max(dim=-1, keepdim=True)[0] * 99).int()
+        ).float() / 100.0
 
         return TensorDict(
             {

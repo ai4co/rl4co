@@ -13,7 +13,7 @@ def download_object_from_s3(
     filename,
     progress_bar=None,
     leave_pbar=False,
-    pbar_position=1
+    pbar_position=1,
 ):
     """
     Download an object from S3 with a progress bar.
@@ -88,7 +88,7 @@ def upload_file_to_s3(
     filename,
     progress_bar=None,
     leave_pbar=False,
-    pbar_position=1
+    pbar_position=1,
 ):
     """
     Upload a file to S3 with a progress bar.

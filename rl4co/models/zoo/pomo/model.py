@@ -29,7 +29,7 @@ class POMO(REINFORCE):
         baseline=None,
         num_starts=10,
         num_augment=8,
-        **policy_kwargs
+        **policy_kwargs,
     ):
         super(POMO, self).__init__(env, policy, baseline)
         self.policy = (

@@ -42,7 +42,7 @@ class SymNCO(REINFORCE):
         alpha=0.2,
         beta=1,
         augment_test=True,
-        **policy_kwargs
+        **policy_kwargs,
     ):
         super(SymNCO, self).__init__(env, policy, baseline)
 
@@ -119,7 +119,6 @@ class SymNCO(REINFORCE):
         # Get best actions and rewards
         # Main training loss
         if phase == "train":
-
             # [batch_size, num_starts, num_augment]
             ll = unbatchify(out["log_likelihood"], (num_starts, num_augment))
 

@@ -21,9 +21,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
         MHA = NativeFlashMHA if use_native_sdpa else MultiHeadAttention
         super(MultiHeadAttentionLayer, self).__init__(
             SkipConnection(
-                MHA(
-                    embed_dim, num_heads, force_flash_attn=force_flash_attn
-                )
+                MHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)
             ),
             Normalization(embed_dim, normalization),
             SkipConnection(
@@ -46,6 +44,7 @@ class GraphAttentionEncoder(nn.Module):
     native PyTorch `scaled_dot_product_attention` implementation, available from 2.0
     You may force FlashAttention by setting force_flash_attn to True (move to half precision)
     """
+
     def __init__(
         self,
         num_heads,

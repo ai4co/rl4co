@@ -99,14 +99,17 @@ class PPO(nn.Module):
                     # compute surrogate loss
                     surrogate_loss = -torch.min(
                         ratio * adv,
-                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range) * adv,
+                        torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range)
+                        * adv,
                     ).mean()
 
                     # compute entropy bonus
                     entropy_bonus = mini_batched_out["entropy"].mean()
 
                     # compute value function loss
-                    value_loss = F.huber_loss(value_pred, rewards[mini_batch_idx].view(-1, 1))
+                    value_loss = F.huber_loss(
+                        value_pred, rewards[mini_batch_idx].view(-1, 1)
+                    )
 
                     # compute total loss
                     loss = (
@@ -120,7 +123,9 @@ class PPO(nn.Module):
                         optimizer.zero_grad()
                         loss.backward()
                         if self.max_grad_norm is not None:
-                            nn.utils.clip_grad_norm_(self.parameters(), self.max_grad_norm)
+                            nn.utils.clip_grad_norm_(
+                                self.parameters(), self.max_grad_norm
+                            )
                         optimizer.step()
 
                         iter_i += 1
