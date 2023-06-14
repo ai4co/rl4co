@@ -21,7 +21,7 @@ if __name__ == "__main__":
     argparser.add_argument("--out_dir", type=str, default="results/eval_methods")
     argparser.add_argument("--gpus", type=int, default=1)
     argparser.add_argument("--gpu_id", type=int, default=0)
-    argparser.add_argument("--start_batch_size", type=int, default=8192, help="Batch size for scaling evaluation")
+    argparser.add_argument("--start_batch_size", type=int, default=4096, help="Batch size for scaling evaluation")
     argparser.add_argument("--data_path", type=str, default=None)
 
     args = argparser.parse_args()
