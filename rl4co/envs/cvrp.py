@@ -370,8 +370,6 @@ class CVRPEnv(RL4COEnvBase):
             alpha=1,
         )
 
-        print(len(locs))
-        print(len(demands))
         # plot demand bars
         for node_idx in range(1, len(locs)):
             ax.add_patch(
