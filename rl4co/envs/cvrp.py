@@ -1,3 +1,4 @@
+from numpy import fmax
 import torch
 from typing import Optional
 from tensordict.tensordict import TensorDict
@@ -11,6 +12,9 @@ from torchrl.data import (
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
 from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
@@ -309,5 +313,132 @@ class CVRPEnv(RL4COEnvBase):
         td_load.set_("demand", td_load["demand"] / td_load["capacity"][:, None])
         return td_load
 
-    def render(self, td: TensorDict):
-        raise NotImplementedError("TODO: render is not implemented yet")
+    @staticmethod
+    def render(td: TensorDict, actions=None, ax=None):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        from matplotlib import cm, colormaps
+
+        base = colormaps['rainbow']
+        color_list = base(np.linspace(0, 1, 6))
+        cmap_name = base.name + str(6)
+        out = base.from_list(cmap_name, color_list, 6)
+
+        if ax is None:
+            # Create a plot of the nodes
+            _, ax = plt.subplots()
+
+        td = td.detach().cpu()
+        # if batch_size greater than 0 , we need to select the first batch element
+        if td.batch_size != torch.Size([]):
+            td = td[0]
+
+        locs = td["locs"]
+        demands = td["demand"]
+
+        if actions is None:
+            actions = td.get("action", None)
+
+        # gather locs in order of action if available
+        if actions is None:
+            log.warning("No action in TensorDict, rendering unsorted locs")
+        else:
+            locs = locs
+
+        # Cat the first node to the end to complete the tour
+        x, y = locs[:, 0], locs[:, 1]
+
+        # plot depot
+        ax.scatter(
+            locs[0, 0], locs[0, 1], 
+            edgecolors=cm.Set2(2),
+            facecolors='none',
+            s=100,
+            linewidths=2,
+            marker='s',
+            alpha=1,
+        )
+
+        # plot visited nodes
+        ax.scatter(
+            x[1:], y[1:],
+            edgecolors=cm.Set2(0),
+            facecolors='none',
+            s=100,
+            linewidths=2,
+            marker='o',
+            alpha=1,
+        )
+
+        print(len(locs))
+        print(len(demands))
+        # plot demand bars
+        for node_idx in range(1, len(locs)):
+            ax.add_patch(
+                plt.Rectangle(
+                    (locs[node_idx,0]-0.005, locs[node_idx,1]+0.025), 
+                    0.01, 
+                    demands[node_idx-1]*0.1,
+                    edgecolor=cm.Set2(0),
+                    facecolor=cm.Set2(0),
+                    fill=True,
+                )
+            )
+
+        # text demand
+        for node_idx in range(1, len(locs)):
+            ax.text(
+                locs[node_idx, 0], locs[node_idx, 1]-0.025, 
+                f'{demands[node_idx-1].item():.2f}',
+                horizontalalignment='center',
+                verticalalignment='top',
+                fontsize=10,
+                color=cm.Set2(0),
+            )
+
+        # text depot
+        ax.text(
+            locs[0, 0], locs[0, 1]-0.025, 
+            f'Depot',
+            horizontalalignment='center',
+            verticalalignment='top',
+            fontsize=10,
+            color=cm.Set2(2),
+        )
+
+        # plot actions
+        color_idx = 0
+        for action_idx in range(len(actions)-1):
+            if actions[action_idx] == 0:
+                color_idx += 1
+            from_loc = locs[actions[action_idx]]
+            to_loc = locs[actions[action_idx+1]]
+            ax.plot(
+                [from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]],
+                color=out(color_idx),
+            )
+            ax.annotate(
+                "", 
+                xy=(to_loc[0], to_loc[1]),
+                xytext=(from_loc[0], from_loc[1]),
+                arrowprops=dict(arrowstyle="->", color=out(color_idx)),
+                annotation_clip=False,
+            )
+
+        # setup
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        ax.grid(axis='both', color='black', ls='--', alpha=0.1)
+
+        # Set plot title and axis labels
+        title_font = {'fontsize': 14}
+        label_font = {'fontsize': 12}
+        ax.set_title("CVRP Solution", fontdict=title_font)
+        ax.set_xlabel("X Coordinate", fontdict=label_font)
+        ax.set_ylabel("Y Coordinate", fontdict=label_font)
+
+        # plt.tight_layout()
+        plt.show()
+
+
+

@@ -1,3 +1,4 @@
+from cProfile import label
 from typing import Optional
 
 import numpy as np
@@ -175,6 +176,7 @@ class TSPEnv(RL4COEnvBase):
     @staticmethod
     def render(td, actions=None, ax=None):
         import matplotlib.pyplot as plt
+        from matplotlib import cm
 
         if ax is None:
             # Create a plot of the nodes
@@ -197,20 +199,49 @@ class TSPEnv(RL4COEnvBase):
             locs = gather_by_index(locs, actions, dim=0)
 
         # Cat the first node to the end to complete the tour
-        locs = torch.cat((locs, locs[0:1]))
         x, y = locs[:, 0], locs[:, 1]
 
-        # Plot the visited nodes
-        ax.scatter(x, y, color="tab:blue")
-
-        # Add arrows between visited nodes as a quiver plot
-        dx, dy = np.diff(x), np.diff(y)
-        ax.quiver(
-            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k"
+        # SECTION: new
+        # plot visited nodes
+        ax.scatter(
+            x, y,
+            edgecolors=cm.Set2(0),
+            facecolors='none',
+            s=100,
+            linewidths=2,
+            marker='o',
+            alpha=1,
         )
 
+        # plot actions
+        for action_idx in range(len(actions)-1):
+            from_loc = locs[actions[action_idx]]
+            to_loc = locs[actions[action_idx+1]]
+            ax.plot(
+                [from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]],
+                color=cm.tab20c(5),
+            )
+            ax.annotate(
+                "", 
+                xy=(to_loc[0], to_loc[1]),
+                xytext=(from_loc[0], from_loc[1]),
+                arrowprops=dict(arrowstyle="->", color=cm.tab20c(5)),
+                annotation_clip=False,
+            )
+
+        # setup
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        ax.grid(axis='both', color='black', ls='--', alpha=0.1)
+
+        # plt.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, right=False, left=False, labelleft=False)
+
         # Set plot title and axis labels
-        ax.set_title("TSP Solution")
-        ax.set_xlabel("x-coordinate")
-        ax.set_ylabel("y-coordinate")
+        title_font = {'fontsize': 14}
+        label_font = {'fontsize': 12}
+        ax.set_title("TSP Solution", fontdict=title_font)
+        ax.set_xlabel("X Coordinate", fontdict=label_font)
+        ax.set_ylabel("Y Coordinate", fontdict=label_font)
+
+        # plt.tight_layout()
         plt.show()
