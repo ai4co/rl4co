@@ -1,6 +1,5 @@
 name: run testing suite
-# on: [push, pull_request]
-on: [pull_request] # NOTE: skipping for regular pushes, to be removed
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
