@@ -45,7 +45,6 @@ dependencies = [
     "einops",
     "wandb",
     "pre-commit",
-    "pytest",
     "matplotlib",
     "scipy",
 ]
@@ -56,6 +55,7 @@ version = {attr = "rl4co.__version__"}
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
+testing = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/kaist-silab/rl4co"
