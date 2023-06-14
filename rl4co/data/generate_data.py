@@ -32,25 +32,23 @@ def generate_tsp_data(dataset_size, tsp_size):
 
 
 def generate_vrp_data(dataset_size, vrp_size, capacities=None):
-
     # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
     CAPACITIES = {
-            10: 20.0,
-            15: 25.0,
-            20: 30.0,
-            30: 33.0,
-            40: 37.0,
-            50: 40.0,
-            60: 43.0,
-            75: 45.0,
-            100: 50.0,
-            125: 55.0,
-            150: 60.0,
-            200: 70.0,
-            500: 100.0,
-            1000: 150.0,
-        }
-
+        10: 20.0,
+        15: 25.0,
+        20: 30.0,
+        30: 33.0,
+        40: 37.0,
+        50: 40.0,
+        60: 43.0,
+        75: 45.0,
+        100: 50.0,
+        125: 55.0,
+        150: 60.0,
+        200: 70.0,
+        500: 100.0,
+        1000: 150.0,
+    }
 
     # If capacities are provided, replace keys in CAPACITIES with provided values if they exist
     if capacities is not None:
@@ -141,8 +139,15 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
     }
 
 
-def generate_mdpp_data(dataset_size, size=10, num_probes_min=2, num_probes_max=5, 
-                  num_keepout_min=1, num_keepout_max=50, lock_size=True):
+def generate_mdpp_data(
+    dataset_size,
+    size=10,
+    num_probes_min=2,
+    num_probes_max=5,
+    num_keepout_min=1,
+    num_keepout_max=50,
+    lock_size=True,
+):
     """Generate data for the nDPP problem.
     If `lock_size` is True, then the size if fixed and we skip the `size` argument if it is not 10.
     This is because the RL environment is based on a real-world PCB (parametrized with data)
@@ -150,8 +155,8 @@ def generate_mdpp_data(dataset_size, size=10, num_probes_min=2, num_probes_max=5
     if lock_size and size != 10:
         # log.info("Locking size to 10, skipping generate_mdpp_data with size {}".format(size))
         return None
-        
-    bs = dataset_size # bs = batch_size to generate data in batch
+
+    bs = dataset_size  # bs = batch_size to generate data in batch
     m = n = size
     if isinstance(bs, int):
         bs = [bs]
@@ -163,19 +168,21 @@ def generate_mdpp_data(dataset_size, size=10, num_probes_min=2, num_probes_max=5
 
     available = np.ones((bs[0], m * n), dtype=bool)
 
-    probe = np.random.randint(0, high=m*n, size=(bs[0], 1))
+    probe = np.random.randint(0, high=m * n, size=(bs[0], 1))
     np.put_along_axis(available, probe, False, axis=1)
 
-    num_probe = np.random.randint(num_probes_min, num_probes_max+1, size=(bs[0], 1))
+    num_probe = np.random.randint(num_probes_min, num_probes_max + 1, size=(bs[0], 1))
     probes = np.zeros((bs[0], m * n), dtype=bool)
     for i in range(bs[0]):
-        p = np.random.choice(m*n, num_probe[i], replace=False)
+        p = np.random.choice(m * n, num_probe[i], replace=False)
         np.put_along_axis(available[i], p, False, axis=0)
         np.put_along_axis(probes[i], p, True, axis=0)
 
-    num_keepout = np.random.randint(num_keepout_min, num_keepout_max+1, size=(bs[0], 1))
+    num_keepout = np.random.randint(
+        num_keepout_min, num_keepout_max + 1, size=(bs[0], 1)
+    )
     for i in range(bs[0]):
-        k = np.random.choice(m*n, num_keepout[i], replace=False)
+        k = np.random.choice(m * n, num_keepout[i], replace=False)
         np.put_along_axis(available[i], k, False, axis=0)
 
     return {
@@ -261,7 +268,7 @@ def generate_dataset(
                 dataset = generate_env_data(
                     problem, dataset_size, graph_size, distribution
                 )
-                
+
                 # A function can return None in case of an error or a skip
                 if dataset is not None:
                     # Save to disk as dict
@@ -273,7 +280,14 @@ def generate_default_datasets(data_dir):
     """Generate the default datasets used in the paper and save them to data_dir/problem"""
     generate_dataset(data_dir=data_dir, name="val", problem="all", seed=4321)
     generate_dataset(data_dir=data_dir, name="test", problem="all", seed=1234)
-    generate_dataset(data_dir=data_dir, name="test", problem="mdpp", seed=1234, graph_sizes=[10], dataset_size=100)  # EDA (mDPP)
+    generate_dataset(
+        data_dir=data_dir,
+        name="test",
+        problem="mdpp",
+        seed=1234,
+        graph_sizes=[10],
+        dataset_size=100,
+    )  # EDA (mDPP)
 
 
 if __name__ == "__main__":

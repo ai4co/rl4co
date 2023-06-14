@@ -19,21 +19,21 @@ log = get_pylogger(__name__)
 
 # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
 CAPACITIES = {
-        10: 20.0,
-        15: 25.0,
-        20: 30.0,
-        30: 33.0,
-        40: 37.0,
-        50: 40.0,
-        60: 43.0,
-        75: 45.0,
-        100: 50.0,
-        125: 55.0,
-        150: 60.0,
-        200: 70.0,
-        500: 100.0,
-        1000: 150.0,
-    }
+    10: 20.0,
+    15: 25.0,
+    20: 30.0,
+    30: 33.0,
+    40: 37.0,
+    50: 40.0,
+    60: 43.0,
+    75: 45.0,
+    100: 50.0,
+    125: 55.0,
+    150: 60.0,
+    200: 70.0,
+    500: 100.0,
+    1000: 150.0,
+}
 
 
 class CVRPEnv(RL4COEnvBase):
@@ -207,7 +207,7 @@ class CVRPEnv(RL4COEnvBase):
             demand=BoundedTensorSpec(
                 minimum=-self.capacity,
                 maximum=self.max_demand,
-                shape=(self.num_loc, 1), # demand is only for customers
+                shape=(self.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
@@ -229,33 +229,33 @@ class CVRPEnv(RL4COEnvBase):
     @staticmethod
     def get_reward(td, actions) -> TensorDict:
         # Check if tour is valid, i.e. contain 0 to n-1
-        batch_size, graph_size = td['demand'].size()
+        batch_size, graph_size = td["demand"].size()
         sorted_pi = actions.data.sort(1)[0]
 
         # Sorting it should give all zeros at front and then 1...n
         assert (
-            torch.arange(1, graph_size + 1, out=sorted_pi.data.new()).view(1, -1).expand(batch_size, graph_size) ==
-            sorted_pi[:, -graph_size:]
+            torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
+            .view(1, -1)
+            .expand(batch_size, graph_size)
+            == sorted_pi[:, -graph_size:]
         ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
 
         # Visiting depot resets capacity so we add demand = -capacity (we make sure it does not become negative)
-        demand_with_depot = torch.cat(
-            (
-                -td['vehicle_capacity'],
-                td['demand']
-            ),
-            1
-        )
+        demand_with_depot = torch.cat((-td["vehicle_capacity"], td["demand"]), 1)
         d = demand_with_depot.gather(1, actions)
 
-        used_cap = torch.zeros_like(td['demand'][:, 0])
+        used_cap = torch.zeros_like(td["demand"][:, 0])
         for i in range(actions.size(1)):
-            used_cap += d[:, i]  # This will reset/make capacity negative if i == 0, e.g. depot visited
+            used_cap += d[
+                :, i
+            ]  # This will reset/make capacity negative if i == 0, e.g. depot visited
             # Cannot use less than 0
             used_cap[used_cap < 0] = 0
-            assert (used_cap <= td['vehicle_capacity'] + 1e-5).all(), "Used more than capacity"
+            assert (
+                used_cap <= td["vehicle_capacity"] + 1e-5
+            ).all(), "Used more than capacity"
 
-        # Calculate the reward: - distance from all locations. 
+        # Calculate the reward: - distance from all locations.
         # We add the depot as first so we calculate also depot-first and depot-last tours with roll
         depot = td["locs"][..., 0:1, :]
         loc_gathered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
@@ -263,7 +263,6 @@ class CVRPEnv(RL4COEnvBase):
         return -((loc_gathered_next - loc_gathered).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
-
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
@@ -319,7 +318,7 @@ class CVRPEnv(RL4COEnvBase):
         import matplotlib.pyplot as plt
         from matplotlib import cm, colormaps
 
-        base = colormaps['rainbow']
+        base = colormaps["rainbow"]
         color_list = base(np.linspace(0, 1, 6))
         cmap_name = base.name + str(6)
         out = base.from_list(cmap_name, color_list, 6)
@@ -350,23 +349,25 @@ class CVRPEnv(RL4COEnvBase):
 
         # plot depot
         ax.scatter(
-            locs[0, 0], locs[0, 1], 
+            locs[0, 0],
+            locs[0, 1],
             edgecolors=cm.Set2(2),
-            facecolors='none',
+            facecolors="none",
             s=100,
             linewidths=2,
-            marker='s',
+            marker="s",
             alpha=1,
         )
 
         # plot visited nodes
         ax.scatter(
-            x[1:], y[1:],
+            x[1:],
+            y[1:],
             edgecolors=cm.Set2(0),
-            facecolors='none',
+            facecolors="none",
             s=100,
             linewidths=2,
-            marker='o',
+            marker="o",
             alpha=1,
         )
 
@@ -374,9 +375,9 @@ class CVRPEnv(RL4COEnvBase):
         for node_idx in range(1, len(locs)):
             ax.add_patch(
                 plt.Rectangle(
-                    (locs[node_idx,0]-0.005, locs[node_idx,1]+0.025), 
-                    0.01, 
-                    demands[node_idx-1]*0.1,
+                    (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.025),
+                    0.01,
+                    demands[node_idx - 1] * 0.1,
                     edgecolor=cm.Set2(0),
                     facecolor=cm.Set2(0),
                     fill=True,
@@ -386,37 +387,40 @@ class CVRPEnv(RL4COEnvBase):
         # text demand
         for node_idx in range(1, len(locs)):
             ax.text(
-                locs[node_idx, 0], locs[node_idx, 1]-0.025, 
-                f'{demands[node_idx-1].item():.2f}',
-                horizontalalignment='center',
-                verticalalignment='top',
+                locs[node_idx, 0],
+                locs[node_idx, 1] - 0.025,
+                f"{demands[node_idx-1].item():.2f}",
+                horizontalalignment="center",
+                verticalalignment="top",
                 fontsize=10,
                 color=cm.Set2(0),
             )
 
         # text depot
         ax.text(
-            locs[0, 0], locs[0, 1]-0.025, 
-            f'Depot',
-            horizontalalignment='center',
-            verticalalignment='top',
+            locs[0, 0],
+            locs[0, 1] - 0.025,
+            f"Depot",
+            horizontalalignment="center",
+            verticalalignment="top",
             fontsize=10,
             color=cm.Set2(2),
         )
 
         # plot actions
         color_idx = 0
-        for action_idx in range(len(actions)-1):
+        for action_idx in range(len(actions) - 1):
             if actions[action_idx] == 0:
                 color_idx += 1
             from_loc = locs[actions[action_idx]]
-            to_loc = locs[actions[action_idx+1]]
+            to_loc = locs[actions[action_idx + 1]]
             ax.plot(
-                [from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]],
+                [from_loc[0], to_loc[0]],
+                [from_loc[1], to_loc[1]],
                 color=out(color_idx),
             )
             ax.annotate(
-                "", 
+                "",
                 xy=(to_loc[0], to_loc[1]),
                 xytext=(from_loc[0], from_loc[1]),
                 arrowprops=dict(arrowstyle="->", color=out(color_idx)),
@@ -426,17 +430,14 @@ class CVRPEnv(RL4COEnvBase):
         # setup
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        ax.grid(axis='both', color='black', ls='--', alpha=0.1)
+        ax.grid(axis="both", color="black", ls="--", alpha=0.1)
 
         # Set plot title and axis labels
-        title_font = {'fontsize': 14}
-        label_font = {'fontsize': 12}
+        title_font = {"fontsize": 14}
+        label_font = {"fontsize": 12}
         ax.set_title("CVRP Solution", fontdict=title_font)
         ax.set_xlabel("X Coordinate", fontdict=label_font)
         ax.set_ylabel("Y Coordinate", fontdict=label_font)
 
         # plt.tight_layout()
         plt.show()
-
-
-

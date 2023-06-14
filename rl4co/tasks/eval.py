@@ -63,10 +63,12 @@ class EvalBase:
             # Padding: pad actions to the same length with zeros
             max_length = max(action.size(-1) for action in actions)
             actions = torch.cat(
-                [torch.nn.functional.pad(action, (0, max_length - action.size(-1))) for action in actions],
-                0
-            ) 
-
+                [
+                    torch.nn.functional.pad(action, (0, max_length - action.size(-1)))
+                    for action in actions
+                ],
+                0,
+            )
 
         end_event.record()
         torch.cuda.synchronize()
@@ -103,7 +105,10 @@ class GreedyEval(EvalBase):
 
     def _inner(self, policy, td):
         out = policy(
-            td.clone(), decode_type="greedy", num_starts=0, return_actions=True,
+            td.clone(),
+            decode_type="greedy",
+            num_starts=0,
+            return_actions=True,
         )
         rewards = self.env.get_reward(td, out["actions"])
         return out["actions"], rewards
@@ -344,7 +349,6 @@ def evaluate_policy(
     save_fname="results.npz",
     **kwargs,
 ):
-
     num_loc = getattr(env, "num_loc", None)
 
     methods_mapping = {
@@ -409,7 +413,6 @@ def evaluate_policy(
 
     # Save results
     if save_results:
-
         print("Saving results to {}".format(save_fname))
         np.savez(save_fname, **retvals)
 

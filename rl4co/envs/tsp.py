@@ -204,25 +204,27 @@ class TSPEnv(RL4COEnvBase):
         # SECTION: new
         # plot visited nodes
         ax.scatter(
-            x, y,
+            x,
+            y,
             edgecolors=cm.Set2(0),
-            facecolors='none',
+            facecolors="none",
             s=100,
             linewidths=2,
-            marker='o',
+            marker="o",
             alpha=1,
         )
 
         # plot actions
-        for action_idx in range(len(actions)-1):
+        for action_idx in range(len(actions) - 1):
             from_loc = locs[actions[action_idx]]
-            to_loc = locs[actions[action_idx+1]]
+            to_loc = locs[actions[action_idx + 1]]
             ax.plot(
-                [from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]],
+                [from_loc[0], to_loc[0]],
+                [from_loc[1], to_loc[1]],
                 color=cm.tab20c(5),
             )
             ax.annotate(
-                "", 
+                "",
                 xy=(to_loc[0], to_loc[1]),
                 xytext=(from_loc[0], from_loc[1]),
                 arrowprops=dict(arrowstyle="->", color=cm.tab20c(5)),
@@ -232,13 +234,13 @@ class TSPEnv(RL4COEnvBase):
         # setup
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        ax.grid(axis='both', color='black', ls='--', alpha=0.1)
+        ax.grid(axis="both", color="black", ls="--", alpha=0.1)
 
         # plt.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, right=False, left=False, labelleft=False)
 
         # Set plot title and axis labels
-        title_font = {'fontsize': 14}
-        label_font = {'fontsize': 12}
+        title_font = {"fontsize": 14}
+        label_font = {"fontsize": 12}
         ax.set_title("TSP Solution", fontdict=title_font)
         ax.set_xlabel("X Coordinate", fontdict=label_font)
         ax.set_ylabel("Y Coordinate", fontdict=label_font)

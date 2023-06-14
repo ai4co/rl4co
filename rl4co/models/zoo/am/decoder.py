@@ -64,7 +64,6 @@ class Decoder(nn.Module):
         num_starts=None,
         calc_reward=True,
     ):
-
         # Greedy multi-start decoding if num_starts > 1
         num_starts = 0 if num_starts is None else num_starts
         assert not (
@@ -96,7 +95,6 @@ class Decoder(nn.Module):
 
         # Main decoding
         while not td["done"].all():
-
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
             # Select the indices of the next nodes in the sequences, result (batch_size) long

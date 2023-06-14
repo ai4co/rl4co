@@ -30,6 +30,7 @@ class MDAMPolicy(nn.Module):
         val_decode_type: decode type for validation
         test_decode_type: decode type for testing
     """
+
     def __init__(
         self,
         env: EnvBase,
@@ -52,7 +53,6 @@ class MDAMPolicy(nn.Module):
         test_decode_type: str = "greedy",
         **unused_kw,
     ):
-
         super(MDAMPolicy, self).__init__()
         if len(unused_kw) > 0:
             print(f"Unused kwargs: {unused_kw}")
