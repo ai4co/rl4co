@@ -30,7 +30,7 @@ class FFSPEnv(RL4COEnvBase):
         min_time: float = 0.1,
         max_time: float = 1.0,
         batch_size: list = [50],
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_stage = num_stage

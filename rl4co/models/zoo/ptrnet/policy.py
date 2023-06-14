@@ -21,7 +21,7 @@ class PointerNetworkPolicy(nn.Module):
         tanh_clipping=10.0,
         mask_inner=True,
         mask_logits=True,
-        **kwargs
+        **kwargs,
     ):
         super(PointerNetworkPolicy, self).__init__()
 
@@ -52,7 +52,12 @@ class PointerNetworkPolicy(nn.Module):
         self.embedding.data.uniform_(-std, std)
 
     def forward(
-        self, td, phase: str = "train", decode_type="sampling", eval_tours=None, **unused_kwargs
+        self,
+        td,
+        phase: str = "train",
+        decode_type="sampling",
+        eval_tours=None,
+        **unused_kwargs,
     ):
         if len(unused_kwargs) > 0:
             log.info(f"Unused kwargs for {self.__class__.__name__}: {unused_kwargs}")

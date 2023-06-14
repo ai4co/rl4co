@@ -42,7 +42,7 @@ class DPPEnv(RL4COEnvBase):
         freq_file: str = "freq_201.npy",
         url: str = None,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         kwargs["data_dir"] = data_dir
         super().__init__(**kwargs)
@@ -327,7 +327,7 @@ class DPPEnv(RL4COEnvBase):
         # rename key if necessary (old dpp version)
         if "observation" in data.keys():
             data["locs"] = data.pop("observation")
-        return  data
+        return data
 
     def render(self, decaps, probe, action_mask, ax=None, legend=True):
         """

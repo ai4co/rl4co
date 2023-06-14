@@ -190,7 +190,7 @@ class GraphAttentionEncoder(nn.Module):
         node_dim=None,
         normalization="batch",
         feed_forward_hidden=512,
-        use_native_sdpa=False, # TODO
+        use_native_sdpa=False,  # TODO
         force_flash_attn=False,
     ):
         super(GraphAttentionEncoder, self).__init__()

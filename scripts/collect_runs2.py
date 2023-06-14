@@ -73,12 +73,10 @@ if __name__ == "__main__":
     exps.extend(["am-sm-" + env_name for env_name in env_names])
     exps.extend(["am-critic-" + env_name for env_name in env_names])
 
-
     print("Experiments: {}".format(exps))
 
     # Go into logs/train/runs folder and collect all the runs
     for env_name in env_names:
-
         # search if there is a folder with env_name
         path = os.path.join("logs", "train", "runs", env_name)
 
@@ -89,7 +87,6 @@ if __name__ == "__main__":
 
             # iterate over exps
             for exp in exps:
-
                 try:
                     print("Looking for experiment: {}".format(exp))
 
@@ -115,11 +112,7 @@ if __name__ == "__main__":
                         files = glob.glob(os.path.join(checkpoint_folder, "*"))
 
                         # get all files that contain epoch_sizes[0] and epoch_sizes[1]
-                        files = [
-                            file
-                            for file in files
-                            if epoch_sizes[0] in file
-                        ]
+                        files = [file for file in files if epoch_sizes[0] in file]
                         # if files is not empty, add the folder to the list
 
                         if len(files) == 1:
@@ -148,8 +141,12 @@ if __name__ == "__main__":
                     most_recent_date = max(dates)
 
                     if len(dates) > 1:
-                        print("Found multiple checkpoints for experiment: {}".format(exp))
-                        print("Dates: {} ; you may want to check manually.".format(dates))
+                        print(
+                            "Found multiple checkpoints for experiment: {}".format(exp)
+                        )
+                        print(
+                            "Dates: {} ; you may want to check manually.".format(dates)
+                        )
                         print(
                             "Will default to the most recent one: {}".format(
                                 most_recent_date

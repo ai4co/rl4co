@@ -79,10 +79,8 @@ if __name__ == "__main__":
         # search if there is a folder with env_name
         path = os.path.join("logs", "train", "runs", env_name)
         if os.path.exists(path):
-
             # iterate over exps
             for exp in exps:
-
                 # Get exp number of epochs
                 epoch_sizes = get_checkpoint_epochs(exp)
                 assert epoch_sizes is not None, "epoch_sizes is None"

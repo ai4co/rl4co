@@ -37,7 +37,7 @@ class PDPEnv(RL4COEnvBase):
         min_loc: float = 0,
         max_loc: float = 1,
         td_params: TensorDict = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_loc = num_loc
@@ -105,7 +105,10 @@ class PDPEnv(RL4COEnvBase):
         to_deliver = torch.cat(
             [
                 torch.ones(
-                    *batch_size, self.num_loc // 2 + 1, dtype=torch.bool, device=self.device
+                    *batch_size,
+                    self.num_loc // 2 + 1,
+                    dtype=torch.bool,
+                    device=self.device,
                 ),
                 torch.zeros(
                     *batch_size, self.num_loc // 2, dtype=torch.bool, device=self.device
@@ -122,7 +125,9 @@ class PDPEnv(RL4COEnvBase):
         action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_node = torch.zeros(
+            (*batch_size, 1), dtype=torch.int64, device=self.device
+        )
         i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
 
         return TensorDict(
@@ -143,7 +148,7 @@ class PDPEnv(RL4COEnvBase):
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc+1, 2),
+                shape=(self.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -159,7 +164,7 @@ class PDPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc+1),
+                shape=(self.num_loc + 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -169,7 +174,7 @@ class PDPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc+1,
+            maximum=self.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
