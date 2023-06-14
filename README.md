@@ -53,8 +53,6 @@ python3 -m light_the_torch install -r  --upgrade torch
 
 
 
-
-
 To get started, we recommend checking out our [quickstart notebook](notebooks/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
 
 ## Usage
@@ -145,5 +143,11 @@ Run tests with `pytest` from the root directory:
 ```bash
 pytest tests
 ```
-We will enable automated tests when we make the repo public.
 
+## Contributing
+Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls). We welcome contributions to RL4CO! 
+
+### Contributors
+<a href="https://github.com/kaist-silab/rl4co/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kaist-silab/rl4co" />
+</a>
