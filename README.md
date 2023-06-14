@@ -2,7 +2,7 @@
 
 # RL4CO
     
-![overview-1](https://github.com/kaist-silab/rl4co/assets/48984123/f31f2c97-e243-4ee8-9459-be790d0de440)
+![image](https://github.com/kaist-silab/rl4co/assets/48984123/0db4efdd-1c93-4991-8f09-f3c6c1f35d60)
 
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering. 
         
