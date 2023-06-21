@@ -36,9 +36,7 @@ class SimpleAttention(nn.Module):
         # batch x dim x sourceL
         expanded_q = q.repeat(1, 1, e.size(2))
         # batch x 1 x hidden_dim
-        v_view = (
-            self.v.unsqueeze(0).expand(expanded_q.size(0), len(self.v)).unsqueeze(1)
-        )
+        v_view = self.v.unsqueeze(0).expand(expanded_q.size(0), len(self.v)).unsqueeze(1)
         # [batch_size x 1 x hidden_dim] * [batch_size x hidden_dim x sourceL]
         u = torch.bmm(v_view, F.tanh(expanded_q + e)).squeeze(1)
         if self.use_tanh:
@@ -70,9 +68,7 @@ class Decoder(nn.Module):
         self.tanh_exploration = tanh_exploration
 
         self.lstm = nn.LSTMCell(embedding_dim, hidden_dim)
-        self.pointer = SimpleAttention(
-            hidden_dim, use_tanh=use_tanh, C=tanh_exploration
-        )
+        self.pointer = SimpleAttention(hidden_dim, use_tanh=use_tanh, C=tanh_exploration)
         self.glimpse = SimpleAttention(hidden_dim, use_tanh=False)
 
     def update_mask(self, mask, selected):
@@ -80,9 +76,7 @@ class Decoder(nn.Module):
 
     def recurrence(self, x, h_in, prev_mask, prev_idxs, step, context):
         logit_mask = (
-            self.update_mask(prev_mask, prev_idxs)
-            if prev_idxs is not None
-            else prev_mask
+            self.update_mask(prev_mask, prev_idxs) if prev_idxs is not None else prev_mask
         )
 
         logits, h_out = self.calc_logits(

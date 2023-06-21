@@ -1,8 +1,7 @@
-from cProfile import label
 from typing import Optional
 
-import numpy as np
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -85,9 +84,7 @@ class TSPEnv(RL4COEnvBase):
         init_locs = td["locs"] if td is not None else None
         if batch_size is None:
             batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        self.device = device = (
-            init_locs.device if init_locs is not None else self.device
-        )
+        self.device = device = init_locs.device if init_locs is not None else self.device
         if init_locs is None:
             init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
 
@@ -176,6 +173,7 @@ class TSPEnv(RL4COEnvBase):
     @staticmethod
     def render(td, actions=None, ax=None):
         import matplotlib.pyplot as plt
+
         from matplotlib import cm
 
         if ax is None:

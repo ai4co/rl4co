@@ -1,9 +1,11 @@
 import os
 import zipfile
+
 from typing import Optional
 
 import numpy as np
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -12,8 +14,8 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.base import RL4COEnvBase
 from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.envs.base import RL4COEnvBase
 from rl4co.utils.download.downloader import download_url
 from rl4co.utils.pylogger import get_pylogger
 
@@ -286,9 +288,7 @@ class DPPEnv(RL4COEnvBase):
 
         if keepout is not None:
             keepout = torch.tensor(keepout)
-            intersect = torch.tensor(
-                list(set(solution.tolist()) & set(keepout.tolist()))
-            )
+            intersect = torch.tensor(list(set(solution.tolist()) & set(keepout.tolist())))
             assert len(intersect) == 0, "Decap must be not placed at the keepout region"
 
         z_initial = self._initial_impedance(probe)

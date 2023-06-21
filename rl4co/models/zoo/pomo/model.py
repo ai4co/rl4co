@@ -1,7 +1,4 @@
-import lightning as L
-import torch
 from tensordict import TensorDict
-from torch import nn
 
 from rl4co.models.rl.reinforce.base import REINFORCE
 from rl4co.models.rl.reinforce.baselines import SharedBaseline
@@ -47,9 +44,7 @@ class POMO(REINFORCE):
             StateAugmentation(self.env.name, num_augment) if num_augment > 1 else None
         )
 
-    def forward(
-        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
-    ):
+    def forward(self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0

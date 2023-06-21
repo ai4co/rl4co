@@ -1,7 +1,4 @@
-import lightning as L
-import torch
 from tensordict import TensorDict
-from torch import nn
 
 from rl4co.models.rl.reinforce.base import REINFORCE
 from rl4co.models.rl.reinforce.baselines import NoBaseline
@@ -64,9 +61,7 @@ class SymNCO(REINFORCE):
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
 
-    def forward(
-        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
-    ):
+    def forward(self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0

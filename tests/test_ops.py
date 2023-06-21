@@ -1,7 +1,9 @@
 import pytest
 import torch
-from rl4co.utils.ops import batchify, unbatchify
+
 from tensordict import TensorDict
+
+from rl4co.utils.ops import batchify, unbatchify
 
 
 @pytest.mark.parametrize(

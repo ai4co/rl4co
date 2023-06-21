@@ -1,17 +1,17 @@
-from tqdm.auto import tqdm
 import numpy as np
-
 import torch
-from torch.utils.data import DataLoader
 
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+
+from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.models.zoo.pomo.augmentations import (
     StateAugmentation as Dihedral8StateAugmentation,
 )
 from rl4co.models.zoo.symnco.augmentations import (
     StateAugmentation as SymmetricStateAugmentation,
 )
-from rl4co.data.dataset import tensordict_collate_fn
-from rl4co.utils.ops import batchify, unbatchify, gather_by_index
+from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 
 
 def check_unused_kwargs(class_, kwargs):
@@ -147,9 +147,7 @@ class AugmentationEval(EvalBase):
             num_augment = self.augmentation.num_augment
         td_init = td.clone()
         td = self.augmentation(td, num_augment=num_augment)
-        out = policy(
-            td.clone(), decode_type="greedy", num_starts=0, return_actions=True
-        )
+        out = policy(td.clone(), decode_type="greedy", num_starts=0, return_actions=True)
 
         # Move into batches and compute rewards
         rewards = self.env.get_reward(batchify(td_init, num_augment), out["actions"])

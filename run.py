@@ -4,6 +4,7 @@ import hydra
 import lightning as L
 import pyrootutils
 import torch
+
 from lightning import Callback, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
@@ -39,7 +40,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
         from rl4co.utils.lightning import load_model_from_checkpoint
         from rl4co.utils.transfer import transplant_weights
 
-        log.info(f"load pretrained model")
+        log.info("load pretrained model")
         device = model.device
         pretrained_model = load_model_from_checkpoint(
             cfg.transfer.source.config,

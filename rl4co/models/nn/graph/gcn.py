@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch_geometric.data import Batch, Data
 from torch_geometric.nn import GCNConv
-from torch_geometric.data import Data, Batch
 
 from rl4co.models.nn.env_embedding import env_init_embedding
 from rl4co.utils.pylogger import get_pylogger

@@ -27,9 +27,7 @@ def group_parameters_for_optimizer(
 
     # If none of the parameters have weight decay anyway, and there are no parameters with special
     # optimization params
-    if weight_decay == 0.0 and not any(
-        hasattr(p, "_optim") for p in model.parameters()
-    ):
+    if weight_decay == 0.0 and not any(hasattr(p, "_optim") for p in model.parameters()):
         return model.parameters()
 
     skip = model.no_weight_decay() if hasattr(model, "no_weight_decay") else set()

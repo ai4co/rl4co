@@ -4,6 +4,7 @@ import sys
 import textwrap
 import urllib
 import warnings
+
 from urllib.parse import parse_qs, urlparse
 
 import requests

@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -265,6 +266,7 @@ class MTSPEnv(RL4COEnvBase):
     @staticmethod
     def render(td):
         import matplotlib.pyplot as plt
+
         from matplotlib import colormaps
 
         def discrete_cmap(num, base_cmap="nipy_spectral"):

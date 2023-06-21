@@ -1,14 +1,15 @@
 from dataclasses import dataclass
-from einops import rearrange
 
 import torch
 import torch.nn as nn
+
+from einops import rearrange
 
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_context import env_context
 from rl4co.models.nn.env_embedding import env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.utils.ops import batchify, unbatchify, select_start_nodes
+from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
 
 
 @dataclass

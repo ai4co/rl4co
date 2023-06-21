@@ -1,7 +1,7 @@
 from typing import Any
 
 import torch
-import torch.nn as nn
+
 from tensordict.tensordict import TensorDict
 from torch.utils.data import Dataset
 
