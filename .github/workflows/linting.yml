@@ -11,7 +11,7 @@ jobs:
         run: |
           python -m pip install black ruff
           python -m black --config pyproject.toml .
-          python -m ruff --fix --exit-non-zero-on-fix .
+          python -m ruff --fix --exit-zero fix .
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         uses: peter-evans/create-pull-request@v3
