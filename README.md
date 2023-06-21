@@ -1,14 +1,15 @@
 <div align="center">
 
 # RL4CO
-    
-An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering. 
-        
+
+An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
+
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)
+![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)[![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+[![Test](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml)
 <!-- ![testing](https://github.com/kaist-silab/ncobench/actions/workflows/tests.yml/badge.svg) -->
 
 </div>
@@ -24,6 +25,7 @@ RL4CO is built upon:
 
 
 ## Getting started
+<a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 
 RL4CO is now available for installation on `pip`!
 ```bash
@@ -60,7 +62,7 @@ To get started, we recommend checking out our [quickstart notebook](notebooks/1-
 
 Train model with default configuration (AM on TSP environment):
 ```bash
-python run.py  
+python run.py
 ```
 
 
@@ -70,14 +72,14 @@ python run.py
 
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/) (e.g. tsp/am, and environment with 42 cities)
 ```bash
-python run.py experiment=tsp/am env.num_loc=42 
+python run.py experiment=tsp/am env.num_loc=42
 ```
 </details>
 
 
 <details>
     <summary>Disable logging</summary>
-    
+
 ```bash
 python run.py experiment=test/am logger=none '~callbacks.learning_rate_monitor'
 ```
@@ -110,7 +112,7 @@ from rl4co.tasks.rl4co import RL4COLitModule
 config = DictConfig(
     {"data": {
             "train_size": 100000,
-            "val_size": 10000, 
+            "val_size": 10000,
             "batch_size": 512,
         },
     "optimizer": {"lr": 1e-4}}
@@ -145,7 +147,7 @@ pytest tests
 ```
 
 ## Contributing
-Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls). We welcome contributions to RL4CO! 
+Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls). We welcome contributions to RL4CO!
 
 ### Contributors
 <a href="https://github.com/kaist-silab/rl4co/graphs/contributors">
