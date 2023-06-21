@@ -56,7 +56,7 @@ version = {attr = "rl4co.__version__"}
 [project.optional-dependencies]
 graph = ["torch_geometric"]
 testing = ["pytest"]
-formatting = ["black", "ruff"]
+linting = ["black", "ruff"]
 
 [project.urls]
 "Homepage" = "https://github.com/kaist-silab/rl4co"
@@ -64,7 +64,7 @@ formatting = ["black", "ruff"]
 
 # Ruff + Black + isort combo for code formatting
 # Adapted from https://github.com/AntonOsika/gpt-engineer (kudos!)
-# https://beta.ruff.rs/docs/configuration/#using-rufftoml
+# https://beta.ruff.rs/docs/configuration/#using-pyprojecttoml
 [tool.ruff]
 select = ["F", "E", "W", "I001"]
 line-length = 90
@@ -88,8 +88,7 @@ exclude = [
     "node_modules",
     "venv",
 ]
-# Never enforce `E501` (line length violations), done in Black
-ignore = ["E501"]
+ignore = ["E501"] # never enforce `E501` (line length violations), done in Black
 
 # Ignore `E402` (import violations) and "F401" (unused imports) in all `__init__.py` files
 [tool.ruff.per-file-ignores]
