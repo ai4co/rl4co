@@ -5,9 +5,7 @@ import torch.nn as nn
 
 
 class HeterogenousMHA(nn.Module):
-    def __init__(
-        self, num_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None
-    ):
+    def __init__(self, num_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None):
         """
         Heterogenous Multi-Head Attention for Pickup and Delivery problems
         https://arxiv.org/abs/2110.02634
@@ -77,9 +75,7 @@ class HeterogenousMHA(nn.Module):
         assert q.size(2) == input_dim
         assert input_dim == self.input_dim, "Wrong embedding dimension of input"
 
-        hflat = h.contiguous().view(
-            -1, input_dim
-        )  # [batch_size * graph_size, embed_dim]
+        hflat = h.contiguous().view(-1, input_dim)  # [batch_size * graph_size, embed_dim]
         qflat = q.contiguous().view(-1, input_dim)  # [batch_size * n_query, embed_dim]
 
         # last dimension can be different for keys and values
@@ -418,9 +414,7 @@ class HeterogenousMHA(nn.Module):
 
         # Optionally apply mask to prevent attention
         if mask is not None:
-            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(
-                compatibility
-            )
+            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(compatibility)
             compatibility[mask] = float("-inf")
 
         attn = torch.softmax(

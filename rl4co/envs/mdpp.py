@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -12,7 +13,6 @@ from torchrl.data import (
 
 from rl4co.envs.dpp import DPPEnv
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -191,8 +191,9 @@ class MDPPEnv(DPPEnv):
         """
 
         import matplotlib.pyplot as plt
-        from matplotlib.patches import Rectangle, Annulus, RegularPolygon
+
         from matplotlib.lines import Line2D
+        from matplotlib.patches import Annulus, Rectangle, RegularPolygon
 
         if settings is None:
             settings = {

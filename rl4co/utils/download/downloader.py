@@ -4,10 +4,12 @@ import os
 import sys
 import time
 import urllib
+
 from typing import Any, Optional
 from urllib.parse import urlparse
 
 import requests
+
 from tqdm.auto import tqdm
 
 from rl4co.utils.download.constants import USER_AGENT

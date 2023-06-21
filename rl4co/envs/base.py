@@ -1,15 +1,14 @@
-from collections import defaultdict
 from os.path import join as pjoin
 from typing import Optional
 
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.envs import EnvBase
 
 from rl4co.data.dataset import TensorDictDataset
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -41,9 +40,7 @@ class RL4COEnvBase(EnvBase):
     ):
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
-        self.train_file = (
-            pjoin(data_dir, train_file) if train_file is not None else None
-        )
+        self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
         self.val_file = pjoin(data_dir, val_file) if val_file is not None else None
         self.test_file = pjoin(data_dir, test_file) if test_file is not None else None
         if seed is None:

@@ -1,16 +1,16 @@
-import os
 import argparse
-from pathlib import Path
-import pickle
 import itertools
+import pickle
+
 from collections import defaultdict
-from tqdm.auto import tqdm
+from pathlib import Path
 
 import torch
 
-from rl4co.utils.lightning import load_model_from_checkpoint
-from rl4co.tasks.eval import evaluate_policy
+from tqdm.auto import tqdm
 
+from rl4co.tasks.eval import evaluate_policy
+from rl4co.utils.lightning import load_model_from_checkpoint
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -110,9 +110,7 @@ if __name__ == "__main__":
         for kws_single_exp in kwargs:
             tqdm.write("=====================================")
             tqdm.write(
-                "Running experiment: {} with kwargs: {}".format(
-                    exp_name, kws_single_exp
-                )
+                "Running experiment: {} with kwargs: {}".format(exp_name, kws_single_exp)
             )
 
             retvals = evaluate_policy(

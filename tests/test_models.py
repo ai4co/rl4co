@@ -2,14 +2,15 @@ import sys
 
 sys.path.append(".")
 import pytest
+
 from rl4co.models import (
     POMO,
     AttentionModel,
     HeterogeneousAttentionModel,
+    MDAMPolicy,
     PointerNetwork,
     SymNCO,
     SymNCOPolicy,
-    MDAMPolicy,
 )
 from rl4co.utils.test_utils import generate_env_data
 

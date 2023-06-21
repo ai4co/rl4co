@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
+
 from hydra.utils import instantiate
 from lightning import LightningModule
-from omegaconf import DictConfig, ListConfig
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import tensordict_collate_fn
@@ -62,14 +63,14 @@ class RL4COLitModule(LightningModule):
         """Dictionary of metrics to be logged at each phase"""
         metrics = self.cfg.get("metrics", {})
         if not metrics:
-            log.info(f"No metrics specified, using default")
+            log.info("No metrics specified, using default")
         self.train_metrics = metrics.get("train", ["loss", "reward"])
         self.val_metrics = metrics.get("val", ["reward"])
         self.test_metrics = metrics.get("test", ["reward"])
         self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
-        log.info(f"Setting up batch sizes for train/val/test")
+        log.info("Setting up batch sizes for train/val/test")
         # If any of the batch sizes are specified, use that. Otherwise, use the default batch size
 
         data_cfg = self.cfg.get("data", {})
@@ -90,7 +91,7 @@ class RL4COLitModule(LightningModule):
         self.val_batch_size = data_cfg.get("val_batch_size", train_batch_size)
         self.test_batch_size = data_cfg.get("test_batch_size", train_batch_size)
 
-        log.info(f"Setting up datasets")
+        log.info("Setting up datasets")
 
         # Create datasets automatically. If found, this will skip
         if data_cfg.get("generate_data", True):
@@ -115,9 +116,7 @@ class RL4COLitModule(LightningModule):
         self.train_size = _get_phase_size("train")
         self.val_size = _get_phase_size("val")
         self.test_size = _get_phase_size("test")
-        self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.train_size, "train")
-        )
+        self.train_dataset = self.wrap_dataset(self.env.dataset(self.train_size, "train"))
         self.val_dataset = self.env.dataset(self.val_size, "val")
         self.test_dataset = self.env.dataset(self.test_size, "test")
 
@@ -129,12 +128,12 @@ class RL4COLitModule(LightningModule):
     def configure_optimizers(self):
         train_cfg = self.cfg.get("train", {})
         if train_cfg.get("optimizer", None) is None:
-            log.warning(f"No optimizer specified, using default")
+            log.warning("No optimizer specified, using default")
         opt_cfg = train_cfg.get(
             "optimizer", DictConfig({"_target_": "torch.optim.Adam", "lr": 1e-4})
         )
         if "_target_" not in opt_cfg:
-            log.info(f"No _target_ specified for optimizer, using default Adam")
+            log.info("No _target_ specified for optimizer, using default Adam")
             opt_cfg["_target_"] = "torch.optim.Adam"
 
         log.info(f"Instantiating optimizer <{opt_cfg._target_}>")

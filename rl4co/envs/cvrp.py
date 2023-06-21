@@ -1,6 +1,7 @@
-from numpy import fmax
-import torch
 from typing import Optional
+
+import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -9,9 +10,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
+from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
-from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -314,8 +315,9 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def render(td: TensorDict, actions=None, ax=None):
-        import numpy as np
         import matplotlib.pyplot as plt
+        import numpy as np
+
         from matplotlib import cm, colormaps
 
         base = colormaps["rainbow"]
@@ -400,7 +402,7 @@ class CVRPEnv(RL4COEnvBase):
         ax.text(
             locs[0, 0],
             locs[0, 1] - 0.025,
-            f"Depot",
+            "Depot",
             horizontalalignment="center",
             verticalalignment="top",
             fontsize=10,

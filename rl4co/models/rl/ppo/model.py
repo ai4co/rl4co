@@ -1,12 +1,11 @@
 from math import log
-from random import shuffle
 from typing import Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from tensordict import TensorDict
-from torch.utils.data import DataLoader, TensorDataset
 
 from rl4co.utils.pylogger import get_pylogger
 

@@ -1,12 +1,12 @@
 import argparse
-import os
-import numpy as np
-import sys
 import logging
+import os
+import sys
+
+import numpy as np
 
 from rl4co.data.utils import check_extension
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -178,9 +178,7 @@ def generate_mdpp_data(
         np.put_along_axis(available[i], p, False, axis=0)
         np.put_along_axis(probes[i], p, True, axis=0)
 
-    num_keepout = np.random.randint(
-        num_keepout_min, num_keepout_max + 1, size=(bs[0], 1)
-    )
+    num_keepout = np.random.randint(num_keepout_min, num_keepout_max + 1, size=(bs[0], 1))
     for i in range(bs[0]):
         k = np.random.choice(m * n, num_keepout[i], replace=False)
         np.put_along_axis(available[i], k, False, axis=0)
@@ -328,9 +326,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-f", action="store_true", help="Set true to overwrite")
     parser.add_argument("--seed", type=int, default=1234, help="Random seed")
-    parser.add_argument(
-        "--disable_warning", action="store_true", help="Disable warning"
-    )
+    parser.add_argument("--disable_warning", action="store_true", help="Disable warning")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)

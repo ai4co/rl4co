@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from .encoder import Encoder
 from .decoder import SimpleAttention
+from .encoder import Encoder
 
 
 class CriticNetworkLSTM(nn.Module):
@@ -52,9 +52,7 @@ class CriticNetworkLSTM(nn.Module):
         process_block_state = enc_h_t[-1]
         for i in range(self.n_process_block_iters):
             ref, logits = self.process_block(process_block_state, enc_outputs)
-            process_block_state = torch.bmm(ref, self.sm(logits).unsqueeze(2)).squeeze(
-                2
-            )
+            process_block_state = torch.bmm(ref, self.sm(logits).unsqueeze(2)).squeeze(2)
         # produce the final scalar output
         out = self.decoder(process_block_state)
         return out
