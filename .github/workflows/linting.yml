@@ -1,0 +1,26 @@
+name: Linting 🎨
+on: [push, pull_request]
+
+jobs:
+  linter_name:
+    name: runner / linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Lint files using the Black formatter and Ruff
+        run: |
+          python -m pip install black ruff
+          python -m black --config pyproject.toml .
+          python -m ruff --fix --exit-non-zero-on-fix .
+      - name: Create Pull Request
+        if: steps.action_black.outputs.is_formatted == 'true'
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Format Python code with Black+Ruff push"
+          commit-message: ":art: Format Python code with Black+Ruff"
+          body: |
+            There appear to be some python formatting errors in ${{ github.sha }}. This pull request
+            uses the [Black](https://github.com/psf/black) and [Ruff](https://github.com/RuffPython/RuffPython) formatters to fix these issues.
+          base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
+          branch: actions/linting
