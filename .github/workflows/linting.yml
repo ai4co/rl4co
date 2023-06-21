@@ -8,12 +8,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Lint files using the Black formatter and Ruff
+        id: action_lint
         run: |
           python -m pip install black ruff
-          python -m black --config pyproject.toml .
-          python -m ruff --fix --exit-zero fix .
+          black --config pyproject.toml . 2>&1 | grep -qP '\s?[0-9]+\sfiles?\sreformatted(\.|,)\s?' && echo "::set-output name=is_formatted::true" || echo "::set-output name=is_formatted::false"
+          ruff --fix --exit-zero fix .
       - name: Create Pull Request
-        if: steps.action_black.outputs.is_formatted == 'true'
+        # Get the output from the `action_lint` step (set using the `set-output` command). If reformatted, create a pull request
+        if: steps.action_lint.outputs.is_formatted == 'true'
         uses: peter-evans/create-pull-request@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
