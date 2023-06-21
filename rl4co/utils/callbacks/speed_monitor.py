@@ -28,9 +28,7 @@ class SpeedMonitor(Callback):
         )
         self.verbose = verbose
 
-    def on_train_start(
-        self, trainer: "L.Trainer", L_module: "L.LightningModule"
-    ) -> None:
+    def on_train_start(self, trainer: "L.Trainer", L_module: "L.LightningModule") -> None:
         self._snap_epoch_time = None
 
     def on_train_epoch_start(

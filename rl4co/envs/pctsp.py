@@ -129,9 +129,7 @@ class PCTSPEnv(RL4COEnvBase):
         penalty_with_depot = F.pad(penalty, (1, 0), mode="constant", value=0)
 
         # Initialize the current node and  prize / penalty
-        current_node = torch.zeros(
-            (*batch_size,), dtype=torch.int64, device=self.device
-        )
+        current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=self.device)
         cur_total_prize = torch.zeros(*batch_size, device=self.device)
         cur_total_penalty = penalty.sum(-1)[
             :, None
@@ -262,9 +260,7 @@ class PCTSPEnv(RL4COEnvBase):
         d = gather_by_index(locs_with_depot, actions)
 
         length = (
-            (d[:, 1:] - d[:, :-1])
-            .norm(p=2, dim=-1)
-            .sum(1)  # Prevent error if len 1 seq
+            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
             + (d[:, 0] - depot).norm(p=2, dim=-1)  # Depot to first
             + (d[:, -1] - depot).norm(
                 p=2, dim=-1

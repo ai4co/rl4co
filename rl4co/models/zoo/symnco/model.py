@@ -64,9 +64,7 @@ class SymNCO(REINFORCE):
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
 
-    def forward(
-        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
-    ):
+    def forward(self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs):
         """Evaluate model, get costs and log probabilities and compare with baseline"""
 
         # Get num_starts from policy. If single_traj, set num_starts and num_augment to 0

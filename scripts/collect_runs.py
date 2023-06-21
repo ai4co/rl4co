@@ -139,9 +139,7 @@ if __name__ == "__main__":
                     print("Found multiple checkpoints for experiment: {}".format(exp))
                     print("Dates: {} ; you may want to check manually.".format(dates))
                     print(
-                        "Will default to the most recent one: {}".format(
-                            most_recent_date
-                        )
+                        "Will default to the most recent one: {}".format(most_recent_date)
                     )
 
                 # filter out files that do not contain the most recent date

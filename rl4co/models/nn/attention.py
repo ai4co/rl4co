@@ -74,9 +74,7 @@ class NativeFlashMHA(nn.Module):
         self.attention_dropout = attention_dropout
 
         self.num_heads = num_heads
-        assert (
-            self.embed_dim % num_heads == 0
-        ), "self.kdim must be divisible by num_heads"
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
         assert (
             self.head_dim % 8 == 0 and self.head_dim <= 128
@@ -166,9 +164,7 @@ class MultiHeadAttention(nn.Module):
 
         # Optionally apply mask to prevent attention
         if mask is not None:
-            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(
-                compatibility
-            )
+            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(compatibility)
             compatibility[mask] = float("-inf")  # -np.inf
 
         attn = torch.softmax(compatibility, dim=-1)
@@ -250,9 +246,7 @@ class LogitAttention(nn.Module):
 
         # Normalize with softmax and apply temperature
         if self.normalize:
-            softmax_temp = (
-                softmax_temp if softmax_temp is not None else self.softmax_temp
-            )
+            softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
             logits = torch.log_softmax(logits / softmax_temp, dim=-1)
 
         assert not torch.isnan(logits).any(), "Logits contain NaNs"
@@ -267,9 +261,7 @@ class LogitAttention(nn.Module):
         if self.mask_inner:
             # need to invert mask: (N L S) -> (N 1 L S)
             attn_mask = (
-                ~mask.unsqueeze(1)
-                if mask.ndim == 3
-                else ~mask.unsqueeze(1).unsqueeze(2)
+                ~mask.unsqueeze(1) if mask.ndim == 3 else ~mask.unsqueeze(1).unsqueeze(2)
             )
         else:
             attn_mask = None

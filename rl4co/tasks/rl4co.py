@@ -115,9 +115,7 @@ class RL4COLitModule(LightningModule):
         self.train_size = _get_phase_size("train")
         self.val_size = _get_phase_size("val")
         self.test_size = _get_phase_size("test")
-        self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.train_size, "train")
-        )
+        self.train_dataset = self.wrap_dataset(self.env.dataset(self.train_size, "train"))
         self.val_dataset = self.env.dataset(self.val_size, "val")
         self.test_dataset = self.env.dataset(self.test_size, "test")
 

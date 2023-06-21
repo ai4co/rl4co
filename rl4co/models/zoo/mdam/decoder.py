@@ -134,8 +134,7 @@ class Decoder(nn.Module):
                     if _i == _j:
                         continue
                     kl_divergence = torch.sum(
-                        torch.exp(output_list[_i])
-                        * (output_list[_i] - output_list[_j]),
+                        torch.exp(output_list[_i]) * (output_list[_i] - output_list[_j]),
                         -1,
                     )
                     kl_divergences.append(kl_divergence)
@@ -269,9 +268,7 @@ class Decoder(nn.Module):
         )
         return log_p, mask
 
-    def _one_to_many_logits(
-        self, query, glimpse_K, glimpse_V, logit_K, mask, path_index
-    ):
+    def _one_to_many_logits(self, query, glimpse_K, glimpse_V, logit_K, mask, path_index):
         batch_size, num_steps, embed_dim = query.size()
         key_size = val_size = embed_dim // self.num_heads
 
@@ -281,9 +278,9 @@ class Decoder(nn.Module):
         ).permute(2, 0, 1, 3, 4)
 
         # Batch matrix multiplication to compute compatibilities (n_heads, batch_size, num_steps, graph_size)
-        compatibility = torch.matmul(
-            glimpse_Q, glimpse_K.transpose(-2, -1)
-        ) / math.sqrt(glimpse_Q.size(-1))
+        compatibility = torch.matmul(glimpse_Q, glimpse_K.transpose(-2, -1)) / math.sqrt(
+            glimpse_Q.size(-1)
+        )
         if self.mask_inner:
             assert self.mask_logits, "Cannot mask inner without masking logits"
             compatibility[
@@ -306,9 +303,9 @@ class Decoder(nn.Module):
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # logits = 'compatibility'
-        logits = torch.matmul(final_Q, logit_K.transpose(-2, -1)).squeeze(
-            -2
-        ) / math.sqrt(final_Q.size(-1))
+        logits = torch.matmul(final_Q, logit_K.transpose(-2, -1)).squeeze(-2) / math.sqrt(
+            final_Q.size(-1)
+        )
 
         # From the logits compute the probabilities by clipping, masking and softmax
         if self.tanh_clipping > 0:

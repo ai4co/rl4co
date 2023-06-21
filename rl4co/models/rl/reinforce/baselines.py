@@ -140,9 +140,7 @@ class RolloutBaseline(REINFORCEBaseline):
 
         log.info("Evaluating baseline model on evaluation dataset")
         self.bl_vals = (
-            self.rollout(self.model, env, batch_size, device, self.dataset)
-            .cpu()
-            .numpy()
+            self.rollout(self.model, env, batch_size, device, self.dataset).cpu().numpy()
         )
         self.mean = self.bl_vals.mean()
 
@@ -189,9 +187,7 @@ class RolloutBaseline(REINFORCEBaseline):
                 batch = env.reset(batch.to(device))
                 return model(batch, decode_type="greedy")["reward"].data.cpu()
 
-        dl = DataLoader(
-            dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn
-        )
+        dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
 
         retval = torch.cat(
             [eval_model(batch) for batch in tqdm(dl, disable=not self.progress_bar)], 0

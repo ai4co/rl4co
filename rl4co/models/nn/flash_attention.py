@@ -122,9 +122,7 @@ class FlashSelfAttention(nn.Module):
             batch_size, seqlen = qkv.shape[0], qkv.shape[1]
             # Triton version doesn't support dropout
             if self.triton and (self.dropout_p == 0 or not self.training):
-                output = flash_attn_qkvpacked_func(
-                    qkv, None, causal, self.softmax_scale
-                )
+                output = flash_attn_qkvpacked_func(qkv, None, causal, self.softmax_scale)
             else:
                 qkv = rearrange(qkv, "b s ... -> (b s) ...")
                 max_seqlen = seqlen
@@ -232,9 +230,7 @@ class FlashCrossAttention(nn.Module):
             if self.triton and (
                 self.dropout_p == 0.0 or not self.training
             ):  # Triton version doesn't support dropout
-                output = flash_attn_kvpacked_func(
-                    q, kv, None, causal, self.softmax_scale
-                )
+                output = flash_attn_kvpacked_func(q, kv, None, causal, self.softmax_scale)
             else:
                 q = rearrange(q, "b s ... -> (b s) ...")
                 kv = rearrange(kv, "b s ... -> (b s) ...")
@@ -427,9 +423,7 @@ def _update_kv_cache(kv, inference_params, layer_idx):
     batch_end = batch_start + kv.shape[0]
     sequence_start = inference_params.sequence_len_offset
     sequence_end = sequence_start + kv.shape[1]
-    assert batch_end <= (
-        kv_cache.shape[0] if kv_cache is not None else v_cache.shape[0]
-    )
+    assert batch_end <= (kv_cache.shape[0] if kv_cache is not None else v_cache.shape[0])
     assert sequence_end <= (
         kv_cache.shape[1] if kv_cache is not None else v_cache.shape[2]
     )
@@ -505,9 +499,7 @@ class MHA(nn.Module):
         # self.checkpointing = checkpointing # we don't use it for now
 
         self.num_heads = num_heads
-        assert (
-            self.embed_dim % num_heads == 0
-        ), "self.kdim must be divisible by num_heads"
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
 
         if self.rotary_emb_dim > 0:
@@ -664,9 +656,7 @@ class MHA(nn.Module):
                     kv = self._update_kv_cache(qkv[:, :, 1:], inference_params)
                     # If we're processing the prompt, causal=None (use self.causal).
                     # If we're decoding, then causal=False.
-                    causal = (
-                        None if inference_params.sequence_len_offset == 0 else False
-                    )
+                    causal = None if inference_params.sequence_len_offset == 0 else False
                     context = self.flash_attn_wrapper(
                         self.inner_cross_attn, q, kv, causal=causal
                     )  # NOTE: modified
@@ -704,9 +694,7 @@ class MHA(nn.Module):
                     "b d s -> b s d",
                 ).contiguous()
             if inference_params is None:
-                context = self.flash_attn_wrapper(
-                    self.inner_cross_attn, q, kv, **kwargs
-                )
+                context = self.flash_attn_wrapper(self.inner_cross_attn, q, kv, **kwargs)
 
             else:
                 kv = self._update_kv_cache(kv)

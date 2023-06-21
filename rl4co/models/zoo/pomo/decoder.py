@@ -23,9 +23,7 @@ class PrecomputedCache:
 
 
 class Decoder(nn.Module):
-    def __init__(
-        self, env, embedding_dim, num_heads, num_starts=20, **logit_attn_kwargs
-    ):
+    def __init__(self, env, embedding_dim, num_heads, num_starts=20, **logit_attn_kwargs):
         super(Decoder, self).__init__()
 
         self.env = env

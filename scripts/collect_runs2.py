@@ -141,12 +141,8 @@ if __name__ == "__main__":
                     most_recent_date = max(dates)
 
                     if len(dates) > 1:
-                        print(
-                            "Found multiple checkpoints for experiment: {}".format(exp)
-                        )
-                        print(
-                            "Dates: {} ; you may want to check manually.".format(dates)
-                        )
+                        print("Found multiple checkpoints for experiment: {}".format(exp))
+                        print("Dates: {} ; you may want to check manually.".format(dates))
                         print(
                             "Will default to the most recent one: {}".format(
                                 most_recent_date

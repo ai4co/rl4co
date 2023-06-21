@@ -19,9 +19,7 @@ class REINFORCE(nn.Module):
         super(REINFORCE, self).__init__()
         self.env = env
 
-    def forward(
-        self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs
-    ):
+    def forward(self, td: TensorDict, phase: str = "train", extra=None, **policy_kwargs):
         # Evaluate model, get costs and log probabilities
         out = self.policy(td, phase, **policy_kwargs)
 

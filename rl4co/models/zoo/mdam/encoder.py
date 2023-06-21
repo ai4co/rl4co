@@ -93,9 +93,7 @@ class MultiHeadAttention(nn.Module):
 
         # Optionally apply mask to prevent attention
         if mask is not None:
-            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(
-                compatibility
-            )
+            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(compatibility)
             compatibility[mask] = -np.inf
 
         attn = F.softmax(compatibility, dim=-1)
@@ -196,9 +194,7 @@ class GraphAttentionEncoder(nn.Module):
         super(GraphAttentionEncoder, self).__init__()
 
         # To map input to embedding space
-        self.init_embed = (
-            nn.Linear(node_dim, embed_dim) if node_dim is not None else None
-        )
+        self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
 
         self.layers = MultiHeadAttentionLayer(
             num_heads, embed_dim, num_layers - 1, feed_forward_hidden, normalization
@@ -249,8 +245,7 @@ class GraphAttentionEncoder(nn.Module):
             )
         else:
             attn = attn / (
-                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1)
-                + 1e-9
+                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9
             )
         heads = torch.matmul(attn, V)
 

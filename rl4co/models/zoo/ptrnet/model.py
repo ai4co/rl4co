@@ -18,9 +18,7 @@ class PointerNetwork(REINFORCE):
     def __init__(self, env, policy=None, baseline=None, **policy_kwargs):
         super(PointerNetwork, self).__init__(env, policy, baseline)
         self.policy = (
-            PointerNetworkPolicy(self.env, **policy_kwargs)
-            if policy is None
-            else policy
+            PointerNetworkPolicy(self.env, **policy_kwargs) if policy is None else policy
         )
         self.baseline = (
             WarmupBaseline(RolloutBaseline()) if baseline is None else baseline

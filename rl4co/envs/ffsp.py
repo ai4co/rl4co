@@ -98,9 +98,7 @@ class FFSPEnv(RL4COEnvBase):
                 machine_ready = machine_wait_step[idx, new_machine_idx] == 0
 
                 new_stage_idx = td["stage_table"][0][new_sub_time_idx]
-                job_ready_1 = (
-                    job_location[idx, : self.num_job] == new_stage_idx[:, None]
-                )
+                job_ready_1 = job_location[idx, : self.num_job] == new_stage_idx[:, None]
                 job_ready_2 = job_wait_step[idx, : self.num_job] == 0
                 job_ready = (job_ready_1 & job_ready_2).any(dim=-1)
 
@@ -333,9 +331,7 @@ class FFSPEnv(RL4COEnvBase):
 
         # Init observation: running time of each job on each machine
         run_time = (
-            torch.FloatTensor(
-                *batch_size, self.num_job, self.num_machine, self.num_stage
-            )
+            torch.FloatTensor(*batch_size, self.num_job, self.num_machine, self.num_stage)
             .uniform_(self.min_time, self.max_time)
             .to(self.device)
         )

@@ -286,9 +286,7 @@ class DPPEnv(RL4COEnvBase):
 
         if keepout is not None:
             keepout = torch.tensor(keepout)
-            intersect = torch.tensor(
-                list(set(solution.tolist()) & set(keepout.tolist()))
-            )
+            intersect = torch.tensor(list(set(solution.tolist()) & set(keepout.tolist())))
             assert len(intersect) == 0, "Decap must be not placed at the keepout region"
 
         z_initial = self._initial_impedance(probe)

@@ -41,9 +41,7 @@ class RL4COEnvBase(EnvBase):
     ):
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
-        self.train_file = (
-            pjoin(data_dir, train_file) if train_file is not None else None
-        )
+        self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
         self.val_file = pjoin(data_dir, val_file) if val_file is not None else None
         self.test_file = pjoin(data_dir, test_file) if test_file is not None else None
         if seed is None:

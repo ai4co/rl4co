@@ -110,9 +110,7 @@ if __name__ == "__main__":
         for kws_single_exp in kwargs:
             tqdm.write("=====================================")
             tqdm.write(
-                "Running experiment: {} with kwargs: {}".format(
-                    exp_name, kws_single_exp
-                )
+                "Running experiment: {} with kwargs: {}".format(exp_name, kws_single_exp)
             )
 
             retvals = evaluate_policy(
