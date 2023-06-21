@@ -46,7 +46,7 @@ dependencies = [
     "numpy",
     "einops",
     "wandb",
-    "pre-commit",
+    "pre-commit>=3.3.3",
     "matplotlib",
     "scipy"
 ]
