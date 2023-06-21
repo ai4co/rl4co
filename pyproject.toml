@@ -2,10 +2,12 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = [
-    "rl4co",
-]
+[tool.setuptools.packages.find]
+include = ['rl4co']
+
+# Automatically determine version from package
+[tool.setuptools.dynamic]
+version = {attr = "rl4co.__version__"}
 
 [project]
 name = "rl4co"
@@ -48,10 +50,6 @@ dependencies = [
     "matplotlib",
     "scipy"
 ]
-
-# Automatically determine version from package
-[tool.setuptools.dynamic]
-version = {attr = "rl4co.__version__"}
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
