@@ -3,9 +3,10 @@
 import time
 
 import lightning as L
+
 from lightning.pytorch.callbacks import Callback
-from lightning.pytorch.utilities.rank_zero import rank_zero_only
 from lightning.pytorch.utilities.parsing import AttributeDict
+from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 
 class SpeedMonitor(Callback):
@@ -28,9 +29,7 @@ class SpeedMonitor(Callback):
         )
         self.verbose = verbose
 
-    def on_train_start(
-        self, trainer: "L.Trainer", L_module: "L.LightningModule"
-    ) -> None:
+    def on_train_start(self, trainer: "L.Trainer", L_module: "L.LightningModule") -> None:
         self._snap_epoch_time = None
 
     def on_train_epoch_start(

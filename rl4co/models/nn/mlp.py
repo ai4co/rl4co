@@ -1,5 +1,6 @@
-import torch.nn as nn
 from typing import List
+
+import torch.nn as nn
 
 
 class MLP(nn.Module):

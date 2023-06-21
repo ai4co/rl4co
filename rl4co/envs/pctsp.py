@@ -2,6 +2,7 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -10,9 +11,8 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.utils.ops import gather_by_index
 from rl4co.envs import RL4COEnvBase
-
+from rl4co.utils.ops import gather_by_index
 
 # For the penalty to make sense it should be not too large (in which case all nodes will be visited) nor too small
 # so we want the objective term to be approximately equal to the length of the tour, which we estimate with half
@@ -90,7 +90,6 @@ class PCTSPEnv(RL4COEnvBase):
             {
                 "next": {
                     "locs": td["locs"],
-                    "locs": td["locs"],
                     "current_node": current_node,
                     "expected_prize": td["expected_prize"],
                     "real_prize": td["real_prize"],
@@ -129,9 +128,7 @@ class PCTSPEnv(RL4COEnvBase):
         penalty_with_depot = F.pad(penalty, (1, 0), mode="constant", value=0)
 
         # Initialize the current node and  prize / penalty
-        current_node = torch.zeros(
-            (*batch_size,), dtype=torch.int64, device=self.device
-        )
+        current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=self.device)
         cur_total_prize = torch.zeros(*batch_size, device=self.device)
         cur_total_penalty = penalty.sum(-1)[
             :, None
@@ -155,7 +152,6 @@ class PCTSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "locs": locs,
                 "locs": locs,
                 "current_node": current_node,
                 "expected_prize": expected_prize,
@@ -244,11 +240,11 @@ class PCTSPEnv(RL4COEnvBase):
 
         prize = td["real_prize"][..., 1:]  # Remove depot
         prize_with_depot = torch.cat((torch.zeros_like(prize[:, :1]), prize), 1)
-        p = prize_with_depot.gather(1, actions)
+        prize_with_depot.gather(1, actions)
 
         locs_with_depot = td["locs"]
         depot = locs_with_depot[..., 0, :]
-        locs = td["locs"][..., 1:]  # Remove depot
+        td["locs"][..., 1:]  # Remove depot
 
         # Either prize constraint should be satisfied or all prizes should be visited
         # assert (
@@ -262,9 +258,7 @@ class PCTSPEnv(RL4COEnvBase):
         d = gather_by_index(locs_with_depot, actions)
 
         length = (
-            (d[:, 1:] - d[:, :-1])
-            .norm(p=2, dim=-1)
-            .sum(1)  # Prevent error if len 1 seq
+            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
             + (d[:, 0] - depot).norm(p=2, dim=-1)  # Depot to first
             + (d[:, -1] - depot).norm(
                 p=2, dim=-1

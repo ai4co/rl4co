@@ -1,8 +1,8 @@
 from typing import Any
 
 import torch.nn as nn
+
 from omegaconf import DictConfig
-from scipy import optimize
 
 from rl4co.envs.base import EnvBase
 from rl4co.tasks.rl4co import RL4COLitModule

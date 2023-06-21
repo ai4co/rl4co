@@ -1,8 +1,8 @@
-import math
-from typing import List, Optional, Tuple, Union
+from typing import Union
 
 import torch
 import torch.nn as nn
+
 from torchrl.envs import EnvBase
 
 
@@ -14,9 +14,7 @@ def env_dynamic_embedding(env: Union[str, EnvBase], config: dict) -> object:
     return env_embedding(env, "dynamic", config)
 
 
-def env_embedding(
-    env: Union[str, EnvBase], embedding_type: str, config: dict
-) -> object:
+def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -> object:
     """Create an embedding object for a given environment name and embedding type.
 
     Args:

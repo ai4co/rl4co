@@ -1,7 +1,7 @@
-from tkinter.tix import MAX
 from typing import Optional
 
 import torch
+
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -11,7 +11,6 @@ from torchrl.data import (
 )
 
 from rl4co.envs.base import RL4COEnvBase
-
 
 MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 
@@ -244,9 +243,7 @@ class OPEnv(RL4COEnvBase):
             1, actions[..., None].expand(*actions.size(), td["locs"].size(-1))
         )
         length = (
-            (d[:, 1:] - d[:, :-1])
-            .norm(p=2, dim=-1)
-            .sum(1)  # Prevent error if len 1 seq
+            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
             + (d[:, 0] - td["locs"][..., 0, :]).norm(p=2, dim=-1)  # Depot to first
             + (d[:, -1] - td["locs"][..., 0, :]).norm(
                 p=2, dim=-1

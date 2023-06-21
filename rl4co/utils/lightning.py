@@ -1,13 +1,13 @@
-from omegaconf import DictConfig
-import yaml
 import os
 
 import lightning as L
 import torch
+import yaml
+
+from omegaconf import DictConfig
 
 from rl4co.tasks.rl4co import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 

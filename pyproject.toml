@@ -2,10 +2,12 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = [
-    "rl4co",
-]
+[tool.setuptools.packages.find]
+include = ['rl4co']
+
+# Automatically determine version from package
+[tool.setuptools.dynamic]
+version = {attr = "rl4co.__version__"}
 
 [project]
 name = "rl4co"
@@ -44,19 +46,84 @@ dependencies = [
     "numpy",
     "einops",
     "wandb",
-    "pre-commit",
+    "pre-commit>=3.3.3",
     "matplotlib",
-    "scipy",
+    "scipy"
 ]
-
-# Automatically determine version from package
-[tool.setuptools.dynamic]
-version = {attr = "rl4co.__version__"}
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
 testing = ["pytest"]
+linting = ["black", "ruff"]
 
 [project.urls]
-Homepage = "https://github.com/kaist-silab/rl4co"
+"Homepage" = "https://github.com/kaist-silab/rl4co"
+"Bug Tracker" = "https://github.com/kaist-silab/rl4co/issues"
+
+# Ruff + Black + isort combo for code formatting
+# Adapted from https://github.com/AntonOsika/gpt-engineer (kudos!)
+# https://beta.ruff.rs/docs/configuration/#using-pyprojecttoml
+[tool.ruff]
+select = ["F", "E", "W", "I001"]
+line-length = 90
+show-fixes = false
+target-version = "py311"
+task-tags = ["TODO", "FIXME"]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+ignore = ["E501"] # never enforce `E501` (line length violations), done in Black
+
+# Ignore `E402` (import violations) and "F401" (unused imports) in all `__init__.py` files
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+
+[tool.ruff.isort]
+known-first-party = []
+known-third-party = []
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+lines-between-types = 1
+
+# https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html
+[tool.black]
+line-length = 90
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.direnv
+    | \.eggs
+    | \.git
+    | \.tox
+    | \.venv
+    | _build
+    | build
+    | dist
+    | venv
+  )/
+)
+'''
 

@@ -1,7 +1,8 @@
-from typing import List, Optional, Tuple, Union
+from typing import Union
 
 import torch
 import torch.nn as nn
+
 from torchrl.envs import EnvBase
 
 from rl4co.utils.ops import gather_by_index
@@ -143,7 +144,9 @@ class MTSPContext(EnvContext):
 
     def __init__(self, embedding_dim):
         super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
-        proj_in_dim = 4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
+        proj_in_dim = (
+            4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
+        )
         self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim)
 
     def _cur_node_embedding(self, embeddings, td):

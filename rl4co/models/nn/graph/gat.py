@@ -20,9 +20,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
     ):
         MHA = NativeFlashMHA if use_native_sdpa else MultiHeadAttention
         super(MultiHeadAttentionLayer, self).__init__(
-            SkipConnection(
-                MHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)
-            ),
+            SkipConnection(MHA(embed_dim, num_heads, force_flash_attn=force_flash_attn)),
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(
