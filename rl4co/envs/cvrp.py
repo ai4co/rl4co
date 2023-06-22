@@ -320,10 +320,11 @@ class CVRPEnv(RL4COEnvBase):
 
         from matplotlib import cm, colormaps
 
-        base = colormaps["rainbow"]
-        color_list = base(np.linspace(0, 1, 6))
-        cmap_name = base.name + str(6)
-        out = base.from_list(cmap_name, color_list, 6)
+        num_routine = (actions == 0).sum().item() + 2
+        base = colormaps["nipy_spectral"]
+        color_list = base(np.linspace(0, 1, num_routine))
+        cmap_name = base.name + str(num_routine)
+        out = base.from_list(cmap_name, color_list, num_routine)
 
         if ax is None:
             # Create a plot of the nodes
@@ -335,10 +336,14 @@ class CVRPEnv(RL4COEnvBase):
             td = td[0]
 
         locs = td["locs"]
-        demands = td["demand"]
+        scale = CAPACITIES.get(td['locs'].size(-2)-1, 1)
+        demands = td["demand"] * scale
 
         if actions is None:
             actions = td.get("action", None)
+
+        # add the depot at the first action and the end action
+        actions = torch.cat([torch.tensor([0]), actions, torch.tensor([0])])
 
         # gather locs in order of action if available
         if actions is None:
@@ -367,7 +372,7 @@ class CVRPEnv(RL4COEnvBase):
             y[1:],
             edgecolors=cm.Set2(0),
             facecolors="none",
-            s=100,
+            s=50,
             linewidths=2,
             marker="o",
             alpha=1,
@@ -377,9 +382,9 @@ class CVRPEnv(RL4COEnvBase):
         for node_idx in range(1, len(locs)):
             ax.add_patch(
                 plt.Rectangle(
-                    (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.025),
+                    (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.015),
                     0.01,
-                    demands[node_idx - 1] * 0.1,
+                    demands[node_idx - 1]/(scale * 10),
                     edgecolor=cm.Set2(0),
                     facecolor=cm.Set2(0),
                     fill=True,
@@ -420,19 +425,20 @@ class CVRPEnv(RL4COEnvBase):
                 [from_loc[0], to_loc[0]],
                 [from_loc[1], to_loc[1]],
                 color=out(color_idx),
+                lw=1,
             )
             ax.annotate(
                 "",
                 xy=(to_loc[0], to_loc[1]),
                 xytext=(from_loc[0], from_loc[1]),
-                arrowprops=dict(arrowstyle="->", color=out(color_idx)),
+                arrowprops=dict(arrowstyle="-|>", color=out(color_idx)),
+                size=15,
                 annotation_clip=False,
             )
 
         # setup
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        ax.grid(axis="both", color="black", ls="--", alpha=0.1)
 
         # Set plot title and axis labels
         title_font = {"fontsize": 14}
