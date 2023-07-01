@@ -2,7 +2,6 @@
 
 # RL4CO
 
-An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
@@ -12,7 +11,19 @@ An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) ben
 [![Test](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml)
 <!-- ![testing](https://github.com/kaist-silab/ncobench/actions/workflows/tests.yml/badge.svg) -->
 
+
+
+
+
+
+[**Documentation**](https://rl4co.readthedocs.io/) |  [**Getting Started**](#getting-started) | [**Usage**](#usage) | [**Contributing**](#contributing) | [**Citation**](#cite-us)
+
 </div>
+
+---
+
+
+An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
 
 RL4CO is built upon:
@@ -147,9 +158,24 @@ pytest tests
 ```
 
 ## Contributing
-Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls). We welcome contributions to RL4CO!
+Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls).
+If you would like to contribute, please check out our contribution guidelines   [here](.github/CONTRIBUTING.md).
+We welcome and look forward to all contributions to RL4CO!
 
 ### Contributors
 <a href="https://github.com/kaist-silab/rl4co/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=kaist-silab/rl4co" />
 </a>
+
+## Cite us
+If you find RL4CO valuable for your research or applied projects:
+
+```bibtex
+@article{berto2023rl4co,
+    title = {{RL4CO}: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark},
+    author={Federico Berto and Chuanbo Hua and Junyoung Park and Minsu Kim and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Joungho Kim and Jinkyoo Park},
+    journal={arXiv preprint arXiv:2306.17100},
+    year={2023},
+    url = {https://github.com/kaist-silab/rl4co}
+}
+```
