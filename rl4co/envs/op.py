@@ -95,7 +95,7 @@ class OPEnv(RL4COEnvBase):
             action_mask, length_to_next_node_and_return <= length_capacity
         )
 
-        # We are done if run out the lenght capacity, i.e. no available node to visit
+        # We are done if run out the length capacity, i.e. no available node to visit
         done = torch.count_nonzero(action_mask.float(), dim=-1) <= 1e-5
 
         # If done, then set the depot be always available
@@ -147,7 +147,7 @@ class OPEnv(RL4COEnvBase):
             (*batch_size, 1), self.length_capacity, dtype=torch.float32, device=device
         )
 
-        # Calculate the lenght of each node back to the depot
+        # Calculate the length of each node back to the depot
         length_to_depot = (observation - td["depot"][..., None, :]).norm(p=2, dim=-1)
 
         # Init the action mask
