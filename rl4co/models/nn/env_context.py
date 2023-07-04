@@ -16,6 +16,7 @@ def env_context(env: Union[str, EnvBase], config: dict) -> object:
         "cvrp": VRPContext,
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
+        "spctsp": PCTSPContext,
         "op": OPContext,
         "dpp": DPPContext,
         "mdpp": DPPContext,
@@ -108,8 +109,8 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["length_capacity"]
-        return state_embedding
+        state_embedding = td["max_length"][..., 0] - td["tour_length"]
+        return state_embedding[..., None]
 
 
 class DPPContext(EnvContext):
@@ -124,8 +125,9 @@ class DPPContext(EnvContext):
 
 
 class PDPContext(EnvContext):
+    """From https://arxiv.org/abs/2110.02634"""
+
     def __init__(self, embedding_dim):
-        """From https://arxiv.org/abs/2110.02634"""
         super(PDPContext, self).__init__(embedding_dim, embedding_dim)
 
     def forward(self, embeddings, td):

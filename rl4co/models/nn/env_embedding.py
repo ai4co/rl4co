@@ -44,6 +44,10 @@ def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -
             "init": PCTSPInitEmbedding,
             "dynamic": StaticEmbedding,
         },
+        "spctsp": {
+            "init": PCTSPInitEmbedding,
+            "dynamic": StaticEmbedding,
+        },
         "op": {
             "init": OPInitEmbedding,
             "dynamic": StaticEmbedding,
