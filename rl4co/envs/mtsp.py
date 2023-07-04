@@ -11,9 +11,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.base import RL4COEnvBase
-from rl4co.envs.utils import batch_to_scalar
-from rl4co.utils.ops import distance, gather_by_index
+from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.envs.common.utils import batch_to_scalar
+from rl4co.utils.ops import get_distance, gather_by_index, get_tour_length
 
 
 class MTSPEnv(RL4COEnvBase):
@@ -85,12 +85,12 @@ class MTSPEnv(RL4COEnvBase):
         current_length = torch.where(
             cur_agent_idx != td["agent_idx"],
             torch.zeros_like(td["current_length"]),
-            td["current_length"] + distance(cur_loc, prev_loc),
+            td["current_length"] + get_distance(cur_loc, prev_loc),
         )
 
         # If done, we add the distance from the current_node to the depot as well
         current_length = torch.where(
-            done, current_length + distance(cur_loc, depot_loc), current_length
+            done, current_length + get_distance(cur_loc, depot_loc), current_length
         )
 
         # We update the max_subtour_length and reset the current_length
@@ -223,11 +223,9 @@ class MTSPEnv(RL4COEnvBase):
         # With distance, same as TSP
         elif self.cost_type == "distance":
             locs = td["locs"]
-            locs = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
-            locs_next = torch.roll(
-                locs, 1, dims=1
-            )  # roll will also consider last node to depot
-            return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+            locs_ordered = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
+            return -get_tour_length(locs_ordered)
+
         else:
             raise ValueError(f"Cost type {self.cost_type} not supported")
 

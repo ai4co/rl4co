@@ -18,8 +18,8 @@ def _batchify_single(
 def batchify(
     x: Union[Tensor, TensorDict], shape: Union[tuple, int]
 ) -> Union[Tensor, TensorDict]:
-    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster and supports TensorDicts
-    Repeats batchify operation `n` times as specified by each shape element
+    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster and supports TensorDicts.
+    Repeats batchify operation `n` times as specified by each shape element.
     If shape is a tuple, iterates over each element and repeats that many times to match the tuple shape.
 
     Example:
@@ -76,9 +76,22 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
     return src.gather(dim, idx).squeeze() if squeeze else src.gather(dim, idx)
 
 
-def distance(x, y):
+# @torch.jit.script
+def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
-    return torch.norm(x - y, p=2, dim=-1)
+    return (x - y).norm(p=2, dim=-1)
+
+
+# @torch.jit.script
+def get_tour_length(ordered_locs):
+    """Compute the total tour distance for a batch of ordered tours.
+    Computes the L2 norm between each pair of consecutive nodes in the tour and sums them up.
+
+    Args:
+        ordered_locs: Tensor of shape [batch_size, num_nodes, 2] containing the ordered locations of the tour
+    """
+    ordered_locs_next = torch.roll(ordered_locs, 1, dims=-2)
+    return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
 def select_start_nodes(td, num_nodes, env=None):

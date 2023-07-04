@@ -10,9 +10,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.base import RL4COEnvBase
-from rl4co.envs.utils import batch_to_scalar
-from rl4co.utils.ops import gather_by_index
+from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.envs.common.utils import batch_to_scalar
+from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -157,9 +157,8 @@ class TSPEnv(RL4COEnvBase):
         ).all(), "Invalid tour"
 
         # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs = gather_by_index(locs, actions)
-        locs_next = torch.roll(locs, 1, dims=1)
-        return -((locs_next - locs).norm(p=2, dim=2).sum(1))
+        locs_ordered = gather_by_index(locs, actions)
+        return -get_tour_length(locs_ordered)
 
     def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
