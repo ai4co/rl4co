@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, Union
 
 import torch
+import torch.nn.functional as F
 
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
@@ -10,36 +11,46 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.base import RL4COEnvBase
+from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.utils.ops import gather_by_index, get_tour_length
+from rl4co.utils.pylogger import get_pylogger
 
-MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
+log = get_pylogger(__name__)
+
+
+# From Kool et al. 2019
+MAX_LENGTHS = {
+    20: 2.,
+    50: 3.,
+    100: 4.
+}
 
 
 class OPEnv(RL4COEnvBase):
-    """Orienteering Problem (OP) environment
-    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    """Orienteering Problem (OP) environment.
+    At each step, the agent chooses a location to visit in order to maximize the collected prize.
+    The total length of the path must not exceed a given threshold.
 
     Args:
-        - num_loc <int>: number of locations (cities) in the VRP. NOTE: the depot is included
-        - min_loc <float>: minimum value for the location coordinates
-        - max_loc <float>: maximum value for the location coordinates
-        - length_capacity <float>: capacity of the vehicle of length, i.e. the maximum length the vehicle can travel
-        - td_params <TensorDict>: parameters of the environment
-        - seed <int>: seed for the environment
-        - device <str>: 'cpu' or 'cuda:0', device to use.  Generally, no need to set as tensors are updated on the fly
-    Note:
-        - in our setting, the vehicle has to come back to the depot at the end
+        num_loc: number of locations (cities) in the OP
+        min_loc: minimum value of the locations
+        max_loc: maximum value of the locations
+        max_length: maximum length of the path
+        prize_type: type of prize to collect. Can be:
+            - "dist": the prize is the distance from the previous location
+            - "unif": the prize is a uniform random variable
+            - "const": the prize is a constant
+        td_params: parameters of the environment
     """
-
     name = "op"
 
     def __init__(
         self,
-        num_loc: int = 10,
+        num_loc: int = 20,
         min_loc: float = 0,
         max_loc: float = 1,
-        min_prize: float = 0.01,
-        max_prize: float = 1.01,
+        max_length: Union[float, torch.Tensor] = None,
+        prize_type: str = "dist",
         td_params: TensorDict = None,
         **kwargs,
     ):
@@ -47,172 +58,221 @@ class OPEnv(RL4COEnvBase):
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
-        self.min_prize = min_prize
-        self.max_prize = max_prize
-        self.length_capacity = MAX_LENGTHS[num_loc]
+        self.max_length = MAX_LENGTHS.get(num_loc, None) if max_length is None else max_length
+        if self.max_length is None:
+            raise ValueError(f"`max_length` must be specified for num_loc={num_loc}. Please specify it manually.")
+        self.prize_type = prize_type
+        assert self.prize_type in ["dist", "unif", "const"], f"Invalid prize_type: {self.prize_type}"
         self._make_spec(td_params)
 
     def _step(self, td: TensorDict) -> TensorDict:
-        """Update the states of the environment
-        Args:
-            - td <TensorDict>: tensor dictionary containing with the action
-                - action <int> [batch_size, 1]: action to take
-        NOTE:
-            - the first node in de prize is larger than 0 or less than 0?
-            - this design is important. For now the design is LESS than 0
-        """
-        current_node = td["action"][..., None]
-        current_node_expand = current_node[..., None].repeat_interleave(2, dim=-1)
-        length_capacity = td["length_capacity"]
-        prize = td["prize"]
-        prize_collect = td["prize_collect"]
+        current_node = td["action"][:, None] 
 
-        # Collect prize
-        prize_collect += torch.gather(prize, -1, current_node)
+        # Update tour length
+        current_loc = gather_by_index(td["locs"], current_node)
+        tour_length = td["tour_length"] + (current_loc - td["current_loc"]).norm(p=2, dim=-1)
 
-        # Set the visited node prize to -1
-        prize.scatter_(-1, current_node, 0)
+        # Update prize with collected prize
+        current_total_prize = td["current_total_prize"] + gather_by_index(td["prize"], current_node, dim=-1)
 
-        # Update the used length capacity
-        length_capacity -= (
-            torch.gather(td["locs"], -2, current_node_expand)
-            - torch.gather(
-                td["locs"],
-                -2,
-                td["current_node"][..., None].repeat_interleave(2, dim=-1),
-            )
-        ).norm(p=2, dim=-1)
+        # Set current node as visited
+        visited = td["visited"].scatter(-1, current_node, 1)
 
-        # Get the action mask, no zero prize nodes can be visited
-        action_mask = prize > 0
+        # Done if went back to depot (except if it's the first step, since we start at the depot)
+        done = (current_node.squeeze(-1) == 0) & (td["i"] > 0)
 
-        # Nodes distance exceeding length capacity cannot be visited
-        length_to_next_node = (
-            td["locs"] - torch.gather(td["locs"], -2, current_node_expand)
-        ).norm(p=2, dim=-1)
-        length_to_next_node_and_return = length_to_next_node + td["length_to_depot"]
-        action_mask = torch.logical_and(
-            action_mask, length_to_next_node_and_return <= length_capacity
-        )
-
-        # We are done if run out the length capacity, i.e. no available node to visit
-        done = torch.count_nonzero(action_mask.float(), dim=-1) <= 1e-5
-
-        # If done, then set the depot be always available
-        action_mask[..., 0] = torch.logical_or(action_mask[..., 0], done)
-
-        # Calculate reward (minus length of path, since we want to maximize the reward -> minimize the path length)
-        # Note: reward is calculated outside for now via the get_reward function
-        # to calculate here need to pass action sequence or save it as state
+        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
         reward = torch.ones_like(done) * float("-inf")
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        td_step = TensorDict(
             {
                 "next": {
                     "locs": td["locs"],
-                    "length_capacity": td["length_capacity"],
-                    "length_to_depot": td["length_to_depot"],
+                    "prize": td["prize"],
+                    "tour_length": tour_length,
+                    "current_loc": current_loc,
+                    "max_length": td["max_length"],
                     "current_node": current_node,
-                    "prize": prize,
-                    "prize_collect": prize_collect,
-                    "action_mask": action_mask,
+                    "visited": visited,
+                    "current_total_prize": current_total_prize,
+                    "i": td["i"] + 1,
                     "reward": reward,
                     "done": done,
                 }
             },
             td.shape,
         )
+        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
+        return td_step     
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        """
-        Args:
-            - td (Optional) <TensorDict>: tensor dictionary containing the initial state
-        """
+    def _reset(
+        self,
+        td: Optional[TensorDict] = None,
+        batch_size: Optional[list] = None,
+    ) -> TensorDict:
+        # Initialize params
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["prize"].shape[:-1]
+            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
-        device = td.device
+        self.device = td.device
 
-        observation = torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2)
-        prize_depot = torch.zeros((*batch_size, 1), device=device)
-        prize = torch.cat([prize_depot, td["prize"]], dim=-1)
+        # Add depot to locs
+        locs_with_depot = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
-        # Initialize the current node
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        # Create reset TensorDict
+        td_reset = TensorDict(
+            {
+                "locs": locs_with_depot,
+                "prize": F.pad(td["prize"], (1, 0), mode='constant', value=0),  # add 0 for depot
+                "tour_length": torch.zeros(*batch_size, device=self.device),
+                "current_loc": td["depot"],
+                # max_length is max length allowed when arriving at node, so subtract distance to return to depot
+                # Additionally, substract epsilon margin for numeric stability
+                "max_length": td["max_length"][..., None] - (td["depot"][..., None, :] - locs_with_depot).norm(p=2, dim=-1) - 1e-6,
+                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device),
+                "visited": torch.zeros((*batch_size, locs_with_depot.shape[-2]), dtype=torch.bool, device=self.device),
+                "current_total_prize": torch.zeros(*batch_size, 1, dtype=torch.float, device=self.device),
+                "i": torch.zeros((*batch_size,), dtype=torch.int64, device=self.device), # counter
+            },
+            batch_size=batch_size,
+        )
+        td_reset.set("action_mask", self.get_action_mask(td_reset))
+        return td_reset
+    
+    @staticmethod
+    def get_action_mask(td: TensorDict) -> torch.Tensor:
+        """Get action mask with 1 = feasible action, 0 = infeasible action.
+        Cannot visit if already visited, if depot has been visited, or if the length exceeds the maximum length.
+        """
+        exceeds_length = (
+            td["tour_length"][..., None] + (td["locs"] - td["current_loc"][..., None, :]).norm(p=2, dim=-1)
+            > td["max_length"]
+        )
+        mask = td["visited"] | td["visited"][..., 0:1] | exceeds_length
 
-        # Initialize the capacity
-        length_capacity = torch.full(
-            (*batch_size, 1), self.length_capacity, dtype=torch.float32, device=device
+        action_mask = ~mask # 1 = feasible action, 0 = infeasible action
+
+        # Depot can always be visited: we do not hardcode knowledge that this is strictly suboptimal if other options are available
+        action_mask[..., 0] = 1
+        return action_mask 
+    
+    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict: 
+        """Reward is the sum of the prizes of visited nodes"""
+
+        # In case all tours directly return to depot, prevent further problems
+        if actions.size(-1) == 1:  
+            assert (actions == 0).all(), "If all length 1 tours, they should be zero"
+            return torch.zeros(actions.size(0), dtype=torch.float, device=actions.device)
+               
+        # Check that the solution is valid
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
+
+        # Prize is the sum of the prizes of the visited nodes. Note that prize is padded with 0 for depot at index 0
+        collected_prize = td["prize"].gather(1, actions)
+        return collected_prize.sum(-1)
+    
+    @staticmethod
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor, add_distance_to_depot: bool = True):
+        """Check that solution is valid: nodes are not visited twice except depot and capacity is not exceeded.
+        If `add_distance_to_depot` if True, then the distance to the depot is added to max length since by default, the max length is
+        modified in the reset function to account for the distance to the depot.
+        """
+
+        # Check that tours are valid, i.e. contain 0 to n -1
+        sorted_actions = actions.data.sort(1)[0]
+        # Make sure each node visited once at most (except for depot)
+        assert ((sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])).all(), "Duplicates"
+
+        # Gather locations in order of tour and get the length of tours
+        locs_ordered = gather_by_index(td["locs"], actions)
+        length = get_tour_length(locs_ordered)
+        
+        max_length = td["max_length"]
+        if add_distance_to_depot:
+            max_length = max_length + (td["locs"][..., 0:1, :] - td["locs"]).norm(p=2, dim=-1) + 1e-6
+
+        assert (length[..., None] <= max_length + 1e-5).all(), \
+            "Max length exceeded by {}".format((length[..., None] - max_length).max())
+        
+    def generate_data(self, batch_size, prize_type=None) -> TensorDict:
+        # Batch size input check
+        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+
+        prize_type = self.prize_type if prize_type is None else prize_type
+
+        # Initialize the locations (including the depot which is always the first node)
+        locs_with_depot = (
+            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
+            .uniform_(self.min_loc, self.max_loc)
+            .to(self.device)
         )
 
-        # Calculate the length of each node back to the depot
-        length_to_depot = (observation - td["depot"][..., None, :]).norm(p=2, dim=-1)
+        # Methods taken from Fischetti et al. (1998) and Kool et al. (2019)
+        if prize_type == "const":
+            prize = torch.ones(*batch_size, self.num_loc, device=self.device)
+        elif prize_type == "unif":
+            prize = (1 + torch.randint(0, 100, (*batch_size, self.num_loc), device=self.device).float()) / 100
+        elif prize_type == "dist": # based on the distance to the depot
+            prize = (locs_with_depot[..., 0:1, :] - locs_with_depot[..., 1:, :]).norm(p=2, dim=-1)
+            prize = (1 + (prize / prize.max(dim=-1, keepdim=True)[0] * 99).int()).float() / 100 
+        else:
+            raise ValueError(f"Invalid prize_type: {self.prize_type}")
 
-        # Init the action mask
-        action_mask = prize > 1e-5
-
-        # Calculate the distance of each node at this moment
-        current_node_loccation = torch.gather(
-            observation, -2, current_node[..., None].repeat_interleave(2, dim=-1)
-        )
-        length_to_next_node = (observation - current_node_loccation).norm(p=2, dim=-1)
-        length_to_next_node_and_return = length_to_next_node + length_to_depot
-        action_mask = torch.logical_and(
-            action_mask, length_to_next_node_and_return <= length_capacity
-        )
+        # Support for heterogeneous max length if provided
+        if not isinstance(self.max_length, torch.Tensor):
+            max_length = torch.full((*batch_size,), self.max_length, device=self.device)
+        else:
+            max_length = self.max_length
 
         return TensorDict(
             {
-                "locs": observation,
-                "length_capacity": length_capacity,
-                "length_to_depot": length_to_depot,
-                "current_node": current_node,
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "prize": prize,
-                "prize_collect": torch.zeros_like(length_capacity),
-                "action_mask": action_mask,
+                "max_length": max_length,
             },
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params: TensorDict = None):
+    def _make_spec(self, td_params: TensorDict):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
                 minimum=self.min_loc,
                 maximum=self.max_loc,
-                shape=(self.num_loc, 2),
-                dtype=torch.float32,
-            ),
-            length_capacity=BoundedTensorSpec(
-                minimum=0,
-                maximum=self.length_capacity,
-                shape=(1),
-                dtype=torch.float32,
-            ),
-            length_to_depot=BoundedTensorSpec(
-                minimum=0,
-                maximum=self.length_capacity,
-                shape=(1),
+                shape=(self.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            prize=BoundedTensorSpec(
-                minimum=-1,
-                maximum=self.max_prize,
-                shape=(self.num_loc),
+            prize=UnboundedContinuousTensorSpec(
+                shape=(self.num_loc,),
                 dtype=torch.float32,
             ),
-            prize_collect=UnboundedContinuousTensorSpec(
-                shape=(self.num_loc),
+            tour_length=UnboundedContinuousTensorSpec(
+                shape=(self.num_loc,),
+                dtype=torch.float32,
+            ),
+            visited=UnboundedDiscreteTensorSpec(
+                shape=(self.num_loc + 1,),
+                dtype=torch.bool,
+            ),
+            current_loc=BoundedTensorSpec(
+                minimum=self.min_loc,
+                maximum=self.max_loc,
+                shape=(2,),
+                dtype=torch.float32,
+            ),
+            max_length=UnboundedContinuousTensorSpec(
+                shape=(1,),
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc),
+                shape=(self.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -222,83 +282,11 @@ class OPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             minimum=0,
-            maximum=self.num_loc,
+            maximum=self.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec()
-        self.done_spec = UnboundedDiscreteTensorSpec(dtype=torch.bool)
+        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
+        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
-        """Function to compute the reward. Can be called by the agent to compute the reward of the current state
-        This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
-        """
-        # Check that tours are valid, i.e. contain 0 to n -1
-        sorted_actions = actions.data.sort(1)[0]
-        # Make sure each node visited once at most (except for depot)
-        assert (
-            (sorted_actions[:, 1:] == 0)
-            | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
-        ).all(), "Duplicates"
-
-        d = td["locs"].gather(
-            1, actions[..., None].expand(*actions.size(), td["locs"].size(-1))
-        )
-        length = (
-            (d[:, 1:] - d[:, :-1]).norm(p=2, dim=-1).sum(1)  # Prevent error if len 1 seq
-            + (d[:, 0] - td["locs"][..., 0, :]).norm(p=2, dim=-1)  # Depot to first
-            + (d[:, -1] - td["locs"][..., 0, :]).norm(
-                p=2, dim=-1
-            )  # Last to depot, will be 0 if depot is last
-        )
-        assert (
-            length <= self.length_capacity + 1e-5
-        ).all(), "Max length exceeded by {}".format(
-            (length - td["length_capacity"]).max()
-        )
-
-        return td["prize_collect"].squeeze(-1)
-
-    def generate_data(self, batch_size):
-        """
-        Args:
-            - batch_size <int> or <list>: batch size
-        Returns:
-            - td <TensorDict>: tensor dictionary containing the initial state
-                - locs <Tensor> [batch_size, num_loc, 2]: locations of the nodes
-                - prize <Tensor> [batch_size, num_loc]: prize of the nodes
-                - capacity <Tensor> [batch_size, 1]: capacity of the vehicle
-                - current_node <Tensor> [batch_size, 1]: current node
-                - i <Tensor> [batch_size, 1]: number of visited nodes
-        NOTE:
-            - the locs includes the depot as the first node
-            - the prize includes the used capacity at the first value
-            - the unvisited variable can be replaced by prize > 0
-        """
-        # Batch size input check
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # Initialize the locations (including the depot which is always the first node)
-        locs = (
-            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
-            .uniform_(self.min_loc, self.max_loc)
-            .to(self.device)
-        )
-
-        # Initialize the prize
-        prize_ = (locs[..., :1, :] - locs[..., 1:, :]).norm(p=2, dim=-1)
-        prize = (
-            1 + (prize_ / prize_.max(dim=-1, keepdim=True)[0] * 99).int()
-        ).float() / 100.0
-
-        return TensorDict(
-            {
-                "locs": locs[..., 1:, :],
-                "depot": locs[..., 0, :],
-                "prize": prize,
-            },
-            batch_size=batch_size,
-        )
-
-    def render(self, td):
-        # TODO
-        """Render the environment"""
-        raise NotImplementedError
+    @staticmethod
+    def render(td: TensorDict, actions=None, ax=None):
+        raise NotImplementedError("TODO: render is not implemented yet")
