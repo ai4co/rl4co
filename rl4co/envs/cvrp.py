@@ -11,8 +11,8 @@ from torchrl.data import (
 )
 
 from rl4co.data.utils import load_npz_to_tensordict
-from rl4co.envs import RL4COEnvBase
-from rl4co.utils.ops import gather_by_index
+from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -83,9 +83,7 @@ class CVRPEnv(RL4COEnvBase):
         self.vehicle_capacity = vehicle_capacity
         self._make_spec(td_params)
 
-    @staticmethod
-    def _step(td: TensorDict) -> TensorDict:
-        # Update the state
+    def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"][:, None]  # Add dimension for step
         n_loc = td["demand"].size(-1)  # Excludes depot
 
@@ -103,26 +101,11 @@ class CVRPEnv(RL4COEnvBase):
         # Add one dimension since we write a single value
         visited = td["visited"].scatter(-1, current_node[..., None], 1)
 
-        # SECTION: get mask
-        visited_loc = visited[..., 1:]
-
-        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
-        exceeds_cap = td["demand"][:, None, :] + used_capacity[..., None] > 1.0
-
-        # Nodes that cannot be visited are already visited or too much demand to be served now
-        mask_loc = visited_loc.to(exceeds_cap.dtype) | exceeds_cap
-
-        # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (current_node == 0) & ((mask_loc == 0).int().sum(-1) > 0)
-
-        # Action mask will be inverse of unfeasible actions
-        feasible_actions = ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
-
         # SECTION: get done
         done = visited.sum(-1) == visited.size(-1)
         reward = torch.ones_like(done) * float("-inf")
 
-        return TensorDict(
+        td_step = TensorDict(
             {
                 "next": {
                     "locs": td["locs"],
@@ -131,13 +114,14 @@ class CVRPEnv(RL4COEnvBase):
                     "used_capacity": used_capacity,
                     "vehicle_capacity": td["vehicle_capacity"],
                     "visited": visited,
-                    "action_mask": feasible_actions,
                     "reward": reward,
                     "done": done,
                 }
             },
             td.shape,
         )
+        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
+        return td_step     
 
     def _reset(
         self,
@@ -152,83 +136,46 @@ class CVRPEnv(RL4COEnvBase):
 
         self.device = td.device
 
-        locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
-        current_node = torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device)
-        used_capacity = torch.zeros((*batch_size, 1), device=self.device)
-
-        _, n_loc, _ = td["locs"].size()
-        visited = torch.zeros(
-            (*batch_size, 1, n_loc + 1), dtype=torch.uint8, device=self.device
-        )
-
-        # SECTION: get mask
-        visited_loc = visited[..., 1:]
-
-        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
-        exceeds_cap = td["demand"][:, None, :] + used_capacity[..., None] > 1.0
-
-        # Nodes that cannot be visited are already visited or too much demand to be served now
-        mask_loc = visited_loc.to(exceeds_cap.dtype) | exceeds_cap
-
-        # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (current_node == 0) & ((mask_loc == 0).int().sum(-1) > 0)
-        feasible_actions = ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
-
-        # Vehicle capacity as a feature
-        vehicle_capacity = torch.full(
-            (*batch_size, 1), self.vehicle_capacity, device=self.device
-        )
-
-        return TensorDict(
+        # Create reset TensorDict
+        td_reset = TensorDict(
             {
-                "locs": locs,
+                "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
                 "demand": td["demand"],
-                "current_node": current_node,
-                "used_capacity": used_capacity,
-                "vehicle_capacity": vehicle_capacity,
-                "visited": visited,
-                "action_mask": feasible_actions,
+                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device),
+                "used_capacity":  torch.zeros((*batch_size, 1), device=self.device),
+                "vehicle_capacity": torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device),
+                "visited": torch.zeros((*batch_size, 1, td["locs"].shape[-2] + 1), dtype=torch.uint8, device=self.device),
             },
             batch_size=batch_size,
         )
+        td_reset.set("action_mask", self.get_action_mask(td_reset))
+        return td_reset
+    
+    @staticmethod
+    def get_action_mask(td: TensorDict) -> torch.Tensor:
+        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
+        exceeds_cap = td["demand"][:, None, :] + td["used_capacity"][..., None] > 1.0
 
-    def _make_spec(self, td_params: TensorDict):
-        """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
-                shape=(self.num_loc + 1, 2),
-                dtype=torch.float32,
-            ),
-            current_node=UnboundedDiscreteTensorSpec(
-                shape=(1),
-                dtype=torch.int64,
-            ),
-            demand=BoundedTensorSpec(
-                minimum=-self.capacity,
-                maximum=self.max_demand,
-                shape=(self.num_loc, 1),  # demand is only for customers
-                dtype=torch.float32,
-            ),
-            action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc + 1, 1),
-                dtype=torch.bool,
-            ),
-            shape=(),
-        )
-        self.input_spec = self.observation_spec.clone()
-        self.action_spec = BoundedTensorSpec(
-            shape=(1,),
-            dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_loc + 1,
-        )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        # Nodes that cannot be visited are already visited or too much demand to be served now
+        mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
+
+        # Cannot visit the depot if just visited and still unserved nodes
+        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)
+        return ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
+
+    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:        
+        # Check that the solution is valid
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
+
+        # Gather dataset in order of tour
+        depot = td["locs"][..., 0:1, :]
+        locs_ordered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
+        return -get_tour_length(locs_ordered)
 
     @staticmethod
-    def get_reward(td, actions) -> TensorDict:
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+        """Check that solution is valid: nodes are not visited twice except depot and capacity is not exceeded"""
         # Check if tour is valid, i.e. contain 0 to n-1
         batch_size, graph_size = td["demand"].size()
         sorted_pi = actions.data.sort(1)[0]
@@ -255,13 +202,6 @@ class CVRPEnv(RL4COEnvBase):
             assert (
                 used_cap <= td["vehicle_capacity"] + 1e-5
             ).all(), "Used more than capacity"
-
-        # Calculate the reward: - distance from all locations.
-        # We add the depot as first so we calculate also depot-first and depot-last tours with roll
-        depot = td["locs"][..., 0:1, :]
-        loc_gathered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
-        loc_gathered_next = torch.roll(loc_gathered, 1, dims=1)
-        return -((loc_gathered_next - loc_gathered).norm(p=2, dim=2).sum(1))
 
     def generate_data(self, batch_size) -> TensorDict:
         # Batch size input check
@@ -312,6 +252,41 @@ class CVRPEnv(RL4COEnvBase):
         td_load = load_npz_to_tensordict(fpath)
         td_load.set_("demand", td_load["demand"] / td_load["capacity"][:, None])
         return td_load
+
+    def _make_spec(self, td_params: TensorDict):
+        """Make the observation and action specs from the parameters."""
+        self.observation_spec = CompositeSpec(
+            locs=BoundedTensorSpec(
+                minimum=self.min_loc,
+                maximum=self.max_loc,
+                shape=(self.num_loc + 1, 2),
+                dtype=torch.float32,
+            ),
+            current_node=UnboundedDiscreteTensorSpec(
+                shape=(1),
+                dtype=torch.int64,
+            ),
+            demand=BoundedTensorSpec(
+                minimum=-self.capacity,
+                maximum=self.max_demand,
+                shape=(self.num_loc, 1),  # demand is only for customers
+                dtype=torch.float32,
+            ),
+            action_mask=UnboundedDiscreteTensorSpec(
+                shape=(self.num_loc + 1, 1),
+                dtype=torch.bool,
+            ),
+            shape=(),
+        )
+        self.input_spec = self.observation_spec.clone()
+        self.action_spec = BoundedTensorSpec(
+            shape=(1,),
+            dtype=torch.int64,
+            minimum=0,
+            maximum=self.num_loc + 1,
+        )
+        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
+        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     @staticmethod
     def render(td: TensorDict, actions=None, ax=None):
