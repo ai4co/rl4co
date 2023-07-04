@@ -21,6 +21,7 @@ class RL4COEnvBase(EnvBase):
         train_file (str): Name of the training file
         val_file (str): Name of the validation file
         test_file (str): Name of the test file
+        check_solution (bool): Whether to check the validity of the solution at the end of the episode
         seed (int): Seed for the environment
         device (str): Device to use. Generally, no need to set as tensors are updated on the fly
     """
@@ -34,6 +35,7 @@ class RL4COEnvBase(EnvBase):
         train_file: str = None,
         val_file: str = None,
         test_file: str = None,
+        check_solution: bool = True,
         seed: int = None,
         device: str = "cpu",
         **kwargs,
@@ -43,6 +45,7 @@ class RL4COEnvBase(EnvBase):
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
         self.val_file = pjoin(data_dir, val_file) if val_file is not None else None
         self.test_file = pjoin(data_dir, test_file) if test_file is not None else None
+        self.check_solution = check_solution
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
@@ -64,6 +67,18 @@ class RL4COEnvBase(EnvBase):
     def get_reward(self, td, actions) -> TensorDict:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
+        """
+        raise NotImplementedError
+
+    def get_action_mask(self, td: TensorDict) -> torch.Tensor:
+        """Function to compute the action mask (feasible actions) for the current state
+        Action mask is 1 if the action is feasible, 0 otherwise
+        """
+        raise NotImplementedError
+
+    def check_solution_validity(self, td, actions) -> TensorDict:
+        """Function to check whether the solution is valid. Can be called by the agent to check the validity of the current state
+        This is called with the full solution (i.e. all actions) at the end of the episode
         """
         raise NotImplementedError
 
