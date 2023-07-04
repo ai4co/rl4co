@@ -15,7 +15,7 @@ from torchrl.data import (
 )
 
 from rl4co.data.utils import load_npz_to_tensordict
-from rl4co.envs.base import RL4COEnvBase
+from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.download.downloader import download_url
 from rl4co.utils.pylogger import get_pylogger
 

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.data.generate_data import generate_default_datasets
-from rl4co.envs.base import EnvBase
+from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -25,7 +25,7 @@ class RL4COLitModule(LightningModule):
         model: Model to use overridding the config. If None, instantiate from config
     """
 
-    def __init__(self, cfg: DictConfig, env: EnvBase = None, model: nn.Module = None):
+    def __init__(self, cfg: DictConfig, env: RL4COEnvBase = None, model: nn.Module = None):
         if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
