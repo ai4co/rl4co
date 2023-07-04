@@ -10,7 +10,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs import RL4COEnvBase
+from rl4co.envs.common.base import RL4COEnvBase
 
 
 class FFSPEnv(RL4COEnvBase):
