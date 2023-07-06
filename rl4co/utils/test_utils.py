@@ -1,7 +1,18 @@
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import tensordict_collate_fn
-from rl4co.envs import CVRPEnv, DPPEnv, MTSPEnv, OPEnv, PCTSPEnv, PDPEnv, SDVRPEnv, TSPEnv
+from rl4co.envs import (
+    CVRPEnv,
+    DPPEnv,
+    MDPPEnv,
+    MTSPEnv,
+    OPEnv,
+    PCTSPEnv,
+    PDPEnv,
+    SDVRPEnv,
+    SPCTSPEnv,
+    TSPEnv,
+)
 
 
 def get_env(name, size):
@@ -11,8 +22,6 @@ def get_env(name, size):
         env = CVRPEnv(num_loc=size)
     elif name == "sdvrp":
         env = SDVRPEnv(num_loc=size)
-    elif name == "dpp":
-        env = DPPEnv()
     elif name == "pdp":
         env = PDPEnv(num_loc=size)
     elif name == "op":
@@ -21,6 +30,12 @@ def get_env(name, size):
         env = MTSPEnv(num_loc=size)
     elif name == "pctsp":
         env = PCTSPEnv(num_loc=size)
+    elif name == "spctsp":
+        env = SPCTSPEnv(num_loc=size)
+    elif name == "dpp":
+        env = DPPEnv()
+    elif name == "mdpp":
+        env = MDPPEnv()
     else:
         raise ValueError(f"Unknown env_name: {name}")
 
