@@ -121,7 +121,7 @@ class CVRPEnv(RL4COEnvBase):
             td.shape,
         )
         td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step     
+        return td_step
 
     def _reset(
         self,
@@ -141,16 +141,24 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
                 "demand": td["demand"],
-                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device),
-                "used_capacity":  torch.zeros((*batch_size, 1), device=self.device),
-                "vehicle_capacity": torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device),
-                "visited": torch.zeros((*batch_size, 1, td["locs"].shape[-2] + 1), dtype=torch.uint8, device=self.device),
+                "current_node": torch.zeros(
+                    *batch_size, 1, dtype=torch.long, device=self.device
+                ),
+                "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
+                "vehicle_capacity": torch.full(
+                    (*batch_size, 1), self.vehicle_capacity, device=self.device
+                ),
+                "visited": torch.zeros(
+                    (*batch_size, 1, td["locs"].shape[-2] + 1),
+                    dtype=torch.uint8,
+                    device=self.device,
+                ),
             },
             batch_size=batch_size,
         )
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
-    
+
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
@@ -163,7 +171,7 @@ class CVRPEnv(RL4COEnvBase):
         mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)
         return ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:        
+    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         # Check that the solution is valid
         if self.check_solution:
             self.check_solution_validity(td, actions)
@@ -311,7 +319,7 @@ class CVRPEnv(RL4COEnvBase):
             td = td[0]
 
         locs = td["locs"]
-        scale = CAPACITIES.get(td['locs'].size(-2)-1, 1)
+        scale = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
         demands = td["demand"] * scale
 
         if actions is None:
@@ -359,7 +367,7 @@ class CVRPEnv(RL4COEnvBase):
                 plt.Rectangle(
                     (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.015),
                     0.01,
-                    demands[node_idx - 1]/(scale * 10),
+                    demands[node_idx - 1] / (scale * 10),
                     edgecolor=cm.Set2(0),
                     facecolor=cm.Set2(0),
                     fill=True,
@@ -411,16 +419,7 @@ class CVRPEnv(RL4COEnvBase):
                 annotation_clip=False,
             )
 
-        # setup
+        # Setup limits and show
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-
-        # Set plot title and axis labels
-        title_font = {"fontsize": 14}
-        label_font = {"fontsize": 12}
-        ax.set_title("CVRP Solution", fontdict=title_font)
-        ax.set_xlabel("X Coordinate", fontdict=label_font)
-        ax.set_ylabel("Y Coordinate", fontdict=label_font)
-
-        # plt.tight_layout()
         plt.show()

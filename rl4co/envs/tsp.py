@@ -207,8 +207,7 @@ class TSPEnv(RL4COEnvBase):
             x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k"
         )
 
-        # Set plot title and axis labels
-        ax.set_title("TSP Solution")
-        ax.set_xlabel("x-coordinate")
-        ax.set_ylabel("y-coordinate")
+        # Setup limits and show
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
         plt.show()
