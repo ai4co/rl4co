@@ -53,3 +53,15 @@ def random_policy(td):
     action = torch.multinomial(td["action_mask"].float(), 1).squeeze(-1)
     td.set("action", action)
     return td
+
+
+def rollout(env, td, policy):
+    """Helper function to rollout a policy. Currently, TorchRL does not allow to step
+    over envs when done with `env.rollout()`. We need this because for environements that complete at different steps.
+    """
+    actions = []
+    while not td["done"].all():
+        td = policy(td)
+        actions.append(td["action"])
+        td = env.step(td)["next"]
+    return env.get_reward(td, torch.stack(actions, dim=1))
