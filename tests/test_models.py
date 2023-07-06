@@ -1,6 +1,3 @@
-import sys
-
-sys.path.append(".")
 import pytest
 
 from rl4co.models import (
@@ -17,7 +14,7 @@ from rl4co.utils.test_utils import generate_env_data
 
 @pytest.mark.parametrize("size", [20])
 @pytest.mark.parametrize(
-    "env_name", ["tsp", "cvrp", "mtsp", "op", "dpp", "pctsp"]
+    "env_name", ["tsp", "cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "dpp", "mdpp"]
 )  # todo: sdvrp
 def test_am(size, env_name, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
