@@ -136,8 +136,16 @@ class RL4COEnvBase(EnvBase):
 
     def __getstate__(self):
         """Return the state of the environment. By default, we want to avoid pickling
-        the random number generator as it is not allowed by deepcopy
+        the random number generator directly as it is not allowed by `deepcopy`
         """
         state = self.__dict__.copy()
-        del state["rng"]
+        state["rng"] = state["rng"].get_state()
         return state
+
+    def __setstate__(self, state):
+        """Set the state of the environment. By default, we want to avoid pickling
+        the random number generator directly as it is not allowed by `deepcopy`
+        """
+        self.__dict__.update(state)
+        self.rng = torch.manual_seed(0)
+        self.rng.set_state(state["rng"])

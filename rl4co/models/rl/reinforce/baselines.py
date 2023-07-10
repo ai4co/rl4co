@@ -96,11 +96,11 @@ class WarmupBaseline(REINFORCEBaseline):
             return self.baseline.eval(td, reward)
         if self.alpha == 0:
             return self.warmup_baseline.eval(td, reward)
-        v, l = self.baseline.eval(td, reward)
-        vw, lw = self.warmup_baseline.eval(td, reward)
+        v_b, l_b = self.baseline.eval(td, reward)
+        v_wb, l_wb = self.warmup_baseline.eval(td, reward)
         # Return convex combination of baseline and of loss
-        return self.alpha * v + (1 - self.alpha) * vw, self.alpha * l + (
-            1 - self.alpha * lw
+        return self.alpha * v_b + (1 - self.alpha) * v_wb, self.alpha * l_b + (
+            1 - self.alpha * l_wb
         )
 
     def epoch_callback(self, *args, **kw):
@@ -203,3 +203,17 @@ class RolloutBaseline(REINFORCEBaseline):
             .cpu()
         )
         return ExtraKeyDataset(dataset, rewards)
+
+    def __getstate__(self):
+        """Do not include datasets in state to avoid pickling issues"""
+        state = self.__dict__.copy()
+        try:
+            del state["dataset"]
+        except KeyError:
+            pass
+        return state
+
+    def __setstate__(self, state):
+        """Restore datasets after unpickling. Will be restored in setup"""
+        self.__dict__.update(state)
+        self.dataset = None

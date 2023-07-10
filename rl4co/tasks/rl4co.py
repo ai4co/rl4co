@@ -25,7 +25,16 @@ class RL4COLitModule(LightningModule):
         model: Model to use overridding the config. If None, instantiate from config
     """
 
-    def __init__(self, cfg: DictConfig, env: RL4COEnvBase = None, model: nn.Module = None):
+    def __init__(
+        self, cfg: DictConfig, env: RL4COEnvBase = None, model: nn.Module = None
+    ):
+        super().__init__()
+
+        # this line ensures params passed to LightningModule will be saved to ckpt
+        # it also allows to access params with 'self.hparams' attribute
+        # self.save_hyperparameters("env", "model", logger=False)
+        self.save_hyperparameters(logger=False)
+
         if cfg.get("train", {}).get("disable_profiling", True):
             # Disable profiling executor. This reduces memory and increases speed.
             # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
@@ -35,11 +44,7 @@ class RL4COLitModule(LightningModule):
             except AttributeError:
                 pass
 
-        super().__init__()
-        # this line ensures params passed to LightningModule will be saved to ckpt
-        # it also allows to access params with 'self.hparams' attribute
         cfg = DictConfig(cfg) if not isinstance(cfg, DictConfig) else cfg
-        self.save_hyperparameters(cfg)
         self.cfg = cfg
 
         # Instantiate environment, model and metrics
