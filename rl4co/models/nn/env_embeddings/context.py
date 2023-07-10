@@ -1,16 +1,19 @@
-from typing import Union
-
 import torch
 import torch.nn as nn
-
-from torchrl.envs import EnvBase
 
 from rl4co.utils.ops import gather_by_index
 
 
-def env_context(env: Union[str, EnvBase], config: dict) -> object:
-    """Get context object for given environment name"""
-    context_classes = {
+def env_context_embedding(env_name: str, config: dict) -> nn.Module:
+    """Get environment context embedding. The context embedding is used to modify the
+    query embedding of the problem node of the current partial solution.
+    Usually consists of a projection of gathered node embeddings and features to the embedding space.
+
+    Args:
+        env: Environment or its name.
+        config: A dictionary of configuration options for the environment.
+    """
+    embedding_registry = {
         "tsp": TSPContext,
         "atsp": TSPContext,
         "cvrp": VRPContext,
@@ -24,18 +27,20 @@ def env_context(env: Union[str, EnvBase], config: dict) -> object:
         "mtsp": MTSPContext,
     }
 
-    env_name = env if isinstance(env, str) else env.name
-    context_class = context_classes.get(env_name, None)
+    if env_name not in embedding_registry:
+        raise ValueError(
+            f"Unknown environment name '{env_name}'. Available context embeddings: {embedding_registry.keys()}"
+        )
 
-    if context_class is None:
-        raise ValueError(f"Unknown environment name '{env_name}'")
-
-    return context_class(**config)
+    return embedding_registry[env_name](**config)
 
 
 class EnvContext(nn.Module):
+    """Base class for environment context embeddings. The context embedding is used to modify the
+    query embedding of the problem node of the current partial solution.
+    Consists of a linear layer that projects the node features to the embedding space."""
+
     def __init__(self, embedding_dim, step_context_dim=None):
-        """Get environment context and project it to embedding space"""
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
         step_context_dim = (
@@ -44,10 +49,12 @@ class EnvContext(nn.Module):
         self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
 
     def _cur_node_embedding(self, embeddings, td):
+        """Get embedding of current node"""
         cur_node_embedding = gather_by_index(embeddings, td["current_node"])
         return cur_node_embedding
 
     def _state_embedding(self, embeddings, td):
+        """Get state embedding"""
         raise NotImplementedError("Implement for each environment")
 
     def forward(self, embeddings, td):
@@ -58,6 +65,12 @@ class EnvContext(nn.Module):
 
 
 class TSPContext(EnvContext):
+    """Context embedding for the Traveling Salesman Problem (TSP).
+    Project the following to the embedding space:
+        - first node embedding
+        - current node embedding
+    """
+
     def __init__(self, embedding_dim):
         super(TSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         self.W_placeholder = nn.Parameter(
@@ -84,6 +97,12 @@ class TSPContext(EnvContext):
 
 
 class VRPContext(EnvContext):
+    """Context embedding for the Capacitated Vehicle Routing Problem (CVRP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining capacity (vehicle_capacity - used_capacity)
+    """
+
     def __init__(self, embedding_dim):
         super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
@@ -93,11 +112,16 @@ class VRPContext(EnvContext):
 
 
 class PCTSPContext(EnvContext):
+    """Context embedding for the Prize Collecting TSP (PCTSP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining prize (prize_required - cur_total_prize)
+    """
+
     def __init__(self, embedding_dim):
         super(PCTSPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        # Remaining prize to collect
         state_embedding = torch.clamp(
             td["prize_required"] - td["cur_total_prize"], min=0
         )[..., None]
@@ -105,6 +129,12 @@ class PCTSPContext(EnvContext):
 
 
 class OPContext(EnvContext):
+    """Context embedding for the Orienteering Problem (OP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining distance (max_length - tour_length)
+    """
+
     def __init__(self, embedding_dim):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
@@ -114,6 +144,11 @@ class OPContext(EnvContext):
 
 
 class DPPContext(EnvContext):
+    """Context embedding for the Decap Placement Problem (DPP), EDA (electronic design automation).
+    Project the following to the embedding space:
+        - current cell embedding
+    """
+
     def __init__(self, embedding_dim):
         super(DPPContext, self).__init__(embedding_dim)
 
@@ -125,7 +160,10 @@ class DPPContext(EnvContext):
 
 
 class PDPContext(EnvContext):
-    """From https://arxiv.org/abs/2110.02634"""
+    """Context embedding for the Pickup and Delivery Problem (PDP).
+    Project the following to the embedding space:
+        - current node embedding
+    """
 
     def __init__(self, embedding_dim):
         super(PDPContext, self).__init__(embedding_dim, embedding_dim)
@@ -136,12 +174,13 @@ class PDPContext(EnvContext):
 
 
 class MTSPContext(EnvContext):
-    """NOTE: new made by Fede in free style. May need to be checked
-    We use as features:
-        1. remaining number of agents
-        2. the current length of the tour
-        3. the max subtour length so far
-        4. the current distance from the depot
+    """Context embedding for the Multiple Traveling Salesman Problem (mTSP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining_agents
+        - current_length
+        - max_subtour_length
+        - distance_from_depot
     """
 
     def __init__(self, embedding_dim):

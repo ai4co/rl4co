@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from rl4co.models.nn.attention import MultiHeadAttention, NativeFlashMHA
-from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
 
@@ -60,7 +60,7 @@ class GraphAttentionEncoder(nn.Module):
         # To map input to embedding space
         if not disable_init_embedding:
             self.init_embedding = env_init_embedding(
-                env, {"embedding_dim": embedding_dim}
+                env.name, {"embedding_dim": embedding_dim}
             )
         else:
             log.warning("Disabling init embedding manually for GraphAttentionEncoder")

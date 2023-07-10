@@ -3,7 +3,7 @@ import torch.nn as nn
 from tensordict import TensorDict
 from torchrl.envs import EnvBase
 
-from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.zoo.mdam.decoder import Decoder
 from rl4co.models.zoo.mdam.encoder import GraphAttentionEncoder
 

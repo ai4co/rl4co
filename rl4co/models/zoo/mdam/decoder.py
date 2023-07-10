@@ -7,8 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.nn.env_context import env_context
-from rl4co.models.nn.env_embedding import env_dynamic_embedding
+from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs, get_log_likelihood
 
 
@@ -53,7 +52,7 @@ class Decoder(nn.Module):
         )  # Placeholder should be in range of activations
 
         self.context = [
-            env_context(env.name, {"embedding_dim": embedding_dim})
+            env_context_embedding(env.name, {"embedding_dim": embedding_dim})
             for _ in range(num_paths)
         ]
 
@@ -160,6 +159,7 @@ class Decoder(nn.Module):
             fixed = self._precompute(_encoded_inputs, path_index=i)
 
             j = 0
+            mask, mask_first = None, None  # dummy, we get them during the steps
             while not (self.shrink_size is None and td_list[i]["done"].all()):
                 if j > 1 and j % self.eg_step_gap == 0:
                     if not self.is_vrp:

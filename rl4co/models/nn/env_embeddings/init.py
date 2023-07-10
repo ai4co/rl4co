@@ -1,89 +1,44 @@
-from typing import Union
-
 import torch
 import torch.nn as nn
 
-from torchrl.envs import EnvBase
 
-
-def env_init_embedding(env: Union[str, EnvBase], config: dict) -> object:
-    return env_embedding(env, "init", config)
-
-
-def env_dynamic_embedding(env: Union[str, EnvBase], config: dict) -> object:
-    return env_embedding(env, "dynamic", config)
-
-
-def env_embedding(env: Union[str, EnvBase], embedding_type: str, config: dict) -> object:
-    """Create an embedding object for a given environment name and embedding type.
+def env_init_embedding(env_name: str, config: dict) -> nn.Module:
+    """Get environment initial embedding. The init embedding is used to initialize the
+    general embedding of the problem nodes without any solution information.
+    Consists of a linear layer that projects the node features to the embedding space.
 
     Args:
         env: Environment or its name.
         config: A dictionary of configuration options for the environment.
-        embedding_type: The type of embedding to create, either `init` or `dynamic`.
     """
-
-    embedding_classes = {
-        "tsp": {
-            "init": TSPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "atsp": {
-            "init": TSPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "cvrp": {
-            "init": VRPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "sdvrp": {
-            "init": VRPInitEmbedding,
-            "dynamic": SDVRPDynamicEmbedding,
-        },
-        "pctsp": {
-            "init": PCTSPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "spctsp": {
-            "init": PCTSPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "op": {
-            "init": OPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "dpp": {
-            "init": DPPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "mdpp": {
-            "init": MDPPInitEmbedding,
-            "dynamic": DPPDynamicEmbedding,
-        },
-        "pdp": {
-            "init": PDPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
-        "mtsp": {
-            "init": MTSPInitEmbedding,
-            "dynamic": StaticEmbedding,
-        },
+    embedding_registry = {
+        "tsp": TSPInitEmbedding,
+        "atsp": TSPInitEmbedding,
+        "cvrp": VRPInitEmbedding,
+        "sdvrp": VRPInitEmbedding,
+        "pctsp": PCTSPInitEmbedding,
+        "spctsp": PCTSPInitEmbedding,
+        "op": OPInitEmbedding,
+        "dpp": DPPInitEmbedding,
+        "mdpp": MDPPInitEmbedding,
+        "pdp": PDPInitEmbedding,
+        "mtsp": MTSPInitEmbedding,
     }
 
-    assert embedding_type in [
-        "init",
-        "dynamic",
-    ], "Unknown embedding type. Must be one of 'init' or 'dynamic'"
-    env_name = env if isinstance(env, str) else env.name
-    embedding_class = embedding_classes.get(env_name, {}).get(embedding_type, None)
+    if env_name not in embedding_registry:
+        raise ValueError(
+            f"Unknown environment name '{env_name}'. Available init embeddings: {embedding_registry.keys()}"
+        )
 
-    if embedding_class is None:
-        raise ValueError(f"Unknown environment name '{env_name}'")
-
-    return embedding_class(**config)
+    return embedding_registry[env_name](**config)
 
 
 class TSPInitEmbedding(nn.Module):
+    """Initial embedding for the Traveling Salesman Problems (TSP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the cities
+    """
+
     def __init__(self, embedding_dim):
         super(TSPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
@@ -95,6 +50,12 @@ class TSPInitEmbedding(nn.Module):
 
 
 class VRPInitEmbedding(nn.Module):
+    """Initial embedding for the Vehicle Routing Problems (VRP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot and customers separately)
+        - demand: demand of the customers
+    """
+
     def __init__(self, embedding_dim):
         super(VRPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, demand
@@ -115,6 +76,14 @@ class VRPInitEmbedding(nn.Module):
 
 
 class PCTSPInitEmbedding(nn.Module):
+    """Initial embedding for the Prize Collecting Traveling Salesman Problems (PCTSP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot and customers separately)
+        - expected_prize: expected prize for visiting the customers.
+            In PCTSP, this is the actual prize. In SPCTSP, this is the expected prize.
+        - penalty: penalty for not visiting the customers
+    """
+
     def __init__(self, embedding_dim):
         super(PCTSPInitEmbedding, self).__init__()
         node_dim = 4  # x, y, prize, penalty
@@ -140,6 +109,12 @@ class PCTSPInitEmbedding(nn.Module):
 
 
 class OPInitEmbedding(nn.Module):
+    """Initial embedding for the Orienteering Problems (OP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot and customers separately)
+        - prize: prize for visiting the customers
+    """
+
     def __init__(self, embedding_dim):
         super(OPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, prize
@@ -147,18 +122,28 @@ class OPInitEmbedding(nn.Module):
         self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
 
     def forward(self, td):
-        # batch, 1, 2 -> batch, 1, embedding_dim
-        depot_embedding = self.init_embed_depot(td["depot"])[:, None, :]
-        # [batch, n_city, 2, batch, n_city, 1, batch, n_city, 1]  -> batch, n_city, embedding_dim
+        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
-            torch.cat((td["locs"], td["prize"][:, :, None]), -1)
+            torch.cat(
+                (
+                    cities,
+                    td["prize"][..., 1:, None],  # exclude depot
+                ),
+                -1,
+            )
         )
-        # batch, n_city+1, embedding_dim
-        out = torch.cat((depot_embedding, node_embeddings[..., 1:, :]), 1)
+        out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
 
 class DPPInitEmbedding(nn.Module):
+    """Initial embedding for the Decap Placement Problem (DPP), EDA (electronic design automation).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (cells)
+        - probe: index of the (single) probe cell. We embed the euclidean distance from the probe to all cells.
+    """
+
     def __init__(self, embedding_dim):
         super(DPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
@@ -179,6 +164,12 @@ class DPPInitEmbedding(nn.Module):
 
 
 class MDPPInitEmbedding(nn.Module):
+    """Initial embedding for the Multi-port Placement Problem (MDPP), EDA (electronic design automation).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (cells)
+        - probe: indexes of the probe cells (multiple). We embed the euclidean distance of each cell to the closest probe.
+    """
+
     def __init__(self, embedding_dim):
         super(MDPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
@@ -203,6 +194,12 @@ class MDPPInitEmbedding(nn.Module):
 
 
 class PDPInitEmbedding(nn.Module):
+    """Initial embedding for the Pickup and Delivery Problem (PDP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot, pickups and deliveries separately)
+           Note that pickups and deliveries are interleaved in the input.
+    """
+
     def __init__(self, embedding_dim):
         super(PDPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
@@ -225,6 +222,11 @@ class PDPInitEmbedding(nn.Module):
 
 
 class MTSPInitEmbedding(nn.Module):
+    """Initial embedding for the Multiple Traveling Salesman Problem (mTSP).
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot, cities)
+    """
+
     def __init__(self, embedding_dim):
         """NOTE: new made by Fede. May need to be checked"""
         super(MTSPInitEmbedding, self).__init__()
@@ -236,64 +238,3 @@ class MTSPInitEmbedding(nn.Module):
         depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
         node_embedding = self.init_embed(td["locs"][..., 1:, :])
         return torch.cat([depot_embedding, node_embedding], -2)
-
-
-class SDVRPDynamicEmbedding(nn.Module):
-    def __init__(self, embedding_dim):
-        super(SDVRPDynamicEmbedding, self).__init__()
-        self.projection = nn.Linear(1, 3 * embedding_dim, bias=False)
-
-    def forward(self, td):
-        demands_with_depot = td["demand_with_depot"][..., None].clone()
-        demands_with_depot[..., 0, :] = 0
-        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
-            demands_with_depot
-        ).chunk(3, dim=-1)
-        return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
-
-
-class DPPDynamicEmbedding(nn.Module):
-    """Dynamic embedding for DPP. Features include:
-    1. location of placed decaps (to know where to place the next one)
-    2. decap density around each location (to know if an area has been covered)
-    """
-
-    def __init__(self, embedding_dim, radius=0.4, scale=20):
-        super(DPPDynamicEmbedding, self).__init__()
-        self.radius = radius
-        self.scale = scale
-        self.projection = nn.Linear(2, 3 * embedding_dim, bias=False)
-
-    def forward(self, td):
-        unavailable, keepouts, probes = (
-            ~td["action_mask"].clone(),
-            td["keepout"].clone(),
-            td["probe"].clone(),
-        )
-
-        placed_decaps = unavailable & ~(keepouts | probes)
-        decap_density = (
-            self._calculate_decap_density(td["locs"], placed_decaps, radius=self.radius)
-            / self.scale
-        )
-        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
-            torch.stack([placed_decaps.float(), decap_density.float()], dim=-1)
-        ).chunk(3, dim=-1)
-        return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
-
-    @staticmethod
-    def _calculate_decap_density(x, is_target, radius=0.4):
-        dists = torch.cdist(x, x, p=2)
-        infinity = torch.full_like(dists, float("inf"))
-        mask = ~is_target.unsqueeze(1).expand_as(dists)
-        dists_masked = torch.where(mask, infinity, dists)
-        density = (dists_masked < radius).sum(dim=-1)
-        return density
-
-
-class StaticEmbedding(nn.Module):
-    def __init__(self, embedding_dim):
-        super(StaticEmbedding, self).__init__()
-
-    def forward(self, td):
-        return 0, 0, 0

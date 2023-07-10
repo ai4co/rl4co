@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch_geometric.data import Batch, Data
 from torch_geometric.nn import MessagePassing
 
-from rl4co.models.nn.env_embedding import env_init_embedding
+from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.mlp import MLP
 from rl4co.utils.pylogger import get_pylogger
 
@@ -76,7 +76,9 @@ class MessagePassingEncoder(nn.Module):
         """
         super(MessagePassingEncoder, self).__init__()
         # Define the init embedding
-        self.init_embedding = env_init_embedding(env, {"embedding_dim": embedding_dim})
+        self.init_embedding = env_init_embedding(
+            env.name, {"embedding_dim": embedding_dim}
+        )
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)

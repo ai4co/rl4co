@@ -6,8 +6,7 @@ import torch.nn as nn
 from einops import rearrange
 
 from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.nn.env_context import env_context
-from rl4co.models.nn.env_embedding import env_dynamic_embedding
+from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
 from rl4co.utils import get_pylogger
 from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
@@ -42,9 +41,11 @@ class Decoder(nn.Module):
 
         assert embedding_dim % num_heads == 0
 
-        self.context = env_context(self.env, {"embedding_dim": embedding_dim})
+        self.context = env_context_embedding(
+            self.env.name, {"embedding_dim": embedding_dim}
+        )
         self.dynamic_embedding = env_dynamic_embedding(
-            self.env, {"embedding_dim": embedding_dim}
+            self.env.name, {"embedding_dim": embedding_dim}
         )
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
