@@ -48,7 +48,8 @@ dependencies = [
     "wandb",
     "pre-commit>=3.3.3",
     "matplotlib",
-    "scipy"
+    "scipy",
+    "pydantic<2.0.0" # Temporary bugfix https://github.com/Lightning-AI/lightning/pull/18022
 ]
 
 [project.optional-dependencies]
