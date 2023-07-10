@@ -12,7 +12,7 @@ import torch
 project = 'rl4co'
 copyright = 'Federico Berto, Chuanbo Hua, Junyoung Park'
 author = 'Federico Botu, Chuanbo Hua, Junyoung Park, Minsu Kim, Hyeonah Kim, Jiwoo Son, Haeyeon Kim, Joungho Kim, Jinkyoo Park'
-release = 'v0.0.3'
+release = 'v0.0.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
