@@ -10,7 +10,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.cvrp import CVRPEnv, CAPACITIES
+from rl4co.envs.cvrp import CVRPEnv
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
@@ -61,7 +61,7 @@ class SDVRPEnv(CVRPEnv):
             td_params=td_params,
             **kwargs,
         )
-    
+
     def _step(self, td: TensorDict) -> TensorDict:
         # Update the state
         current_node = td["action"][:, None]  # Add dimension for step
@@ -70,13 +70,19 @@ class SDVRPEnv(CVRPEnv):
         selected_demand = gather_by_index(
             td["demand_with_depot"], current_node, dim=-1, squeeze=False
         )[..., :1]
-        delivered_demand = torch.min(selected_demand, td["vehicle_capacity"] - td["used_capacity"])
+        delivered_demand = torch.min(
+            selected_demand, td["vehicle_capacity"] - td["used_capacity"]
+        )
 
         # Increase capacity if depot is not visited, otherwise set to 0
-        used_capacity = (td["used_capacity"] + delivered_demand) * (current_node != 0).float()
+        used_capacity = (td["used_capacity"] + delivered_demand) * (
+            current_node != 0
+        ).float()
 
         # Update demand
-        demand_with_depot = td["demand_with_depot"].scatter_add(-1, current_node, -delivered_demand)
+        demand_with_depot = td["demand_with_depot"].scatter_add(
+            -1, current_node, -delivered_demand
+        )
 
         # Get done and reward (-inf since we get it outside)
         done = ~(demand_with_depot > 0).any(-1)
@@ -111,51 +117,56 @@ class SDVRPEnv(CVRPEnv):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        self.device = td.device
+        self.device = td["locs"].device
 
         # Create reset TensorDict
         reset_td = TensorDict(
             {
                 "locs": torch.cat((td["depot"][..., None, :], td["locs"]), -2),
                 "demand": td["demand"],
-                "demand_with_depot": torch.cat((torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), -1),
-                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=self.device),
+                "demand_with_depot": torch.cat(
+                    (torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), -1
+                ),
+                "current_node": torch.zeros(
+                    *batch_size, 1, dtype=torch.long, device=self.device
+                ),
                 "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
-                "vehicle_capacity": torch.full((*batch_size, 1), self.vehicle_capacity, device=self.device),
+                "vehicle_capacity": torch.full(
+                    (*batch_size, 1), self.vehicle_capacity, device=self.device
+                ),
             },
             batch_size=batch_size,
         )
         reset_td.set("action_mask", self.get_action_mask(reset_td))
         return reset_td
-    
+
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
-        mask_loc = (td["demand_with_depot"][..., 1:] == 0) | (td["used_capacity"] >= td["vehicle_capacity"])
-        mask_depot = (td["current_node"] == 0).squeeze(-1) & ((mask_loc == 0).int().sum(-1) > 0)
+        mask_loc = (td["demand_with_depot"][..., 1:] == 0) | (
+            td["used_capacity"] >= td["vehicle_capacity"]
+        )
+        mask_depot = (td["current_node"] == 0).squeeze(-1) & (
+            (mask_loc == 0).int().sum(-1) > 0
+        )
         return ~torch.cat((mask_depot[..., None], mask_loc), -1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         """Check that the solution is valid (all demand is satisfied)"""
-        
+
         batch_size, graph_size = td["demand"].size()
 
         # Each node can be visited multiple times, but we always deliver as much demand as possible
         # We check that at the end all demand has been satisfied
-        demands = torch.cat(
-            (
-                -td["vehicle_capacity"],
-                td['demand']
-            ),
-            1
-        )
+        demands = torch.cat((-td["vehicle_capacity"], td["demand"]), 1)
 
         rng = torch.arange(batch_size, out=demands.data.new().long())
-        used_cap = torch.zeros_like(td['demand'][..., 0])
+        used_cap = torch.zeros_like(td["demand"][..., 0])
         a_prev = None
         for a in actions.transpose(0, 1):
-            assert a_prev is None or (demands[((a_prev == 0) & (a == 0)), :] == 0).all(), \
-                "Cannot visit depot twice if any nonzero demand"
+            assert (
+                a_prev is None or (demands[((a_prev == 0) & (a == 0)), :] == 0).all()
+            ), "Cannot visit depot twice if any nonzero demand"
             d = torch.min(demands[rng, a], td["vehicle_capacity"].squeeze(-1) - used_cap)
             demands[rng, a] -= d
             used_cap += d
@@ -183,7 +194,7 @@ class SDVRPEnv(CVRPEnv):
                 dtype=torch.float32,
             ),
             demand_with_depot=BoundedTensorSpec(
-                minimum=self.min_demand, 
+                minimum=self.min_demand,
                 maximum=self.max_demand,
                 shape=(self.num_loc + 1, 1),
                 dtype=torch.float32,
