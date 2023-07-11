@@ -5,6 +5,13 @@ log = get_pylogger(__name__)
 
 
 class SPCTSPEnv(PCTSPEnv):
+    """Stochastic Prize Collecting Traveling Salesman Problem (SPCTSP) environment.
+
+    Note:
+        The only difference with deterministic PCTSP is that the prizes are stochastic
+        (i.e. the expected prize is not the same as the real prize).
+    """
+
     name = "spctsp"
     _stochastic = True
 

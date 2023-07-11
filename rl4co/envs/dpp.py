@@ -23,9 +23,25 @@ log = get_pylogger(__name__)
 
 
 class DPPEnv(RL4COEnvBase):
-    """Decap placement problem as done in DevFormer paper
+    """Decap placement problem as done in DevFormer paper: https://arxiv.org/abs/2205.13225
 
-    https://arxiv.org/abs/2205.13225
+    The environment is a 10x10 grid with 100 locations containing either a probing port or a keepout region.
+    The goal is to place decaps (decoupling capacitors) to maximize the impedance suppression at the probing port.
+    Decaps cannot be placed in keepout regions or at the probing port and the number of decaps is limited.
+
+    Args:
+        min_loc: Minimum location value. Defaults to 0.
+        max_loc: Maximum location value. Defaults to 1.
+        num_keepout_min: Minimum number of keepout regions. Defaults to 1.
+        num_keepout_max: Maximum number of keepout regions. Defaults to 50.
+        max_decaps: Maximum number of decaps. Defaults to 20.
+        data_dir: Directory to store data. Defaults to "data/dpp/".
+            This can be downloaded from this [url](https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95).
+        chip_file: Name of the chip file. Defaults to "10x10_pkg_chip.npy".
+        decap_file: Name of the decap file. Defaults to "01nF_decap.npy".
+        freq_file: Name of the frequency file. Defaults to "freq_201.npy".
+        url: URL to download data from. Defaults to None.
+        td_params: TensorDict parameters. Defaults to None.
     """
 
     name = "dpp"

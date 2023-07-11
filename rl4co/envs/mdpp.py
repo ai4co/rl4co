@@ -24,6 +24,12 @@ class MDPPEnv(DPPEnv):
         - minmax: min of the max of the decap scores
         - meansum: mean of the sum of the decap scores
     The minmax is more challenging as it requires to find the best decap location for the worst case
+
+    Args:
+        num_probes_min: minimum number of probes
+        num_probes_max: maximum number of probes
+        reward_type: reward type, either minmax or meansum
+        td_params: TensorDict parameters
     """
 
     name = "mdpp"
@@ -329,7 +335,7 @@ class MDPPEnv(DPPEnv):
             ]
             ax.legend(
                 handles,
-                [l for l in labels],
+                [label for label in labels],
                 ncol=len(colors),
                 loc="upper center",
                 bbox_to_anchor=(0.5, 1.1),

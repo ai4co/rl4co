@@ -17,13 +17,13 @@ class RL4COEnvBase(EnvBase):
     """Base class for RL4CO environments based on TorchRL EnvBase
 
     Args:
-        data_dir (str): Root directory for the dataset
-        train_file (str): Name of the training file
-        val_file (str): Name of the validation file
-        test_file (str): Name of the test file
-        check_solution (bool): Whether to check the validity of the solution at the end of the episode
-        seed (int): Seed for the environment
-        device (str): Device to use. Generally, no need to set as tensors are updated on the fly
+        data_dir: Root directory for the dataset
+        train_file: Name of the training file
+        val_file: Name of the validation file
+        test_file: Name of the test file
+        check_solution: Whether to check the validity of the solution at the end of the episode
+        seed: Seed for the environment
+        device: Device to use. Generally, no need to set as tensors are updated on the fly
     """
 
     batch_locked = False

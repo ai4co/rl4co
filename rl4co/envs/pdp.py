@@ -15,11 +15,11 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 
 
 class PDPEnv(RL4COEnvBase):
-    """Pickup and Delivery Problem (PDP) environment
+    """Pickup and Delivery Problem (PDP) environment.
     The environment is made of num_loc + 1 locations (cities):
-    - 1 depot
-    - num_loc / 2 pickup locations
-    - num_loc / 2 delivery locations
+        - 1 depot
+        - `num_loc` / 2 pickup locations
+        - `num_loc` / 2 delivery locations
     The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
     The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
 

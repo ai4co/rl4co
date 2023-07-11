@@ -13,7 +13,7 @@ from torchrl.data import (
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.envs.common.utils import batch_to_scalar
-from rl4co.utils.ops import get_distance, gather_by_index, get_tour_length
+from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
 
 
 class MTSPEnv(RL4COEnvBase):
@@ -23,6 +23,15 @@ class MTSPEnv(RL4COEnvBase):
         - `minmax`: (default) the reward is the maximum of the path lengths of all the agents
         - `sum`: the cost is the sum of the path lengths of all the agents
     Reward is - cost, so the goal is to maximize the reward (minimize the cost).
+
+    Args:
+        num_loc: number of locations (cities) to visit
+        min_loc: minimum value of the locations
+        max_loc: maximum value of the locations
+        min_num_agents: minimum number of agents
+        max_num_agents: maximum number of agents
+        cost_type: type of cost to use, either `minmax` or `sum`
+        td_params: parameters for the TensorDict specs
     """
 
     name = "mtsp"

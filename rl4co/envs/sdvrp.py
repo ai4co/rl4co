@@ -26,14 +26,14 @@ class SDVRPEnv(CVRPEnv):
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
-        num_loc (int): number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
-        min_loc (float): minimum value for the location coordinates
-        max_loc (float): maximum value for the location coordinates
-        min_demand (float): minimum value for the demand of each customer
-        max_demand (float): maximum value for the demand of each customer
-        vehicle_capacity (float): capacity of the vehicle
-        capacity (float): capacity of the vehicle
-        td_params (TensorDict): parameters of the environment
+        num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        min_loc: minimum value for the location coordinates
+        max_loc: maximum value for the location coordinates
+        min_demand: minimum value for the demand of each customer
+        max_demand: maximum value for the demand of each customer
+        vehicle_capacity: capacity of the vehicle
+        capacity: capacity of the vehicle
+        td_params: parameters of the environment
     """
 
     name = "sdvrp"

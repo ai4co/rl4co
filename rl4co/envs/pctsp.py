@@ -28,18 +28,18 @@ MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 
 
 class PCTSPEnv(RL4COEnvBase):
-    """Prize-collecting TSP environment
-    The goal is to collect as much prize as possible while minimizing the total travel cost
-    The environment is stochastic, the prize is only revealed when the node is visited
+    """Prize-collecting TSP (PCTSP) environment.
+    The goal is to collect as much prize as possible while minimizing the total travel cost.
+    The environment is stochastic, the prize is only revealed when the node is visited.
 
     Args:
-        num_loc (int): Number of locations
-        min_loc (float): Minimum location value
-        max_loc (float): Maximum location value
-        penalty_factor (float): Penalty factor
-        prize_required (float): Minimum prize required to visit a node
-        check_solution (bool): Set to False by default for small bug happening around 0.01% of the time (TODO: fix)
-        td_params (TensorDict): Parameters of the environment
+        num_loc: Number of locations
+        min_loc: Minimum location value
+        max_loc: Maximum location value
+        penalty_factor: Penalty factor
+        prize_required: Minimum prize required to visit a node
+        check_solution: Set to False by default for small bug happening around 0.01% of the time (TODO: fix)
+        td_params: Parameters of the environment
     """
 
     name = "pctsp"
