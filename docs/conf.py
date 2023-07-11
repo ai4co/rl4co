@@ -9,12 +9,12 @@ import sys
 
 sys.path.append("..")  # ! add rl4co path
 sys.path.insert(0, "../rl4co")  # ! add rl4co path
-import rl4co
 
 project = "rl4co"
 copyright = "Federico Berto, Chuanbo Hua, Junyoung Park"
 author = "Federico Berto, Chuanbo Hua, Junyoung Park, Minsu Kim, Hyeonah Kim, Jiwoo Son, Haeyeon Kim, Joungho Kim, Jinkyoo Park"
 
+import rl4co
 
 release = rl4co.__version__
 
