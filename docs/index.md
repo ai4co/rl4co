@@ -35,13 +35,28 @@ RL4CO is built upon:
 
 .. toctree::
    :maxdepth: 2
-   :caption: API documentation:
+   :caption: Models:
+
+   _content/api/models/zoo
+   _content/api/models/rl
+   _content/api/models/nn
+   _content/api/models/env_embeddings
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Environments:
+
+   _content/api/envs/base
+   _content/api/envs/eda
+   _content/api/envs/routing
+   _content/api/envs/scheduling
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional API:
 
    _content/api/data
-   _content/api/envs
-   _content/api/models_nn
-   _content/api/models_rl
-   _content/api/models_zoo
 
 .. toctree::
    :maxdepth: 2

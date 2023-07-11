@@ -1,6 +1,6 @@
-# rl4co.models.zoo
+# Model Zoo
 
-## rl4co.models.zoo.am
+## Attention Model (AM)
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.am.model
@@ -20,7 +20,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.amppo
+## Attention Model (AM-PPO)
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.amppo.model
@@ -40,7 +40,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.ham
+## Heterogeneous Attention Model (HAM)
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.ham.model
@@ -66,7 +66,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.mdam
+## Multi-Decoder Attention Model (MDAM)
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.mdam.model
@@ -92,7 +92,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.pomo
+## POMO
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.pomo.model
@@ -118,7 +118,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.ptrnet
+## Pointer Network (PtrNet)
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.ptrnet.model
@@ -150,7 +150,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.zoo.symnco
+## SymNCO
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.symnco.model

@@ -1,6 +1,6 @@
-# rl4co.models.nn
+# `nn` Modules
 
-## rl4co.models.nn.graph
+## Graph Neural Networks
 
 ### Graph Attention Encoder
 
@@ -34,21 +34,6 @@
    :undoc-members:
 ```
 
-## rl4co.models.nn.env_context
-
-```{eval-rst}
-.. automodule:: rl4co.models.nn.env_context
-   :members:
-   :undoc-members:
-```
-
-## rl4co.models.nn.env_embedding
-
-```{eval-rst}
-.. automodule:: rl4co.models.nn.env_embedding
-   :members:
-   :undoc-members:
-```
 
 ## rl4co.models.nn.flash_attention
 

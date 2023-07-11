@@ -1,6 +1,6 @@
-# rl4co.models.rl
+# RL Algorithms
 
-## rl4co.models.rl.ppo
+## PPO
 
 ```{eval-rst}
 .. automodule:: rl4co.models.rl.ppo.model
@@ -14,7 +14,7 @@
    :undoc-members:
 ```
 
-## rl4co.models.rl.reinforce
+## REINFORCE
 
 ```{eval-rst}
 .. automodule:: rl4co.models.rl.reinforce.base
