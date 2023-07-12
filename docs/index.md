@@ -24,6 +24,8 @@ RL4CO is built upon:
 
 <img class="full-img" alt="image" src="https://github.com/kaist-silab/rl4co/assets/48984123/0db4efdd-1c93-4991-8f09-f3c6c1f35d60">
 
+
+
 ```{eval-rst}
 .. toctree::
    :maxdepth: 2
@@ -35,12 +37,12 @@ RL4CO is built upon:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Models:
+   :caption: Algorithms:
 
-   _content/api/models/zoo
-   _content/api/models/rl
-   _content/api/models/nn
-   _content/api/models/env_embeddings
+   _content/api/algos/base
+   _content/api/algos/reinforce
+   _content/api/algos/ppo
+
 
 .. toctree::
    :maxdepth: 2
@@ -50,6 +52,14 @@ RL4CO is built upon:
    _content/api/envs/eda
    _content/api/envs/routing
    _content/api/envs/scheduling
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Models:
+
+   _content/api/models/zoo
+   _content/api/models/nn
+   _content/api/models/env_embeddings
 
 
 .. toctree::
