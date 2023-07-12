@@ -2,28 +2,56 @@ from typing import Any, Union
 
 import torch
 import torch.nn as nn
+
 from lightning import LightningModule
 from torch.utils.data import DataLoader
 
 from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.data.generate_data import generate_default_datasets
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.utils.lr_scheduler_helpers import create_scheduler
-from rl4co.utils.optim_helpers import create_optimizer
+from rl4co.utils.optim_helpers import create_optimizer, create_scheduler
 from rl4co.utils.pylogger import get_pylogger
+from rl4co.utils.utils import disable_profiling_executor
 
 log = get_pylogger(__name__)
 
 
 class RL4COLitModule(LightningModule):
+    """Base class for Lightning modules for RL4CO. This defines the general training loop in terms of
+    RL algorithms. Subclasses should implement mainly the `shared_step` to define the specific
+    loss functions and optimization routines.
+
+    Args:
+        env: RL4CO environment
+        policy: policy network (actor)
+        batch_size: batch size (general one, default used for training)
+        val_batch_size: specific batch size for validation
+        test_batch_size: specific batch size for testing
+        train_dataset_size: size of training dataset
+        val_dataset_size: size of validation dataset
+        test_dataset_size: size of testing dataset
+        optimizer: optimizer or optimizer name
+        optimizer_kwargs: optimizer kwargs
+        lr_scheduler: learning rate scheduler or learning rate scheduler name
+        lr_scheduler_kwargs: learning rate scheduler kwargs
+        lr_scheduler_interval: learning rate scheduler interval
+        lr_scheduler_monitor: learning rate scheduler monitor
+        generate_data: whether to generate data
+        shuffle_train_dataloader: whether to shuffle training dataloader
+        dataloader_num_workers: number of workers for dataloader
+        data_dir: data directory
+        disable_profiling: whether to disable profiling executor
+        metrics: metrics
+        litmodule_kwargs: kwargs for `LightningModule`
+    """
+
     def __init__(
         self,
         env: RL4COEnvBase,
         policy: nn.Module,
         batch_size: int = 512,
-        train_batch_size: int = None,  # minimum batch size for training
-        val_batch_size: int = None,  # minimum batch size for validation
-        test_batch_size: int = None,  # minimum batch size for testing
+        val_batch_size: int = None,
+        test_batch_size: int = None,
         train_dataset_size: int = 1_280_000,
         val_dataset_size: int = 10_000,
         test_dataset_size: int = 10_000,
@@ -41,28 +69,23 @@ class RL4COLitModule(LightningModule):
         dataloader_num_workers: int = 0,
         data_dir: str = "data/",
         disable_profiling: bool = True,
+        log_on_step: bool = True,
         metrics: dict = {},
         **litmodule_kwargs,
     ):
         super().__init__(**litmodule_kwargs)
 
         if disable_profiling:
-            # Disable profiling executor. This reduces memory and increases speed.
-            # https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
-            try:
-                torch._C._jit_set_profiling_executor(False)
-                torch._C._jit_set_profiling_mode(False)
-            except AttributeError:
-                pass
+            disable_profiling_executor()
 
         self.env = env
         self.policy = policy
 
         self.instantiate_metrics(metrics)
+        self.log_on_step = log_on_step
 
-        self.data_config = {
+        self.data_cfg = {
             "batch_size": batch_size,
-            "train_batch_size": train_batch_size,
             "val_batch_size": val_batch_size,
             "test_batch_size": test_batch_size,
             "generate_data": generate_data,
@@ -83,10 +106,12 @@ class RL4COLitModule(LightningModule):
 
         self.shuffle_train_dataloader = shuffle_train_dataloader
         self.dataloader_num_workers = dataloader_num_workers
+
         self.save_hyperparameters()
 
     def instantiate_metrics(self, metrics: dict):
         """Dictionary of metrics to be logged at each phase"""
+
         if not metrics:
             log.info("No metrics specified, using default")
         self.train_metrics = metrics.get("train", ["loss", "reward"])
@@ -95,43 +120,45 @@ class RL4COLitModule(LightningModule):
         self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
-        log.info("Setting up batch sizes for train/val/test")
+        """Base LightningModule setup method. This will setup the datasets and dataloaders"""
 
-        batch_size = self.data_config["batch_size"]
-        if self.data_config["train_batch_size"] is not None:
-            train_batch_size = self.data_config["train_batch_size"]
-            if batch_size is not None:
-                log.warning(
-                    f"`train_batch_size`={train_batch_size} specified, ignoring `batch_size`={batch_size}"
-                )
-        elif batch_size is not None:
-            train_batch_size = batch_size
-        else:
-            train_batch_size = 64
-            log.warning(f"No batch size specified, using default as {train_batch_size}")
+        log.info("Setting up batch sizes for train/val/test")
+        train_bs, val_bs, test_bs = (
+            self.data_cfg["batch_size"],
+            self.data_cfg["val_batch_size"],
+            self.data_cfg["test_batch_size"],
+        )
+        self.train_batch_size = train_bs
+        self.val_batch_size = train_bs if val_bs is None else val_bs
+        self.test_batch_size = train_bs if test_bs is None else test_bs
 
         log.info("Setting up datasets")
-
         # Create datasets automatically. If found, this will skip
         if self.data_cfg["generate_data"]:
-            generate_default_datasets(data_dir=self.data_config["data_dir"])
+            generate_default_datasets(data_dir=self.data_cfg["data_dir"])
 
         self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.data_config["train_dataset_size"], phase="train")
+            self.env.dataset(self.data_cfg["train_dataset_size"], phase="train")
         )
-        self.val_dataset = self.env.dataset(self.data_config["val_dataset_size"], phase="val")
-        self.test_dataset = self.env.dataset(self.data_config["test_dataset_size"], phase="test")
+        self.val_dataset = self.env.dataset(
+            self.data_cfg["val_dataset_size"], phase="val"
+        )
+        self.test_dataset = self.env.dataset(
+            self.data_cfg["test_dataset_size"], phase="test"
+        )
 
         if hasattr(self.policy, "setup"):
             self.policy.setup(self)
         self.post_setup_hook()
 
     def post_setup_hook(self):
+        """Hook to be called after setup. Can be used to set up subclasses without overriding `setup`"""
         pass
 
     def configure_optimizers(self):
         """
-        Todo: Designing a behavior that can pass user-defined optimizers and schedulers
+        Todo:
+            Designing a behavior that can pass user-defined optimizers and schedulers
         """
 
         # instantiate optimizer
@@ -165,8 +192,11 @@ class RL4COLitModule(LightningModule):
             }
 
     def log_metrics(self, metric_dict: dict, phase: str):
+        """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
-        metrics = {f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics}
+        metrics = {
+            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
+        }
 
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
@@ -181,6 +211,7 @@ class RL4COLitModule(LightningModule):
         return metrics
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
+        """Shared step between train/val/test. To be implemented in subclass"""
         raise NotImplementedError("Shared step is required to implemented in subclass")
 
     def training_step(self, batch: Any, batch_idx: int):
@@ -205,17 +236,24 @@ class RL4COLitModule(LightningModule):
         return self._dataloader(self.test_dataset, self.test_batch_size)
 
     def on_train_epoch_end(self):
-        if hasattr(self.model, "on_train_epoch_end"):
-            self.model.on_train_epoch_end(self)
+        """Called at the end of the training epoch. This can be used for instance to update the train dataset
+        with new data (which is the case in RL).
+        """
+        if hasattr(self.policy, "on_train_epoch_end"):
+            self.policy.on_train_epoch_end(self)
         train_dataset = self.env.dataset(self.train_size, "train")
         self.train_dataset = self.wrap_dataset(train_dataset)
 
     def wrap_dataset(self, dataset):
-        if hasattr(self.model, "wrap_dataset") and not self.cfg.get("disable_wrap_dataset", False):
-            dataset = self.policy.wrap_dataset(self, dataset)
+        """Wrap dataset with policy-specific wrapper. This is useful i.e. in REINFORCE where we need to
+        collect the greedy rollout baseline outputs.
+        """
         return dataset
 
     def _dataloader(self, dataset, batch_size, shuffle=False):
+        """The dataloader used by the trainer. This is a wrapper around the dataset with a custom collate_fn
+        to efficiently handle TensorDicts.
+        """
         return DataLoader(
             dataset,
             batch_size=batch_size,
