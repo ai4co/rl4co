@@ -12,3 +12,18 @@ from rl4co.envs.pdp import PDPEnv
 from rl4co.envs.sdvrp import SDVRPEnv
 from rl4co.envs.spctsp import SPCTSPEnv
 from rl4co.envs.tsp import TSPEnv
+
+# Register environments
+ENV_REGISTRY = {
+    "atsp": ATSPEnv,
+    "cvrp": CVRPEnv,
+    "dpp": DPPEnv,
+    "mdpp": MDPPEnv,
+    "mtsp": MTSPEnv,
+    "op": OPEnv,
+    "pctsp": PCTSPEnv,
+    "pdp": PDPEnv,
+    "sdvrp": SDVRPEnv,
+    "spctsp": SPCTSPEnv,
+    "tsp": TSPEnv,
+}
