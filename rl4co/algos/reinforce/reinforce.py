@@ -1,10 +1,10 @@
 from typing import Any, Union
 
+import torch.nn as nn
+
 from rl4co.algos.common.base import RL4COLitModule
-from rl4co.algos.reinforce.baselines import (
-    REINFORCE_BASELINES_REGISTRY,
-    REINFORCEBaseline,
-)
+from rl4co.algos.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
+from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.pylogger import get_pylogger
 
@@ -13,41 +13,39 @@ log = get_pylogger(__name__)
 
 class REINFORCE(RL4COLitModule):
     """REINFORCE algorithm, also known as policy gradients.
-
+    See superclass `RL4COLitModule` for more details.
 
     Args:
+        env: Environment to use for the algorithm
+        policy: Policy to use for the algorithm
         baseline: REINFORCE baseline
-        baseline_kwargs: Keyword arguments for baseline. Ignored if baseline is not a string.
+        baseline_kwargs: Keyword arguments for baseline. Ignored if baseline is not a string
+        **kwargs: Keyword arguments passed to the superclass
     """
 
     def __init__(
         self,
+        env: RL4COEnvBase,
+        policy: nn.Module,
         baseline: Union[REINFORCEBaseline, str] = "rollout",
         baseline_kwargs={},
-        *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(env, policy, **kwargs)
 
         if isinstance(baseline, str):
-            baseline_cls = REINFORCE_BASELINES_REGISTRY.get(baseline, None)
-            if baseline_cls is None:
-                raise ValueError(
-                    f"Unknown baseline {baseline_cls}. Available baselines: {REINFORCE_BASELINES_REGISTRY.keys()}"
-                )
-            self.baseline = baseline_cls(**baseline_kwargs)
-
+            baseline = get_reinforce_baseline(baseline, **baseline_kwargs)
         else:
-            self.baseline = baseline
             if baseline_kwargs != {}:
                 log.warning("baseline_kwargs is ignored when baseline is not a string")
+        self.baseline = baseline
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(batch)
         extra = td.get("extra", None)
 
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
-        out: dict = self.policy(td, "train", extra)
+        out: dict = self.policy(td, self.env, phase=phase)
 
         # Compute loss
         if phase == "train":
@@ -83,6 +81,7 @@ class REINFORCE(RL4COLitModule):
         )
 
     def on_train_epoch_end(self):
+        """Callback for end of training epoch: we evaluate the baseline"""
         self.baseline.epoch_callback(
             self.policy,
             env=self.env,
@@ -93,7 +92,7 @@ class REINFORCE(RL4COLitModule):
         )
 
     def wrap_dataset(self, dataset):
-        """Wrap dataset for baseline evaluation"""
+        """Wrap dataset from baseline evaluation. Used in greedy rollout baseline"""
         return self.baseline.wrap_dataset(
             dataset,
             self.env,

@@ -24,7 +24,7 @@ except ImportError:
     ):
         """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
         if scale is None:
-            scale = Q.size(-1) ** -0.5  # scale factor
+            scale = math.sqrt(Q.size(-1))  # scale factor
         # compute the attention scores
         attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / scale
         # apply causal masking if required
@@ -53,19 +53,35 @@ def flash_attn_wrapper(self, func, *args, **kwargs):
         return func(*args, **kwargs)
 
 
-class NativeFlashMHA(nn.Module):
-    """PyTorch native implementation of Flash Multi-Head Attention with automatic mixed precision support."""
+class MultiHeadAttention(nn.Module):
+    """PyTorch native implementation of Flash Multi-Head Attention with automatic mixed precision support.
+    Uses PyTorch's native `scaled_dot_product_attention` implementation, available from 2.0
+
+    Note:
+        If `scaled_dot_product_attention` is not available, use custom implementation of `scaled_dot_product_attention` without Flash Attention.
+        In case you want to use Flash Attention, you may have a look at the MHA module under `rl4co.models.nn.flash_attention.MHA`.
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        bias: whether to use bias
+        attention_dropout: dropout rate for attention weights
+        causal: whether to apply causal mask to attention scores
+        device: torch device
+        dtype: torch dtype
+        force_flash_attn: whether to force flash attention. If True, then we automatically cast to fp16
+    """
 
     def __init__(
         self,
-        embed_dim,
-        num_heads,
-        bias=True,
-        attention_dropout=0.0,
-        causal=False,
+        embed_dim: int,
+        num_heads: int,
+        bias: bool = True,
+        attention_dropout: float = 0.0,
+        causal: bool = False,
         device=None,
         dtype=None,
-        force_flash_attn=False,
+        force_flash_attn: bool = False,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -107,85 +123,6 @@ class NativeFlashMHA(nn.Module):
     flash_attn_wrapper = flash_attn_wrapper
 
 
-class MultiHeadAttention(nn.Module):
-    """Multi-Head Attention module following Kool et al. (2019)"""
-
-    def __init__(self, embed_dim, num_heads, **kwargs):
-        super(MultiHeadAttention, self).__init__()
-
-        self.num_heads = num_heads
-        self.embed_dim = embed_dim
-        self.hdim = embed_dim // num_heads
-
-        self.norm_factor = 1 / math.sqrt(self.hdim)  # See Attention is all you need
-
-        self.Wq = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
-        self.Wk = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
-        self.Wv = nn.Parameter(torch.Tensor(num_heads, embed_dim, self.hdim))
-
-        self.Wout = nn.Parameter(torch.Tensor(num_heads, self.hdim, embed_dim))
-
-        self.init_parameters()
-
-    def init_parameters(self):
-        for param in self.parameters():
-            stdv = 1.0 / math.sqrt(param.size(-1))
-            param.data.uniform_(-stdv, stdv)
-
-    def forward(self, q, h=None, mask=None):
-        """q: queries (batch_size, n_query, input_dim)
-        h: data (batch_size, graph_size, input_dim)
-        mask: mask (batch_size, n_query, graph_size) or viewable as that (i.e. can be 2 dim if n_query == 1)
-        Mask should contain 1 if attention is not possible (i.e. mask is negative adjacency)
-        """
-
-        if h is None:
-            h = q  # compute self-attention
-
-        batch_size, graph_size, input_dim = h.size()
-        n_query = q.size(1)
-        assert q.size(0) == batch_size
-        assert q.size(2) == input_dim
-
-        hflat = h.contiguous().view(-1, input_dim)
-        qflat = q.contiguous().view(-1, input_dim)
-
-        # Last dimension can be different for keys and values
-        shp = (self.num_heads, batch_size, graph_size, -1)
-        shp_q = (self.num_heads, batch_size, n_query, -1)
-
-        # Calculate queries, (num_heads, n_query, graph_size, key/val_size)
-        Q = torch.matmul(qflat, self.Wq).view(shp_q)
-        # Calculate keys and values (num_heads, batch_size, graph_size, key/val_size)
-        K = torch.matmul(hflat, self.Wk).view(shp)
-        V = torch.matmul(hflat, self.Wv).view(shp)
-
-        # Calculate compatibility (num_heads, batch_size, n_query, graph_size)
-        compatibility = self.norm_factor * torch.matmul(Q, K.transpose(2, 3))
-
-        # Optionally apply mask to prevent attention
-        if mask is not None:
-            mask = mask.view(1, batch_size, n_query, graph_size).expand_as(compatibility)
-            compatibility[mask] = float("-inf")  # -np.inf
-
-        attn = torch.softmax(compatibility, dim=-1)
-
-        # If there are nodes with no neighbours then softmax returns nan so we fix them to 0
-        if mask is not None:
-            attnc = attn.clone()
-            attnc[mask] = 0
-            attn = attnc
-
-        heads = torch.matmul(attn, V)
-
-        out = torch.mm(
-            heads.permute(1, 2, 0, 3).contiguous().view(-1, self.num_heads * self.hdim),
-            self.Wout.view(-1, self.embed_dim),
-        ).view(batch_size, n_query, self.embed_dim)
-
-        return out
-
-
 class LogitAttention(nn.Module):
     """Calculate logits given query, key and value and logit key
     If we use Flash Attention, then we automatically move to fp16 for inner computations
@@ -196,18 +133,28 @@ class LogitAttention(nn.Module):
         2. Project heads to get glimpse
         3. Compute attention score between glimpse and logit key
         4. Normalize and mask
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        tanh_clipping: tanh clipping value
+        mask_inner: whether to mask inner attention
+        mask_logits: whether to mask logits
+        normalize: whether to normalize logits
+        softmax_temp: softmax temperature
+        force_flash_attn: whether to force flash attention. If True, then we automatically cast to fp16
     """
 
     def __init__(
         self,
-        embed_dim,
-        num_heads,
-        tanh_clipping=10.0,
-        mask_inner=True,
-        mask_logits=True,
-        normalize=True,
-        softmax_temp=1.0,
-        force_flash_attn=False,
+        embed_dim: int,
+        num_heads: int,
+        tanh_clipping: float = 10.0,
+        mask_inner: bool = True,
+        mask_logits: bool = True,
+        normalize: bool = True,
+        softmax_temp: float = 1.0,
+        force_flash_attn: bool = False,
     ):
         super(LogitAttention, self).__init__()
         self.num_heads = num_heads

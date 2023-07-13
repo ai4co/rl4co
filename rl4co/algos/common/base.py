@@ -2,6 +2,7 @@ from typing import Any, Union
 
 import torch
 import torch.nn as nn
+
 from lightning import LightningModule
 from torch.utils.data import DataLoader
 
@@ -139,8 +140,12 @@ class RL4COLitModule(LightningModule):
         self.train_dataset = self.wrap_dataset(
             self.env.dataset(self.data_cfg["train_dataset_size"], phase="train")
         )
-        self.val_dataset = self.env.dataset(self.data_cfg["val_dataset_size"], phase="val")
-        self.test_dataset = self.env.dataset(self.data_cfg["test_dataset_size"], phase="test")
+        self.val_dataset = self.env.dataset(
+            self.data_cfg["val_dataset_size"], phase="val"
+        )
+        self.test_dataset = self.env.dataset(
+            self.data_cfg["test_dataset_size"], phase="test"
+        )
 
         if hasattr(self.policy, "setup"):
             self.policy.setup(self)
@@ -189,7 +194,9 @@ class RL4COLitModule(LightningModule):
     def log_metrics(self, metric_dict: dict, phase: str):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
-        metrics = {f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics}
+        metrics = {
+            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
+        }
 
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
@@ -202,6 +209,10 @@ class RL4COLitModule(LightningModule):
             add_dataloader_idx=False,
         )
         return metrics
+
+    def forward(self, td, **kwargs):
+        """Forward pass for the model"""
+        return self.policy(td, self.env, **kwargs)
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         """Shared step between train/val/test. To be implemented in subclass"""

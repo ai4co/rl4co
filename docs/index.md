@@ -57,6 +57,7 @@ RL4CO is built upon:
    :maxdepth: 2
    :caption: Models:
 
+   _content/api/models/base
    _content/api/models/zoo
    _content/api/models/nn
    _content/api/models/env_embeddings

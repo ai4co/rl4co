@@ -250,3 +250,13 @@ REINFORCE_BASELINES_REGISTRY = {
     "critic": CriticBaseline,
     "rollout": RolloutBaseline,
 }
+
+
+def get_reinforce_baseline(name, **kw):
+    """Get a REINFORCE baseline by name"""
+    baseline_cls = REINFORCE_BASELINES_REGISTRY.get(name, None)
+    if baseline_cls is None:
+        raise ValueError(
+            f"Unknown baseline {baseline_cls}. Available baselines: {REINFORCE_BASELINES_REGISTRY.keys()}"
+        )
+    return baseline_cls(**kw)
