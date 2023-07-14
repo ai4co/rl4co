@@ -1,8 +1,8 @@
 from typing import Union
 
-from rl4co.algos.reinforce.baselines import REINFORCEBaseline
-from rl4co.algos.reinforce.reinforce import REINFORCE
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.models.rl import REINFORCE
+from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline
 from rl4co.models.zoo.am.policy import AttentionModelPolicy
 
 
@@ -33,14 +33,21 @@ class AttentionModel(REINFORCE):
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
 
-if __name__ == "__main__":
-    from rl4co.envs import TSPEnv
+# if __name__ == "__main__":
+#     from rl4co.envs import TSPEnv
 
-    env = TSPEnv()
-    model = AttentionModel(env)
+#     env = TSPEnv()
+#     model = AttentionModel(env)
+#     trainer = RL4COTrainer()
+#     trainer.fit(model, env)
 
-    td = env.reset(batch_size=10)
+#     #
+#     tasks.train(model_name, env_name, cfg: traincfggerernmatro)
 
-    out = model(td)
+#     td = env.reset(batch_size=10)
 
-    print(out["reward"].shape)
+#     out = model(td)
+
+#     print(out["reward"].shape)
+
+#     model = REINFORCE(env, AttentionModelPolicy(env.name))

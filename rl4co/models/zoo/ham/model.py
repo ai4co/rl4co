@@ -1,4 +1,4 @@
-from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl import REINFORCE
 from rl4co.models.rl.reinforce.baselines import RolloutBaseline, WarmupBaseline
 from rl4co.models.zoo.ham.policy import HeterogeneousAttentionModelPolicy
 

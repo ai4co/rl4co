@@ -6,7 +6,7 @@ import yaml
 
 from omegaconf import DictConfig
 
-from rl4co.tasks.rl4co import RL4COLitModule
+# from rl4co.
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -118,7 +118,8 @@ def load_model_from_checkpoint(
         config["train_size"] = 10  # dummy
 
     # Load model and checkpoint
-    lit_module = RL4COLitModule(config)
+    ### TODO!!!
+    # lit_module = RL4COLitModule(config)
     checkpoint_path = torch.load(checkpoint_path, map_location=device)
 
     # Load model from checkpoint: only policy parameters or full model

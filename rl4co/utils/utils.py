@@ -4,7 +4,6 @@ from importlib.util import find_spec
 from typing import Callable, List
 
 import hydra
-import torch
 
 from lightning.pytorch.loggers.logger import Logger
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
@@ -209,14 +208,3 @@ def save_file(path: str, content: str) -> None:
     """Save file in rank zero mode (only on one process in multi-GPU setup)."""
     with open(path, "w+") as file:
         file.write(content)
-
-
-def disable_profiling_executor():
-    """Disable JIT profiling executor. This reduces memory and increases speed.
-    Reference: https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
-    """
-    try:
-        torch._C._jit_set_profiling_executor(False)
-        torch._C._jit_set_profiling_mode(False)
-    except AttributeError:
-        pass

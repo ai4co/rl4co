@@ -2,9 +2,9 @@ from typing import Any, Union
 
 import torch.nn as nn
 
-from rl4co.algos.common.base import RL4COLitModule
-from rl4co.algos.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.models.rl.common.base import RL4COLitModule
+from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.pylogger import get_pylogger
 
@@ -70,14 +70,14 @@ class REINFORCE(RL4COLitModule):
         metrics = self.log_metrics(out, "train")
         return {"loss": out.get("loss", None), **metrics}
 
-    def setup(self):
+    def post_setup_hook(self, stage="fit"):
         # Make baseline taking model itself and train_dataloader from model as input
         self.baseline.setup(
             self.policy,
             self.env,
             batch_size=self.val_batch_size,
             device=get_lightning_device(self),
-            dataset_size=self.cfg.data.val_size,
+            dataset_size=self.data_cfg["val_size"],
         )
 
     def on_train_epoch_end(self):
@@ -88,7 +88,7 @@ class REINFORCE(RL4COLitModule):
             batch_size=self.val_batch_size,
             device=get_lightning_device(self),
             epoch=self.current_epoch,
-            dataset_size=self.cfg.data.val_size,
+            dataset_size=self.self.data_cfg["val_size"],
         )
 
     def wrap_dataset(self, dataset):

@@ -11,7 +11,6 @@ from rl4co.data.generate_data import generate_default_datasets
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.optim_helpers import create_optimizer, create_scheduler
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.utils.utils import disable_profiling_executor
 
 log = get_pylogger(__name__)
 
@@ -40,7 +39,6 @@ class RL4COLitModule(LightningModule):
         shuffle_train_dataloader: whether to shuffle training dataloader
         dataloader_num_workers: number of workers for dataloader
         data_dir: data directory
-        disable_profiling: whether to disable profiling executor
         metrics: metrics
         litmodule_kwargs: kwargs for `LightningModule`
     """
@@ -68,15 +66,11 @@ class RL4COLitModule(LightningModule):
         shuffle_train_dataloader: bool = True,
         dataloader_num_workers: int = 0,
         data_dir: str = "data/",
-        disable_profiling: bool = True,
         log_on_step: bool = True,
         metrics: dict = {},
         **litmodule_kwargs,
     ):
         super().__init__(**litmodule_kwargs)
-
-        if disable_profiling:
-            disable_profiling_executor()
 
         self.env = env
         self.policy = policy
@@ -133,6 +127,7 @@ class RL4COLitModule(LightningModule):
         self.test_batch_size = train_bs if test_bs is None else test_bs
 
         log.info("Setting up datasets")
+
         # Create datasets automatically. If found, this will skip
         if self.data_cfg["generate_data"]:
             generate_default_datasets(data_dir=self.data_cfg["data_dir"])
@@ -147,8 +142,6 @@ class RL4COLitModule(LightningModule):
             self.data_cfg["test_dataset_size"], phase="test"
         )
 
-        if hasattr(self.policy, "setup"):
-            self.policy.setup(self)
         self.post_setup_hook()
 
     def post_setup_hook(self):
@@ -211,8 +204,13 @@ class RL4COLitModule(LightningModule):
         return metrics
 
     def forward(self, td, **kwargs):
-        """Forward pass for the model"""
-        return self.policy(td, self.env, **kwargs)
+        """Forward pass for the model. Simple wrapper around `policy`. Uses `env` from the module if not provided."""
+        if kwargs.get("env", None) is None:
+            env = self.env
+        else:
+            log.info("Using env from kwargs")
+            env = kwargs["env"]
+        return self.policy(td, env, **kwargs)
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         """Shared step between train/val/test. To be implemented in subclass"""
@@ -243,8 +241,6 @@ class RL4COLitModule(LightningModule):
         """Called at the end of the training epoch. This can be used for instance to update the train dataset
         with new data (which is the case in RL).
         """
-        if hasattr(self.policy, "on_train_epoch_end"):
-            self.policy.on_train_epoch_end(self)
         train_dataset = self.env.dataset(self.train_size, "train")
         self.train_dataset = self.wrap_dataset(train_dataset)
 
