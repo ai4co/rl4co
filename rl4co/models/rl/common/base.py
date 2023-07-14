@@ -26,9 +26,9 @@ class RL4COLitModule(LightningModule):
         batch_size: batch size (general one, default used for training)
         val_batch_size: specific batch size for validation
         test_batch_size: specific batch size for testing
-        train_dataset_size: size of training dataset
-        val_dataset_size: size of validation dataset
-        test_dataset_size: size of testing dataset
+        train_data_size: size of training dataset for one epoch
+        val_data_size: size of validation dataset for one epoch
+        test_data_size: size of testing dataset for one epoch
         optimizer: optimizer or optimizer name
         optimizer_kwargs: optimizer kwargs
         lr_scheduler: learning rate scheduler or learning rate scheduler name
@@ -50,9 +50,9 @@ class RL4COLitModule(LightningModule):
         batch_size: int = 512,
         val_batch_size: int = None,
         test_batch_size: int = None,
-        train_dataset_size: int = 1_280_000,
-        val_dataset_size: int = 10_000,
-        test_dataset_size: int = 10_000,
+        train_data_size: int = 1_280_000,
+        val_data_size: int = 10_000,
+        test_data_size: int = 10_000,
         optimizer: Union[str, torch.optim.Optimizer] = "Adam",
         optimizer_kwargs: dict = {"lr": 1e-4},
         lr_scheduler: Union[str, torch.optim.lr_scheduler.LRScheduler] = "MultiStepLR",
@@ -72,6 +72,12 @@ class RL4COLitModule(LightningModule):
     ):
         super().__init__(**litmodule_kwargs)
 
+        ######################################################################
+        # TODO: problem with dictionary update!!! need to save hyperparams
+        # ValueError: dictionary update sequence element #0 has length 1; 2 is required
+
+        # self.save_hyperparameters()
+        ######################################################################
         self.env = env
         self.policy = policy
 
@@ -84,9 +90,9 @@ class RL4COLitModule(LightningModule):
             "test_batch_size": test_batch_size,
             "generate_data": generate_data,
             "data_dir": data_dir,
-            "train_dataset_size": train_dataset_size,
-            "val_dataset_size": val_dataset_size,
-            "test_dataset_size": test_dataset_size,
+            "train_data_size": train_data_size,
+            "val_data_size": val_data_size,
+            "test_data_size": test_data_size,
         }
 
         self._optimizer_name_or_cls: Union[str, torch.optim.Optimizer] = optimizer
@@ -100,8 +106,6 @@ class RL4COLitModule(LightningModule):
 
         self.shuffle_train_dataloader = shuffle_train_dataloader
         self.dataloader_num_workers = dataloader_num_workers
-
-        self.save_hyperparameters()
 
     def instantiate_metrics(self, metrics: dict):
         """Dictionary of metrics to be logged at each phase"""
@@ -133,13 +137,11 @@ class RL4COLitModule(LightningModule):
             generate_default_datasets(data_dir=self.data_cfg["data_dir"])
 
         self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.data_cfg["train_dataset_size"], phase="train")
+            self.env.dataset(self.data_cfg["train_data_size"], phase="train")
         )
-        self.val_dataset = self.env.dataset(
-            self.data_cfg["val_dataset_size"], phase="val"
-        )
+        self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
         self.test_dataset = self.env.dataset(
-            self.data_cfg["test_dataset_size"], phase="test"
+            self.data_cfg["test_data_size"], phase="test"
         )
 
         self.post_setup_hook()
@@ -241,7 +243,7 @@ class RL4COLitModule(LightningModule):
         """Called at the end of the training epoch. This can be used for instance to update the train dataset
         with new data (which is the case in RL).
         """
-        train_dataset = self.env.dataset(self.train_size, "train")
+        train_dataset = self.env.dataset(self.data_cfg["train_data_size"], "train")
         self.train_dataset = self.wrap_dataset(train_dataset)
 
     def wrap_dataset(self, dataset):

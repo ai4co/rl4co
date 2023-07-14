@@ -25,7 +25,7 @@ class REINFORCEBaseline(nn.Module):
         """Wrap dataset with baseline-specific functionality"""
         return dataset
 
-    def eval(self, td, reward):
+    def eval(self, td, reward, env=None):
         """Evaluate baseline"""
         pass
 
@@ -45,14 +45,14 @@ class REINFORCEBaseline(nn.Module):
 class NoBaseline(REINFORCEBaseline):
     """No baseline: return 0 for baseline and neg_los"""
 
-    def eval(self, td, reward):
+    def eval(self, td, reward, env=None):
         return 0, 0  # No baseline, no neg_los
 
 
 class SharedBaseline(REINFORCEBaseline):
     """Shared baseline: return mean of reward as baseline"""
 
-    def eval(self, td, reward, on_dim=1):  # e.g. [batch, pomo, ...]
+    def eval(self, td, reward, env=None, on_dim=1):  # e.g. [batch, pomo, ...]
         return reward.mean(dim=on_dim, keepdims=True), 0
 
 
@@ -65,7 +65,7 @@ class ExponentialBaseline(REINFORCEBaseline):
         self.beta = beta
         self.v = None
 
-    def eval(self, td, reward):
+    def eval(self, td, reward, env=None):
         if self.v is None:
             v = reward.mean()
         else:
@@ -94,13 +94,13 @@ class WarmupBaseline(REINFORCEBaseline):
     def setup(self, *args, **kw):
         self.baseline.setup(*args, **kw)
 
-    def eval(self, td, reward):
+    def eval(self, td, reward, env=None):
         if self.alpha == 1:
-            return self.baseline.eval(td, reward)
+            return self.baseline.eval(td, reward, env)
         if self.alpha == 0:
-            return self.warmup_baseline.eval(td, reward)
+            return self.warmup_baseline.eval(td, reward, env)
         v_b, l_b = self.baseline.eval(td, reward)
-        v_wb, l_wb = self.warmup_baseline.eval(td, reward)
+        v_wb, l_wb = self.warmup_baseline.eval(td, reward, env)
         # Return convex combination of baseline and of loss
         return self.alpha * v_b + (1 - self.alpha) * v_wb, self.alpha * l_b + (
             1 - self.alpha * l_wb
@@ -121,7 +121,7 @@ class CriticBaseline(REINFORCEBaseline):
         super(CriticBaseline, self).__init__()
         self.critic = critic
 
-    def eval(self, x, c):
+    def eval(self, x, c, env=None):
         v = self.critic(x)
         # detach v since actor should not backprop through baseline, only for neg_loss
         return v.detach(), -F.mse_loss(v, c.detach())
@@ -153,7 +153,7 @@ class RolloutBaseline(REINFORCEBaseline):
         )
         self.mean = self.bl_vals.mean()
 
-    def eval(self, td, reward):
+    def eval(self, td, reward, env):
         """Evaluate rollout baseline
 
         WARNING:
@@ -161,7 +161,7 @@ class RolloutBaseline(REINFORCEBaseline):
             Also, it is recommended to use the `rollout` method directly instead of this method.
         """
         with torch.no_grad():
-            reward = self.model(td)["reward"]
+            reward = self.model(td, env)["reward"]
         return reward, 0
 
     def epoch_callback(
@@ -188,7 +188,7 @@ class RolloutBaseline(REINFORCEBaseline):
                 log.info("Updating baseline")
                 self._update_model(model, env, batch_size, device, dataset_size)
 
-    def rollout(self, model, env=None, batch_size=64, device="cpu", dataset=None):
+    def rollout(self, model, env, batch_size=64, device="cpu", dataset=None):
         """Rollout the model on the given dataset"""
         # if dataset is None, use the dataset of the baseline
         dataset = self.dataset if dataset is None else dataset
@@ -199,7 +199,7 @@ class RolloutBaseline(REINFORCEBaseline):
         def eval_model(batch):
             with torch.no_grad():
                 batch = env.reset(batch.to(device))
-                return model(batch, decode_type="greedy")["reward"].data.cpu()
+                return model(batch, env, decode_type="greedy")["reward"].data.cpu()
 
         dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
 
@@ -243,18 +243,28 @@ REINFORCE_BASELINES_REGISTRY = {
     "shared": SharedBaseline,
     "exponential": ExponentialBaseline,
     "critic": CriticBaseline,
-    "rollout": RolloutBaseline,
+    "rollout_only": RolloutBaseline,
     "warmup": WarmupBaseline,
 }
 
 
 def get_reinforce_baseline(name, **kw):
-    """Get a REINFORCE baseline by name"""
-    if name == "warmup-rollout":
+    """Get a REINFORCE baseline by name
+    The rollout baseline default to warmup baseline with one epoch of
+    exponential baseline and the greedy rollout
+    """
+    if name == "warmup":
         inner_baseline = kw.get("baseline", "rollout")
         if not isinstance(inner_baseline, REINFORCEBaseline):
             inner_baseline = get_reinforce_baseline(inner_baseline, **kw)
         return WarmupBaseline(inner_baseline, **kw)
+    elif name == "rollout":
+        warmup_epochs = kw.get("n_epochs", 1)
+        warmup_exp_beta = kw.get("exp_beta", 0.8)
+        bl_alpha = kw.get("bl_alpha", 0.05)
+        return WarmupBaseline(
+            RolloutBaseline(bl_alpha=bl_alpha), warmup_epochs, warmup_exp_beta
+        )
 
     baseline_cls = REINFORCE_BASELINES_REGISTRY.get(name, None)
     if baseline_cls is None:

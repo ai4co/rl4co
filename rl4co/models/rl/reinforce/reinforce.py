@@ -42,17 +42,15 @@ class REINFORCE(RL4COLitModule):
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(batch)
-        extra = td.get("extra", None)
+        extra = td.get("extra", None)  # TODO: check!!!! (may not get actual extra)
 
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
-        out: dict = self.policy(td, self.env, phase=phase)
+        out = self.policy(td, self.env, phase=phase)
 
         # Compute loss
         if phase == "train":
             bl_val, bl_neg_loss = (
-                self.baseline.eval(td, "train", extra)
-                if self.baseline is not None
-                else (extra, 0)
+                self.baseline.eval(td, out["reward"]) if extra is None else (extra, 0)
             )
 
             advantage = out["reward"] - bl_val  # advantage = reward - baseline
@@ -77,7 +75,7 @@ class REINFORCE(RL4COLitModule):
             self.env,
             batch_size=self.val_batch_size,
             device=get_lightning_device(self),
-            dataset_size=self.data_cfg["val_size"],
+            dataset_size=self.data_cfg["val_data_size"],
         )
 
     def on_train_epoch_end(self):
@@ -88,7 +86,7 @@ class REINFORCE(RL4COLitModule):
             batch_size=self.val_batch_size,
             device=get_lightning_device(self),
             epoch=self.current_epoch,
-            dataset_size=self.self.data_cfg["val_size"],
+            dataset_size=self.data_cfg["val_data_size"],
         )
 
     def wrap_dataset(self, dataset):

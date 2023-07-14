@@ -12,7 +12,7 @@ class AttentionModel(REINFORCE):
     Args:
         env: Environment to use for the algorithm
         policy: Policy to use for the algorithm
-        baseline: REINFORCE baseline
+        baseline: REINFORCE baseline. Defaults to warmup-rollout (1 epoch of exponential, then greedy rollout baseline)
         policy_kwargs: Keyword arguments for policy
         baseline_kwargs: Keyword arguments for baseline
         **kwargs: Keyword arguments passed to the superclass
@@ -22,7 +22,7 @@ class AttentionModel(REINFORCE):
         self,
         env: RL4COEnvBase,
         policy: AttentionModelPolicy = None,
-        baseline: Union[REINFORCEBaseline, str] = "rollout",
+        baseline: Union[REINFORCEBaseline, str] = "warmup-rollout",
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
@@ -33,21 +33,14 @@ class AttentionModel(REINFORCE):
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
 
-# if __name__ == "__main__":
-#     from rl4co.envs import TSPEnv
+if __name__ == "__main__":
+    from rl4co.envs import TSPEnv
 
-#     env = TSPEnv()
-#     model = AttentionModel(env)
-#     trainer = RL4COTrainer()
-#     trainer.fit(model, env)
+    env = TSPEnv()
+    model = AttentionModel(env)
 
-#     #
-#     tasks.train(model_name, env_name, cfg: traincfggerernmatro)
+    td = env.reset(batch_size=10)
 
-#     td = env.reset(batch_size=10)
+    out = model(td)
 
-#     out = model(td)
-
-#     print(out["reward"].shape)
-
-#     model = REINFORCE(env, AttentionModelPolicy(env.name))
+    print(out["reward"].shape)
