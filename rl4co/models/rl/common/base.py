@@ -2,7 +2,6 @@ from typing import Any, Union
 
 import torch
 import torch.nn as nn
-
 from lightning import LightningModule
 from torch.utils.data import DataLoader
 
@@ -140,9 +139,7 @@ class RL4COLitModule(LightningModule):
             self.env.dataset(self.data_cfg["train_data_size"], phase="train")
         )
         self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
-        self.test_dataset = self.env.dataset(
-            self.data_cfg["test_data_size"], phase="test"
-        )
+        self.test_dataset = self.env.dataset(self.data_cfg["test_data_size"], phase="test")
 
         self.post_setup_hook()
 
@@ -150,21 +147,24 @@ class RL4COLitModule(LightningModule):
         """Hook to be called after setup. Can be used to set up subclasses without overriding `setup`"""
         pass
 
-    def configure_optimizers(self):
+    def configure_optimizers(self, parameters=None):
         """
-        Todo:
-            Designing a behavior that can pass user-defined optimizers and schedulers
+        Args:
+            parameters: parameters to be optimized. If None, will use `self.policy.parameters()
         """
+
+        if parameters is None:
+            parameters = self.policy.parameters()
 
         # instantiate optimizer
         log.info(f"Instantiating optimizer <{self._optimizer_name_or_cls}>")
         if isinstance(self._optimizer_name_or_cls, str):
             optimizer = create_optimizer(
-                self.policy, self._optimizer_name_or_cls, **self.optimizer_kwargs
+                parameters, self._optimizer_name_or_cls, **self.optimizer_kwargs
             )
         else:  # User-defined optimizer
             opt_cls = self._optimizer_name_or_cls
-            optimizer = opt_cls(self.policy.parameters(), **self.optimizer_kwargs)
+            optimizer = opt_cls(parameters, **self.optimizer_kwargs)
             assert isinstance(optimizer, torch.optim.Optimizer)
 
         # instantiate lr scheduler
@@ -189,9 +189,7 @@ class RL4COLitModule(LightningModule):
     def log_metrics(self, metric_dict: dict, phase: str):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
-        metrics = {
-            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
-        }
+        metrics = {f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics}
 
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True

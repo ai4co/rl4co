@@ -2,7 +2,6 @@ import inspect
 
 import torch
 import torch.nn as nn
-
 from torch.optim import Optimizer
 
 
@@ -20,13 +19,11 @@ def get_pytorch_optimizers():
     return optimizers
 
 
-def create_optimizer(
-    model: nn.Module, optimizer_name: str, **optimizer_kwargs
-) -> Optimizer:
+def create_optimizer(parameters, optimizer_name: str, **optimizer_kwargs) -> Optimizer:
     """Create optimizer for model. If `optimizer_name` is not found, raise ValueError."""
     if optimizer_name in get_pytorch_optimizers():
         optimizer_cls = getattr(torch.optim, optimizer_name)
-        return optimizer_cls(model.parameters(), **optimizer_kwargs)
+        return optimizer_cls(parameters, **optimizer_kwargs)
     else:
         raise ValueError(f"Optimizer {optimizer_name} not found.")
 

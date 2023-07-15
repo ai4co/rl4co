@@ -1,5 +1,6 @@
 from typing import Any, Union
 
+import torch
 import torch.nn as nn
 
 from rl4co.envs.common.base import RL4COEnvBase
@@ -55,7 +56,7 @@ class PPO(RL4COLitModule):
         policy: nn.Module,
         critic: nn.Module,
         clip_range: float = 0.2,  # epsilon of PPO
-        ppo_epochs: int = 2,  # K
+        ppo_epochs: int = 2,  # inner epoch, K
         mini_batch_size: Union[int, float] = 0.25,  # 0.25,
         vf_lambda: float = 0.5,  # lambda of Value function fitting
         entropy_lambda: float = 0.0,  # lambda of entropy bonus
@@ -67,5 +68,27 @@ class PPO(RL4COLitModule):
         super().__init__(env, policy, **kwargs)
         self.critic = critic
 
+        self.ppo_cfg = {
+            "clip_range": clip_range,
+            "ppo_epochs": ppo_epochs,
+            "mini_batch_size": mini_batch_size,
+            "vf_lambda": vf_lambda,
+            "entropy_lambda": entropy_lambda,
+            "normalize_adv": normalize_adv,
+            "max_grad_norm": max_grad_norm,
+        }
+
     def configure_optimizers(self):
-        pass
+        parameters = list(self.policy.parameters()) + list(self.critic.parameters())
+        super().configure_optimizers(parameters)
+
+    def shared_step(self, batch: Any, batch_idx: int, phase: str):
+        # Evaluate old actions, log probabilities, and rewards
+
+        with torch.no_grad():
+            td = self.env.reset(batch)
+            out = self.policy(td, self.env, phase=phase, return_actions=True)
+
+            old_actions = out["actions"]
+            old_logp = out["log_likelihood"]
+            reward = out["reward"]
