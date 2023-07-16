@@ -65,7 +65,7 @@ class REINFORCE(RL4COLitModule):
                 }
             )
 
-        metrics = self.log_metrics(out, "train")
+        metrics = self.log_metrics(out, phase)
         return {"loss": out.get("loss", None), **metrics}
 
     def post_setup_hook(self, stage="fit"):

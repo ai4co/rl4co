@@ -1,7 +1,10 @@
+from re import sub
 from typing import Any, Union
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
@@ -68,6 +71,21 @@ class PPO(RL4COLitModule):
         super().__init__(env, policy, **kwargs)
         self.critic = critic
 
+        if isinstance(mini_batch_size, float) and (mini_batch_size <= 0 or mini_batch_size > 1):
+            default_mini_batch_fraction = 0.25
+
+            log.warning(
+                f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_size}."
+            )
+            mini_batch_size = default_mini_batch_fraction
+
+        if isinstance(mini_batch_size, int) and (mini_batch_size <= 0):
+            default_mini_batch_size = 128
+            log.warning(
+                f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_size}."
+            )
+            mini_batch_size = default_mini_batch_size
+
         self.ppo_cfg = {
             "clip_range": clip_range,
             "ppo_epochs": ppo_epochs,
@@ -82,13 +100,92 @@ class PPO(RL4COLitModule):
         parameters = list(self.policy.parameters()) + list(self.critic.parameters())
         super().configure_optimizers(parameters)
 
+    def on_train_epoch_end(self):
+        """
+        ToDo: Add support for other schedulers.
+        """
+
+        sch = self.lr_schedulers()
+
+        # If the selected scheduler is a MultiStepLR scheduler.
+        if isinstance(sch, torch.optim.lr_scheduler.MultiStepLR):
+            sch.step()
+
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         # Evaluate old actions, log probabilities, and rewards
-
         with torch.no_grad():
             td = self.env.reset(batch)
             out = self.policy(td, self.env, phase=phase, return_actions=True)
 
-            old_actions = out["actions"]
-            old_logp = out["log_likelihood"]
-            reward = out["reward"]
+        if phase == "train":
+            batch_size = out["actions"].shape[0]
+
+            # infer batch size
+            if isinstance(self.ppo_cfg["mini_batch_size"], float):
+                mini_batch_size = int(batch_size * self.ppo_cfg["mini_batch_size"])
+
+            if mini_batch_size > batch_size:
+                mini_batch_size = batch_size
+
+            dataloader = DataLoader(
+                out, batch_size=mini_batch_size, shuffle=True, collate_fn=lambda x: x
+            )
+            for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
+                for sub_td in dataloader:
+                    ll, entropy = self.policy.evaluate_action(sub_td)
+
+                    # Compute the ratio of probabilities of new and old actions
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"].sum(dim=-1))
+
+                    # Compute the advantage
+                    value_pred = self.critic(sub_td)
+                    adv = sub_td["reward"] - value_pred.detach()
+
+                    # Normalize advantage
+                    if self.ppo_cfg["normalize_adv"]:
+                        adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+
+                    # Compute the surrogate loss
+                    surrogate_loss = -torch.min(
+                        ratio * adv,
+                        torch.clamp(
+                            ratio, 1 - self.ppo_cfg["clip_range"], 1 + self.ppo_cfg["clip_range"]
+                        )
+                        * adv,
+                    ).mean()
+
+                    # compute value function loss
+                    value_loss = F.huber_loss(value_pred, sub_td["reward"].view(-1, 1))
+
+                    # compute total loss
+                    loss = (
+                        surrogate_loss
+                        + self.vf_lambda * value_loss
+                        - self.entropy_lambda * entropy.mean()
+                    )
+
+                    # perform manual optimization following the Lightning routine
+                    # https://lightning.ai/docs/pytorch/stable/common/optimization.html
+
+                    opt = self.optimizers()
+                    opt.zero_grad()
+                    self.manual_backward(loss)
+                    if self.ppo_cfg["max_grad_norm"] is not None:
+                        self.clip_gradients(
+                            opt,
+                            gradient_clip_val=self.ppo_cfg["max_grad_norm"],
+                            gradient_clip_algorithm="norm",
+                        )
+                    opt.step()
+
+            out.update(
+                {
+                    "loss": loss,
+                    "surrogate_loss": surrogate_loss,
+                    "value_loss": value_loss,
+                    "entropy": entropy.mean(),
+                }
+            )
+
+        metrics = self.log_metrics(out, phase)
+        return {"loss": out.get("loss", None), **metrics}
