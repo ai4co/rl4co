@@ -39,9 +39,7 @@ class CriticNetwork(nn.Module):
         if env_name is None:
             self.init_embedding = nn.Identity()
         else:
-            self.init_embedding = env_init_embedding(
-                env_name, {"embedding_dim": embedding_dim}
-            )
+            self.init_embedding = env_init_embedding(env_name, {"embedding_dim": embedding_dim})
 
         self.encoder = (
             GraphAttentionNetwork(
@@ -72,10 +70,5 @@ class CriticNetwork(nn.Module):
 
         # Initial embedding of x. This is the identity function if env_name is None.
         x = self.init_embedding(x)
-
-        graph_embeddings, _ = self.encoder(x)
-        # graph_embedings: [batch_size, graph_size, input_dim]
-        # return self.value_head(graph_embeddings.mean(1))
-
-        # L2D style
-        return self.value_head(graph_embeddings).mean(1)
+        x = self.encoder(x)
+        return self.value_head(x).mean(1)

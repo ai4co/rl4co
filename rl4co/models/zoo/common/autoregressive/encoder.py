@@ -1,7 +1,6 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch.nn as nn
-
 from tensordict import TensorDict
 from torch import Tensor
 
@@ -35,9 +34,7 @@ class GraphAttentionEncoder(nn.Module):
         super(GraphAttentionEncoder, self).__init__()
 
         self.env_name = env_name
-        self.init_embedding = env_init_embedding(
-            self.env_name, {"embedding_dim": embedding_dim}
-        )
+        self.init_embedding = env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
         self.net = GraphAttentionNetwork(
             num_heads,
             embedding_dim,
@@ -47,9 +44,7 @@ class GraphAttentionEncoder(nn.Module):
             force_flash_attn,
         )
 
-    def forward(
-        self, td: TensorDict, mask: Tensor | None = None
-    ) -> Tuple[Tensor, Tensor]:
+    def forward(self, td: TensorDict, mask: Union[Tensor, None] = None) -> Tuple[Tensor, Tensor]:
         """Forward pass of the encoder.
         Transform the input TensorDict into a latent representation.
 

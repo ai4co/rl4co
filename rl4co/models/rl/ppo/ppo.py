@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
+from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
@@ -67,8 +68,8 @@ class PPO(RL4COLitModule):
         max_grad_norm: float = 0.5,  # max gradient norm
         **kwargs,
     ):
-        kwargs["automatic_optimization"] = False  # PPO uses custom optimization routine
         super().__init__(env, policy, **kwargs)
+        self.automatic_optimization = False  # PPO uses custom optimization routine
         self.critic = critic
 
         if isinstance(mini_batch_size, float) and (mini_batch_size <= 0 or mini_batch_size > 1):
@@ -98,7 +99,7 @@ class PPO(RL4COLitModule):
 
     def configure_optimizers(self):
         parameters = list(self.policy.parameters()) + list(self.critic.parameters())
-        super().configure_optimizers(parameters)
+        return super().configure_optimizers(parameters)
 
     def on_train_epoch_end(self):
         """
@@ -123,23 +124,33 @@ class PPO(RL4COLitModule):
             # infer batch size
             if isinstance(self.ppo_cfg["mini_batch_size"], float):
                 mini_batch_size = int(batch_size * self.ppo_cfg["mini_batch_size"])
+            elif isinstance(self.ppo_cfg["mini_batch_size"], int):
+                mini_batch_size = self.ppo_cfg["mini_batch_size"]
+            else:
+                raise ValueError("mini_batch_size must be an integer or a float.")
 
             if mini_batch_size > batch_size:
                 mini_batch_size = batch_size
 
+            # Todo: Add support for multi dimensional batches
+            td.set("log_prob", out["log_likelihood"])
+            td.set("reward", out["reward"])
+            td.set("action", out["actions"])
+
             dataloader = DataLoader(
-                out, batch_size=mini_batch_size, shuffle=True, collate_fn=lambda x: x
+                td, batch_size=mini_batch_size, shuffle=True, collate_fn=lambda x: x
             )
+
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
-                    ll, entropy = self.policy.evaluate_action(sub_td)
+                    ll, entropy = self.policy.evaluate_action(sub_td, action=sub_td["action"])
 
                     # Compute the ratio of probabilities of new and old actions
-                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"].sum(dim=-1))
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(-1, 1)  # [batch, 1]
 
                     # Compute the advantage
-                    value_pred = self.critic(sub_td)
-                    adv = sub_td["reward"] - value_pred.detach()
+                    value_pred = self.critic(sub_td)  # [batch, 1]
+                    adv = sub_td["reward"].view(-1, 1) - value_pred.detach()
 
                     # Normalize advantage
                     if self.ppo_cfg["normalize_adv"]:
@@ -160,8 +171,8 @@ class PPO(RL4COLitModule):
                     # compute total loss
                     loss = (
                         surrogate_loss
-                        + self.vf_lambda * value_loss
-                        - self.entropy_lambda * entropy.mean()
+                        + self.ppo_cfg["vf_lambda"] * value_loss
+                        - self.ppo_cfg["entropy_lambda"] * entropy.mean()
                     )
 
                     # perform manual optimization following the Lightning routine
