@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 
 from rl4co import utils
 from rl4co.data.dataset import ExtraKeyDataset, tensordict_collate_fn
+from rl4co.models.rl.common.critic import CriticNetwork
 
 log = utils.get_pylogger(__name__)
 
@@ -57,7 +58,11 @@ class SharedBaseline(REINFORCEBaseline):
 
 
 class ExponentialBaseline(REINFORCEBaseline):
-    """Exponential baseline: return exponential moving average of reward as baseline"""
+    """Exponential baseline: return exponential moving average of reward as baseline
+
+    Args:
+        beta: Beta value for the exponential moving average
+    """
 
     def __init__(self, beta=0.8, **kw):
         super(REINFORCEBaseline, self).__init__()
@@ -75,7 +80,13 @@ class ExponentialBaseline(REINFORCEBaseline):
 
 
 class WarmupBaseline(REINFORCEBaseline):
-    """Warmup baseline: return convex combination of baseline and exponential baseline"""
+    """Warmup baseline: return convex combination of baseline and exponential baseline
+
+    Args:
+        baseline: Baseline to use after warmup
+        n_epochs: Number of epochs to warmup
+        warmup_exp_beta: Beta value for the exponential baseline during warmup
+    """
 
     def __init__(self, baseline, n_epochs=1, warmup_exp_beta=0.8, **kw):
         super(REINFORCEBaseline, self).__init__()
@@ -99,7 +110,7 @@ class WarmupBaseline(REINFORCEBaseline):
             return self.baseline.eval(td, reward, env)
         if self.alpha == 0:
             return self.warmup_baseline.eval(td, reward, env)
-        v_b, l_b = self.baseline.eval(td, reward)
+        v_b, l_b = self.baseline.eval(td, reward, env)
         v_wb, l_wb = self.warmup_baseline.eval(td, reward, env)
         # Return convex combination of baseline and of loss
         return self.alpha * v_b + (1 - self.alpha) * v_wb, self.alpha * l_b + (
@@ -115,11 +126,20 @@ class WarmupBaseline(REINFORCEBaseline):
 
 
 class CriticBaseline(REINFORCEBaseline):
-    """Critic baseline: use critic network as baseline"""
+    """Critic baseline: use critic network as baseline
 
-    def __init__(self, critic, **unused_kw):
+    Args:
+        critic: Critic network to use as baseline. If None, create a new critic network based on the environment
+    """
+
+    def __init__(self, critic: nn.Module = None, **unused_kw):
         super(CriticBaseline, self).__init__()
         self.critic = critic
+
+    def setup(self, model, env, **kwargs):
+        if self.critic is None:
+            log.info("Creating critic network for {}".format(env.name))
+            self.critic = CriticNetwork(env.name, **kwargs)
 
     def eval(self, x, c, env=None):
         v = self.critic(x)
@@ -128,7 +148,12 @@ class CriticBaseline(REINFORCEBaseline):
 
 
 class RolloutBaseline(REINFORCEBaseline):
-    """Rollout baseline: use greedy rollout as baseline"""
+    """Rollout baseline: use greedy rollout as baseline
+
+    Args:
+        bl_alpha: Alpha value for the baseline T-test
+        progress_bar: Whether to show progress bar for rollout
+    """
 
     def __init__(self, bl_alpha=0.05, progress_bar=False, **kw):
         super(RolloutBaseline, self).__init__()
@@ -156,7 +181,7 @@ class RolloutBaseline(REINFORCEBaseline):
     def eval(self, td, reward, env):
         """Evaluate rollout baseline
 
-        WARNING:
+        Warning:
             This is not differentiable and should only be used for evaluation.
             Also, it is recommended to use the `rollout` method directly instead of this method.
         """
@@ -190,6 +215,7 @@ class RolloutBaseline(REINFORCEBaseline):
 
     def rollout(self, model, env, batch_size=64, device="cpu", dataset=None):
         """Rollout the model on the given dataset"""
+
         # if dataset is None, use the dataset of the baseline
         dataset = self.dataset if dataset is None else dataset
 

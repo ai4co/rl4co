@@ -42,15 +42,18 @@ class REINFORCE(RL4COLitModule):
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
         td = self.env.reset(batch)
-        extra = td.get("extra", None)  # TODO: check!!!! (may not get actual extra)
-
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
         out = self.policy(td, self.env, phase=phase)
 
         # Compute loss
         if phase == "train":
+            # Extra: this is used for additional loss terms, e.g., REINFORCE baseline
+            extra = td.get("extra", None)
+
             bl_val, bl_neg_loss = (
-                self.baseline.eval(td, out["reward"]) if extra is None else (extra, 0)
+                self.baseline.eval(td, out["reward"], self.env)
+                if extra is None
+                else (extra, 0)
             )
 
             advantage = out["reward"] - bl_val  # advantage = reward - baseline
@@ -88,6 +91,8 @@ class REINFORCE(RL4COLitModule):
             epoch=self.current_epoch,
             dataset_size=self.data_cfg["val_data_size"],
         )
+        # Need to call super() for the dataset to be reset
+        super().on_train_epoch_end()
 
     def wrap_dataset(self, dataset):
         """Wrap dataset from baseline evaluation. Used in greedy rollout baseline"""

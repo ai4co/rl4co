@@ -12,7 +12,7 @@ class AttentionModel(REINFORCE):
     Args:
         env: Environment to use for the algorithm
         policy: Policy to use for the algorithm
-        baseline: REINFORCE baseline. Defaults to warmup-rollout (1 epoch of exponential, then greedy rollout baseline)
+        baseline: REINFORCE baseline. Defaults to rollout (1 epoch of exponential, then greedy rollout baseline)
         policy_kwargs: Keyword arguments for policy
         baseline_kwargs: Keyword arguments for baseline
         **kwargs: Keyword arguments passed to the superclass
@@ -22,7 +22,7 @@ class AttentionModel(REINFORCE):
         self,
         env: RL4COEnvBase,
         policy: AttentionModelPolicy = None,
-        baseline: Union[REINFORCEBaseline, str] = "warmup-rollout",
+        baseline: Union[REINFORCEBaseline, str] = "rollout",
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
