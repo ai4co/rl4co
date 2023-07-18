@@ -13,7 +13,7 @@ if __name__ == "__main__":
         env,
         train_data_size=100,
         val_data_size=10,
-        mini_batch_size=1.0,
+        mini_batch_size=0.25,
         optimizer_kwargs={"lr": 0.0001},
     )
 
