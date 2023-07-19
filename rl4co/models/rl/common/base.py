@@ -2,6 +2,7 @@ from typing import Any, Union
 
 import torch
 import torch.nn as nn
+
 from lightning import LightningModule
 from torch.utils.data import DataLoader
 
@@ -74,7 +75,7 @@ class RL4COLitModule(LightningModule):
         # This line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute
         # Note: we will send to logger with `self.logger.save_hyperparams` in `setup`
-        self.save_hyperparameters(logger=False)
+        self.save_hyperparameters()
 
         self.env = env
         self.policy = policy
@@ -138,15 +139,10 @@ class RL4COLitModule(LightningModule):
             self.env.dataset(self.data_cfg["train_data_size"], phase="train")
         )
         self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
-        self.test_dataset = self.env.dataset(self.data_cfg["test_data_size"], phase="test")
+        self.test_dataset = self.env.dataset(
+            self.data_cfg["test_data_size"], phase="test"
+        )
 
-        # Filter out hparams that contain nn.Module
-        try:
-            filter_hparams = {k: v for k, v in self.hparams.items() if not isinstance(v, torch.nn.Module)}        
-            self.logger.log_hyperparams(filter_hparams)
-        except:
-            pass
-            
         self.post_setup_hook()
 
     def post_setup_hook(self):
@@ -195,7 +191,9 @@ class RL4COLitModule(LightningModule):
     def log_metrics(self, metric_dict: dict, phase: str):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
-        metrics = {f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics}
+        metrics = {
+            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
+        }
 
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
