@@ -71,12 +71,11 @@ class RL4COLitModule(LightningModule):
     ):
         super().__init__(**litmodule_kwargs)
 
-        ######################################################################
-        # TODO: problem with dictionary update!!! need to save hyperparams
-        # ValueError: dictionary update sequence element #0 has length 1; 2 is required
+        # This line ensures params passed to LightningModule will be saved to ckpt
+        # it also allows to access params with 'self.hparams' attribute
+        # Note: we will send to logger with `self.logger.save_hyperparams` in `setup`
+        self.save_hyperparameters(logger=False)
 
-        # self.save_hyperparameters()
-        ######################################################################
         self.env = env
         self.policy = policy
 
@@ -141,6 +140,13 @@ class RL4COLitModule(LightningModule):
         self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
         self.test_dataset = self.env.dataset(self.data_cfg["test_data_size"], phase="test")
 
+        # Filter out hparams that contain nn.Module
+        try:
+            filter_hparams = {k: v for k, v in self.hparams.items() if not isinstance(v, torch.nn.Module)}        
+            self.logger.log_hyperparams(filter_hparams)
+        except:
+            pass
+            
         self.post_setup_hook()
 
     def post_setup_hook(self):
