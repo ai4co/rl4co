@@ -33,13 +33,16 @@ class CriticNetwork(nn.Module):
         num_heads: int = 8,
         normalization: str = "batch",
         force_flash_attn: bool = False,
+        **unused_kwargs,
     ):
         super(CriticNetwork, self).__init__()
 
         if env_name is None:
             self.init_embedding = nn.Identity()
         else:
-            self.init_embedding = env_init_embedding(env_name, {"embedding_dim": embedding_dim})
+            self.init_embedding = env_init_embedding(
+                env_name, {"embedding_dim": embedding_dim}
+            )
 
         self.encoder = (
             GraphAttentionNetwork(

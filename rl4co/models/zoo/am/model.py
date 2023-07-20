@@ -31,16 +31,3 @@ class AttentionModel(REINFORCE):
             policy = AttentionModelPolicy(env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
-
-
-if __name__ == "__main__":
-    from rl4co.envs import TSPEnv
-
-    env = TSPEnv()
-    model = AttentionModel(env)
-
-    td = env.reset(batch_size=10)
-
-    out = model(td)
-
-    print(out["reward"].shape)

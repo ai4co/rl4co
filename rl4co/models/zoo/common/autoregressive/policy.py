@@ -124,7 +124,7 @@ class AutoregressivePolicy(nn.Module):
         embeddings, _ = self.encoder(td)
 
         # Instantiate environment if needed
-        if isinstance(env, str):
+        if isinstance(env, str) or env is None:
             env_name = self.env_name if env is None else env
             log.info(f"Instantiated environment not provided; instantiating {env_name}")
             env = get_env(env_name)
@@ -152,17 +152,3 @@ class AutoregressivePolicy(nn.Module):
             out["entropy"] = entropy
 
         return out
-
-
-if __name__ == "__main__":
-    # pass
-    from rl4co.envs import TSPEnv
-
-    env = TSPEnv(num_loc=20)
-    model = AutoregressivePolicy(env.name)
-
-    td = env.reset(batch_size=10)
-
-    out = model(td, env, phase="test", return_actions=True, return_entropy=True)
-
-    print(out["reward"].shape)
