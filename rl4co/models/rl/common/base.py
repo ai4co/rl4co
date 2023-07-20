@@ -75,7 +75,7 @@ class RL4COLitModule(LightningModule):
         # This line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute
         # Note: we will send to logger with `self.logger.save_hyperparams` in `setup`
-        self.save_hyperparameters()
+        self.save_hyperparameters(logger=False)
 
         self.env = env
         self.policy = policy
@@ -117,7 +117,12 @@ class RL4COLitModule(LightningModule):
         self.log_on_step = metrics.get("log_on_step", True)
 
     def setup(self, stage="fit"):
-        """Base LightningModule setup method. This will setup the datasets and dataloaders"""
+        """Base LightningModule setup method. This will setup the datasets and dataloaders
+
+        Note:
+            We also send to the loggers all hyperparams that are not `nn.Module` (i.e. the policy).
+            Apparently PyTorch Lightning does not do this by default.
+        """
 
         log.info("Setting up batch sizes for train/val/test")
         train_bs, val_bs, test_bs = (
@@ -142,6 +147,16 @@ class RL4COLitModule(LightningModule):
         self.test_dataset = self.env.dataset(
             self.data_cfg["test_data_size"], phase="test"
         )
+
+        # Log all hyperparameters except those in `nn.Module`
+        if self.loggers is not None:
+            hparams_save = {
+                k: v for k, v in self.hparams.items() if not isinstance(v, nn.Module)
+            }
+            for logger in self.loggers:
+                logger.log_hyperparams(hparams_save)
+                logger.log_graph(self)
+                logger.save()
 
         self.post_setup_hook()
 
