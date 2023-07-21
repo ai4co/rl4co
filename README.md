@@ -1,7 +1,6 @@
 <div align="center">
 
-# RL4CO
-
+![rl4co_titlebar_withlogo](https://github.com/kaist-silab/rl4co/assets/34462374/58e087eb-8791-4e92-a9da-fe0f680a11e4)
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
