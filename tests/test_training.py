@@ -1,7 +1,7 @@
 import pytest
 
 from rl4co.envs import TSPEnv
-from rl4co.models import AttentionModel, PPOModel
+from rl4co.models import AttentionModel, PPOModel, SymNCO
 from rl4co.utils import RL4COTrainer
 
 
@@ -21,9 +21,22 @@ def test_reinforce(baseline):
 
 def test_ppo():
     env = TSPEnv(num_loc=20)
-
     model = PPOModel(env, train_data_size=10, val_data_size=10, test_data_size=10)
+    trainer = RL4COTrainer(max_epochs=1)
+    trainer.fit(model)
+    trainer.test(model)
 
+
+def test_symnco():
+    env = TSPEnv(num_loc=20)
+    model = SymNCO(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        num_augment=2,
+        num_starts=20,
+    )
     trainer = RL4COTrainer(max_epochs=1)
     trainer.fit(model)
     trainer.test(model)
