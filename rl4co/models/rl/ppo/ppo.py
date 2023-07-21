@@ -1,12 +1,11 @@
-from re import sub
 from typing import Any, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from torch.utils.data import DataLoader
 
-from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
@@ -72,11 +71,12 @@ class PPO(RL4COLitModule):
         self.automatic_optimization = False  # PPO uses custom optimization routine
         self.critic = critic
 
-        if isinstance(mini_batch_size, float) and (mini_batch_size <= 0 or mini_batch_size > 1):
+        if isinstance(mini_batch_size, float) and (
+            mini_batch_size <= 0 or mini_batch_size > 1
+        ):
             default_mini_batch_fraction = 0.25
-
             log.warning(
-                f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_size}."
+                f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_fraction}."
             )
             mini_batch_size = default_mini_batch_fraction
 
@@ -143,10 +143,14 @@ class PPO(RL4COLitModule):
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
-                    ll, entropy = self.policy.evaluate_action(sub_td, action=sub_td["action"])
+                    ll, entropy = self.policy.evaluate_action(
+                        sub_td, action=sub_td["action"]
+                    )
 
                     # Compute the ratio of probabilities of new and old actions
-                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(-1, 1)  # [batch, 1]
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(
+                        -1, 1
+                    )  # [batch, 1]
 
                     # Compute the advantage
                     value_pred = self.critic(sub_td)  # [batch, 1]
@@ -160,7 +164,9 @@ class PPO(RL4COLitModule):
                     surrogate_loss = -torch.min(
                         ratio * adv,
                         torch.clamp(
-                            ratio, 1 - self.ppo_cfg["clip_range"], 1 + self.ppo_cfg["clip_range"]
+                            ratio,
+                            1 - self.ppo_cfg["clip_range"],
+                            1 + self.ppo_cfg["clip_range"],
                         )
                         * adv,
                     ).mean()
