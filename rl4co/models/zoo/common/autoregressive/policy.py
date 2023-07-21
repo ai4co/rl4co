@@ -104,6 +104,7 @@ class AutoregressivePolicy(nn.Module):
         phase: str = "train",
         return_actions: bool = False,
         return_entropy: bool = False,
+        return_init_embeds: bool = False,
         **decoder_kwargs,
     ) -> dict:
         """Forward pass of the policy.
@@ -121,7 +122,7 @@ class AutoregressivePolicy(nn.Module):
         """
 
         # ENCODER: get embeddings from initial state
-        embeddings, _ = self.encoder(td)
+        embeddings, init_embeds = self.encoder(td)
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -150,5 +151,8 @@ class AutoregressivePolicy(nn.Module):
             entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
             entropy = entropy.sum(dim=1)  # [batch]
             out["entropy"] = entropy
+
+        if return_init_embeds:
+            out["init_embeds"] = init_embeds
 
         return out
