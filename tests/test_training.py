@@ -1,4 +1,3 @@
-import sys; sys.path.append('.')
 import pytest
 
 from rl4co.envs import TSPEnv, PDPEnv
@@ -54,7 +53,3 @@ def test_ham():
     trainer = RL4COTrainer(max_epochs=1)
     trainer.fit(model)
     trainer.test(model)
-
-
-if __name__ == "__main__":
-    test_ham()
