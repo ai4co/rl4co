@@ -1,7 +1,8 @@
+import sys; sys.path.append('.')
 import pytest
 
-from rl4co.envs import TSPEnv
-from rl4co.models import AttentionModel, PPOModel, SymNCO
+from rl4co.envs import TSPEnv, PDPEnv
+from rl4co.models import AttentionModel, PPOModel, SymNCO, HeterogeneousAttentionModel
 from rl4co.utils import RL4COTrainer
 
 
@@ -40,3 +41,20 @@ def test_symnco():
     trainer = RL4COTrainer(max_epochs=1)
     trainer.fit(model)
     trainer.test(model)
+
+
+def test_ham():
+    env = PDPEnv(num_loc=20)
+    model = HeterogeneousAttentionModel(
+        env, 
+        train_data_size=10,
+        val_data_size=10, 
+        test_data_size=10
+    )
+    trainer = RL4COTrainer(max_epochs=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+if __name__ == "__main__":
+    test_ham()
