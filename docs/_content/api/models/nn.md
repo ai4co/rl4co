@@ -5,7 +5,7 @@
 ### Graph Attention Encoder
 
 ```{eval-rst}
-.. automodule:: rl4co.models.nn.graph.gat
+.. automodule:: rl4co.models.nn.graph.attnnet
    :members:
    :undoc-members:
 ```
