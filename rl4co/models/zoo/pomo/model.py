@@ -1,6 +1,6 @@
 from tensordict import TensorDict
 
-from rl4co.models.rl.reinforce.base import REINFORCE
+from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.rl.reinforce.baselines import SharedBaseline
 from rl4co.models.zoo.pomo.augmentations import StateAugmentation
 from rl4co.models.zoo.pomo.policy import POMOPolicy
