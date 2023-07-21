@@ -51,7 +51,7 @@ dependencies = [
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
-testing = ["pytest"]
+testing = ["pytest", "pytest-cov"]
 dev = ["black", "ruff", "pre-commit>=3.3.3"]
 
 [project.urls]
@@ -125,3 +125,13 @@ exclude = '''
 )
 '''
 
+[tool.coverage]
+include = ["rl4co.*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    # Lines to exclude from coverage report (e.g., comments, debug statements)
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

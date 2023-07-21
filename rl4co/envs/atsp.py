@@ -191,7 +191,8 @@ class ATSPEnv(RL4COEnvBase):
                     break
         return TensorDict({"cost_matrix": dms}, batch_size=batch_size)
 
-    def render(self, td):
+    @staticmethod
+    def render(td, actions=None, ax=None):
         try:
             import networkx as nx
         except ImportError:
@@ -201,12 +202,16 @@ class ATSPEnv(RL4COEnvBase):
             return
 
         td = td.detach().cpu()
+        if actions is None:
+            actions = td.get("action", None)
+
         # if batch_size greater than 0 , we need to select the first batch element
         if td.batch_size != torch.Size([]):
             td = td[0]
+            actions = actions[0]
 
-        src_nodes = td["action"]
-        tgt_nodes = torch.roll(td["action"], 1, dims=0)
+        src_nodes = actions
+        tgt_nodes = torch.roll(actions, 1, dims=0)
 
         # Plot with networkx
         G = nx.DiGraph(td["cost_matrix"].numpy())

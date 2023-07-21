@@ -64,4 +64,8 @@ def rollout(env, td, policy):
         td = policy(td)
         actions.append(td["action"])
         td = env.step(td)["next"]
-    return env.get_reward(td, torch.stack(actions, dim=1))
+    return (
+        env.get_reward(td, torch.stack(actions, dim=1)),
+        td,
+        torch.stack(actions, dim=1),
+    )

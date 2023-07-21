@@ -1,53 +1,51 @@
 import pytest
+import torch
 
-from rl4co.envs import ATSPEnv, CVRPEnv, DPPEnv, MTSPEnv, PDPEnv, SDVRPEnv, TSPEnv
+from rl4co.envs import (
+    ATSPEnv,
+    CVRPEnv,
+    DPPEnv,
+    FFSPEnv,
+    MDPPEnv,
+    MTSPEnv,
+    OPEnv,
+    PCTSPEnv,
+    PDPEnv,
+    SDVRPEnv,
+    SPCTSPEnv,
+    TSPEnv,
+)
 from rl4co.models.nn.utils import random_policy, rollout
 
 
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_tsp(size, batch_size):
-    env = TSPEnv(num_loc=size)
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+@pytest.mark.parametrize(
+    "env_cls",
+    [TSPEnv, CVRPEnv, SDVRPEnv, PCTSPEnv, SPCTSPEnv, OPEnv, PDPEnv, MTSPEnv, ATSPEnv],
+)
+def test_routing(env_cls, batch_size=2, size=20):
+    env = env_cls(num_loc=size)
+    reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+    env.render(td, actions)
     assert reward.shape == (batch_size,)
 
 
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_atsp(size, batch_size):
-    env = ATSPEnv(num_loc=size)
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+@pytest.mark.parametrize("env_cls", [DPPEnv, MDPPEnv])
+def test_eda(env_cls, batch_size=2, size=20):
+    env = env_cls(num_loc=size)
+    reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+    ## Note: we skip rendering for now because we need to collect extra data. TODO
+    # env.render(td, actions)
     assert reward.shape == (batch_size,)
 
 
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_dpp(size, batch_size):
-    env = DPPEnv()
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
-
-
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_cvrp(size, batch_size):
-    env = CVRPEnv()
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
-
-
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_sdvrp(size, batch_size):
-    env = SDVRPEnv()
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
-
-
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_pdp(size, batch_size):
-    env = PDPEnv(num_loc=size)
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
-
-
-@pytest.mark.parametrize("size, batch_size", [(20, 2)])
-def test_mtsp(size, batch_size):
-    env = MTSPEnv(num_loc=size)
-    reward = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
+@pytest.mark.parametrize("env_cls", [FFSPEnv])
+def test_scheduling(env_cls, batch_size=2):
+    env = env_cls(
+        num_stage=2,
+        num_machine=3,
+        num_job=4,
+        batch_size=[batch_size],
+    )
+    td = env.reset()
+    td["job_idx"] = torch.tensor([1, 1])
+    td = env._step(td)
