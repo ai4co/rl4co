@@ -14,28 +14,22 @@
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.am.decoder
-   :members:
-   :undoc-members:
-```
-
 ## Attention Model (AM-PPO)
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.amppo.model
+.. automodule:: rl4co.models.zoo.ppo.model
    :members:
    :undoc-members:
 ```
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.amppo.policy
+.. automodule:: rl4co.models.zoo.ppo.policy
    :members:
    :undoc-members:
 ```
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.amppo.decoder
+.. automodule:: rl4co.models.zoo.ppo.decoder
    :members:
    :undoc-members:
 ```
@@ -165,19 +159,7 @@
 ```
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.symnco.decoder
-   :members:
-   :undoc-members:
-```
-
-```{eval-rst}
 .. automodule:: rl4co.models.zoo.symnco.losses
-   :members:
-   :undoc-members:
-```
-
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.symnco.augmentations
    :members:
    :undoc-members:
 ```

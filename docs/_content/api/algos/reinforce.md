@@ -3,7 +3,7 @@
 ## REINFORCE
 
 ```{eval-rst}
-.. automodule:: rl4co.algos.reinforce.reinforce
+.. automodule:: rl4co.models.rl.reinforce.reinforce
    :members:
    :undoc-members:
 ```
@@ -11,7 +11,7 @@
 ## REINFORCE Baselines
 
 ```{eval-rst}
-.. automodule:: rl4co.algos.reinforce.baselines
+.. automodule:: rl4co.models.rl.reinforce.baselines
    :members:
    :undoc-members:
 ```

@@ -4,7 +4,7 @@
 ## RL4COLitModule
 
 ```{eval-rst}
-.. automodule:: rl4co.algos.common.base
+.. automodule:: rl4co.envs.common.base
    :members:
    :undoc-members:
 ```
