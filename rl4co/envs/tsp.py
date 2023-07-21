@@ -180,14 +180,15 @@ class TSPEnv(RL4COEnvBase):
             _, ax = plt.subplots()
 
         td = td.detach().cpu()
-        # if batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-
-        locs = td["locs"]
 
         if actions is None:
             actions = td.get("action", None)
+        # if batch_size greater than 0 , we need to select the first batch element
+        if td.batch_size != torch.Size([]):
+            td = td[0]
+            actions = actions[0]
+
+        locs = td["locs"]
 
         # gather locs in order of action if available
         if actions is None:

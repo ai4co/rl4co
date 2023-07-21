@@ -271,7 +271,7 @@ class MTSPEnv(RL4COEnvBase):
         )
 
     @staticmethod
-    def render(td):
+    def render(td, actions=None, ax=None):
         import matplotlib.pyplot as plt
 
         from matplotlib import colormaps
@@ -283,14 +283,15 @@ class MTSPEnv(RL4COEnvBase):
             cmap_name = base.name + str(num)
             return base.from_list(cmap_name, color_list, num)
 
-        td = td.detach().cpu()
+        if actions is None:
+            actions = td.get("action", None)
         # if batch_size greater than 0 , we need to select the first batch element
         if td.batch_size != torch.Size([]):
             td = td[0]
+            actions = actions[0]
 
         num_agents = td["num_agents"]
         locs = td["locs"]
-        actions = td["action"]
         cmap = discrete_cmap(num_agents, "rainbow")
 
         fig, ax = plt.subplots()
