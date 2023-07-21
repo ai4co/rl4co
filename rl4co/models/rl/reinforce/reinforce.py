@@ -38,7 +38,7 @@ class REINFORCE(RL4COLitModule):
     ):
         super().__init__(env, policy, **kwargs)
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(logger=False)
 
         if isinstance(baseline, str):
             baseline = get_reinforce_baseline(baseline, **baseline_kwargs)
