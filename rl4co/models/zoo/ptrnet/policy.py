@@ -14,7 +14,7 @@ log = get_pylogger(__name__)
 class PointerNetworkPolicy(nn.Module):
     def __init__(
         self,
-        env,
+        env_name,
         embedding_dim: int = 128,
         hidden_dim: int = 128,
         tanh_clipping=10.0,
@@ -25,8 +25,8 @@ class PointerNetworkPolicy(nn.Module):
         super(PointerNetworkPolicy, self).__init__()
 
         # torch.backends.cudnn.enabled=False
-        self.env = env
-        assert self.env.name == "tsp", "Only the Euclidean TSP env supported"
+        assert env_name == "tsp", "Only the Euclidean TSP env supported"
+        self.env_name = env_name
 
         self.input_dim = 2
 
@@ -53,6 +53,7 @@ class PointerNetworkPolicy(nn.Module):
     def forward(
         self,
         td,
+        env,
         phase: str = "train",
         decode_type="sampling",
         eval_tours=None,
@@ -79,7 +80,7 @@ class PointerNetworkPolicy(nn.Module):
         # making up the output, and the pointer attn
         _log_p, actions = self._inner(embedded_inputs, decode_type, eval_tours)
 
-        reward = self.env.get_reward(td, actions)
+        reward = env.get_reward(td, actions)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
         # DataParallel since sequences can be of different lengths
