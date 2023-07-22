@@ -19,7 +19,7 @@ log = pylogger.get_pylogger(__name__)
 def print_config_tree(
     cfg: DictConfig,
     print_order: Sequence[str] = (
-        "data",
+        # "data", # note: data is dealt with in model
         "model",
         "callbacks",
         "logger",
