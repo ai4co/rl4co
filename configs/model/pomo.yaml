@@ -1,6 +1,1 @@
 _target_: rl4co.models.POMO
-
-num_starts: ${env.num_loc}
-
-baseline:
-  _target_: rl4co.models.rl.reinforce.baselines.SharedBaseline

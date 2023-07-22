@@ -1,5 +1,4 @@
 _target_: rl4co.models.SymNCO
 
-num_augment: 4
+num_augment: 8
 num_starts: ${env.num_loc}
-

@@ -1,6 +1,1 @@
 _target_: rl4co.models.PointerNetwork
-
-baseline:
-  _target_: rl4co.models.rl.reinforce.baselines.WarmupBaseline
-  baseline:
-    _target_: rl4co.models.rl.reinforce.baselines.RolloutBaseline
