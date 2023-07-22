@@ -81,7 +81,7 @@ class MDAMPolicy(AutoregressivePolicy):
         out = {
             "reward": reward,
             "log_likelihood": log_likelihood,
-            "kl_divergence": kl_divergence,
+            "entropy": kl_divergence,
             "actions": actions if return_actions else None,
         }
         return out
