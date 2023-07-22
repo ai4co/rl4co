@@ -2,7 +2,7 @@
 
 defaults:
   - override /model: symnco.yaml
-  - override /env: cvrp.yaml
+  - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
@@ -12,17 +12,17 @@ defaults:
 env:
   num_loc: 50
 
-tags: ["cvrp", "symnco"]
+tags: ["tsp", "symnco"]
 
 logger:
   wandb:
     project: "rl4co"
     tags: ${tags}
-    group: "cvrp${env.num_loc}"
-    name: "symnco-cvrp${env.num_loc}"
-
+    group: "tsp${env.num_loc}"
+    name: "symnco-tsp${env.num_loc}"
 
 seed: 12345
+
 
 trainer:
   max_epochs: 100
@@ -43,7 +43,7 @@ data:
   batch_size: 512
   train_size: 1_280_000
   val_size: 10_000
-  
+
 model:
   num_starts: 0 # 0 for no augmentation for multi-starts
   num_augment: 10

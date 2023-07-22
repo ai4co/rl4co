@@ -1,20 +1,20 @@
 # @package _global_
 
 defaults:
-  - override /model: am.yaml
+  - override /model: pomo.yaml
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   # - override /logger: null # comment this line to enable logging
   - override /logger: wandb.yaml
 
-transfer: # transfer to 
+transfer: # transfer to
   source:
     problem: 'cvrp'
     size: 50
-    model: 'am-${transfer.source.problem}${transfer.source.size}'
-    config: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/am-${transfer.source.problem}${transfer.source.size}/config.yaml"
-    checkpoint_path: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/am-${transfer.source.problem}${transfer.source.size}/epoch_099.ckpt"
+    model: 'pomo-${transfer.source.problem}${transfer.source.size}'
+    config: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/pomo-${transfer.source.problem}${transfer.source.size}/config.yaml"
+    checkpoint_path: "./saved_checkpoints/${transfer.source.problem}${transfer.source.size}/pomo-${transfer.source.problem}${transfer.source.size}/epoch_099.ckpt"
   target:
     problem: 'tsp'
     size: 50
@@ -26,22 +26,21 @@ transfer: # transfer to
 env:
   num_loc: ${transfer.target.size}
 
-tags: ["am", "transfer", "tsp"]
+tags: ["am", "transfer", "cvrp"]
 
 logger:
   wandb:
     project: "Transferred"
     tags: ${tags}
     group: "${transfer.target.problem}${env.num_loc}"
-    name: "AM:${transfer.source.problem}${transfer.source.size}->${transfer.target.problem}${env.num_loc}"
+    name: "POMO:${transfer.source.problem}${transfer.source.size}->${transfer.target.problem}${env.num_loc}"
 
 seed: 12345
+
 
 trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
-  accelerator: "gpu"
-  precision: "16-mixed"
 
 train:
   optimizer:
@@ -59,3 +58,12 @@ data:
   train_size: 1_280_000
   val_size: 10_000
 
+model:
+  num_starts: ${transfer.target.size} # 0 for no augmentation for multi-starts
+  num_augment: 0
+
+metrics:
+  train: ["loss", "loss_ss", "loss_inv", "reward", "max_aug_reward"]
+  val: ["reward", "max_aug_reward"]
+  test: ["reward", "max_aug_reward"]
+  log_on_step: True

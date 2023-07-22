@@ -8,7 +8,7 @@ defaults:
   # - override /logger: null # comment this line to enable logging
   - override /logger: wandb.yaml
 
-transfer: # transfer to 
+transfer: # transfer to
   source:
     problem: 'tsp'
     size: 50
@@ -57,7 +57,7 @@ data:
   batch_size: 512
   train_size: 1_280_000
   val_size: 10_000
-  
+
 model:
   num_starts: 0 # 0 for no augmentation for multi-starts
   num_augment: 10

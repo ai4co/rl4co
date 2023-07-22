@@ -50,4 +50,3 @@ model:
       _target_: rl4co.models.rl.reinforce.critic.CriticNetwork
       env: ${env}
       use_native_sdpa: ${model.use_native_sdpa}
-  
