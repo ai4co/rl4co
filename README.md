@@ -105,41 +105,30 @@ python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
 
 ### Minimalistic Example
 
-Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 50 lines of code:
+Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 30 lines of code:
 
 ```python
-from omegaconf import DictConfig
-import lightning as L
 from rl4co.envs import TSPEnv
-from rl4co.models.zoo.am import AttentionModel
-from rl4co.tasks.rl4co import RL4COLitModule
-
-config = DictConfig(
-    {"data": {
-            "train_size": 100000,
-            "val_size": 10000,
-            "batch_size": 512,
-        },
-    "optimizer": {"lr": 1e-4}}
-)
+from rl4co.models import AttentionModel
+from rl4co.utils import RL4COTrainer
 
 # Environment, Model, and Lightning Module
 env = TSPEnv(num_loc=20)
-model = AttentionModel(env)
-lit_module = RL4COLitModule(config, env, model)
+model = AttentionModel(env,
+                       baseline="rollout",
+                       train_data_size=100_000,
+                       test_data_size=10_000,
+                       optimizer_kwargs={'lr': 1e-4}
+                       )
 
 # Trainer
-trainer = L.Trainer(
-    max_epochs=3, # only few epochs
-    accelerator="gpu", # use GPU if available, else you can use others as "cpu"
-    logger=None, # can replace with WandbLogger, TensorBoardLogger, etc.
-    precision="16-mixed", # Lightning will handle faster training with mixed precision
-    gradient_clip_val=1.0, # clip gradients to avoid exploding gradients
-    reload_dataloaders_every_n_epochs=1, # necessary for sampling new data
-)
+trainer = RL4COTrainer(max_epochs=3)
 
 # Fit the model
-trainer.fit(lit_module)
+trainer.fit(model)
+
+# Test the model
+trainer.test(model)
 ```
 
 
