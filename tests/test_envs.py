@@ -1,3 +1,6 @@
+import warnings
+
+import matplotlib.pyplot as plt
 import pytest
 import torch
 
@@ -16,6 +19,10 @@ from rl4co.envs import (
     TSPEnv,
 )
 from rl4co.models.nn.utils import random_policy, rollout
+
+# Switch to non-GUI backend for testing
+plt.switch_backend("Agg")
+warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 
 
 @pytest.mark.parametrize(
