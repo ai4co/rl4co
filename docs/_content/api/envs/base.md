@@ -1,4 +1,4 @@
-# RL4CO Base Environment
+# Base Environment
 
 ```{eval-rst}
 .. automodule:: rl4co.envs.common.base

@@ -5,27 +5,31 @@ import torch.nn.functional as F
 from torch_geometric.data import Batch, Data
 from torch_geometric.nn import GCNConv
 
-from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
 class GCNEncoder(nn.Module):
+    """Graph Convolutional Network to encode embeddings with a series of GCN layers
+
+    Args:
+        embedding_dim: dimension of the embeddings
+        num_nodes: number of nodes in the graph
+        num_gcn_layer: number of GCN layers
+        self_loop: whether to add self loop in the graph
+        residual: whether to use residual connection
+    """
+
     def __init__(
         self,
-        env,
-        embedding_dim,
-        num_nodes,
-        num_gcn_layer,
-        self_loop=False,
-        residual=True,
+        embedding_dim: int,
+        num_nodes: int,
+        num_gcn_layer: int,
+        self_loop: bool = False,
+        residual: bool = True,
     ):
         super(GCNEncoder, self).__init__()
-        # Define the init embedding
-        self.init_embedding = env_init_embedding(
-            env.name, {"embedding_dim": embedding_dim}
-        )
 
         # Generate edge index for a fully connected graph
         adj_matrix = torch.ones(num_nodes, num_nodes)
@@ -42,10 +46,17 @@ class GCNEncoder(nn.Module):
         self.residual = residual
         self.self_loop = self_loop
 
-    def forward(self, x, mask=None):
+    def forward(self, x, node_feature, mask=None):
+        """Forward pass of the GCN encoder
+
+        Args:
+            x: [batch_size, graph_size, embed_dim] initial embeddings to process
+            node_feature: [batch_size, graph_size, embed_dim] node features, i.e. raw ones
+            mask: [batch_size, graph_size] mask for valid nodes
+        """
+
         assert mask is None, "Mask not yet supported!"
         # initial Embedding from features
-        node_feature = self.init_embedding(x)
 
         # Check to update the edge index with different number of node
         if node_feature.size(1) != self.edge_index.max().item() + 1:

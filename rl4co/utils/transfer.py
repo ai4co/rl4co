@@ -1,7 +1,8 @@
 import torch.nn as nn
 
 
-def transplant_weights(
+# Work in progress on transfer learning between models
+def transfer_learning_weights(
     source: nn.Module,
     target: nn.Module,
     load_encoder: bool = True,

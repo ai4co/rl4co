@@ -37,25 +37,22 @@ dependencies = [
     "torch>=2.0.0",
     "torchrl>=0.1.1",
     "tensordict>=0.1.1",
-    "lightning>=2.0.0",
+    "lightning>=2.0.5",
     "hydra-core",
     "hydra-colorlog",
     "omegaconf",
     "pyrootutils",
     "rich",
-    "numpy",
     "einops",
     "wandb",
-    "pre-commit>=3.3.3",
     "matplotlib",
     "scipy",
-    "pydantic<2.0.0" # Temporary bugfix https://github.com/Lightning-AI/lightning/pull/18022
 ]
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
-testing = ["pytest"]
-linting = ["black", "ruff"]
+testing = ["pytest", "pytest-cov"]
+dev = ["black", "ruff", "pre-commit>=3.3.3"]
 
 [project.urls]
 "Homepage" = "https://github.com/kaist-silab/rl4co"
@@ -128,3 +125,13 @@ exclude = '''
 )
 '''
 
+[tool.coverage]
+include = ["rl4co.*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    # Lines to exclude from coverage report (e.g., comments, debug statements)
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

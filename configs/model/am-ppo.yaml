@@ -1,8 +1,1 @@
-_target_: rl4co.models.zoo.amppo.model.AttentionModel
-# policy:
-#   _target_: rl4co.models.zoo.amppo.policy.AttentionModelPolicy
-#   env: ${env}
-#   embedding_dim: 128
-
-# critic:
-#   _target_: rl4co.models.rl.reinforce.critic.CriticNetwork
+_target_: rl4co.models.PPOModel

@@ -5,7 +5,6 @@
 defaults:
   - _self_
   - callbacks: default.yaml
-  - task: rl4co.yaml
   - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
   - trainer: default.yaml
   - paths: default.yaml
@@ -16,7 +15,7 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: tsp/am.yaml # set baseline experiment
+  - experiment: base.yaml # set baseline experiment
 
   # config for hyperparameter optimization
   - hparams_search: null
@@ -53,7 +52,7 @@ ckpt_path: null
 seed: null
 
 #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
-matmul_precision: "medium" 
+matmul_precision: "medium"
 
 # metrics to be logged
 metrics:
@@ -61,4 +60,3 @@ metrics:
   val: ["reward"]
   test: ["reward"]
   log_on_step: True
-  

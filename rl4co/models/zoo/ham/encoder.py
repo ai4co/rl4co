@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.graph.gat import Normalization, SkipConnection
+from rl4co.models.nn.graph.attnnet import Normalization, SkipConnection
 from rl4co.models.zoo.ham.attention import HeterogenousMHA
 
 
@@ -34,8 +34,8 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         self,
         num_heads,
         embedding_dim,
-        num_layers,
-        env=None,
+        num_encoder_layers,
+        env_name=None,
         normalization="batch",
         feed_forward_hidden=512,
         force_flash_attn=False,
@@ -44,7 +44,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
 
         # Map input to embedding space
         self.init_embedding = env_init_embedding(
-            env.name, {"embedding_dim": embedding_dim}
+            env_name, {"embedding_dim": embedding_dim}
         )
 
         self.layers = nn.Sequential(
@@ -55,7 +55,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
                     feed_forward_hidden,
                     normalization,
                 )
-                for _ in range(num_layers)
+                for _ in range(num_encoder_layers)
             )
         )
 

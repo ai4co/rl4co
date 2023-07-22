@@ -221,7 +221,7 @@ class PDPEnv(RL4COEnvBase):
         )
 
     @staticmethod
-    def render(td, actions=None):
+    def render(td: TensorDict, actions=None, ax=None):
         import matplotlib.pyplot as plt
 
         markersize = 8
@@ -291,14 +291,7 @@ class PDPEnv(RL4COEnvBase):
                 label="Delivery" if i == 0 else None,
             )
 
-        # Legend
-        # plt.legend(['Actions', 'Depot', 'Delivery', 'Pickup'])
-        # get handles
-        handles, labels = ax.get_legend_handles_labels()
-
-        # plot legend
-        ax.legend(handles, labels)
-        ax.set_title("Pickup and Delivery Problem Solution")
-        ax.set_xlabel("x-coordinate")
-        ax.set_ylabel("y-coordinate")
+        # Setup limits and show
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
         plt.show()

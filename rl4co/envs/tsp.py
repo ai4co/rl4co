@@ -87,6 +87,7 @@ class TSPEnv(RL4COEnvBase):
         self.device = device = init_locs.device if init_locs is not None else self.device
         if init_locs is None:
             init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
+        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # We do not enforce loading from self for flexibility
         num_loc = init_locs.shape[-2]
@@ -179,14 +180,15 @@ class TSPEnv(RL4COEnvBase):
             _, ax = plt.subplots()
 
         td = td.detach().cpu()
-        # if batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-
-        locs = td["locs"]
 
         if actions is None:
             actions = td.get("action", None)
+        # if batch_size greater than 0 , we need to select the first batch element
+        if td.batch_size != torch.Size([]):
+            td = td[0]
+            actions = actions[0]
+
+        locs = td["locs"]
 
         # gather locs in order of action if available
         if actions is None:

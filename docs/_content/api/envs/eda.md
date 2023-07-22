@@ -1,4 +1,4 @@
-# EDA
+# EDA Problems
 Environment for Electronic Design Automation (EDA) problems
 
 ## Decap Placement Problem (DPP)

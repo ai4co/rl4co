@@ -1,4 +1,4 @@
-# Scheduling
+# Scheduling Problems
 
 ## Flexible Flow Shop Problem (FFSP) 
 

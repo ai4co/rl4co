@@ -314,16 +314,18 @@ class CVRPEnv(RL4COEnvBase):
             _, ax = plt.subplots()
 
         td = td.detach().cpu()
+
+        if actions is None:
+            actions = td.get("action", None)
+
         # if batch_size greater than 0 , we need to select the first batch element
         if td.batch_size != torch.Size([]):
             td = td[0]
+            actions = actions[0]
 
         locs = td["locs"]
         scale = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
         demands = td["demand"] * scale
-
-        if actions is None:
-            actions = td.get("action", None)
 
         # add the depot at the first action and the end action
         actions = torch.cat([torch.tensor([0]), actions, torch.tensor([0])])

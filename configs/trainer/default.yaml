@@ -1,11 +1,11 @@
 # Customized for RL4CO
-_target_: lightning.pytorch.trainer.Trainer
+_target_: rl4co.utils.trainer.RL4COTrainer
 
 default_root_dir: ${paths.output_dir}
 
 gradient_clip_val: 1.0
 accelerator: "gpu"
-precision: "16-mixed" 
+precision: "16-mixed"
 
 # Fast distributed training: comment out to use on single GPU
 # devices: 1 # change number of devices
@@ -20,6 +20,3 @@ check_val_every_n_epoch: 1
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds
 deterministic: False
-
-# We must do this each epoch to ensure that the dataloaders are reloaded with new data
-reload_dataloaders_every_n_epochs: 1

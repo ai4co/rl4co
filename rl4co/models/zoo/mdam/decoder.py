@@ -1,10 +1,14 @@
 import math
+from typing import Union
 
 from dataclasses import dataclass
+from tensordict import TensorDict
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from rl4co.envs import RL4COEnvBase
 
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
@@ -23,7 +27,7 @@ class PrecomputedCache:
 class Decoder(nn.Module):
     def __init__(
         self,
-        env,
+        env_name,
         embedding_dim,
         num_heads,
         num_paths: int = 5,
@@ -39,7 +43,7 @@ class Decoder(nn.Module):
     ):
         super(Decoder, self).__init__()
         self.dynamic_embedding = env_dynamic_embedding(
-            env, {"embedding_dim": embedding_dim}
+            env_name, {"embedding_dim": embedding_dim}
         )
 
         self.train_decode_type = train_decode_type
@@ -52,36 +56,36 @@ class Decoder(nn.Module):
         )  # Placeholder should be in range of activations
 
         self.context = [
-            env_context_embedding(env.name, {"embedding_dim": embedding_dim})
+            env_context_embedding(env_name, {"embedding_dim": embedding_dim})
             for _ in range(num_paths)
         ]
 
         self.project_node_embeddings = [
-            nn.Linear(embedding_dim, 3 * embedding_dim, device=env.device, bias=False)
+            nn.Linear(embedding_dim, 3 * embedding_dim, bias=False)
             for _ in range(num_paths)
         ]
         self.project_node_embeddings = nn.ModuleList(self.project_node_embeddings)
 
         self.project_fixed_context = [
-            nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False)
+            nn.Linear(embedding_dim, embedding_dim, bias=False)
             for _ in range(num_paths)
         ]
         self.project_fixed_context = nn.ModuleList(self.project_fixed_context)
 
         self.project_step_context = [
-            nn.Linear(2 * embedding_dim, embedding_dim, device=env.device, bias=False)
+            nn.Linear(2 * embedding_dim, embedding_dim, bias=False)
             for _ in range(num_paths)
         ]
         self.project_step_context = nn.ModuleList(self.project_step_context)
 
         self.project_out = [
-            nn.Linear(embedding_dim, embedding_dim, device=env.device, bias=False)
+            nn.Linear(embedding_dim, embedding_dim, bias=False)
             for _ in range(num_paths)
         ]
         self.project_out = nn.ModuleList(self.project_out)
 
         self.dynamic_embedding = env_dynamic_embedding(
-            env.name, {"embedding_dim": embedding_dim}
+            env_name, {"embedding_dim": embedding_dim}
         )
 
         self.logit_attention = [
@@ -94,7 +98,7 @@ class Decoder(nn.Module):
             for _ in range(num_paths)
         ]
 
-        self.env = env
+        self.env_name = env_name
         self.mask_inner = mask_inner
         self.mask_logits = mask_logits
         self.num_heads = num_heads
@@ -103,11 +107,20 @@ class Decoder(nn.Module):
         self.tanh_clipping = tanh_clipping
         self.shrink_size = shrink_size
 
-    def forward(self, td, encoded_inputs, attn, V, h_old, **decoder_kwargs):
+    def forward(
+            self, 
+            td: TensorDict, 
+            encoded_inputs: torch.Tensor, 
+            env: Union[str, RL4COEnvBase],
+            attn, 
+            V,
+            h_old,
+            **decoder_kwargs
+        ):
         # SECTION: Decoder first step: calculate for the decoder divergence loss
         # Cost list and log likelihood list along with path
         output_list = []
-        td_list = [self.env.reset(td) for i in range(self.num_paths)]
+        td_list = [env.reset(td) for i in range(self.num_paths)]
         for i in range(self.num_paths):
             # Clone the encoded features for this path
             _encoded_inputs = encoded_inputs.clone()
@@ -147,7 +160,7 @@ class Decoder(nn.Module):
         output_list = []
         action_list = []
         ll_list = []
-        td_list = [self.env.reset(td) for _ in range(self.num_paths)]
+        td_list = [env.reset(td) for _ in range(self.num_paths)]
         for i in range(self.num_paths):
             # Clone the encoded features for this path
             _encoded_inputs = encoded_inputs.clone()
@@ -182,7 +195,7 @@ class Decoder(nn.Module):
                 )
 
                 td_list[i].set("action", action)
-                td_list[i] = self.env.step(td_list[i])["next"]
+                td_list[i] = env.step(td_list[i])["next"]
 
                 # Collect output of step
                 outputs.append(log_p[:, 0, :])
@@ -190,7 +203,7 @@ class Decoder(nn.Module):
                 j += 1
 
             outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
-            reward = self.env.get_reward(td, actions)
+            reward = env.get_reward(td, actions)
             ll = get_log_likelihood(outputs, actions, mask)
 
             reward_list.append(reward)
@@ -248,7 +261,7 @@ class Decoder(nn.Module):
         step_context = self.context[path_index](
             fixed.node_embeddings, td
         )  # [batch, embed_dim]
-        glimpse_q = fixed.graph_context + step_context.unsqueeze(1)
+        glimpse_q = fixed.graph_context + step_context.unsqueeze(1).to(fixed.graph_context.device)
 
         # Compute keys and values for the nodes
         (

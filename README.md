@@ -1,12 +1,14 @@
 <div align="center">
 
-![rl4co_titlebar_withlogo](https://github.com/kaist-silab/rl4co/assets/34462374/58e087eb-8791-4e92-a9da-fe0f680a11e4)
+<img src="https://github.com/kaist-silab/rl4co/assets/34462374/249462ea-b15d-4358-8a11-6508903dae58" style="width:40%">
+</br></br>
+
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
-<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)[![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
-![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)<a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>[![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
+![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?) <a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
 [![Test](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml)
 <!-- ![testing](https://github.com/kaist-silab/ncobench/actions/workflows/tests.yml/badge.svg) -->
 
@@ -26,8 +28,7 @@ RL4CO is built upon:
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-![image](https://github.com/kaist-silab/rl4co/assets/48984123/0db4efdd-1c93-4991-8f09-f3c6c1f35d60)
-
+![RL4CO Overview](https://github.com/kaist-silab/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee)
 
 ## Getting started
 <a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
@@ -105,41 +106,30 @@ python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
 
 ### Minimalistic Example
 
-Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 50 lines of code:
+Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 30 lines of code:
 
 ```python
-from omegaconf import DictConfig
-import lightning as L
 from rl4co.envs import TSPEnv
-from rl4co.models.zoo.am import AttentionModel
-from rl4co.tasks.rl4co import RL4COLitModule
-
-config = DictConfig(
-    {"data": {
-            "train_size": 100000,
-            "val_size": 10000,
-            "batch_size": 512,
-        },
-    "optimizer": {"lr": 1e-4}}
-)
+from rl4co.models import AttentionModel
+from rl4co.utils import RL4COTrainer
 
 # Environment, Model, and Lightning Module
 env = TSPEnv(num_loc=20)
-model = AttentionModel(env)
-lit_module = RL4COLitModule(config, env, model)
+model = AttentionModel(env,
+                       baseline="rollout",
+                       train_data_size=100_000,
+                       test_data_size=10_000,
+                       optimizer_kwargs={'lr': 1e-4}
+                       )
 
 # Trainer
-trainer = L.Trainer(
-    max_epochs=3, # only few epochs
-    accelerator="gpu", # use GPU if available, else you can use others as "cpu"
-    logger=None, # can replace with WandbLogger, TensorBoardLogger, etc.
-    precision="16-mixed", # Lightning will handle faster training with mixed precision
-    gradient_clip_val=1.0, # clip gradients to avoid exploding gradients
-    reload_dataloaders_every_n_epochs=1, # necessary for sampling new data
-)
+trainer = RL4COTrainer(max_epochs=3)
 
 # Fit the model
-trainer.fit(lit_module)
+trainer.fit(model)
+
+# Test the model
+trainer.test(model)
 ```
 
 

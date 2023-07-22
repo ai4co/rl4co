@@ -1,6 +1,3 @@
 _target_: rl4co.models.AttentionModel
 
-baseline:
-  _target_: rl4co.models.rl.reinforce.baselines.WarmupBaseline
-  baseline:
-    _target_: rl4co.models.rl.reinforce.baselines.RolloutBaseline
+baseline: "rollout"
