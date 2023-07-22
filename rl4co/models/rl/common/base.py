@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any, Union
 
 import torch
@@ -53,9 +54,11 @@ class RL4COLitModule(LightningModule):
         train_data_size: int = 1_280_000,
         val_data_size: int = 10_000,
         test_data_size: int = 10_000,
-        optimizer: Union[str, torch.optim.Optimizer] = "Adam",
+        optimizer: Union[str, torch.optim.Optimizer, partial] = "Adam",
         optimizer_kwargs: dict = {"lr": 1e-4},
-        lr_scheduler: Union[str, torch.optim.lr_scheduler.LRScheduler] = "MultiStepLR",
+        lr_scheduler: Union[
+            str, torch.optim.lr_scheduler.LRScheduler, partial
+        ] = "MultiStepLR",
         lr_scheduler_kwargs: dict = {
             "milestones": [80, 95],
             "gamma": 0.1,
@@ -173,12 +176,13 @@ class RL4COLitModule(LightningModule):
         if parameters is None:
             parameters = self.policy.parameters()
 
-        # instantiate optimizer
         log.info(f"Instantiating optimizer <{self._optimizer_name_or_cls}>")
         if isinstance(self._optimizer_name_or_cls, str):
             optimizer = create_optimizer(
                 parameters, self._optimizer_name_or_cls, **self.optimizer_kwargs
             )
+        elif isinstance(self._optimizer_name_or_cls, partial):
+            optimizer = self._optimizer_name_or_cls(parameters, **self.optimizer_kwargs)
         else:  # User-defined optimizer
             opt_cls = self._optimizer_name_or_cls
             optimizer = opt_cls(parameters, **self.optimizer_kwargs)
@@ -192,6 +196,10 @@ class RL4COLitModule(LightningModule):
             if isinstance(self._lr_scheduler_name_or_cls, str):
                 scheduler = create_scheduler(
                     optimizer, self._lr_scheduler_name_or_cls, **self.lr_scheduler_kwargs
+                )
+            elif isinstance(self._lr_scheduler_name_or_cls, partial):
+                scheduler = self._lr_scheduler_name_or_cls(
+                    optimizer, **self.lr_scheduler_kwargs
                 )
             else:  # User-defined scheduler
                 scheduler_cls = self._lr_scheduler_name_or_cls
