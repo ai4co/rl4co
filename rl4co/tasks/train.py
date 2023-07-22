@@ -12,6 +12,7 @@ from omegaconf import DictConfig
 pyrootutils.setup_root(__file__, indicator=".gitignore", pythonpath=True)
 
 from rl4co import utils
+from rl4co.utils import RL4COTrainer
 
 log = utils.get_pylogger(__name__)
 
@@ -22,6 +23,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     training.
     This method is wrapped in optional @task_wrapper decorator, that controls the behavior during
     failure. Useful for multiruns, saving info about the crash, etc.
+
     Args:
         cfg (DictConfig): Configuration composed by Hydra.
     Returns:
@@ -32,24 +34,13 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 
+    # We instantiate the environment separately and then pass it to the model
+    log.info(f"Instantiating environment <{cfg.env._target_}>")
+    env = hydra.utils.instantiate(cfg.env)
+
     # Note that the RL environment is instantiated inside the model
-    log.info(f"Instantiating task <{cfg.task._target_}>")
-    model: LightningModule = hydra.utils.instantiate(cfg.task, cfg, _recursive_=False)
-
-    if cfg.get("transfer"):
-        from rl4co.utils.lightning import load_model_from_checkpoint
-        from rl4co.utils.transfer import transplant_weights
-
-        log.info("load pretrained model")
-        device = model.device
-        pretrained_model = load_model_from_checkpoint(
-            cfg.transfer.source.config,
-            cfg.transfer.source.checkpoint_path,
-            device=device,
-        )
-
-        transplant_weights(pretrained_model, model, **cfg.transfer.transfer_config)
-        del pretrained_model
+    log.info(f"Instantiating model <{cfg.model._target_}>")
+    model: LightningModule = hydra.utils.instantiate(cfg.model, env)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
@@ -57,14 +48,12 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     log.info("Instantiating loggers...")
     logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
 
-    # NOTE: TODO!!!
-    trainer = RL4COTrainer()
-    # trainer: Trainer = hydra.utils.instantiate(
-    #     cfg.trainer,
-    #     callbacks=callbacks,
-    #     logger=logger,
-    #     reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs,
-    # )
+    log.info("Instantiating trainer...")
+    trainer: RL4COTrainer = hydra.utils.instantiate(
+        cfg.trainer,
+        callbacks=callbacks,
+        logger=logger,
+    )
 
     object_dict = {
         "cfg": cfg,
@@ -105,7 +94,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     return metric_dict, object_dict
 
 
-@hydra.main(version_base="1.3", config_path="configs", config_name="main.yaml")
+@hydra.main(version_base="1.3", config_path="../../configs", config_name="main.yaml")
 # @hydra.main(version_base="1.3", config_path="configs", config_name="experiment/tsp/am-ppo.yaml")
 def train(cfg: DictConfig) -> Optional[float]:
     # apply extra utilities
