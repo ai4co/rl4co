@@ -41,16 +41,4 @@ jobs:
       uses: codecov/codecov-action@v3
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      coverage:
-        status:
-          project:
-            default:
-              # set target (e.g. 60%) to fail the build if coverage is too low
-              target: 60%
-          patch:
-            default:
-              # basic just to show current patch
-              target: auto
-              threshold: 0%
-              base: auto
 
