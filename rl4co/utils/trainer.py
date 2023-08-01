@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional, Union
 import torch
 
 from lightning import Callback, Trainer
-from lightning.fabric.accelerators.cuda import find_usable_cuda_devices
+from lightning.fabric.accelerators.cuda import num_cuda_devices
 from lightning.pytorch.accelerators import Accelerator
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.strategies import DDPStrategy, Strategy
@@ -69,7 +69,7 @@ class RL4COTrainer(Trainer):
         # Configure DDP automatically
         if auto_configure_ddp and strategy == "auto":
             if devices == "auto":
-                n_devices = len(find_usable_cuda_devices())
+                n_devices = num_cuda_devices()
             elif isinstance(devices, list):
                 n_devices = len(devices)
             else:
