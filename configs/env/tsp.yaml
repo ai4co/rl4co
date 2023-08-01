@@ -1,5 +1,7 @@
 _target_: rl4co.envs.tsp.TSPEnv
 
+name: tsp
+
 num_loc: 20
 min_loc: 0
 max_loc: 1

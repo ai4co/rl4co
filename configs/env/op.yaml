@@ -1,4 +1,5 @@
 _target_: rl4co.envs.op.OPEnv
+name: op
 
 num_loc: 20
 data_dir: ${paths.root_dir}/data/op

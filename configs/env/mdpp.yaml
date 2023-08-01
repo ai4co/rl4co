@@ -1,4 +1,5 @@
 _target_: rl4co.envs.mdpp.MDPPEnv
+name: mdpp
 
 max_decaps: 20
 data_dir: ${paths.data_dir}/mdpp

@@ -34,6 +34,8 @@ logger:
 # This is a `LightningModule` and can be trained with PyTorch Lightning.
 model:
   batch_size: 512
+  val_batch_size: 1024
+  test_batch_size: 1024
   train_data_size: 1_280_000
   val_data_size: 10_000
   test_data_size: 10_000

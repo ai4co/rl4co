@@ -17,7 +17,6 @@ logger:
     group: ${env.name}${env.num_loc}"
     name: "am-${env.name}${env.num_loc}"
 
-
 model:
   batch_size: 512
   val_batch_size: 1024
@@ -27,6 +26,7 @@ model:
   test_data_size: 10_000
   optimizer_kwargs:
     lr: 1e-4
+    weight_decay: 0
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:

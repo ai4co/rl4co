@@ -1,4 +1,5 @@
 _target_: rl4co.envs.mtsp.MTSPEnv
+name: mtsp
 
 num_loc: 20
 min_loc: 0
