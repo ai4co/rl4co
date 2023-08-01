@@ -22,7 +22,7 @@ def test_reinforce(baseline):
 def test_ppo():
     env = TSPEnv(num_loc=20)
     model = PPOModel(env, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(max_epochs=1)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None)
     trainer.fit(model)
     trainer.test(model)
 
