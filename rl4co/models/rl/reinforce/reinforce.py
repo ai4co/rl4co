@@ -55,7 +55,7 @@ class REINFORCE(RL4COLitModule):
         # Compute loss
         if phase == "train":
             # Extra: this is used for additional loss terms, e.g., REINFORCE baseline
-            extra = td.get("extra", None)
+            extra = batch.get("extra", None)
 
             bl_val, bl_neg_loss = (
                 self.baseline.eval(td, out["reward"], self.env)
