@@ -1,8 +1,9 @@
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Iterable, List, Optional, Union
 
 import torch
 
 from lightning import Callback, Trainer
+from lightning.fabric.accelerators.cuda import find_usable_cuda_devices
 from lightning.pytorch.accelerators import Accelerator
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.strategies import DDPStrategy, Strategy
@@ -50,9 +51,9 @@ class RL4COTrainer(Trainer):
         devices: Union[List[int], str, int] = "auto",
         gradient_clip_val: Union[int, float] = 1.0,
         precision: Union[str, int] = "16-mixed",
+        reload_dataloaders_every_n_epochs: int = 1,
         disable_profiling_executor: bool = True,
         auto_configure_ddp: bool = True,
-        reload_dataloaders_every_n_epochs: int = 1,
         matmul_precision: Union[str, int] = "medium",
         **kwargs,
     ):
@@ -66,9 +67,14 @@ class RL4COTrainer(Trainer):
                 pass
 
         # Configure DDP automatically
-        if auto_configure_ddp and isinstance(devices, Sequence):
-            n_devices = len(devices)
-            if n_devices > 1 and strategy is None:
+        if auto_configure_ddp and strategy == "auto":
+            if devices == "auto":
+                n_devices = len(find_usable_cuda_devices())
+            elif isinstance(devices, list):
+                n_devices = len(devices)
+            else:
+                n_devices = devices
+            if n_devices > 1:
                 log.info("Configuring DDP strategy automatically")
                 strategy = DDPStrategy(
                     find_unused_parameters=True,  # We set to True due to RL envs
