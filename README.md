@@ -78,7 +78,7 @@ python run.py
 
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/) (e.g. tsp/am, and environment with 42 cities)
 ```bash
-python run.py experiment=tsp/am env.num_loc=42
+python run.py experiment=routing/am env.num_loc=42
 ```
 </details>
 
@@ -87,7 +87,7 @@ python run.py experiment=tsp/am env.num_loc=42
     <summary>Disable logging</summary>
 
 ```bash
-python run.py experiment=test/am logger=none '~callbacks.learning_rate_monitor'
+python run.py experiment=routing/am logger=none '~callbacks.learning_rate_monitor'
 ```
 Note that `~` is used to disable a callback that would need a logger.
 
@@ -98,7 +98,7 @@ Note that `~` is used to disable a callback that would need a logger.
     <summary>Create a sweep over hyperparameters (-m for multirun)</summary>
 
 ```bash
-python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
+python run.py -m experiment=routing/am  train.optimizer.lr=1e-3,1e-4,1e-5
 ```
 </details>
 
