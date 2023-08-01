@@ -142,7 +142,7 @@ class CriticBaseline(REINFORCEBaseline):
             self.critic = CriticNetwork(env.name, **kwargs)
 
     def eval(self, x, c, env=None):
-        v = self.critic(x)
+        v = self.critic(x).squeeze(-1)
         # detach v since actor should not backprop through baseline, only for neg_loss
         return v.detach(), -F.mse_loss(v, c.detach())
 
