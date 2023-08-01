@@ -106,7 +106,9 @@ class RL4COTrainer(Trainer):
             min_epochs=min_epochs,
             max_epochs=max_epochs,
             strategy=strategy,
+            gradient_clip_val=gradient_clip_val,
             devices=devices,
             precision=precision,
+            reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs,
             **kwargs,
         )
