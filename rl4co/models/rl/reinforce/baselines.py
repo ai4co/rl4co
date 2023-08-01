@@ -225,14 +225,14 @@ class RolloutBaseline(REINFORCEBaseline):
         def eval_model(batch):
             with torch.no_grad():
                 batch = env.reset(batch.to(device))
-                return model(batch, env, decode_type="greedy")["reward"].data.cpu()
+                return model(batch, env, decode_type="greedy")["reward"]
 
         dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
 
-        retval = torch.cat(
+        rewards = torch.cat(
             [eval_model(batch) for batch in tqdm(dl, disable=not self.progress_bar)], 0
         )
-        return retval
+        return rewards
 
     def wrap_dataset(self, dataset, env, batch_size=64, device="cpu", **kw):
         """Wrap the dataset in a baseline dataset
