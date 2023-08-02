@@ -5,12 +5,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from rl4co.data.dataset import tensordict_collate_fn
-from rl4co.models.zoo.pomo.augmentations import (
-    StateAugmentation as Dihedral8StateAugmentation,
-)
-from rl4co.models.zoo.symnco.augmentations import (
-    StateAugmentation as SymmetricStateAugmentation,
-)
+from rl4co.data.transforms import StateAugmentation
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 
 
@@ -129,18 +124,9 @@ class AugmentationEval(EvalBase):
     def __init__(self, env, num_augment=8, force_dihedral_8=False, **kwargs):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
-
-        assert not (
-            num_augment != 8 and force_dihedral_8
-        ), "Cannot force dihedral when num_augment != 8"
-        if num_augment == 8 and not force_dihedral_8:
-            self.augmentation = Dihedral8StateAugmentation(
-                env.name, num_augment=num_augment
-            )
-        else:
-            self.augmentation = SymmetricStateAugmentation(
-                env.name, num_augment=num_augment
-            )
+        self.augmentation = StateAugmentation(
+            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+        )
 
     def _inner(self, policy, td, num_augment=None):
         if num_augment is None:
@@ -264,14 +250,9 @@ class GreedyMultiStartAugmentEval(EvalBase):
         assert not (
             num_augment != 8 and force_dihedral_8
         ), "Cannot force dihedral 8 when num_augment != 8"
-        if num_augment == 8 and not force_dihedral_8:
-            self.augmentation = Dihedral8StateAugmentation(
-                env.name, num_augment=num_augment
-            )
-        else:
-            self.augmentation = SymmetricStateAugmentation(
-                env.name, num_augment=num_augment
-            )
+        self.augmentation = StateAugmentation(
+            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+        )
 
     def _inner(self, policy, td, num_augment=None):
         if num_augment is None:
