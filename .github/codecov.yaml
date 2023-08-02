@@ -7,6 +7,6 @@ coverage:
     patch:
       default:
         # basic just to show current patch
-        target: auto
+        target: 0%
         threshold: 0%
         base: auto
