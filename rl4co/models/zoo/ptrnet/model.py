@@ -7,10 +7,10 @@ from rl4co.models.zoo.ptrnet.policy import PointerNetworkPolicy
 
 
 class PointerNetwork(REINFORCE):
-    """
-    Pointer Network for neural combinatorial optimization based on REINFORCE
+    """Pointer Network for neural combinatorial optimization based on REINFORCE
     Based on Vinyals et al. (2015) https://arxiv.org/abs/1506.03134
     Refactored from reference implementation: https://github.com/wouterkool/attention-learn-to-route
+
     Args:
         env: Environment to use for the algorithm
         policy: Policy to use for the algorithm

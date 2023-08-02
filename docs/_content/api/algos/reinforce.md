@@ -8,7 +8,9 @@
    :undoc-members:
 ```
 
-## REINFORCE Baselines
+---
+
+## Baselines
 
 ```{eval-rst}
 .. automodule:: rl4co.models.rl.reinforce.baselines

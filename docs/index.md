@@ -28,7 +28,8 @@ RL4CO is built upon:
 
 <img class="full-img" alt="image" src="https://github.com/kaist-silab/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee">
 
-
+   <!-- .. include:: _content/start/1-quickstart.ipynb -->
+   <!-- .. include:: ../notebooks/1-quickstart.ipynb -->
 
 ```{eval-rst}
 .. toctree::
@@ -36,8 +37,9 @@ RL4CO is built upon:
    :caption: Getting started:
 
    _content/start/installation
-   _content/start/quickstart
-   _content/start/quickstart_notebook
+   _content/start/1-quickstart
+   _content/start/2-advanced
+   _content/start/hydra
 
 .. toctree::
    :maxdepth: 2

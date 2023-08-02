@@ -1,5 +1,4 @@
-# RL4CO LitModule
-
+# Base Classes
 
 ## RL4COLitModule
 
