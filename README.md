@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="https://github.com/kaist-silab/rl4co/assets/34462374/249462ea-b15d-4358-8a11-6508903dae58" style="width:40%">
+<!-- <img src="https://github.com/kaist-silab/rl4co/assets/34462374/249462ea-b15d-4358-8a11-6508903dae58" style="width:40%"> -->
+
+<img src="https://github.com/kaist-silab/rl4co/assets/48984123/01a547b2-9722-4540-b0e1-9c12af094b15" style="width:40%">
+
+
 </br></br>
 
 
