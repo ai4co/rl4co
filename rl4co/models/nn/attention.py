@@ -154,6 +154,7 @@ class LogitAttention(nn.Module):
         mask_logits: bool = True,
         normalize: bool = True,
         softmax_temp: float = 1.0,
+        linear_bias: bool = False,
         force_flash_attn: bool = False,
     ):
         super(LogitAttention, self).__init__()
@@ -171,7 +172,7 @@ class LogitAttention(nn.Module):
             )
 
         # Projection - query, key, value already include projections
-        self.project_out = nn.Linear(embed_dim, embed_dim, bias=False)
+        self.project_out = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
 
     def forward(self, query, key, value, logit_key, mask, softmax_temp=None):
         # Compute inner multi-head attention with no projections.

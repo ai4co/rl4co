@@ -40,13 +40,15 @@ class EnvContext(nn.Module):
     query embedding of the problem node of the current partial solution.
     Consists of a linear layer that projects the node features to the embedding space."""
 
-    def __init__(self, embedding_dim, step_context_dim=None):
+    def __init__(self, embedding_dim, step_context_dim=None, linear_bias=False):
         super(EnvContext, self).__init__()
         self.embedding_dim = embedding_dim
         step_context_dim = (
             step_context_dim if step_context_dim is not None else embedding_dim
         )
-        self.project_context = nn.Linear(step_context_dim, embedding_dim, bias=False)
+        self.project_context = nn.Linear(
+            step_context_dim, embedding_dim, bias=linear_bias
+        )
 
     def _cur_node_embedding(self, embeddings, td):
         """Get embedding of current node"""
@@ -183,12 +185,12 @@ class MTSPContext(EnvContext):
         - distance_from_depot
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=False):
         super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
         proj_in_dim = (
             4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
         )
-        self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim)
+        self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim, bias=linear_bias)
 
     def _cur_node_embedding(self, embeddings, td):
         cur_node_embedding = gather_by_index(embeddings, td["current_node"])

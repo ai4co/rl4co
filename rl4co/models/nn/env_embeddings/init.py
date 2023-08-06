@@ -39,10 +39,10 @@ class TSPInitEmbedding(nn.Module):
         - locs: x, y coordinates of the cities
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(TSPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim)
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
 
     def forward(self, td):
         out = self.init_embed(td["locs"])
@@ -56,11 +56,13 @@ class VRPInitEmbedding(nn.Module):
         - demand: demand of the customers
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(VRPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, demand
-        self.init_embed = nn.Linear(node_dim, embedding_dim)
-        self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(
+            2, embedding_dim, linear_bias
+        )  # depot embedding
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
@@ -84,11 +86,11 @@ class PCTSPInitEmbedding(nn.Module):
         - penalty: penalty for not visiting the customers
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(PCTSPInitEmbedding, self).__init__()
         node_dim = 4  # x, y, prize, penalty
-        self.init_embed = nn.Linear(node_dim, embedding_dim)
-        self.init_embed_depot = nn.Linear(2, embedding_dim)
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(2, embedding_dim, linear_bias)
 
     def forward(self, td):
         depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
@@ -115,11 +117,13 @@ class OPInitEmbedding(nn.Module):
         - prize: prize for visiting the customers
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(OPInitEmbedding, self).__init__()
         node_dim = 3  # x, y, prize
-        self.init_embed = nn.Linear(node_dim, embedding_dim)
-        self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(
+            2, embedding_dim, linear_bias
+        )  # depot embedding
 
     def forward(self, td):
         depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
@@ -144,11 +148,11 @@ class DPPInitEmbedding(nn.Module):
         - probe: index of the (single) probe cell. We embed the euclidean distance from the probe to all cells.
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(DPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim // 2)  # locs
-        self.init_embed_probe = nn.Linear(1, embedding_dim // 2)  # probe
+        self.init_embed = nn.Linear(node_dim, embedding_dim // 2, linear_bias)  # locs
+        self.init_embed_probe = nn.Linear(1, embedding_dim // 2, linear_bias)  # probe
 
     def forward(self, td):
         node_embeddings = self.init_embed(td["locs"])
@@ -170,12 +174,14 @@ class MDPPInitEmbedding(nn.Module):
         - probe: indexes of the probe cells (multiple). We embed the euclidean distance of each cell to the closest probe.
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(MDPPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim)  # locs
-        self.init_embed_probe_distance = nn.Linear(1, embedding_dim)  # probe_distance
-        self.project_out = nn.Linear(embedding_dim * 2, embedding_dim)
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)  # locs
+        self.init_embed_probe_distance = nn.Linear(
+            1, embedding_dim, linear_bias
+        )  # probe_distance
+        self.project_out = nn.Linear(embedding_dim * 2, embedding_dim, linear_bias)
 
     def forward(self, td):
         probes = td["probe"]
@@ -200,12 +206,12 @@ class PDPInitEmbedding(nn.Module):
            Note that pickups and deliveries are interleaved in the input.
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         super(PDPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed_depot = nn.Linear(2, embedding_dim)
-        self.init_embed_pick = nn.Linear(node_dim * 2, embedding_dim)
-        self.init_embed_delivery = nn.Linear(node_dim, embedding_dim)
+        self.init_embed_depot = nn.Linear(2, embedding_dim, linear_bias)
+        self.init_embed_pick = nn.Linear(node_dim * 2, embedding_dim, linear_bias)
+        self.init_embed_delivery = nn.Linear(node_dim, embedding_dim, linear_bias)
 
     def forward(self, td):
         depot, locs = td["locs"][..., 0:1, :], td["locs"][..., 1:, :]
@@ -227,12 +233,14 @@ class MTSPInitEmbedding(nn.Module):
         - locs: x, y coordinates of the nodes (depot, cities)
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, linear_bias=True):
         """NOTE: new made by Fede. May need to be checked"""
         super(MTSPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embedding_dim)
-        self.init_embed_depot = nn.Linear(2, embedding_dim)  # depot embedding
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(
+            2, embedding_dim, linear_bias
+        )  # depot embedding
 
     def forward(self, td):
         depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
