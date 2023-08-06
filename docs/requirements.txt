@@ -1,4 +1,4 @@
-rl4co
+rl4co[graph]
 
 sphinx >6.0, <7.0
 myst-parser ==2.0.0
