@@ -12,7 +12,10 @@ from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs
-from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
+from rl4co.utils.ops import batchify, get_num_starts, select_start_nodes, unbatchify
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 @dataclass
@@ -55,6 +58,8 @@ class AutoregressiveDecoder(nn.Module):
         embedding_dim: int,
         num_heads: int,
         use_graph_context: bool = True,
+        select_start_nodes_fn: callable = select_start_nodes,
+        linear_bias: bool = False,
         **logit_attn_kwargs,
     ):
         super().__init__()
@@ -75,14 +80,18 @@ class AutoregressiveDecoder(nn.Module):
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
         self.project_node_embeddings = nn.Linear(
-            embedding_dim, 3 * embedding_dim, bias=False
+            embedding_dim, 3 * embedding_dim, bias=linear_bias
         )
-        self.project_fixed_context = nn.Linear(embedding_dim, embedding_dim, bias=False)
+        self.project_fixed_context = nn.Linear(
+            embedding_dim, embedding_dim, bias=linear_bias
+        )
 
         # MHA
         self.logit_attention = LogitAttention(
             embedding_dim, num_heads, **logit_attn_kwargs
         )
+
+        self.select_start_nodes_fn = select_start_nodes_fn
 
     def forward(
         self,
@@ -107,7 +116,7 @@ class AutoregressiveDecoder(nn.Module):
                 - "greedy": take the argmax of the logits
                 - "multistart_sampling": sample as sampling, but with multi-start decoding
                 - "multistart_greedy": sample as greedy, but with multi-start decoding
-            num_starts: Number of multi-starts to use. If None, no multi-start decoding is used
+            num_starts: Number of multi-starts to use. If None, will be calculated from the action mask
             softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
             calc_reward: Whether to calculate the reward for the decoded sequence
 
@@ -117,11 +126,17 @@ class AutoregressiveDecoder(nn.Module):
             td: TensorDict containing the environment state after decoding
         """
 
-        # Greedy multi-start decoding if num_starts > 1
-        num_starts = 0 if num_starts is None else num_starts
-        assert not (
-            "multistart" in decode_type and num_starts <= 1
-        ), "Multi-start decoding requires `num_starts` > 1"
+        # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
+        if "multistart" in decode_type:
+            if num_starts is None:
+                num_starts = get_num_starts(td)
+        else:
+            if num_starts is not None:
+                if num_starts > 1:
+                    log.warn(
+                        f"num_starts={num_starts} is ignored for decode_type={decode_type}"
+                    )
+            num_starts = 0
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute_cache(embeddings, num_starts=num_starts)
@@ -137,7 +152,7 @@ class AutoregressiveDecoder(nn.Module):
 
         # Multi-start decoding: first action is chosen by ad-hoc node selection
         if num_starts > 1 or "multistart" in decode_type:
-            action = select_start_nodes(td, num_starts, env)
+            action = self.select_start_nodes_fn(td, env, num_nodes=num_starts)
 
             # Expand td to batch_size * num_starts
             td = batchify(td, num_starts)
@@ -151,7 +166,7 @@ class AutoregressiveDecoder(nn.Module):
             outputs.append(log_p)
             actions.append(action)
 
-        # Main decoding
+        # Main decoding: loop until all sequences are done
         while not td["done"].all():
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
 
@@ -221,7 +236,6 @@ class AutoregressiveDecoder(nn.Module):
             softmax_temp: Temperature for the softmax
             num_starts: Number of starts for the multi-start decoding
         """
-
         # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
         td_unbatch = unbatchify(td, num_starts)
         step_context = self.context_embedding(cached.node_embeddings, td_unbatch)
