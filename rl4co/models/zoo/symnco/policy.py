@@ -13,9 +13,21 @@ log = get_pylogger(__name__)
 
 
 class SymNCOPolicy(AutoregressivePolicy):
-    """Docstring for SymNCOPolicy.
+    """SymNCO Policy based on AutoregressivePolicy.
+    This differs from the default :class:`AutoregressivePolicy` in that it
+    projects the initial embeddings to a lower dimension using a projection head and
+    returns it. This is used in the SymNCO algorithm to compute the invariance loss.
+    Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209.
 
-    TODO
+    Args:
+        env_name: Name of the environment
+        embedding_dim: Dimension of the embedding
+        num_encoder_layers: Number of layers in the encoder
+        num_heads: Number of heads in the encoder
+        normalization: Normalization to use in the encoder
+        projection_head: Projection head to use
+        use_projection_head: Whether to use projection head
+        **kwargs: Keyword arguments passed to the superclass
     """
 
     def __init__(

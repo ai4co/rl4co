@@ -1,4 +1,6 @@
-from typing import Any
+from typing import Any, Union
+
+import torch.nn as nn
 
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
@@ -9,37 +11,37 @@ from rl4co.models.zoo.symnco.losses import (
     solution_symmetricity_loss,
 )
 from rl4co.models.zoo.symnco.policy import SymNCOPolicy
-from rl4co.utils.ops import gather_by_index, unbatchify
+from rl4co.utils.ops import gather_by_index, get_num_starts, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
 class SymNCO(REINFORCE):
-    """SymNCO Model for neural combinatorial optimization based on REINFORCE with shared baselines
-    based on Kim et al. (2022) https://arxiv.org/abs/2205.13209
-
+    """SymNCO Model based on REINFORCE with shared baselines.
+    Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209.
 
     Args:
-        env: Environment to use for the algorithm
+        env: TorchRL environment to use for the algorithm
         policy: Policy to use for the algorithm
         policy_kwargs: Keyword arguments for policy
-        num_starts: Number of starts
         num_augment: Number of augmentations
         alpha: weight for invariance loss
         beta: weight for solution symmetricity loss
+        num_starts: Number of starts for multi-start. If None, use the number of available actions
         **kwargs: Keyword arguments passed to the superclass
     """
 
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: SymNCOPolicy = None,
-        policy_kwargs={},
+        policy: Union[nn.Module, SymNCOPolicy] = None,
+        policy_kwargs: dict = {},
+        baseline: str = "symnco",
         num_augment: int = 4,
-        num_starts: int = 1,
         alpha: float = 0.2,
         beta: float = 1,
+        num_starts: int = 0,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -47,8 +49,11 @@ class SymNCO(REINFORCE):
         if policy is None:
             policy = SymNCOPolicy(env.name, **policy_kwargs)
 
+        assert baseline == "symnco", "SymNCO only supports custom-symnco baseline"
+        baseline = "no"  # Pass no baseline to superclass since there are multiple custom baselines
+
         # Pass no baseline to superclass since there are multiple custom baselines
-        super().__init__(env, policy, "no", **kwargs)
+        super().__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
         self.num_augment = num_augment
@@ -59,61 +64,22 @@ class SymNCO(REINFORCE):
         # Add `_multistart` to decode type for train, val and test in policy if num_starts > 1
         if self.num_starts > 1:
             for phase in ["train", "val", "test"]:
-                attribute = f"{phase}_decode_type"
-                attr_get = getattr(self.policy, attribute)
-                # If does not exist, log error
-                if attr_get is None:
-                    log.error(
-                        f"Decode type for {phase} is None. Cannot add `_multistart`."
-                    )
-                    continue
-                elif "multistart" in attr_get:
-                    continue
-                else:
-                    setattr(self.policy, attribute, f"{attr_get}_multistart")
+                self.set_decode_type_multistart(phase)
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
-        n_aug, n_start = self.num_augment, self.num_starts
         td = self.env.reset(batch)
-        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+        n_aug, n_start = self.num_augment, self.num_starts
+        n_start = get_num_starts(td) if n_start is None else n_start
 
-        # Run augmentation
+        # Symmetric augmentation
         if n_aug > 1:
             td = self.augment(td)
 
+        # Evaluate policy
+        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+
         # Unbatchify reward to [batch_size, n_start, n_aug].
         reward = unbatchify(out["reward"], (n_start, n_aug))
-
-        # Get multi-start (=POMO) rewards and best actions
-        if n_start > 1:
-            # max multi-start reward
-            max_reward, max_idxs = reward.max(dim=1)
-            out.update({"max_reward": max_reward})
-
-            # Reshape batch to [batch, n_start, n_aug]
-            if out.get("actions", None) is not None:
-                # TODO: actions are not unbatchified correctly
-                actions = unbatchify(out["actions"], (n_start, n_aug))
-                out.update(
-                    {"best_multistart_actions": gather_by_index(actions, max_idxs)}
-                )
-                out["actions"] = actions
-
-        # Get augmentation score only during inference
-        if n_aug > 1:
-            # If multistart is enabled, we use the best multistart rewards
-            reward_ = max_reward if n_start > 1 else reward
-            # [batch, n_aug]
-            max_aug_reward, max_idxs = reward_.max(dim=1)
-            out.update({"max_aug_reward": max_aug_reward})
-            if out.get("best_multistart_actions", None) is not None:
-                out.update(
-                    {
-                        "best_aug_actions": gather_by_index(
-                            out["best_multistart_actions"], max_idxs
-                        )
-                    }
-                )
 
         # Main training loss
         if phase == "train":
@@ -134,4 +100,35 @@ class SymNCO(REINFORCE):
                 }
             )
 
-        return out
+        # Log only during validation and test
+        else:
+            if n_start > 1:
+                # max multi-start reward
+                max_reward, max_idxs = reward.max(dim=1)
+                out.update({"max_reward": max_reward})
+
+                # Reshape batch to [batch, n_start, n_aug]
+                if out.get("actions", None) is not None:
+                    actions = unbatchify(out["actions"], (n_start, n_aug))
+                    out.update(
+                        {"best_multistart_actions": gather_by_index(actions, max_idxs)}
+                    )
+                    out["actions"] = actions
+
+            # Get augmentation score only during inference
+            if n_aug > 1:
+                # If multistart is enabled, we use the best multistart rewards
+                reward_ = max_reward if n_start > 1 else reward
+                max_aug_reward, max_idxs = reward_.max(dim=1)
+                out.update({"max_aug_reward": max_aug_reward})
+                if out.get("best_multistart_actions", None) is not None:
+                    out.update(
+                        {
+                            "best_aug_actions": gather_by_index(
+                                out["best_multistart_actions"], max_idxs
+                            )
+                        }
+                    )
+
+        metrics = self.log_metrics(out, phase)
+        return {"loss": out.get("loss", None), **metrics}
