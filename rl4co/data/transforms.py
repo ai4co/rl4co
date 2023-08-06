@@ -33,6 +33,16 @@ def dihedral_8_augmentation(xy: Tensor) -> Tensor:
     return aug_xy
 
 
+def dihedral_8_augmentation_wrapper(
+    xy: Tensor, reduce: bool = True, *args, **kw
+) -> Tensor:
+    """Wrapper for dihedral_8_augmentation. If reduce, only return the first 1/8 of the augmented data
+    since the augmentation augments the data 8 times.
+    """
+    xy = xy[: xy.shape[0] // 8, ...] if reduce else xy
+    return dihedral_8_augmentation(xy)
+
+
 def symmetric_transform(x: Tensor, y: Tensor, phi: Tensor, offset: float = 0.5):
     """SR group transform with rotation and reflection
     Like the one in SymNCO, but a vectorized version
@@ -55,17 +65,20 @@ def symmetric_transform(x: Tensor, y: Tensor, phi: Tensor, offset: float = 0.5):
     return xy + offset
 
 
-def symmetric_augmentation(xy: Tensor, num_augment: int = 8):
+def symmetric_augmentation(xy: Tensor, num_augment: int = 8, first_augment: bool = False):
     """Augment xy data by `num_augment` times via symmetric rotation transform and concatenate to original data
 
     Args:
         xy: [batch, graph, 2] tensor of x and y coordinates
         num_augment: number of augmentations
+        first_augment: whether to augment the first data point
     """
     # create random rotation angles (4*pi for reflection, 2*pi for rotation)
     phi = torch.rand(xy.shape[0], device=xy.device) * 4 * math.pi
-    # set phi to 0 for first , i.e. no augmnetation as in original paper
-    phi[: xy.shape[0] // num_augment] = 0.0
+
+    # set phi to 0 for first , i.e. no augmentation as in SymNCO
+    if not first_augment:
+        phi[: xy.shape[0] // num_augment] = 0.0
     x, y = xy[..., [0]], xy[..., [1]]
     return symmetric_transform(x, y, phi[:, None, None])
 
@@ -100,9 +113,9 @@ class StateAugmentation(object):
     ):
         assert not (
             use_dihedral_8 and num_augment != 8
-        ), "If use_dihedral_8 is True, then num_augment must be 8"
+        ), "If `use_dihedral_8` is True, then num_augment must be 8"
         if use_dihedral_8:
-            self.augmentation = dihedral_8_augmentation
+            self.augmentation = dihedral_8_augmentation_wrapper
         else:
             self.augmentation = symmetric_augmentation
 
