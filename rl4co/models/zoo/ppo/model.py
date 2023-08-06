@@ -9,7 +9,10 @@ class PPOModel(PPO):
 
     Args:
         env: Environment to use for the algorithm
-
+        policy: Policy to use for the algorithm
+        critic: Critic to use for the algorithm
+        policy_kwargs: Keyword arguments for policy
+        critic_kwargs: Keyword arguments for critic
     """
 
     def __init__(
@@ -17,8 +20,8 @@ class PPOModel(PPO):
         env: RL4COEnvBase,
         policy: PPOPolicy = None,
         critic: CriticNetwork = None,
-        policy_kwargs={},
-        critic_kwargs={},
+        policy_kwargs: dict = {},
+        critic_kwargs: dict = {},
         **kwargs,
     ):
         if policy is None:

@@ -51,6 +51,13 @@ class PPOPolicy(AutoregressivePolicy):
         action: Tensor,
         env: Union[str, RL4COEnvBase] = None,
     ) -> Tuple[Tensor, Tensor]:
+        """Evaluate the action probability under the current policy
+
+        Args:
+            td: TensorDict containing the current state
+            action: Action to evaluate
+            env: Environment to evaluate the action in.
+        """
         embeddings, _ = self.encoder(td)
         ll, entropy = self.decoder.evaluate_action(td, embeddings, action, env)
         return ll, entropy
