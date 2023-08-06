@@ -94,22 +94,30 @@ def get_tour_length(ordered_locs):
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
-def select_start_nodes(td, num_nodes, env):
+def get_num_starts(td):
+    """Returns the number of possible start nodes for the environment based on the action mask"""
+    return td["action_mask"].shape[-1]
+
+
+def select_start_nodes(td, env, num_nodes=None):
     """Node selection strategy as proposed in POMO (Kwon et al. 2020)
     and extended in SymNCO (Kim et al. 2022).
     Selects different start nodes for each batch element
 
     Args:
         td: TensorDict containing the data. We may need to access the available actions to select the start nodes
+        env: Environment may determine the node selection strategy
         num_nodes: Number of nodes to select
-        env: (TODO) Environment may determine the node selection strategy
     """
-    if env.name not in ["pctsp", "spctsp", "mtsp"]:
-        selected = torch.arange(num_nodes, device=td.device).repeat_interleave(
+    num_nodes = get_num_starts(td) if num_nodes is None else num_nodes
+
+    # Environments with depot: don't select the depot as start node
+    if env.name in ["op", "pctsp", "spctsp", "mtsp"]:
+        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
             td.shape[0]
         )
     else:
-        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
+        selected = torch.arange(num_nodes, device=td.device).repeat_interleave(
             td.shape[0]
         )
     return selected
