@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from lightning.pytorch.core.saving import _load_from_checkpoint
+from tensordict import TensorDict
 from typing_extensions import Self
 
 from rl4co.envs.common.base import RL4COEnvBase
@@ -33,7 +34,7 @@ class REINFORCE(RL4COLitModule):
         env: RL4COEnvBase,
         policy: nn.Module,
         baseline: Union[REINFORCEBaseline, str] = "rollout",
-        baseline_kwargs={},
+        baseline_kwargs: dict = {},
         **kwargs,
     ):
         super().__init__(env, policy, **kwargs)
@@ -54,29 +55,53 @@ class REINFORCE(RL4COLitModule):
 
         # Compute loss
         if phase == "train":
-            # Extra: this is used for additional loss terms, e.g., REINFORCE baseline
-            extra = batch.get("extra", None)
-
-            bl_val, bl_neg_loss = (
-                self.baseline.eval(td, out["reward"], self.env)
-                if extra is None
-                else (extra, 0)
-            )
-
-            advantage = out["reward"] - bl_val  # advantage = reward - baseline
-            reinforce_loss = -(advantage * out["log_likelihood"]).mean()
-            loss = reinforce_loss - bl_neg_loss
-            out.update(
-                {
-                    "loss": loss,
-                    "reinforce_loss": reinforce_loss,
-                    "bl_loss": -bl_neg_loss,
-                    "bl_val": bl_val,
-                }
-            )
+            out = self.calculate_loss(td, batch, out)
 
         metrics = self.log_metrics(out, phase)
         return {"loss": out.get("loss", None), **metrics}
+
+    def calculate_loss(
+        self,
+        td: TensorDict,
+        batch: TensorDict,
+        policy_out: dict,
+        reward: Optional[torch.Tensor] = None,
+        log_likelihood: Optional[torch.Tensor] = None,
+    ):
+        """Calculate loss for REINFORCE algorithm.
+
+        Args:
+            td: TensorDict containing the current state of the environment
+            batch: Batch of data. This is used to get the extra loss terms, e.g., REINFORCE baseline
+            policy_out: Output of the policy network
+            reward: Reward tensor. If None, it is taken from `policy_out`
+            log_likelihood: Log-likelihood tensor. If None, it is taken from `policy_out`
+        """
+        # Extra: this is used for additional loss terms, e.g., REINFORCE baseline
+        extra = batch.get("extra", None)
+        reward = reward if reward is not None else policy_out["reward"]
+        log_likelihood = (
+            log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
+        )
+
+        # REINFORCE baseline
+        bl_val, bl_loss = (
+            self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
+        )
+
+        # Main loss function
+        advantage = reward - bl_val  # advantage = reward - baseline
+        reinforce_loss = -(advantage * log_likelihood).mean()
+        loss = reinforce_loss + bl_loss
+        policy_out.update(
+            {
+                "loss": loss,
+                "reinforce_loss": reinforce_loss,
+                "bl_loss": bl_loss,
+                "bl_val": bl_val,
+            }
+        )
+        return policy_out
 
     def post_setup_hook(self, stage="fit"):
         # Make baseline taking model itself and train_dataloader from model as input
@@ -109,6 +134,24 @@ class REINFORCE(RL4COLitModule):
             batch_size=self.val_batch_size,
             device=get_lightning_device(self),
         )
+
+    def set_decode_type_multistart(self, phase: str):
+        """Set decode type to `multistart` for train, val and test in policy.
+        For example, if the decode type is `greedy`, it will be set to `greedy_multistart`.
+
+        Args:
+            phase: Phase to set decode type for. Must be one of `train`, `val` or `test`.
+        """
+        attribute = f"{phase}_decode_type"
+        attr_get = getattr(self.policy, attribute)
+        # If does not exist, log error
+        if attr_get is None:
+            log.error(f"Decode type for {phase} is None. Cannot add `_multistart`.")
+            return
+        elif "multistart" in attr_get:
+            return
+        else:
+            setattr(self.policy, attribute, f"{attr_get}_multistart")
 
     @classmethod
     def load_from_checkpoint(
