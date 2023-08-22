@@ -98,7 +98,7 @@ class ActiveSearch(SearchBase):
         )
         self.instance_rewards = torch.zeros(dataset_size)
 
-    def on_train_batch_start(self, batch: Any, batch_idx: int) -> int | None:
+    def on_train_batch_start(self, batch: Any, batch_idx: int):
         """Called before training (i.e. search) for a new batch begins.
         We re-load the original policy state dict and configure the optimizer.
         """

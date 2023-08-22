@@ -106,7 +106,7 @@ class EAS(SearchBase):
         self.instance_solutions = []
         self.instance_rewards = []
 
-    def on_train_batch_start(self, batch: Any, batch_idx: int) -> int | None:
+    def on_train_batch_start(self, batch: Any, batch_idx: int):
         """Called before training (i.e. search) for a new batch begins.
         We re-load the original policy state dict and configure all parameters not to require gradients.
         We do the rest in the training step.
