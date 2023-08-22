@@ -50,6 +50,10 @@ class AutoregressiveDecoder(nn.Module):
         embedding_dim: Dimension of the embeddings
         num_heads: Number of heads for the attention
         use_graph_context: Whether to use the initial graph context to modify the query
+        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
+        linear_bias: Whether to use a bias in the linear projection of the embeddings
+        context_embedding: Module to compute the context embedding. If None, the default is used
+        dynamic_embedding: Module to compute the dynamic embedding. If None, the default is used
     """
 
     def __init__(
@@ -60,6 +64,8 @@ class AutoregressiveDecoder(nn.Module):
         use_graph_context: bool = True,
         select_start_nodes_fn: callable = select_start_nodes,
         linear_bias: bool = False,
+        context_embedding: nn.Module = None,
+        dynamic_embedding: nn.Module = None,
         **logit_attn_kwargs,
     ):
         super().__init__()
@@ -70,11 +76,15 @@ class AutoregressiveDecoder(nn.Module):
 
         assert embedding_dim % num_heads == 0
 
-        self.context_embedding = env_context_embedding(
-            self.env_name, {"embedding_dim": embedding_dim}
+        self.context_embedding = (
+            env_context_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            if context_embedding is None
+            else context_embedding
         )
-        self.dynamic_embedding = env_dynamic_embedding(
-            self.env_name, {"embedding_dim": embedding_dim}
+        self.dynamic_embedding = (
+            env_dynamic_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            if dynamic_embedding is None
+            else dynamic_embedding
         )
         self.use_graph_context = use_graph_context
 
@@ -238,6 +248,7 @@ class AutoregressiveDecoder(nn.Module):
         """
         # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
         td_unbatch = unbatchify(td, num_starts)
+
         step_context = self.context_embedding(cached.node_embeddings, td_unbatch)
         glimpse_q = step_context + cached.graph_context
         glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q

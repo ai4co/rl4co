@@ -20,6 +20,7 @@ class GraphAttentionEncoder(nn.Module):
         normalization: Normalization to use for the attention
         feed_forward_hidden: Hidden dimension for the feed-forward network
         force_flash_attn: Whether to force the use of flash attention. If True, cast to fp16
+        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
     """
 
     def __init__(
@@ -31,13 +32,18 @@ class GraphAttentionEncoder(nn.Module):
         normalization: str = "batch",
         feed_forward_hidden: int = 512,
         force_flash_attn: bool = False,
+        init_embedding: nn.Module = None,
     ):
         super(GraphAttentionEncoder, self).__init__()
 
         self.env_name = env_name
-        self.init_embedding = env_init_embedding(
-            self.env_name, {"embedding_dim": embedding_dim}
+
+        self.init_embedding = (
+            env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            if init_embedding is None
+            else init_embedding
         )
+
         self.net = GraphAttentionNetwork(
             num_heads,
             embedding_dim,

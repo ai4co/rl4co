@@ -30,6 +30,9 @@ class AutoregressivePolicy(nn.Module):
         env_name: Name of the environment used to initialize embeddings
         encoder: Encoder module. Can be passed by sub-classes.
         decoder: Decoder module. Can be passed by sub-classes.
+        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
+        context_embedding: Model to use for the context embedding. If None, use the default embedding for the environment
+        dynamic_embedding: Model to use for the dynamic embedding. If None, use the default embedding for the environment
         embedding_dim: Dimension of the node embeddings
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
@@ -48,6 +51,9 @@ class AutoregressivePolicy(nn.Module):
         env_name: str,
         encoder: nn.Module = None,
         decoder: nn.Module = None,
+        init_embedding: nn.Module = None,
+        context_embedding: nn.Module = None,
+        dynamic_embedding: nn.Module = None,
         embedding_dim: int = 128,
         num_encoder_layers: int = 3,
         num_heads: int = 8,
@@ -76,6 +82,7 @@ class AutoregressivePolicy(nn.Module):
                 num_layers=num_encoder_layers,
                 normalization=normalization,
                 force_flash_attn=force_flash_attn,
+                init_embedding=init_embedding,
             )
         else:
             self.encoder = encoder
@@ -89,6 +96,8 @@ class AutoregressivePolicy(nn.Module):
                 use_graph_context=use_graph_context,
                 mask_inner=mask_inner,
                 force_flash_attn=force_flash_attn,
+                context_embedding=context_embedding,
+                dynamic_embedding=dynamic_embedding,
             )
         else:
             self.decoder = decoder
