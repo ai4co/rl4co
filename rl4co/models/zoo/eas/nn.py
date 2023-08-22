@@ -6,6 +6,10 @@ class EASLayerNet(nn.Module):
     """Instantiate weights and biases for the added layer.
     The layer is defined as: h = relu(emb * W1 + b1); out = h * W2 + b2.
     Wrapping in `nn.Parameter` makes the parameters trainable and sets gradient to True.
+
+    Args:
+        num_instances: Number of instances in the dataset
+        emb_dim: Dimension of the embedding
     """
 
     def __init__(self, num_instances: int, emb_dim: int):

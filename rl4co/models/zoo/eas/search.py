@@ -21,12 +21,30 @@ log = get_pylogger(__name__)
 
 
 class EAS(SearchBase):
-    """Efficient Active Search (EAS) algorithm.
-
-    Reference: TODO
+    """Efficient Active Search for Neural Combination Optimization from Hottung et al. (2022).
+    Fine-tunes a subset of parameters (such as node embeddings or newly added layers) thus avoiding
+    expensive re-encoding of the problem.
+    Reference: https://openreview.net/pdf?id=nO5caZwFwYu
 
     Args:
-    TODO
+        env: RL4CO environment to be solved
+        policy: policy network
+        dataset: dataset to be used for training
+        use_eas_embedding: whether to use EAS embedding (EASEmb)
+        use_eas_layer: whether to use EAS layer (EASLay)
+        eas_emb_cache_keys: keys to cache in the embedding
+        eas_lambda: lambda parameter for IL loss
+        batch_size: batch size for training
+        max_iters: maximum number of iterations
+        augment_size: number of augmentations per state
+        augment_dihedral: whether to augment with dihedral rotations
+        parallel_runs: number of parallel runs
+        baseline: REINFORCE baseline type (multistart, symmetric, full)
+        max_runtime: maximum runtime in seconds
+        save_path: path to save solution checkpoints
+        optimizer: optimizer to use for training
+        optimizer_kwargs: keyword arguments for optimizer
+        verbose: whether to print progress for each iteration
     """
 
     def __init__(
@@ -285,7 +303,7 @@ class EAS(SearchBase):
 
 
 class EASEmb(EAS):
-    """EAS adapting embedding"""
+    """EAS with embedding adaptation"""
 
     def __init__(
         self,
@@ -304,7 +322,7 @@ class EASEmb(EAS):
 
 
 class EASLay(EAS):
-    """EAS adapting layer"""
+    """EAS with layer adaptation"""
 
     def __init__(
         self,
