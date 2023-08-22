@@ -55,7 +55,7 @@ class SearchBase(RL4COLitModule):
         # Setup loggers
         self.setup_loggers()
 
-    def on_train_batch_start(self, batch: Any, batch_idx: int) -> int | None:
+    def on_train_batch_start(self, batch: Any, batch_idx: int):
         """Called before training (i.e. search) for a new batch begins.
         This can be used to perform changes to the model or optimizer at the start of each batch.
         """
