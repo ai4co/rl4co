@@ -215,7 +215,9 @@ class RL4COLitModule(LightningModule):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         metrics = {
-            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
+            f"{phase}/{k}": v.mean() if isinstance(v, torch.Tensor) else v
+            for k, v in metric_dict.items()
+            if k in metrics
         }
 
         log_on_step = self.log_on_step if phase == "train" else False
