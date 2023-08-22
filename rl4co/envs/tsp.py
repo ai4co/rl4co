@@ -194,6 +194,7 @@ class TSPEnv(RL4COEnvBase):
         if actions is None:
             log.warning("No action in TensorDict, rendering unsorted locs")
         else:
+            actions = actions.detach().cpu()
             locs = gather_by_index(locs, actions, dim=0)
 
         # Cat the first node to the end to complete the tour
