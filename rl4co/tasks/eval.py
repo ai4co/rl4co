@@ -132,7 +132,7 @@ class AugmentationEval(EvalBase):
         if num_augment is None:
             num_augment = self.augmentation.num_augment
         td_init = td.clone()
-        td = self.augmentation(td, num_augment=num_augment)
+        td = self.augmentation(td)
         out = policy(td.clone(), decode_type="greedy", num_starts=0, return_actions=True)
 
         # Move into batches and compute rewards
@@ -260,7 +260,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
 
         td_init = td.clone()
 
-        td = self.augmentation(td, num_augment=num_augment)
+        td = self.augmentation(td)
         out = policy(
             td.clone(),
             decode_type="greedy_multistart",
