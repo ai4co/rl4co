@@ -1,6 +1,10 @@
+from typing import Tuple, Union
+
 import torch
 import torch.nn as nn
 
+from tensordict import TensorDict
+from torch import Tensor
 from torch_geometric.data import Batch, Data
 from torch_geometric.nn import MessagePassing
 
@@ -62,22 +66,27 @@ class MessagePassingLayer(MessagePassing):
 class MessagePassingEncoder(nn.Module):
     def __init__(
         self,
-        env,
-        embedding_dim,
-        num_nodes,
-        num_mpnn_layer,
-        aggregation="add",
-        self_loop=False,
-        residual=True,
+        env_name: str,
+        embedding_dim: int,
+        num_nodes: int,
+        num_layers: int,
+        init_embedding: nn.Module = None,
+        aggregation: str = "add",
+        self_loop: bool = False,
+        residual: bool = True,
     ):
         """
         Note:
             - Support fully connected graph for now.
         """
         super(MessagePassingEncoder, self).__init__()
-        # Define the init embedding
-        self.init_embedding = env_init_embedding(
-            env.name, {"embedding_dim": embedding_dim}
+
+        self.env_name = env_name
+
+        self.init_embedding = (
+            env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            if init_embedding is None
+            else init_embedding
         )
 
         # Generate edge index for a fully connected graph
@@ -97,31 +106,33 @@ class MessagePassingEncoder(nn.Module):
                     aggregation=aggregation,
                     residual=residual,
                 )
-                for _ in range(num_mpnn_layer)
+                for _ in range(num_layers)
             ]
         )
 
         # Record parameters
         self.self_loop = self_loop
 
-    def forward(self, x, mask=None):
-        assert mask is None, "Mask not yet supported!"
-        # Initialize embedding
-        node_feature = self.init_embedding(x)
+    # def forward(self, x, mask=None):
+    def forward(
+        self, td: TensorDict, mask: Union[Tensor, None] = None
+    ) -> Tuple[Tensor, Tensor]:
+        init_h = self.init_embedding(td)
+        num_node = init_h.size(-2)
 
         # Check to update the edge index with different number of node
-        if node_feature.shape[-2] != self.edge_index.max().item() + 1:
-            adj_matrix = torch.ones(node_feature.size(-2), node_feature.size(-2))
-
+        if num_node != self.edge_index.max().item() + 1:
+            adj_matrix = torch.ones(num_node, num_node)
             if self.self_loop:
                 adj_matrix.fill_diagonal_(0)
-            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0)).to(x.device)
+            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+            edge_index = edge_index.to(init_h.device)
         else:
-            edge_index = self.edge_index.to(x.device)
+            edge_index = self.edge_index.to(init_h.device)
 
         # Generate edge features: distance
         edge_feature = torch.norm(
-            node_feature[..., edge_index[0], :] - node_feature[..., edge_index[1], :],
+            init_h[..., edge_index[0], :] - init_h[..., edge_index[1], :],
             dim=-1,
             keepdim=True,
         )
@@ -129,7 +140,7 @@ class MessagePassingEncoder(nn.Module):
         # Create the batched graph
         data_list = [
             Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-            for x, edge_attr in zip(node_feature, edge_feature)
+            for x, edge_attr in zip(init_h, edge_feature)
         ]
         data_batch = Batch.from_data_list(data_list)
         update_node_feature = data_batch.x
@@ -143,10 +154,10 @@ class MessagePassingEncoder(nn.Module):
             )
 
         # De-batch the graph
-        input_size = node_feature.size()
+        input_size = init_h.size()
         update_node_feature = update_node_feature.view(*input_size)
 
-        return update_node_feature, node_feature
+        return update_node_feature, init_h
 
     def edge_update(self, nf, ef, edge_index):
         row, col = edge_index
@@ -160,15 +171,3 @@ class MessagePassingEncoder(nn.Module):
     def update(self, aggr_msg: torch.tensor, x: torch.tensor):
         unf = self.node_model(torch.cat([x, aggr_msg], dim=-1))
         return unf
-
-
-if __name__ == "__main__":
-    from rl4co.envs import TSPEnv
-
-    env = TSPEnv()
-    model = MessagePassingEncoder(
-        env=env, embedding_dim=128, num_nodes=20, num_mpnn_layer=3
-    )
-    td = env.reset(batch_size=[32])
-    update_node_feature, _ = model(td)
-    print(update_node_feature.size())
