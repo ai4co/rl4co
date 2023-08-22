@@ -56,9 +56,7 @@ class RL4COLitModule(LightningModule):
         test_data_size: int = 10_000,
         optimizer: Union[str, torch.optim.Optimizer, partial] = "Adam",
         optimizer_kwargs: dict = {"lr": 1e-4},
-        lr_scheduler: Union[
-            str, torch.optim.lr_scheduler.LRScheduler, partial
-        ] = "MultiStepLR",
+        lr_scheduler: Union[str, torch.optim.lr_scheduler.LRScheduler, partial] = None,
         lr_scheduler_kwargs: dict = {
             "milestones": [80, 95],
             "gamma": 0.1,
@@ -151,7 +149,11 @@ class RL4COLitModule(LightningModule):
             self.data_cfg["test_data_size"], phase="test"
         )
 
-        # Log all hyperparameters except those in `nn.Module`
+        self.setup_loggers()
+        self.post_setup_hook()
+
+    def setup_loggers(self):
+        """Log all hyperparameters except those in `nn.Module`"""
         if self.loggers is not None:
             hparams_save = {
                 k: v for k, v in self.hparams.items() if not isinstance(v, nn.Module)
@@ -160,8 +162,6 @@ class RL4COLitModule(LightningModule):
                 logger.log_hyperparams(hparams_save)
                 logger.log_graph(self)
                 logger.save()
-
-        self.post_setup_hook()
 
     def post_setup_hook(self):
         """Hook to be called after setup. Can be used to set up subclasses without overriding `setup`"""
@@ -215,9 +215,7 @@ class RL4COLitModule(LightningModule):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         metrics = {
-            f"{phase}/{k}": v.mean() if isinstance(v, torch.Tensor) else v
-            for k, v in metric_dict.items()
-            if k in metrics
+            f"{phase}/{k}": v.mean() for k, v in metric_dict.items() if k in metrics
         }
 
         log_on_step = self.log_on_step if phase == "train" else False
