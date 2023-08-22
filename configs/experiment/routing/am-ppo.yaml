@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - override /model: am.yaml
+  - override /model: am-ppo.yaml
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
@@ -13,7 +13,7 @@ env:
 logger:
   wandb:
     project: "rl4co"
-    tags: ["am", "${env.name}"]
+    tags: ["am-ppo", "${env.name}"]
     group: ${env.name}${env.num_loc}
     name: am-${env.name}${env.num_loc}
 
@@ -24,6 +24,13 @@ model:
   train_data_size: 1_280_000
   val_data_size: 10_000
   test_data_size: 10_000
+  clip_range: 0.2
+  ppo_epochs: 2
+  mini_batch_size: 512
+  vf_lambda: 0.5
+  entropy_lambda: 0.01
+  normalize_adv: False
+  max_grad_norm: 0.5
   optimizer_kwargs:
     lr: 1e-4
     weight_decay: 0
@@ -35,6 +42,9 @@ model:
 
 trainer:
   max_epochs: 100
+  gradient_clip_val: Null # not supported in manual optimization
 
 seed: 1234
 
+metrics:
+  train: ["loss", "reward", "surrogate_loss", "value_loss", "entropy_bonus"]

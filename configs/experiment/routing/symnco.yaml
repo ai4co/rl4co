@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - override /model: am.yaml
+  - override /model: symnco.yaml
   - override /env: tsp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
@@ -13,9 +13,9 @@ env:
 logger:
   wandb:
     project: "rl4co"
-    tags: ["am", "${env.name}"]
-    group: ${env.name}${env.num_loc}
-    name: am-${env.name}${env.num_loc}
+    tags: ["symnco", "${env.name}"]
+    group: ${env.name}${env.num_loc}"
+    name: "symnco-${env.name}${env.num_loc}"
 
 model:
   batch_size: 512
@@ -24,6 +24,8 @@ model:
   train_data_size: 1_280_000
   val_data_size: 10_000
   test_data_size: 10_000
+  num_starts: 0 # 0 for no augmentation for multi-starts
+  num_augment: 10
   optimizer_kwargs:
     lr: 1e-4
     weight_decay: 0

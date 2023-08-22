@@ -1,4 +1,10 @@
 _target_: rl4co.models.SymNCO
 
-num_augment: 8
-num_starts: ${env.num_loc}
+num_augment: 10
+num_starts: 0 # by default we use only symmetric augmentations
+
+metrics:
+  train: ["loss", "loss_ss", "loss_ps", "loss_inv", "reward"]
+  val: ["reward", "max_reward", "max_aug_reward"]
+  test: ${metrics.val}
+  log_on_step: True
