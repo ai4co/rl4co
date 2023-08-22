@@ -1,11 +1,2 @@
-from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
-from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
-from rl4co.models.zoo.ham import (
-    HeterogeneousAttentionModel,
-    HeterogeneousAttentionModelPolicy,
-)
-from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
-from rl4co.models.zoo.pomo import POMO, POMOPolicy
-from rl4co.models.zoo.ppo import PPOModel, PPOPolicy
-from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
-from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy
+# noqa: F403
+from rl4co.models.zoo import *
