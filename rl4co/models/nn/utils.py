@@ -58,12 +58,15 @@ def random_policy(td):
     return td
 
 
-def rollout(env, td, policy, max_steps: int = 10_000):
+def rollout(env, td, policy, max_steps: int = None):
     """Helper function to rollout a policy. Currently, TorchRL does not allow to step
-    over envs when done with `env.rollout()`. We need this because for environements that complete at different steps.
+    over envs when done with `env.rollout()`. We need this because for environments that complete at different steps.
     """
+
+    max_steps = float("inf") if max_steps is None else max_steps
     actions = []
     steps = 0
+
     while not td["done"].all():
         td = policy(td)
         actions.append(td["action"])
@@ -96,7 +99,7 @@ class RandomPolicy(nn.Module):
         self,
         td: TensorDict,
         env: Union[str, RL4COEnvBase] = None,
-        max_steps: int = 10_000,
+        max_steps: int = None,
     ):
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
