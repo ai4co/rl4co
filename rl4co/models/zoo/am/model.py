@@ -7,7 +7,7 @@ from rl4co.models.zoo.am.policy import AttentionModelPolicy
 
 
 class AttentionModel(REINFORCE):
-    """Attention Model based on REINFORCE.
+    """Attention Model based on REINFORCE: https://arxiv.org/abs/1803.08475.
 
     Args:
         env: Environment to use for the algorithm
