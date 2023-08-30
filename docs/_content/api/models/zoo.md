@@ -1,5 +1,11 @@
 # Model Zoo
 
+Models from the literature and contributions are contained in the Model Zoo.
+
+---
+
+# Auto-Regressive Models
+
 ## Attention Model (AM)
 
 ```{eval-rst}
@@ -106,12 +112,6 @@
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.pomo.augmentations
-   :members:
-   :undoc-members:
-```
-
 ## Pointer Network (PtrNet)
 
 ```{eval-rst}
@@ -164,3 +164,33 @@
    :undoc-members:
 ```
 
+
+# Search Methods
+
+## Active Search (AS)
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.active_search.search
+   :members:
+   :undoc-members:
+```
+
+## Efficent Active Search (EAS)
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.eas.search
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.eas.decoder
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.eas.nn
+   :members:
+   :undoc-members:
+```
