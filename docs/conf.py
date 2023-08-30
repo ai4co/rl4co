@@ -38,7 +38,19 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_paramlinks",
     "sphinx_togglebutton",
+    "sphinxcontrib.collections",
 ]
+
+
+# Include the folder from the main repo containing the notebooks
+collections = {
+    "my_files": {
+        "driver": "copy_folder",
+        "source": "../notebooks/",
+        "target": "",
+        "ignore": ["*.ckpt"],
+    }
+}
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

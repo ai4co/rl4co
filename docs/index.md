@@ -37,9 +37,19 @@ RL4CO is built upon:
    :caption: Getting started:
 
    _content/start/installation
-   _content/start/1-quickstart
-   _content/start/2-advanced
+   _collections/1-quickstart
    _content/start/hydra
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials:
+
+   _collections/tutorials/1-training-loop-advanced
+   _collections/tutorials/2-solving-new-problem
+   _collections/tutorials/3-change-encoder
+   _collections/tutorials/4-search-methods
+
 
 .. toctree::
    :maxdepth: 2
@@ -48,6 +58,7 @@ RL4CO is built upon:
    _content/api/algos/base
    _content/api/algos/reinforce
    _content/api/algos/ppo
+   _content/api/algos/search
 
 
 .. toctree::
