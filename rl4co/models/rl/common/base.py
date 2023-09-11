@@ -133,7 +133,7 @@ class RL4COLitModule(LightningModule):
         )
         self.train_batch_size = train_bs
         self.val_batch_size = train_bs if val_bs is None else val_bs
-        self.test_batch_size = train_bs if test_bs is None else test_bs
+        self.test_batch_size = self.val_batch_size if test_bs is None else test_bs
 
         log.info("Setting up datasets")
 
