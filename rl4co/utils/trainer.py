@@ -1,12 +1,14 @@
 from typing import Iterable, List, Optional, Union
 
+import lightning.pytorch as pl
 import torch
-
 from lightning import Callback, Trainer
 from lightning.fabric.accelerators.cuda import num_cuda_devices
 from lightning.pytorch.accelerators import Accelerator
+from lightning.pytorch.core.datamodule import LightningDataModule
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.strategies import DDPStrategy, Strategy
+from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 
 from rl4co import utils
 
@@ -87,9 +89,7 @@ class RL4COTrainer(Trainer):
 
         # Check if gradient_clip_val is set to None
         if gradient_clip_val is None:
-            log.warning(
-                "gradient_clip_val is set to None. This may lead to unstable training."
-            )
+            log.warning("gradient_clip_val is set to None. This may lead to unstable training.")
 
         # We should reload dataloaders every epoch for RL training
         if reload_dataloaders_every_n_epochs != 1:
@@ -111,4 +111,34 @@ class RL4COTrainer(Trainer):
             precision=precision,
             reload_dataloaders_every_n_epochs=reload_dataloaders_every_n_epochs,
             **kwargs,
+        )
+
+    def fit(
+        self,
+        model: "pl.LightningModule",
+        train_dataloaders: Optional[Union[TRAIN_DATALOADERS, LightningDataModule]] = None,
+        val_dataloaders: Optional[EVAL_DATALOADERS] = None,
+        datamodule: Optional[LightningDataModule] = None,
+        ckpt_path: Optional[str] = None,
+    ) -> None:
+        """
+        We override the `fit` method to automatically apply and handle RL4CO magic
+        to 'self.automatic_optimization = False' models, such as PPO
+
+        It behaves exactly like the original `fit` method, but with the following changes:
+        - if the given model is 'self.automatic_optimization = False', we override 'gradient_clip_val' as None
+        """
+
+        if not model.automatic_optimization:
+            log.warn(
+                "Overriding gradient_clip_val to None for 'automatic_optimization=False' models"
+            )
+            self.gradient_clip_val = None
+
+        super().fit(
+            model=model,
+            train_dataloaders=train_dataloaders,
+            val_dataloaders=val_dataloaders,
+            datamodule=datamodule,
+            ckpt_path=ckpt_path,
         )
