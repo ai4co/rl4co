@@ -42,30 +42,26 @@ RL4CO is now available for installation on `pip`!
 pip install rl4co
 ```
 
+To get started, we recommend checking out our [quickstart notebook](notebooks/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
+
+### Install from source
+This command installs the bleeding edge `main` version, useful for staying up-to-date with the latest developments - for instance, if a bug has been fixed since the last official release but a new release hasn’t been rolled out yet:
+
+```bash
+pip install -U git+https://github.com/kaist-silab/rl4co.git 
+```
+
 ### Local install and development
-If you want to develop RL4CO or access the latest builds, we recommend you to install it locally with `pip` in editable mode:
+If you want to develop RL4CO we recommend you to install it locally with `pip` in editable mode:
 
 ```bash
 git clone https://github.com/kaist-silab/rl4co && cd rl4co
 pip install -e .
 ```
-<details>
-    <summary>[Optional] Automatically install PyTorch with correct CUDA version</summary>
 
-These commands will [automatically install](https://github.com/pmeier/light-the-torch) PyTorch with the right GPU version for your system:
-
-```bash
-pip install light-the-torch
-python3 -m light_the_torch install -r  --upgrade torch
-```
-
-> Note: `conda` is also a good candidate for hassle-free installation of PyTorch: check out the [PyTorch website](https://pytorch.org/get-started/locally/) for more details.
-
-</details>
+We recommend using a virtual environment such as `conda` to install `rl4co` locally.
 
 
-
-To get started, we recommend checking out our [quickstart notebook](notebooks/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
 
 ## Usage
 
@@ -136,6 +132,8 @@ trainer.fit(model)
 trainer.test(model)
 ```
 
+Other examples can be found on the [documentation](https://rl4co.readthedocs.io/en/latest/)!
+
 
 ### Testing
 
@@ -145,6 +143,16 @@ Run tests with `pytest` from the root directory:
 pytest tests
 ```
 
+### Known Bugs
+
+#### Bugs installing TorchRL (Python 3.11)
+`torchrl` is not yet available (in the `0.1.1` version) on PyPI for Python 3.11 (see [here](https://github.com/kaist-silab/rl4co/issues/90)). While `rl4co` can work with Python 3.11, we recommend using Python 3.10 for the time being:
+```bash
+conda create --name rl4co python=3.10
+pip install rl4co
+```
+
+
 ## Contributing
 [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
 
@@ -152,7 +160,6 @@ Have a suggestion, request, or found a bug? Feel free to [open an issue](https:/
 If you would like to contribute, please check out our contribution guidelines   [here](.github/CONTRIBUTING.md). We welcome and look forward to all contributions to RL4CO!
 
 We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ) if you have any questions or would like to discuss RL4CO with us. We are open to collaborations and would love to hear from you 🚀
-
 
 ### Contributors
 <a href="https://github.com/kaist-silab/rl4co/graphs/contributors">
