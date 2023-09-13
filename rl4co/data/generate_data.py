@@ -11,6 +11,15 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
+DISTRIBUTIONS_PER_PROBLEM = {
+    "tsp": [None],
+    "vrp": [None],
+    "pctsp": [None],
+    "op": ["const", "unif", "dist"],
+    "mdpp": [None],
+}
+
+
 def generate_env_data(env_type, *args, **kwargs):
     """Generate data for a given environment type in the form of a dictionary"""
     try:
@@ -71,7 +80,7 @@ def generate_vrp_data(dataset_size, vrp_size, capacities=None):
     }  # Capacity, same for whole dataset
 
 
-def generate_op_data(dataset_size, op_size, prize_type="const"):
+def generate_op_data(dataset_size, op_size, prize_type="const", max_lengths=None):
     depot = np.random.uniform(size=(dataset_size, 2))
     loc = np.random.uniform(size=(dataset_size, op_size, 2))
 
@@ -90,16 +99,17 @@ def generate_op_data(dataset_size, op_size, prize_type="const"):
     # Max length is approximately half of optimal TSP tour, such that half (a bit more) of the nodes can be visited
     # which is maximally difficult as this has the largest number of possibilities
     MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
+    max_lengths = MAX_LENGTHS if max_lengths is None else max_lengths
 
     return {
         "depot": depot.astype(np.float32),
         "locs": loc.astype(np.float32),
         "prize": prize.astype(np.float32),
-        "max_length": np.full(dataset_size, MAX_LENGTHS[op_size]).astype(np.float32),
+        "max_length": np.full(dataset_size, max_lengths[op_size]).astype(np.float32),
     }
 
 
-def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
+def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3, max_lengths=None):
     depot = np.random.uniform(size=(dataset_size, 2))
     loc = np.random.uniform(size=(dataset_size, pctsp_size, 2))
 
@@ -111,7 +121,8 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3):
     # is (n / 2) / 2 = n / 4 so divide by this means multiply by 4 / n,
     # However instead of 4 we use penalty_factor (3 works well) so we can make them larger or smaller
     MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
-    penalty_max = MAX_LENGTHS[pctsp_size] * (penalty_factor) / float(pctsp_size)
+    max_lengths = MAX_LENGTHS if max_lengths is None else max_lengths
+    penalty_max = max_lengths[pctsp_size] * (penalty_factor) / float(pctsp_size)
     penalty = np.random.uniform(size=(dataset_size, pctsp_size)) * penalty_max
 
     # Take uniform prizes
@@ -201,6 +212,7 @@ def generate_dataset(
     overwrite=False,
     seed=1234,
     disable_warning=True,
+    distributions_per_problem=None,
 ):
     """We keep a similar structure as in Kool et al. 2019 but save and load the data as npz
     This is way faster and more memory efficient than pickle and also allows for easy transfer to TensorDict
@@ -209,13 +221,8 @@ def generate_dataset(
         len(problem) == 1 and len(graph_sizes) == 1
     ), "Can only specify filename when generating a single dataset"
 
-    distributions_per_problem = {
-        "tsp": [None],
-        "vrp": [None],
-        "pctsp": [None],
-        "op": ["const", "unif", "dist"],
-        "mdpp": [None],
-    }
+    distributions_per_problem = DISTRIBUTIONS_PER_PROBLEM
+
     if problem == "all":
         problems = distributions_per_problem
     else:
