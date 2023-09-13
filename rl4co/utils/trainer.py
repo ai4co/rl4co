@@ -130,10 +130,11 @@ class RL4COTrainer(Trainer):
         """
 
         if not model.automatic_optimization:
-            log.warn(
-                "Overriding gradient_clip_val to None for 'automatic_optimization=False' models"
-            )
-            self.gradient_clip_val = None
+            if self.gradient_clip_val is not None:
+                log.warning(
+                    "Overriding gradient_clip_val to None for 'automatic_optimization=False' models"
+                )
+                self.gradient_clip_val = None
 
         super().fit(
             model=model,
