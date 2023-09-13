@@ -2,7 +2,6 @@ import copy
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
@@ -10,7 +9,6 @@ from tqdm.auto import tqdm
 
 from rl4co import utils
 from rl4co.data.dataset import ExtraKeyDataset, tensordict_collate_fn
-from rl4co.models.rl.common.critic import CriticNetwork
 
 log = utils.get_pylogger(__name__)
 
@@ -123,28 +121,6 @@ class WarmupBaseline(REINFORCEBaseline):
         self.alpha = (kw["epoch"] + 1) / float(self.n_epochs)
         if kw["epoch"] < self.n_epochs:
             log.info("Set warmup alpha = {}".format(self.alpha))
-
-
-class CriticBaseline(REINFORCEBaseline):
-    """Critic baseline: use critic network as baseline
-
-    Args:
-        critic: Critic network to use as baseline. If None, create a new critic network based on the environment
-    """
-
-    def __init__(self, critic: nn.Module = None, **unused_kw):
-        super(CriticBaseline, self).__init__()
-        self.critic = critic
-
-    def setup(self, model, env, **kwargs):
-        if self.critic is None:
-            log.info("Creating critic network for {}".format(env.name))
-            self.critic = CriticNetwork(env.name, **kwargs)
-
-    def eval(self, x, c, env=None):
-        v = self.critic(x).squeeze(-1)
-        # detach v since actor should not backprop through baseline, only for neg_loss
-        return v.detach(), -F.mse_loss(v, c.detach())
 
 
 class RolloutBaseline(REINFORCEBaseline):
@@ -262,39 +238,3 @@ class RolloutBaseline(REINFORCEBaseline):
         """Restore datasets after unpickling. Will be restored in setup"""
         self.__dict__.update(state)
         self.dataset = None
-
-
-REINFORCE_BASELINES_REGISTRY = {
-    "no": NoBaseline,
-    "shared": SharedBaseline,
-    "exponential": ExponentialBaseline,
-    "critic": CriticBaseline,
-    "rollout_only": RolloutBaseline,
-    "warmup": WarmupBaseline,
-}
-
-
-def get_reinforce_baseline(name, **kw):
-    """Get a REINFORCE baseline by name
-    The rollout baseline default to warmup baseline with one epoch of
-    exponential baseline and the greedy rollout
-    """
-    if name == "warmup":
-        inner_baseline = kw.get("baseline", "rollout")
-        if not isinstance(inner_baseline, REINFORCEBaseline):
-            inner_baseline = get_reinforce_baseline(inner_baseline, **kw)
-        return WarmupBaseline(inner_baseline, **kw)
-    elif name == "rollout":
-        warmup_epochs = kw.get("n_epochs", 1)
-        warmup_exp_beta = kw.get("exp_beta", 0.8)
-        bl_alpha = kw.get("bl_alpha", 0.05)
-        return WarmupBaseline(
-            RolloutBaseline(bl_alpha=bl_alpha), warmup_epochs, warmup_exp_beta
-        )
-
-    baseline_cls = REINFORCE_BASELINES_REGISTRY.get(name, None)
-    if baseline_cls is None:
-        raise ValueError(
-            f"Unknown baseline {baseline_cls}. Available baselines: {REINFORCE_BASELINES_REGISTRY.keys()}"
-        )
-    return baseline_cls(**kw)
