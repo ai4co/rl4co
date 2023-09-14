@@ -168,7 +168,8 @@ class RL4COLitModule(LightningModule):
         pass
 
     def configure_optimizers(self, parameters=None):
-        """
+        """Configure all learning rate schedulers and optimizers
+
         Args:
             parameters: parameters to be optimized. If None, will use `self.policy.parameters()
         """
@@ -177,39 +178,53 @@ class RL4COLitModule(LightningModule):
             parameters = self.policy.parameters()
 
         log.info(f"Instantiating optimizer <{self._optimizer_name_or_cls}>")
-        if isinstance(self._optimizer_name_or_cls, str):
-            optimizer = create_optimizer(
-                parameters, self._optimizer_name_or_cls, **self.optimizer_kwargs
-            )
-        elif isinstance(self._optimizer_name_or_cls, partial):
-            optimizer = self._optimizer_name_or_cls(parameters, **self.optimizer_kwargs)
-        else:  # User-defined optimizer
-            opt_cls = self._optimizer_name_or_cls
-            optimizer = opt_cls(parameters, **self.optimizer_kwargs)
-            assert isinstance(optimizer, torch.optim.Optimizer)
+        optimizer = self._configure_optimizer(
+            parameters, self._optimizer_name_or_cls, self.optimizer_kwargs
+        )
 
         # instantiate lr scheduler
         if self._lr_scheduler_name_or_cls is None:
             return optimizer
         else:
             log.info(f"Instantiating LR scheduler <{self._lr_scheduler_name_or_cls}>")
-            if isinstance(self._lr_scheduler_name_or_cls, str):
-                scheduler = create_scheduler(
-                    optimizer, self._lr_scheduler_name_or_cls, **self.lr_scheduler_kwargs
-                )
-            elif isinstance(self._lr_scheduler_name_or_cls, partial):
-                scheduler = self._lr_scheduler_name_or_cls(
-                    optimizer, **self.lr_scheduler_kwargs
-                )
-            else:  # User-defined scheduler
-                scheduler_cls = self._lr_scheduler_name_or_cls
-                scheduler = scheduler_cls(optimizer, **self.lr_scheduler_kwargs)
-                assert isinstance(scheduler, torch.optim.lr_scheduler.LRScheduler)
-            return [optimizer], {
-                "scheduler": scheduler,
-                "interval": self.lr_scheduler_interval,
-                "monitor": self.lr_scheduler_monitor,
-            }
+            scheduler = self._configure_lr_scheduler(
+                optimizer,
+                self._lr_scheduler_name_or_cls,
+                self.lr_scheduler_kwargs,
+                self.lr_scheduler_interval,
+                self.lr_scheduler_monitor,
+            )
+            return [optimizer], [scheduler]
+
+    def _configure_optimizer(self, parameters, optimizer, optimizer_kwargs):
+        """Configure a single optimizer with the given parameters"""
+        if isinstance(optimizer, str):
+            optimizer = create_optimizer(parameters, optimizer, **optimizer_kwargs)
+        elif isinstance(optimizer, partial):
+            optimizer = optimizer(parameters, **optimizer_kwargs)
+        else:  # User-defined optimizer
+            opt_cls = optimizer
+            optimizer = opt_cls(parameters, **optimizer_kwargs)
+            assert isinstance(optimizer, torch.optim.Optimizer)
+        return optimizer
+
+    def _configure_lr_scheduler(
+        self, optimizer, scheduler, scheduler_kwargs, interval, monitor
+    ):
+        """Configure a single scheduler with the given optimizer"""
+        if isinstance(scheduler, str):
+            scheduler = create_scheduler(optimizer, scheduler, **scheduler_kwargs)
+        elif isinstance(scheduler, partial):
+            scheduler = scheduler(optimizer, **scheduler_kwargs)
+        else:  # User-defined scheduler
+            scheduler_cls = scheduler
+            scheduler = scheduler_cls(optimizer, **scheduler_kwargs)
+            assert isinstance(scheduler, torch.optim.lr_scheduler.LRScheduler)
+        return {
+            "scheduler": scheduler,
+            "interval": self.lr_scheduler_interval,
+            "monitor": self.lr_scheduler_monitor,
+        }
 
     def log_metrics(self, metric_dict: dict, phase: str):
         """Log metrics to logger and progress bar"""
