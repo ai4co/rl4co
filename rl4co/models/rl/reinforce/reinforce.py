@@ -10,7 +10,8 @@ from typing_extensions import Self
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
-from rl4co.models.rl.reinforce import REINFORCEBaseline, get_reinforce_baseline
+from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline
+from rl4co.models.rl.reinforce.utils import get_reinforce_baseline
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.pylogger import get_pylogger
 
