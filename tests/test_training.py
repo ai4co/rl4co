@@ -6,7 +6,7 @@ from rl4co.utils import RL4COTrainer
 
 
 # Test out simple training loop and test with multiple baselines
-@pytest.mark.parametrize("baseline", ["rollout", "exponential", "critic", "no"])
+@pytest.mark.parametrize("baseline", ["rollout", "exponential", "critic", "mean", "no"])
 def test_reinforce(baseline):
     env = TSPEnv(num_loc=20)
 
