@@ -51,6 +51,7 @@ dependencies = [
     "wandb",
     "matplotlib",
     "scipy",
+    "robust-downloader"
 ]
 
 [project.optional-dependencies]
