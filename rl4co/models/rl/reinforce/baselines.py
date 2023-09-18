@@ -79,6 +79,12 @@ class ExponentialBaseline(REINFORCEBaseline):
         return self.v, 0  # No loss
 
 
+class MeanBaseline(REINFORCEBaseline):
+    """Mean baseline: return mean of reward as baseline"""
+    def __new__(cls, **kw):
+        return ExponentialBaseline(beta=0.0, **kw)
+
+
 class WarmupBaseline(REINFORCEBaseline):
     """Warmup baseline: return convex combination of baseline and exponential baseline
 
@@ -269,6 +275,7 @@ REINFORCE_BASELINES_REGISTRY = {
     "shared": SharedBaseline,
     "exponential": ExponentialBaseline,
     "critic": CriticBaseline,
+    "mean": MeanBaseline,
     "rollout_only": RolloutBaseline,
     "warmup": WarmupBaseline,
 }
