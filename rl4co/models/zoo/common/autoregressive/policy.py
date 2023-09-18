@@ -48,7 +48,7 @@ class AutoregressivePolicy(nn.Module):
 
     def __init__(
         self,
-        env_name: str,
+        env_name: [str, RL4COEnvBase],
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         init_embedding: nn.Module = None,
@@ -71,6 +71,8 @@ class AutoregressivePolicy(nn.Module):
         if len(unused_kw) > 0:
             log.warn(f"Unused kwargs: {unused_kw}")
 
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
         self.env_name = env_name
 
         if encoder is None:
