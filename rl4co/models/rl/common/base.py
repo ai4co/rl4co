@@ -236,7 +236,7 @@ class RL4COLitModule(LightningModule):
             env = self.env
         else:
             log.info("Using env from kwargs")
-            env = kwargs["env"]
+            env = kwargs.pop("env")
         return self.policy(td, env, **kwargs)
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str):
