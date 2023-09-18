@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import torch
 
+from robust_downloader import download
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -16,7 +17,6 @@ from torchrl.data import (
 
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.utils.download.downloader import download_url
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -66,9 +66,12 @@ class DPPEnv(RL4COEnvBase):
         super().__init__(**kwargs)
 
         self.url = (
-            "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
+            "https://github.com/kaist-silab/devformer/raw/main/data/data.zip"
             if url is None
             else url
+        )
+        self.backup_url = (
+            "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
         )
         self._load_dpp_data(chip_file, decap_file, freq_file)
         self.min_loc = min_loc
@@ -330,7 +333,13 @@ class DPPEnv(RL4COEnvBase):
 
     def _download_data(self):
         log.info("Downloading data...")
-        download_url(self.url, self.data_dir, "data.zip")
+        try:
+            download(self.url, self.data_dir, "data.zip")
+        except Exception:
+            log.error(
+                f"Download from main url {self.url} failed. Trying backup url {self.backup_url}..."
+            )
+            download(self.backup_url, self.data_dir, "data.zip")
         log.info("Download complete. Unzipping...")
         zipfile.ZipFile(os.path.join(self.data_dir, "data.zip"), "r").extractall(
             self.data_dir
