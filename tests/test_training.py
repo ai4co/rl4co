@@ -1,7 +1,16 @@
 import pytest
 
 from rl4co.envs import PDPEnv, TSPEnv
-from rl4co.models import AttentionModel, HeterogeneousAttentionModel, PPOModel, SymNCO
+from rl4co.models import (
+    ActiveSearch,
+    AttentionModel,
+    AutoregressivePolicy,
+    EASEmb,
+    EASLay,
+    HeterogeneousAttentionModel,
+    PPOModel,
+    SymNCO,
+)
 from rl4co.utils import RL4COTrainer
 
 
@@ -47,6 +56,18 @@ def test_ham():
     model = HeterogeneousAttentionModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
+    trainer = RL4COTrainer(max_epochs=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
+def test_search_methods(SearchMethod):
+    env = TSPEnv(num_loc=20)
+    batch_size = 2 if SearchMethod not in [ActiveSearch] else 1
+    dataset = env.dataset(2)
+    policy = AutoregressivePolicy(env)
+    model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
     trainer = RL4COTrainer(max_epochs=1)
     trainer.fit(model)
     trainer.test(model)
