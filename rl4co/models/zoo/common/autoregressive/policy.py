@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Callable, Optional, Union
 
 import torch.nn as nn
 
@@ -39,7 +39,7 @@ class AutoregressivePolicy(nn.Module):
         normalization: Normalization type in the attention layers
         mask_inner: Whether to mask the inner diagonal in the attention layers
         use_graph_context: Whether to use the initial graph context to modify the query
-        force_flash_attn: Whether to force the use of flash attention in the attention layers
+        sdpa_fn: Scaled dot product function to use for the attention
         train_decode_type: Type of decoding during training
         val_decode_type: Type of decoding during validation
         test_decode_type: Type of decoding during testing
@@ -60,7 +60,7 @@ class AutoregressivePolicy(nn.Module):
         normalization: str = "batch",
         mask_inner: bool = True,
         use_graph_context: bool = True,
-        force_flash_attn: bool = False,
+        sdpa_fn: Optional[Callable] = None,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
@@ -83,8 +83,8 @@ class AutoregressivePolicy(nn.Module):
                 embedding_dim=embedding_dim,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
-                force_flash_attn=force_flash_attn,
                 init_embedding=init_embedding,
+                sdpa_fn=sdpa_fn,
             )
         else:
             self.encoder = encoder
@@ -97,7 +97,6 @@ class AutoregressivePolicy(nn.Module):
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
                 mask_inner=mask_inner,
-                force_flash_attn=force_flash_attn,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
             )

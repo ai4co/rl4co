@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Callable, Optional, Union
 
 from tensordict import TensorDict
 from torch import Tensor, nn
@@ -20,7 +20,7 @@ class CriticNetwork(nn.Module):
         num_layers: Number of layers for the encoder
         num_heads: Number of heads for the attention
         normalization: Normalization to use for the attention
-        force_flash_attn: Whether to force the use of flash attention. If True, cast to fp16
+        sdpa_fn: Scaled dot product function to use for the attention
     """
 
     def __init__(
@@ -32,7 +32,7 @@ class CriticNetwork(nn.Module):
         num_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
-        force_flash_attn: bool = False,
+        sdpa_fn: Optional[Callable] = None,
         **unused_kwargs,
     ):
         super(CriticNetwork, self).__init__()
@@ -51,7 +51,7 @@ class CriticNetwork(nn.Module):
                 num_layers=num_layers,
                 normalization=normalization,
                 feed_forward_hidden=hidden_dim,
-                force_flash_attn=force_flash_attn,
+                sdpa_fn=sdpa_fn,
             )
             if encoder is None
             else encoder

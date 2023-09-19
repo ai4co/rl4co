@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 
 import torch.nn as nn
 
@@ -19,7 +19,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
         embed_dim: dimension of the embeddings
         feed_forward_hidden: dimension of the hidden layer in the feed-forward layer
         normalization: type of normalization to use (batch, layer, none)
-        force_flash_attn: whether to force FlashAttention (move to half precision)
+        sdpa_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
@@ -28,14 +28,10 @@ class MultiHeadAttentionLayer(nn.Sequential):
         embed_dim: int,
         feed_forward_hidden: int = 512,
         normalization: Optional[str] = "batch",
-        force_flash_attn: bool = False,
+        sdpa_fn: Optional[Callable] = None,
     ):
         super(MultiHeadAttentionLayer, self).__init__(
-            SkipConnection(
-                MultiHeadAttention(
-                    embed_dim, num_heads, force_flash_attn=force_flash_attn
-                )
-            ),
+            SkipConnection(MultiHeadAttention(embed_dim, num_heads, sdpa_fn=sdpa_fn)),
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(
@@ -60,7 +56,7 @@ class GraphAttentionNetwork(nn.Module):
         num_layers: number of MHA layers
         normalization: type of normalization to use (batch, layer, none)
         feed_forward_hidden: dimension of the hidden layer in the feed-forward layer
-        force_flash_attn: whether to force FlashAttention (move to half precision)
+        sdpa_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
@@ -70,7 +66,7 @@ class GraphAttentionNetwork(nn.Module):
         num_layers: int,
         normalization: str = "batch",
         feed_forward_hidden: int = 512,
-        force_flash_attn: bool = False,
+        sdpa_fn: Optional[Callable] = None,
     ):
         super(GraphAttentionNetwork, self).__init__()
 
@@ -81,7 +77,7 @@ class GraphAttentionNetwork(nn.Module):
                     embedding_dim,
                     feed_forward_hidden=feed_forward_hidden,
                     normalization=normalization,
-                    force_flash_attn=force_flash_attn,
+                    sdpa_fn=sdpa_fn,
                 )
                 for _ in range(num_layers)
             )

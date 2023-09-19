@@ -5,6 +5,7 @@ import torch.nn as nn
 from tensordict import TensorDict
 from torch import Tensor
 
+from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.graph.attnnet import GraphAttentionNetwork
 
@@ -19,23 +20,25 @@ class GraphAttentionEncoder(nn.Module):
         num_layers: Number of layers for the encoder
         normalization: Normalization to use for the attention
         feed_forward_hidden: Hidden dimension for the feed-forward network
-        force_flash_attn: Whether to force the use of flash attention. If True, cast to fp16
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
+        sdpa_fn: Scaled dot product function to use for the attention
     """
 
     def __init__(
         self,
-        env_name: str,
+        env_name: [str, RL4COEnvBase],
         num_heads: int,
         embedding_dim: int,
         num_layers: int,
         normalization: str = "batch",
         feed_forward_hidden: int = 512,
-        force_flash_attn: bool = False,
         init_embedding: nn.Module = None,
+        sdpa_fn=None,
     ):
         super(GraphAttentionEncoder, self).__init__()
 
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
         self.env_name = env_name
 
         self.init_embedding = (
@@ -50,7 +53,7 @@ class GraphAttentionEncoder(nn.Module):
             num_layers,
             normalization,
             feed_forward_hidden,
-            force_flash_attn,
+            sdpa_fn=sdpa_fn,
         )
 
     def forward(

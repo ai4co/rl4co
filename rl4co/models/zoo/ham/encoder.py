@@ -38,7 +38,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         env_name=None,
         normalization="batch",
         feed_forward_hidden=512,
-        force_flash_attn=False,
+        sdpa_fn=None,
     ):
         super(GraphHeterogeneousAttentionEncoder, self).__init__()
 
