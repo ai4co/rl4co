@@ -1,5 +1,7 @@
 import math
 
+from typing import Callable, Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,46 +13,50 @@ from rl4co.utils import get_pylogger
 log = get_pylogger(__name__)
 
 
+def scaled_dot_product_attention_simple(
+    q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False
+):
+    """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
+    # Check for causal and attn_mask conflict
+    if is_causal and attn_mask is not None:
+        raise ValueError("Cannot set both is_causal and attn_mask")
+
+    # Calculate scaled dot product
+    scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
+
+    # Apply the provided attention mask
+    if attn_mask is not None:
+        if attn_mask.dtype == torch.bool:
+            scores.masked_fill_(~attn_mask, float("-inf"))
+        else:
+            scores += attn_mask
+
+    # Apply causal mask
+    if is_causal:
+        s, l_ = scores.size(-2), scores.size(-1)
+        mask = torch.triu(torch.ones((s, l_), device=scores.device), diagonal=1)
+        scores.masked_fill_(mask.bool(), float("-inf"))
+
+    # Softmax to get attention weights
+    attn_weights = F.softmax(scores, dim=-1)
+
+    # Apply dropout
+    if dropout_p > 0.0:
+        attn_weights = F.dropout(attn_weights, p=dropout_p)
+
+    # Compute the weighted sum of values
+    return torch.matmul(attn_weights, v)
+
+
 try:
     from torch.nn.functional import scaled_dot_product_attention
 except ImportError:
     log.warning(
         "torch.nn.functional.scaled_dot_product_attention not found. Make sure you are using PyTorch >= 2.0.0."
-        "Alternatively, install Flash Attention https://github.com/HazyResearch/flash-attention"
+        "Alternatively, install Flash Attention https://github.com/HazyResearch/flash-attention ."
+        "Using custom implementation of scaled_dot_product_attention without Flash Attention. "
     )
-
-    def scaled_dot_product_attention(
-        Q, K, V, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None
-    ):
-        """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
-        if scale is None:
-            scale = math.sqrt(Q.size(-1))  # scale factor
-        # compute the attention scores
-        attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / scale
-        # apply causal masking if required
-        if is_causal:
-            mask = torch.triu(torch.ones_like(attn_scores), diagonal=1)
-            attn_scores = attn_scores.masked_fill(mask == 0, float("-inf"))
-        # apply attention mask if provided
-        if attn_mask is not None:
-            attn_scores = attn_scores.masked_fill(attn_mask == 0, float("-inf"))
-        # compute attention probabilities
-        attn_probs = F.softmax(attn_scores, dim=-1)
-        # apply dropout
-        attn_probs = F.dropout(attn_probs, p=dropout_p)
-        # compute the weighted sum of values
-        return torch.matmul(attn_probs, V)
-
-
-def flash_attn_wrapper(self, func, *args, **kwargs):
-    """Wrapper for flash attention to automatically cast to fp16 if needed"""
-    if self.force_flash_attn and args[0].is_cuda:
-        original_dtype = args[0].dtype
-        args = [arg.half() for arg in args if isinstance(arg, torch.Tensor)]
-        out = func(*args, **kwargs)
-        return out.to(original_dtype)
-    else:
-        return func(*args, **kwargs)
+    scaled_dot_product_attention = scaled_dot_product_attention_simple
 
 
 class MultiHeadAttention(nn.Module):
@@ -59,7 +65,6 @@ class MultiHeadAttention(nn.Module):
 
     Note:
         If `scaled_dot_product_attention` is not available, use custom implementation of `scaled_dot_product_attention` without Flash Attention.
-        In case you want to use Flash Attention, you may have a look at the MHA module under `rl4co.models.nn.flash_attention.MHA`.
 
     Args:
         embed_dim: total dimension of the model
@@ -69,7 +74,7 @@ class MultiHeadAttention(nn.Module):
         causal: whether to apply causal mask to attention scores
         device: torch device
         dtype: torch dtype
-        force_flash_attn: whether to force flash attention. If True, then we automatically cast to fp16
+        sdpa_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
@@ -79,16 +84,20 @@ class MultiHeadAttention(nn.Module):
         bias: bool = True,
         attention_dropout: float = 0.0,
         causal: bool = False,
-        device=None,
-        dtype=None,
-        force_flash_attn: bool = False,
+        device: str = None,
+        dtype: torch.dtype = None,
+        sdpa_fn: Optional[Callable] = None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.embed_dim = embed_dim
         self.causal = causal
-        self.force_flash_attn = force_flash_attn
         self.attention_dropout = attention_dropout
+
+        # Default to `scaled_dot_product_attention` if `sdpa_fn` is not provided
+        if sdpa_fn is None:
+            sdpa_fn = scaled_dot_product_attention
+        self.sdpa_fn = sdpa_fn
 
         self.num_heads = num_heads
         assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
@@ -110,8 +119,7 @@ class MultiHeadAttention(nn.Module):
         ).unbind(dim=0)
 
         # Scaled dot product attention
-        out = self.flash_attn_wrapper(
-            scaled_dot_product_attention,
+        out = self.sdpa_fn(
             q,
             k,
             v,
@@ -120,13 +128,12 @@ class MultiHeadAttention(nn.Module):
         )
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
 
-    flash_attn_wrapper = flash_attn_wrapper
-
 
 class LogitAttention(nn.Module):
-    """Calculate logits given query, key and value and logit key
-    If we use Flash Attention, then we automatically move to fp16 for inner computations
-    Note: with Flash Attention, masking is not supported
+    """Calculate logits given query, key and value and logit key.
+
+    Note:
+        With Flash Attention, masking is not supported
 
     Perform the following:
         1. Apply cross attention to get the heads
@@ -142,7 +149,8 @@ class LogitAttention(nn.Module):
         mask_logits: whether to mask logits
         normalize: whether to normalize logits
         softmax_temp: softmax temperature
-        force_flash_attn: whether to force flash attention. If True, then we automatically cast to fp16
+        linear_bias: whether to use bias in linear projection
+        sdp_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
@@ -155,7 +163,7 @@ class LogitAttention(nn.Module):
         normalize: bool = True,
         softmax_temp: float = 1.0,
         linear_bias: bool = False,
-        force_flash_attn: bool = False,
+        sdp_fn=scaled_dot_product_attention,
     ):
         super(LogitAttention, self).__init__()
         self.num_heads = num_heads
@@ -164,15 +172,10 @@ class LogitAttention(nn.Module):
         self.tanh_clipping = tanh_clipping
         self.normalize = normalize
         self.softmax_temp = softmax_temp
-        self.force_flash_attn = force_flash_attn
-
-        if force_flash_attn and mask_inner:
-            log.warn(
-                "Flash Attention does not support masking, force_flash_attn will only be used for fp16"
-            )
 
         # Projection - query, key, value already include projections
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
+        self.sdp_fn = sdp_fn
 
     def forward(self, query, key, value, logit_key, mask, softmax_temp=None):
         # Compute inner multi-head attention with no projections.
@@ -215,12 +218,8 @@ class LogitAttention(nn.Module):
         else:
             attn_mask = None
 
-        heads = self.flash_attn_wrapper(
-            scaled_dot_product_attention, q, k, v, attn_mask=attn_mask
-        )
+        heads = self.sdp_fn(q, k, v, attn_mask=attn_mask)
         return rearrange(heads, "... h n g -> ... n (h g)", h=self.num_heads)
 
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
-
-    flash_attn_wrapper = flash_attn_wrapper
