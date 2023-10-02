@@ -1,8 +1,9 @@
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch.nn as nn
 
 from tensordict import TensorDict
+from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.utils import get_log_likelihood
@@ -166,3 +167,20 @@ class AutoregressivePolicy(nn.Module):
             out["init_embeds"] = init_embeds
 
         return out
+
+    def evaluate_action(
+        self,
+        td: TensorDict,
+        action: Tensor,
+        env: Union[str, RL4COEnvBase] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        """Evaluate the action probability and entropy under the current policy
+
+        Args:
+            td: TensorDict containing the current state
+            action: Action to evaluate
+            env: Environment to evaluate the action in.
+        """
+        embeddings, _ = self.encoder(td)
+        ll, entropy = self.decoder.evaluate_action(td, embeddings, action, env)
+        return ll, entropy
