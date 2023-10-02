@@ -32,16 +32,18 @@ class HeterogeneuousMHALayer(nn.Sequential):
 class GraphHeterogeneousAttentionEncoder(nn.Module):
     def __init__(
         self,
-        num_heads,
-        embedding_dim,
-        num_encoder_layers,
+        num_heads=8,
+        embedding_dim=128,
+        num_encoder_layers=3,
         env_name=None,
         normalization="batch",
         feed_forward_hidden=512,
         sdpa_fn=None,
     ):
         super(GraphHeterogeneousAttentionEncoder, self).__init__()
-
+        # substitute env_name with pdp if none
+        if env_name is None:
+            env_name = "pdp"
         # Map input to embedding space
         self.init_embedding = env_init_embedding(
             env_name, {"embedding_dim": embedding_dim}

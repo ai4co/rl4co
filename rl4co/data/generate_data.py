@@ -17,6 +17,7 @@ DISTRIBUTIONS_PER_PROBLEM = {
     "pctsp": [None],
     "op": ["const", "unif", "dist"],
     "mdpp": [None],
+    "pdp": [None],
 }
 
 
@@ -78,6 +79,15 @@ def generate_vrp_data(dataset_size, vrp_size, capacities=None):
         ),  # Demand, uniform integer 1 ... 9
         "capacity": np.full(dataset_size, CAPACITIES[vrp_size]).astype(np.float32),
     }  # Capacity, same for whole dataset
+
+
+def generate_pdp_data(dataset_size, pdp_size):
+    depot = np.random.uniform(size=(dataset_size, 2))
+    loc = np.random.uniform(size=(dataset_size, pdp_size, 2))
+    return {
+        "locs": loc.astype(np.float32),
+        "depot": depot.astype(np.float32),
+    }
 
 
 def generate_op_data(dataset_size, op_size, prize_type="const", max_lengths=None):
