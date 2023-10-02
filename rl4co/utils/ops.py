@@ -116,6 +116,12 @@ def select_start_nodes(td, env, num_nodes=None):
         selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
             td.shape[0]
         )
+    elif env.name == "pdp":
+        # select only pickup nodes (until N//2 + 1). Note that this should be selected beforehand (e.g. for
+        # 100 pickup and delivery nodes, we should select 50 as start nodes)
+        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
+            td.shape[0]
+        )
     else:
         selected = torch.arange(num_nodes, device=td.device).repeat_interleave(
             td.shape[0]
