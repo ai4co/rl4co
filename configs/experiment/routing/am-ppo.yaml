@@ -43,6 +43,7 @@ model:
 trainer:
   max_epochs: 100
   gradient_clip_val: Null # not supported in manual optimization
+  precision: "32-true" # NOTE: this seems to be important during manual optimization
 
 seed: 1234
 
