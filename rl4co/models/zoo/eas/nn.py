@@ -19,8 +19,8 @@ class EASLayerNet(nn.Module):
         self.b1 = nn.Parameter(torch.randn(num_instances, 1, emb_dim))
         self.W2 = nn.Parameter(torch.zeros(num_instances, emb_dim, emb_dim))
         self.b2 = nn.Parameter(torch.zeros(num_instances, 1, emb_dim))
-        torch.nn.init.xavier_uniform(self.W1)
-        torch.nn.init.xavier_uniform(self.b1)
+        torch.nn.init.xavier_uniform_(self.W1)
+        torch.nn.init.xavier_uniform_(self.b1)
 
     def forward(self, *args):
         """emb: [num_instances, group_num, emb_dim]"""
