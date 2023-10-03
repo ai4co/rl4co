@@ -1,16 +1,11 @@
-from typing import Tuple, Union
-
-from tensordict import TensorDict
-from torch import Tensor
-
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
-from rl4co.models.zoo.ppo.decoder import PPODecoder
 
 
 class PPOPolicy(AutoregressivePolicy):
-    """PPO Policy based on Kool et al. (2019): https://arxiv.org/abs/1803.08475.
-    PPOPolicy supports 'evaluate_action' method to evaluate the action probability
+    """PPO Policy. The backbone model is inspired by the Kool et al. (2019): https://arxiv.org/abs/1803.08475.
+    This is simply a wrapper around the `AutoregressivePolicy` class. PPO needs an `evaluate_actions` method
+    inside `AutoregressivePolicy` to work properly to obtain log probabilities and entropy of actions
+    under the current policy.
 
     Args:
         env_name: Name of the environment used to initialize embeddings
@@ -32,32 +27,9 @@ class PPOPolicy(AutoregressivePolicy):
     ):
         super(PPOPolicy, self).__init__(
             env_name=env_name,
-            decoder=PPODecoder(
-                env_name=env_name,
-                embedding_dim=embedding_dim,
-                num_heads=num_heads,
-                **kwargs,
-            ),  # override decoder with PPODecoder to support 'evaluate_action"
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,
             num_heads=num_heads,
             normalization=normalization,
             **kwargs,
         )
-
-    def evaluate_action(
-        self,
-        td: TensorDict,
-        action: Tensor,
-        env: Union[str, RL4COEnvBase] = None,
-    ) -> Tuple[Tensor, Tensor]:
-        """Evaluate the action probability under the current policy
-
-        Args:
-            td: TensorDict containing the current state
-            action: Action to evaluate
-            env: Environment to evaluate the action in.
-        """
-        embeddings, _ = self.encoder(td)
-        ll, entropy = self.decoder.evaluate_action(td, embeddings, action, env)
-        return ll, entropy
