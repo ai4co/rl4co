@@ -23,7 +23,7 @@ def test_reinforce(baseline):
         env, baseline=baseline, train_data_size=10, val_data_size=10, test_data_size=10
     )
 
-    trainer = RL4COTrainer(max_epochs=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
     trainer.test(model)
 
@@ -46,7 +46,7 @@ def test_symnco():
         num_augment=2,
         num_starts=20,
     )
-    trainer = RL4COTrainer(max_epochs=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
     trainer.test(model)
 
@@ -56,7 +56,7 @@ def test_ham():
     model = HeterogeneousAttentionModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
-    trainer = RL4COTrainer(max_epochs=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
     trainer.test(model)
 
@@ -68,6 +68,6 @@ def test_search_methods(SearchMethod):
     dataset = env.dataset(2)
     policy = AutoregressivePolicy(env)
     model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
-    trainer = RL4COTrainer(max_epochs=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
     trainer.test(model)
