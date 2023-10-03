@@ -1,1 +1,7 @@
 _target_: rl4co.models.PPOModel
+
+metrics:
+  train: ["loss", "reward", "surrogate_loss", "value_loss", "entropy_bonus"]
+  val: ["reward"]
+  test: ${metrics.val}
+  log_on_step: True

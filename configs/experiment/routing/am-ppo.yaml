@@ -15,7 +15,7 @@ logger:
     project: "rl4co"
     tags: ["am-ppo", "${env.name}"]
     group: ${env.name}${env.num_loc}
-    name: am-${env.name}${env.num_loc}
+    name: ppo-${env.name}${env.num_loc}
 
 model:
   batch_size: 512
