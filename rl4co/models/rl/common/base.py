@@ -211,7 +211,7 @@ class RL4COLitModule(LightningModule):
                 "monitor": self.lr_scheduler_monitor,
             }
 
-    def log_metrics(self, metric_dict: dict, phase: str):
+    def log_metrics(self, metric_dict: dict, phase: str, dataloader_idx: int = None):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         metrics = {
@@ -219,7 +219,6 @@ class RL4COLitModule(LightningModule):
             for k, v in metric_dict.items()
             if k in metrics
         }
-
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
         self.log_dict(
@@ -228,7 +227,7 @@ class RL4COLitModule(LightningModule):
             on_epoch=on_epoch,
             prog_bar=True,
             sync_dist=True,
-            add_dataloader_idx=False,
+            add_dataloader_idx=False,  # add names to dataloaders instead
         )
         return metrics
 
@@ -241,7 +240,7 @@ class RL4COLitModule(LightningModule):
             env = kwargs.pop("env")
         return self.policy(td, env, **kwargs)
 
-    def shared_step(self, batch: Any, batch_idx: int, phase: str):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, **kwargs):
         """Shared step between train/val/test. To be implemented in subclass"""
         raise NotImplementedError("Shared step is required to implemented in subclass")
 
@@ -249,11 +248,15 @@ class RL4COLitModule(LightningModule):
         # To use new data every epoch, we need to call reload_dataloaders_every_epoch=True in Trainer
         return self.shared_step(batch, batch_idx, phase="train")
 
-    def validation_step(self, batch: Any, batch_idx: int):
-        return self.shared_step(batch, batch_idx, phase="val")
+    def validation_step(self, batch: Any, batch_idx: int, dataloader_idx: int = None):
+        return self.shared_step(
+            batch, batch_idx, phase="val", dataloader_idx=dataloader_idx
+        )
 
-    def test_step(self, batch: Any, batch_idx: int):
-        return self.shared_step(batch, batch_idx, phase="test")
+    def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = None):
+        return self.shared_step(
+            batch, batch_idx, phase="test", dataloader_idx=dataloader_idx
+        )
 
     def train_dataloader(self):
         return self._dataloader(
@@ -280,6 +283,18 @@ class RL4COLitModule(LightningModule):
         return dataset
 
     def _dataloader(self, dataset, batch_size, shuffle=False):
+        """Handle both single datasets and list / dict of datasets"""
+        if isinstance(dataset, list):
+            return [self._dataloader_single(ds, batch_size, shuffle) for ds in dataset]
+        elif isinstance(dataset, dict):  # we use this by default in RL4COEnvBase
+            return {
+                k: self._dataloader_single(ds, batch_size, shuffle)
+                for k, ds in dataset.items()
+            }
+        else:
+            return self._dataloader_single(dataset, batch_size, shuffle)
+
+    def _dataloader_single(self, dataset, batch_size, shuffle=False):
         """The dataloader used by the trainer. This is a wrapper around the dataset with a custom collate_fn
         to efficiently handle TensorDicts.
         """

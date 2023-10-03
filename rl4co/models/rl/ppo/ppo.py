@@ -3,6 +3,7 @@ from typing import Any, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from torch.utils.data import DataLoader
 
 from rl4co.envs.common.base import RL4COEnvBase
@@ -77,7 +78,9 @@ class PPO(RL4COLitModule):
         self.automatic_optimization = False  # PPO uses custom optimization routine
         self.critic = critic
 
-        if isinstance(mini_batch_size, float) and (mini_batch_size <= 0 or mini_batch_size > 1):
+        if isinstance(mini_batch_size, float) and (
+            mini_batch_size <= 0 or mini_batch_size > 1
+        ):
             default_mini_batch_fraction = 0.25
             log.warning(
                 f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_fraction}."
@@ -116,7 +119,9 @@ class PPO(RL4COLitModule):
         if isinstance(sch, torch.optim.lr_scheduler.MultiStepLR):
             sch.step()
 
-    def shared_step(self, batch: Any, batch_idx: int, phase: str):
+    def shared_step(
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
+    ):
         # Evaluate old actions, log probabilities, and rewards
         with torch.no_grad():
             td = self.env.reset(batch)
@@ -147,10 +152,14 @@ class PPO(RL4COLitModule):
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
-                    ll, entropy = self.policy.evaluate_action(sub_td, action=sub_td["action"])
+                    ll, entropy = self.policy.evaluate_action(
+                        sub_td, action=sub_td["action"]
+                    )
 
                     # Compute the ratio of probabilities of new and old actions
-                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(-1, 1)  # [batch, 1]
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(
+                        -1, 1
+                    )  # [batch, 1]
 
                     # Compute the advantage
                     value_pred = self.critic(sub_td)  # [batch, 1]
@@ -204,5 +213,5 @@ class PPO(RL4COLitModule):
                 }
             )
 
-        metrics = self.log_metrics(out, phase)
+        metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}

@@ -48,7 +48,9 @@ class REINFORCE(RL4COLitModule):
                 log.warning("baseline_kwargs is ignored when baseline is not a string")
         self.baseline = baseline
 
-    def shared_step(self, batch: Any, batch_idx: int, phase: str):
+    def shared_step(
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
+    ):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
         out = self.policy(td, self.env, phase=phase)
@@ -57,7 +59,7 @@ class REINFORCE(RL4COLitModule):
         if phase == "train":
             out = self.calculate_loss(td, batch, out)
 
-        metrics = self.log_metrics(out, phase)
+        metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
 
     def calculate_loss(

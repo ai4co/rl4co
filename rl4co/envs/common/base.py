@@ -21,6 +21,8 @@ class RL4COEnvBase(EnvBase):
         train_file: Name of the training file
         val_file: Name of the validation file
         test_file: Name of the test file
+        val_dataloader_names: Names of the dataloaders to use for validation
+        test_dataloader_names: Names of the dataloaders to use for testing
         check_solution: Whether to check the validity of the solution at the end of the episode
         seed: Seed for the environment
         device: Device to use. Generally, no need to set as tensors are updated on the fly
@@ -35,6 +37,8 @@ class RL4COEnvBase(EnvBase):
         train_file: str = None,
         val_file: str = None,
         test_file: str = None,
+        val_dataloader_names: list = None,
+        test_dataloader_names: list = None,
         check_solution: bool = True,
         seed: int = None,
         device: str = "cpu",
@@ -43,8 +47,39 @@ class RL4COEnvBase(EnvBase):
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
-        self.val_file = pjoin(data_dir, val_file) if val_file is not None else None
-        self.test_file = pjoin(data_dir, test_file) if test_file is not None else None
+
+        def get_files(f):
+            if f is not None:
+                if isinstance(f, list):
+                    return [pjoin(data_dir, _f) for _f in f]
+                else:
+                    return pjoin(data_dir, f)
+            return None
+
+        def get_multiple_dataloader_names(f, names):
+            if f is not None:
+                if isinstance(f, list):
+                    if names is None:
+                        names = [f"{i}" for i in range(len(f))]
+                    else:
+                        assert len(names) == len(
+                            f
+                        ), "Number of dataloader names must match number of files"
+                else:
+                    if names is not None:
+                        log.warning(
+                            "Ignoring dataloader names since only one dataloader is provided"
+                        )
+            return names
+
+        self.val_file = get_files(val_file)
+        self.test_file = get_files(test_file)
+        self.val_dataloader_names = get_multiple_dataloader_names(
+            self.val_file, val_dataloader_names
+        )
+        self.test_dataloader_names = get_multiple_dataloader_names(
+            self.test_file, test_dataloader_names
+        )
         self.check_solution = check_solution
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
@@ -101,7 +136,14 @@ class RL4COEnvBase(EnvBase):
                     "the dataset is fixed and the agent will not be able to explore new states"
                 )
             try:
-                td = self.load_data(f, batch_size)
+                if isinstance(f, list):
+                    names = getattr(self, f"{phase}_dataloader_names")
+                    return {
+                        name: TensorDictDataset(self.load_data(_f, batch_size))
+                        for name, _f in zip(names, f)
+                    }
+                else:
+                    td = self.load_data(f, batch_size)
             except FileNotFoundError:
                 log.error(
                     f"Provided file name {f} not found. Make sure to provide a file in the right path first or "
