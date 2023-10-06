@@ -145,7 +145,10 @@ pytest tests
 
 ### Known Bugs
 
+> Note: please refer to [this issue](https://github.com/kaist-silab/rl4co/issues/95) for the newest version of TorchRL and TensorDict
+
 #### Bugs installing TorchRL (Python 3.11)
+
 `torchrl` is not yet available (in the `0.1.1` version) on PyPI for Python 3.11 (see [here](https://github.com/kaist-silab/rl4co/issues/90)). While `rl4co` can work with Python 3.11, we recommend using Python 3.10 for the time being:
 ```bash
 conda create --name rl4co python=3.10
