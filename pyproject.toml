@@ -41,7 +41,7 @@ classifiers = [
 
 # TODO: allow new TorchRL / TensorDict versions https://github.com/kaist-silab/rl4co/issues/95
 dependencies = [
-    "torch>=2.0.0",
+    "torch>=2.0.0,<2.1.0", # Possibly TorchRL problem on Windows with older version
     "torchrl==0.1.1",
     "tensordict==0.1.1",
     "lightning>=2.0.5",
