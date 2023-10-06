@@ -22,6 +22,8 @@ authors = [
 dynamic = ["version"]
 
 license = {file = "LICENSE"}
+
+# TODO: allow new Python versions https://github.com/kaist-silab/rl4co/issues/95
 requires-python = ">=3.8, <3.11" # https://github.com/kaist-silab/rl4co/issues/90
 classifiers = [
     "Programming Language :: Python",
@@ -37,10 +39,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# TODO: allow new TorchRL / TensorDict versions https://github.com/kaist-silab/rl4co/issues/95
 dependencies = [
     "torch>=2.0.0",
-    "torchrl>=0.1.1",
-    "tensordict>=0.1.1",
+    "torchrl==0.1.1",
+    "tensordict==0.1.1",
     "lightning>=2.0.5",
     "hydra-core",
     "hydra-colorlog",
