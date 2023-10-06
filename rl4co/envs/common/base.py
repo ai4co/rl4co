@@ -1,5 +1,5 @@
 from os.path import join as pjoin
-from typing import Optional
+from typing import Optional, Iterable
 
 import torch
 
@@ -50,7 +50,7 @@ class RL4COEnvBase(EnvBase):
 
         def get_files(f):
             if f is not None:
-                if isinstance(f, list):
+                if isinstance(f, Iterable) and not isinstance(f, str):
                     return [pjoin(data_dir, _f) for _f in f]
                 else:
                     return pjoin(data_dir, f)
@@ -58,7 +58,7 @@ class RL4COEnvBase(EnvBase):
 
         def get_multiple_dataloader_names(f, names):
             if f is not None:
-                if isinstance(f, list):
+                if isinstance(f, Iterable) and not isinstance(f, str):
                     if names is None:
                         names = [f"{i}" for i in range(len(f))]
                     else:
@@ -136,7 +136,7 @@ class RL4COEnvBase(EnvBase):
                     "the dataset is fixed and the agent will not be able to explore new states"
                 )
             try:
-                if isinstance(f, list):
+                if isinstance(f, Iterable) and not isinstance(f, str):
                     names = getattr(self, f"{phase}_dataloader_names")
                     return {
                         name: TensorDictDataset(self.load_data(_f, batch_size))
