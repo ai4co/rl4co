@@ -25,6 +25,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "mdpp": DPPContext,
         "pdp": PDPContext,
         "mtsp": MTSPContext,
+        "smtwtp": SMTWTPContext,
     }
 
     if env_name not in embedding_registry:
@@ -213,3 +214,22 @@ class MTSPContext(EnvContext):
         # Euclidean distance from the depot (loc[..., 0, :])
         cur_loc = gather_by_index(td["locs"], td["current_node"])
         return torch.norm(cur_loc - td["locs"][..., 0, :], dim=-1)
+
+
+class SMTWTPContext(EnvContext):
+    """Context embedding for the Single Machine Total Weighted Tardiness Problem (SMTWTP).
+    Project the following to the embedding space:
+        - current node embedding
+        - current time
+    """
+
+    def __init__(self, embedding_dim):
+        super(SMTWTPContext, self).__init__(embedding_dim, embedding_dim + 1)
+
+    def _cur_node_embedding(self, embeddings, td):
+        cur_node_embedding = gather_by_index(embeddings, td["current_job"])
+        return cur_node_embedding
+
+    def _state_embedding(self, embeddings, td):
+        state_embedding = td["current_time"]
+        return state_embedding

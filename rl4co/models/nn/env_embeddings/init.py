@@ -23,6 +23,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "mdpp": MDPPInitEmbedding,
         "pdp": PDPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
+        "smtwtp": SMTWTPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -246,3 +247,25 @@ class MTSPInitEmbedding(nn.Module):
         depot_embedding = self.init_embed_depot(td["locs"][..., 0:1, :])
         node_embedding = self.init_embed(td["locs"][..., 1:, :])
         return torch.cat([depot_embedding, node_embedding], -2)
+
+
+class SMTWTPInitEmbedding(nn.Module):
+    """Initial embedding for the Single Machine Total Weighted Tardiness Problem (SMTWTP).
+    Embed the following node features to the embedding space:
+        - job_due_time: due time of the jobs
+        - job_weight: weights of the jobs
+        - job_process_time: the processing time of jobs
+    """
+
+    def __init__(self, embedding_dim, linear_bias=True):
+        super(SMTWTPInitEmbedding, self).__init__()
+        node_dim = 3  # job_due_time, job_weight, job_process_time
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+
+    def forward(self, td):
+        job_due_time = td["job_due_time"]
+        job_weight = td["job_weight"]
+        job_process_time = td["job_process_time"]
+        feat = torch.stack((job_due_time, job_weight, job_process_time), dim=-1)
+        out = self.init_embed(feat)
+        return out
