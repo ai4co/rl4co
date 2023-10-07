@@ -6,7 +6,8 @@ from rl4co.utils.test_utils import generate_env_data
 
 # Main autorergressive policy: rollout over multiple envs since it is the base
 @pytest.mark.parametrize(
-    "env_name", ["tsp", "cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "dpp", "mdpp"]
+    "env_name",
+    ["tsp", "cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "dpp", "mdpp", "smtwtp"],
 )
 def test_base_policy(env_name, size=20, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
