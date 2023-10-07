@@ -11,6 +11,7 @@ from rl4co.envs.op import OPEnv
 from rl4co.envs.pctsp import PCTSPEnv
 from rl4co.envs.pdp import PDPEnv
 from rl4co.envs.sdvrp import SDVRPEnv
+from rl4co.envs.smtwtp import SMTWTPEnv
 from rl4co.envs.spctsp import SPCTSPEnv
 from rl4co.envs.tsp import TSPEnv
 
@@ -27,6 +28,7 @@ ENV_REGISTRY = {
     "sdvrp": SDVRPEnv,
     "spctsp": SPCTSPEnv,
     "tsp": TSPEnv,
+    "smtwtp": SMTWTPEnv,
 }
 
 
