@@ -155,6 +155,14 @@ conda create --name rl4co python=3.10
 pip install rl4co
 ```
 
+#### Bugs installing PyTorch Geometric (PyG)
+
+Installing `PyG` via `Conda` seems to update Torch itself. We have found that this update introduces some bugs with `torchrl`. At this moment, we recommend installing `PyG` with `Pip`:
+```bash
+pip install torch_geometric
+```
+
+
 
 ## Contributing
 [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
