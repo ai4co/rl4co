@@ -71,24 +71,24 @@ class POMO(REINFORCE):
         out = self.policy(td, self.env, phase=phase, num_starts=n_start)
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
-        reward = unbatchify(out["reward"], (n_start, n_aug))
+        reward = unbatchify(out["reward"], (n_aug, n_start))
 
         # Training phase
         if phase == "train":
             assert n_start > 1, "num_starts must be > 1 during training"
-            log_likelihood = unbatchify(out["log_likelihood"], (n_start, n_aug))
+            log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
 
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:
                 # max multi-start reward
-                max_reward, max_idxs = reward.max(dim=1)
+                max_reward, max_idxs = reward.max(dim=-1)
                 out.update({"max_reward": max_reward})
 
-                # Reshape batch to [batch, n_start, n_aug]
                 if out.get("actions", None) is not None:
-                    actions = unbatchify(out["actions"], (n_start, n_aug))
+                    # Reshape batch to [batch_size, num_augment, num_starts, ...]
+                    actions = unbatchify(out["actions"], (n_aug, n_start))
                     out.update(
                         {"best_multistart_actions": gather_by_index(actions, max_idxs)}
                     )
@@ -100,13 +100,11 @@ class POMO(REINFORCE):
                 reward_ = max_reward if n_start > 1 else reward
                 max_aug_reward, max_idxs = reward_.max(dim=1)
                 out.update({"max_aug_reward": max_aug_reward})
-                if out.get("best_multistart_actions", None) is not None:
+
+                if out.get("actions", None) is not None:
+                    actions_ = out["best_multistart_actions"] if n_start > 1 else out["actions"]
                     out.update(
-                        {
-                            "best_aug_actions": gather_by_index(
-                                out["best_multistart_actions"], max_idxs
-                            )
-                        }
+                        {"best_aug_actions": gather_by_index(actions_, max_idxs)}
                     )
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
