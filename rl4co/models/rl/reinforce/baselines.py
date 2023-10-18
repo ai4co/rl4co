@@ -53,8 +53,8 @@ class NoBaseline(REINFORCEBaseline):
 class SharedBaseline(REINFORCEBaseline):
     """Shared baseline: return mean of reward as baseline"""
 
-    def eval(self, td, reward, env=None, on_dim=1):  # e.g. [batch, pomo, ...]
-        return reward.mean(dim=on_dim, keepdims=True), 0
+    def eval(self, td, reward, env=None):  # e.g. [batch, pomo, ...]
+        return reward.mean(), 0
 
 
 class ExponentialBaseline(REINFORCEBaseline):
