@@ -1,4 +1,3 @@
-import torch.nn as nn
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
 

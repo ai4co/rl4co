@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Union, Iterable
+from typing import Any, Iterable, Union
 
 import torch
 import torch.nn as nn
@@ -149,7 +149,6 @@ class RL4COLitModule(LightningModule):
             self.data_cfg["test_data_size"], phase="test"
         )
         self.dataloader_names = None
-        
         self.setup_loggers()
         self.post_setup_hook()
 
@@ -214,12 +213,16 @@ class RL4COLitModule(LightningModule):
 
     def log_metrics(self, metric_dict: dict, phase: str, dataloader_idx: int = None):
         """Log metrics to logger and progress bar"""
-        metrics = getattr(self, f"{phase}_metrics") 
+        metrics = getattr(self, f"{phase}_metrics")
         dataloader_name = ""
         if dataloader_idx is not None and self.dataloader_names is not None:
-            dataloader_name = "/" + self.dataloader_names[dataloader_idx]           
+            dataloader_name = "/" + self.dataloader_names[dataloader_idx]
         metrics = {
-            f"{phase}/{k}{dataloader_name}": v.mean() if isinstance(v, torch.Tensor) else v for k, v in metric_dict.items() if k in metrics
+            f"{phase}/{k}{dataloader_name}": v.mean()
+            if isinstance(v, torch.Tensor)
+            else v
+            for k, v in metric_dict.items()
+            if k in metrics
         }
         log_on_step = self.log_on_step if phase == "train" else False
         on_epoch = False if phase == "train" else True
@@ -292,7 +295,10 @@ class RL4COLitModule(LightningModule):
                 self.dataloader_names = list(dataset.keys())
             else:
                 self.dataloader_names = [f"{i}" for i in range(len(dataset))]
-            return [self._dataloader_single(ds, batch_size, shuffle) for ds in dataset.values()]            
+            return [
+                self._dataloader_single(ds, batch_size, shuffle)
+                for ds in dataset.values()
+            ]
         else:
             return self._dataloader_single(dataset, batch_size, shuffle)
 

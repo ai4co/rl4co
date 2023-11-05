@@ -68,7 +68,7 @@ class RL4COTrainer(Trainer):
             except AttributeError:
                 pass
 
-        # Configure DDP automatically
+        # Configure DDP automatically if multiple GPUs are available
         if auto_configure_ddp and strategy == "auto":
             if devices == "auto":
                 n_devices = num_cuda_devices()
@@ -77,7 +77,11 @@ class RL4COTrainer(Trainer):
             else:
                 n_devices = devices
             if n_devices > 1:
-                log.info("Configuring DDP strategy automatically")
+                log.info(
+                    "Configuring DDP strategy automatically with {} GPUs".format(
+                        n_devices
+                    )
+                )
                 strategy = DDPStrategy(
                     find_unused_parameters=True,  # We set to True due to RL envs
                     gradient_as_bucket_view=True,  # https://pytorch-lightning.readthedocs.io/en/stable/advanced/advanced_gpu.html#ddp-optimizations
@@ -89,7 +93,9 @@ class RL4COTrainer(Trainer):
 
         # Check if gradient_clip_val is set to None
         if gradient_clip_val is None:
-            log.warning("gradient_clip_val is set to None. This may lead to unstable training.")
+            log.warning(
+                "gradient_clip_val is set to None. This may lead to unstable training."
+            )
 
         # We should reload dataloaders every epoch for RL training
         if reload_dataloaders_every_n_epochs != 1:

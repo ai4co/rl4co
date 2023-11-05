@@ -56,7 +56,9 @@ class POMO(REINFORCE):
         for phase in ["train", "val", "test"]:
             self.set_decode_type_multistart(phase)
 
-    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
+    def shared_step(
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
+    ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = get_num_starts(td) if n_start is None else n_start
@@ -102,10 +104,10 @@ class POMO(REINFORCE):
                 out.update({"max_aug_reward": max_aug_reward})
 
                 if out.get("actions", None) is not None:
-                    actions_ = out["best_multistart_actions"] if n_start > 1 else out["actions"]
-                    out.update(
-                        {"best_aug_actions": gather_by_index(actions_, max_idxs)}
+                    actions_ = (
+                        out["best_multistart_actions"] if n_start > 1 else out["actions"]
                     )
+                    out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
