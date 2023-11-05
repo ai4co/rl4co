@@ -4,15 +4,8 @@ _target_: rl4co.utils.trainer.RL4COTrainer
 default_root_dir: ${paths.output_dir}
 
 gradient_clip_val: 1.0
-accelerator: "gpu"
+accelerator: "auto"
 precision: "16-mixed"
-
-# Fast distributed training: comment out to use on single GPU
-# devices: 1 # change number of devices
-strategy:
-  _target_: lightning.pytorch.strategies.DDPStrategy
-  find_unused_parameters: True
-  gradient_as_bucket_view: True
 
 # perform a validation loop every N training epochs
 check_val_every_n_epoch: 1
