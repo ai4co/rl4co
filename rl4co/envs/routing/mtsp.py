@@ -112,25 +112,22 @@ class MTSPEnv(RL4COEnvBase):
         # The reward is the negative of the max_subtour_length (minmax objective)
         reward = -max_subtour_length
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "num_agents": td["num_agents"],
-                    "max_subtour_length": max_subtour_length,
-                    "current_length": current_length,
-                    "agent_idx": cur_agent_idx,
-                    "first_node": first_node,
-                    "current_node": current_node,
-                    "i": td["i"] + 1,
-                    "action_mask": available,
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "max_subtour_length": max_subtour_length,
+                "current_length": current_length,
+                "agent_idx": cur_agent_idx,
+                "first_node": first_node,
+                "current_node": current_node,
+                "i": td["i"] + 1,
+                "action_mask": available,
+                "reward": reward,
+                "done": done,
+            }
         )
+        
+        return td
+        
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize data
@@ -214,7 +211,6 @@ class MTSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

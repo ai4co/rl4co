@@ -100,31 +100,26 @@ class DPPEnv(RL4COEnvBase):
         # Set done if i is greater than max_decaps
         done = td["i"] >= self.max_decaps - 1
 
-        # Calculate reward (we set to -inf since we calculate the reward outside based on the actions)
-        reward = torch.ones_like(done) * float("-inf")
-
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
+        
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "probe": td["probe"],
-                    "i": td["i"] + 1,
-                    "action_mask": available,
-                    "keepout": td["keepout"],
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "i": td["i"] + 1,
+                "action_mask": available,
+                "reward": reward,
+                "done": done,
+            }
         )
+        return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize locations
         if batch_size is None:
             batch_size = self.batch_size if td is None else td.batch_size
-        self.device = td.device if td is not None else self.device
-
+        device = td.device if td is not None else self.device
+        self.to(device)
+        
         # We allow loading the initial observation from a dataset for faster loading
         if td is None:
             td = self.generate_data(batch_size=batch_size)
@@ -170,7 +165,6 @@ class DPPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
@@ -297,7 +291,7 @@ class DPPEnv(RL4COEnvBase):
         return zout
 
     def _decap_simulator(self, probe, solution, keepout=None):
-        self.device = solution.device
+        self.to(self.device)
 
         probe = probe.item()
 

@@ -20,7 +20,7 @@ log = get_pylogger(__name__)
 class ATSPEnv(RL4COEnvBase):
     """
     Asymmetric Traveling Salesman Problem environment
-    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    At each step, the agent chooses a city to visit. The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
     Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
 
@@ -62,24 +62,20 @@ class ATSPEnv(RL4COEnvBase):
         # We are done there are no unvisited locations
         done = torch.count_nonzero(available, dim=-1) <= 0
 
-        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
-        reward = torch.ones_like(done) * float("-inf")
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        td.update(
             {
-                "next": {
-                    "cost_matrix": td["cost_matrix"],
-                    "first_node": first_node,
-                    "current_node": current_node,
-                    "i": td["i"] + 1,
-                    "action_mask": available,
-                    "reward": reward,
-                    "done": done,
-                }
+                "first_node": first_node,
+                "current_node": current_node,
+                "i": td["i"] + 1,
+                "action_mask": available,
+                "reward": reward,
+                "done": done,
             },
-            td.shape,
         )
+        return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize distance matrix
@@ -90,9 +86,10 @@ class ATSPEnv(RL4COEnvBase):
             batch_size = (
                 self.batch_size if cost_matrix is None else cost_matrix.shape[:-2]
             )
-        self.device = device = (
+        device = (
             cost_matrix.device if cost_matrix is not None else self.device
         )
+        self.to(device)
         if cost_matrix is None:
             cost_matrix = self.generate_data(batch_size=batch_size).to(device)[
                 "cost_matrix"
@@ -142,7 +139,6 @@ class ATSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

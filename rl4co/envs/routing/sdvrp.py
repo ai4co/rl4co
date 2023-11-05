@@ -10,9 +10,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.cvrp import CVRPEnv
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
+from .cvrp import CVRPEnv
 
 log = get_pylogger(__name__)
 
@@ -84,27 +84,24 @@ class SDVRPEnv(CVRPEnv):
             -1, current_node, -delivered_demand
         )
 
-        # Get done and reward (-inf since we get it outside)
+        # Get done 
         done = ~(demand_with_depot > 0).any(-1)
-        reward = torch.ones_like(done) * float("-inf")
-
-        td_step = TensorDict(
+        
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
+        
+        # Update state
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "demand": td["demand"],
-                    "demand_with_depot": demand_with_depot,
-                    "current_node": current_node,
-                    "used_capacity": used_capacity,
-                    "vehicle_capacity": td["vehicle_capacity"],
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "demand_with_depot": demand_with_depot,
+                "current_node": current_node,
+                "used_capacity": used_capacity,
+                "reward": reward,
+                "done": done,
+            }
         )
-        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step
+        td.set("action_mask", self.get_action_mask(td))
+        return td
 
     def _reset(
         self,
@@ -117,7 +114,7 @@ class SDVRPEnv(CVRPEnv):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        self.device = td["locs"].device
+        self.to(td.device)
 
         # Create reset TensorDict
         reset_td = TensorDict(
@@ -211,7 +208,6 @@ class SDVRPEnv(CVRPEnv):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

@@ -41,7 +41,7 @@ class CVRPEnv(RL4COEnvBase):
     """Capacitated Vehicle Routing Problem (CVRP) environment.
     At each step, the agent chooses a customer to visit depending on the current location and the remaining capacity.
     When the agent visits a customer, the remaining capacity is updated. If the remaining capacity is not enough to
-    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the cities.
+    visit any customer, the agent must go back to the depot. The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
@@ -103,25 +103,19 @@ class CVRPEnv(RL4COEnvBase):
 
         # SECTION: get done
         done = visited.sum(-1) == visited.size(-1)
-        reward = torch.ones_like(done) * float("-inf")
+        reward = torch.zeros_like(done)
 
-        td_step = TensorDict(
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "demand": td["demand"],
-                    "current_node": current_node,
-                    "used_capacity": used_capacity,
-                    "vehicle_capacity": td["vehicle_capacity"],
-                    "visited": visited,
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "current_node": current_node,
+                "used_capacity": used_capacity,
+                "visited": visited,
+                "reward": reward,
+                "done": done,
+            }
         )
-        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step
+        td.set("action_mask", self.get_action_mask(td))
+        return td
 
     def _reset(
         self,
@@ -134,7 +128,7 @@ class CVRPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
-        self.device = td.device
+        self.to(td.device)
 
         # Create reset TensorDict
         td_reset = TensorDict(
@@ -210,7 +204,7 @@ class CVRPEnv(RL4COEnvBase):
             assert (
                 used_cap <= td["vehicle_capacity"] + 1e-5
             ).all(), "Used more than capacity"
-
+    
     def generate_data(self, batch_size) -> TensorDict:
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -227,13 +221,12 @@ class CVRPEnv(RL4COEnvBase):
         # Generates a slightly different distribution than using torch.randint
         demand = (
             (
-                torch.FloatTensor(*batch_size, self.num_loc)
+                torch.FloatTensor(*batch_size, self.num_loc, device=self.device)
                 .uniform_(self.min_demand - 1, self.max_demand - 1)
                 .int()
                 + 1
             )
             .float()
-            .to(self.device)
         )
 
         # Support for heterogeneous capacity if provided
@@ -250,7 +243,8 @@ class CVRPEnv(RL4COEnvBase):
                 "capacity": capacity,
             },
             batch_size=batch_size,
-        )
+            device=self.device,
+        )      
 
     @staticmethod
     def load_data(fpath, batch_size=[]):
@@ -258,7 +252,7 @@ class CVRPEnv(RL4COEnvBase):
         Normalize demand by capacity to be in [0, 1]
         """
         td_load = load_npz_to_tensordict(fpath)
-        td_load.set_("demand", td_load["demand"] / td_load["capacity"][:, None])
+        td_load.set("demand", td_load["demand"] / td_load["capacity"][:, None])
         return td_load
 
     def _make_spec(self, td_params: TensorDict):
@@ -286,7 +280,6 @@ class CVRPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

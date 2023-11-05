@@ -11,7 +11,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.dpp import DPPEnv
+from rl4co.envs.eda.dpp import DPPEnv
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -64,8 +64,12 @@ class MDPPEnv(DPPEnv):
         # Action mask is 0 if both action_mask (e.g. keepout) and probe are 0
         action_mask = torch.logical_and(td_reset["action_mask"], ~td_reset["probe"])
         # Keepout regions are the inverse of action_mask
-        td_reset.set_("keepout", ~td_reset["action_mask"])
-        td_reset.set_("action_mask", action_mask)
+        td_reset.update(
+            {
+                "keepout": ~td_reset["action_mask"],
+                "action_mask": action_mask,
+            }
+        )
         return td_reset
 
     def _make_spec(self, td_params):
@@ -95,7 +99,6 @@ class MDPPEnv(DPPEnv):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
