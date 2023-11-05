@@ -1,4 +1,4 @@
-_target_: rl4co.envs.pctsp.PCTSPEnv
+_target_: rl4co.envs.PCTSPEnv
 name: pctsp
 
 num_loc: 20

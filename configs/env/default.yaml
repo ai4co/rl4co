@@ -1,4 +1,4 @@
-_target_: rl4co.envs.tsp.TSPEnv
+_target_: rl4co.envs.TSPEnv
 name: tsp
 
 num_loc: 20

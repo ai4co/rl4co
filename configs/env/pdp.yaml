@@ -1,4 +1,4 @@
-_target_: rl4co.envs.pdp.PDPEnv
+_target_: rl4co.envs.PDPEnv
 name: pdp
 
 num_loc: 20
