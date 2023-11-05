@@ -125,9 +125,8 @@ class MTSPEnv(RL4COEnvBase):
                 "done": done,
             }
         )
-        
+
         return td
-        
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize data

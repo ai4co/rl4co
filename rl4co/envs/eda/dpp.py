@@ -102,7 +102,7 @@ class DPPEnv(RL4COEnvBase):
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
         reward = torch.zeros_like(done)
-        
+
         td.update(
             {
                 "i": td["i"] + 1,
@@ -119,7 +119,7 @@ class DPPEnv(RL4COEnvBase):
             batch_size = self.batch_size if td is None else td.batch_size
         device = td.device if td is not None else self.device
         self.to(device)
-        
+
         # We allow loading the initial observation from a dataset for faster loading
         if td is None:
             td = self.generate_data(batch_size=batch_size)

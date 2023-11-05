@@ -1,5 +1,5 @@
 from os.path import join as pjoin
-from typing import Optional, Iterable
+from typing import Iterable, Optional
 
 import torch
 
@@ -40,7 +40,7 @@ class RL4COEnvBase(EnvBase):
         val_dataloader_names: list = None,
         test_dataloader_names: list = None,
         check_solution: bool = True,
-        _torchrl_mode: bool = False, # TODO
+        _torchrl_mode: bool = False,  # TODO
         seed: int = None,
         device: str = "cpu",
         **kwargs,
@@ -89,7 +89,7 @@ class RL4COEnvBase(EnvBase):
 
     def step(self, td: TensorDict) -> TensorDict:
         """Step function to call at each step of the episode containing an action.
-        If `_torchrl_mode` is True, we call `_torchrl_step` instead which set the 
+        If `_torchrl_mode` is True, we call `_torchrl_step` instead which set the
         `next` key of the TensorDict to the next state - this is the usual way to do it in TorchRL,
         but inefficient in our case
         """
@@ -100,11 +100,11 @@ class RL4COEnvBase(EnvBase):
         else:
             # Since we simplify the syntax
             return self._torchrl_step(td)
-    
+
     def _torchrl_step(self, td: TensorDict) -> TensorDict:
         """See :meth:`super().step` for more details.
         This is the usual way to do it in TorchRL, but inefficient in our case
-        
+
         Note:
             Here we clone the TensorDict to avoid recursion error, since we allow
             for directly updating the TensorDict in the step function
@@ -113,12 +113,12 @@ class RL4COEnvBase(EnvBase):
         self._assert_tensordict_shape(td)
         next_preset = td.get("next", None)
 
-        next_tensordict = self._step(td.clone()) # NOTE: we clone to avoid recursion error
+        next_tensordict = self._step(
+            td.clone()
+        )  # NOTE: we clone to avoid recursion error
         next_tensordict = self._step_proc_data(next_tensordict)
         if next_preset is not None:
-            next_tensordict.update(
-                next_preset.exclude(*next_tensordict.keys(True, True))
-            )
+            next_tensordict.update(next_preset.exclude(*next_tensordict.keys(True, True)))
         td.set("next", next_tensordict)
         return td
 
@@ -214,11 +214,11 @@ class RL4COEnvBase(EnvBase):
         """Set the seed for the environment"""
         rng = torch.manual_seed(seed)
         self.rng = rng
-        
+
     def to(self, device):
         """Override `to` device method for safety against `None` device (may be found in `TensorDict`))"""
         if device is None:
-            return self 
+            return self
         else:
             return super().to(device)
 

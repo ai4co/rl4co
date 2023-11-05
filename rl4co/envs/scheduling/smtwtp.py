@@ -100,9 +100,7 @@ class SMTWTPEnv(RL4COEnvBase):
             batch_size = self.batch_size if td is None else td["job_due_time"].shape[:-1]
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
-        device = (
-            td["job_due_time"].device if td is not None else self.device
-        )
+        device = td["job_due_time"].device if td is not None else self.device
         self.to(device)
 
         td = self.generate_data(batch_size) if td is None else td

@@ -92,7 +92,7 @@ class OPEnv(RL4COEnvBase):
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
         reward = torch.zeros_like(done)
-        
+
         td.update(
             {
                 "tour_length": tour_length,
@@ -102,7 +102,7 @@ class OPEnv(RL4COEnvBase):
                 "current_total_prize": current_total_prize,
                 "i": td["i"] + 1,
                 "reward": reward,
-                "done": done,                
+                "done": done,
             }
         )
         td.set("action_mask", self.get_action_mask(td))

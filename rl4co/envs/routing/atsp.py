@@ -86,9 +86,7 @@ class ATSPEnv(RL4COEnvBase):
             batch_size = (
                 self.batch_size if cost_matrix is None else cost_matrix.shape[:-2]
             )
-        device = (
-            cost_matrix.device if cost_matrix is not None else self.device
-        )
+        device = cost_matrix.device if cost_matrix is not None else self.device
         self.to(device)
         if cost_matrix is None:
             cost_matrix = self.generate_data(batch_size=batch_size).to(device)[

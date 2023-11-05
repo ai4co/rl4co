@@ -204,7 +204,7 @@ class CVRPEnv(RL4COEnvBase):
             assert (
                 used_cap <= td["vehicle_capacity"] + 1e-5
             ).all(), "Used more than capacity"
-    
+
     def generate_data(self, batch_size) -> TensorDict:
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -220,14 +220,11 @@ class CVRPEnv(RL4COEnvBase):
         # Demand sampling Following Kool et al. (2019)
         # Generates a slightly different distribution than using torch.randint
         demand = (
-            (
-                torch.FloatTensor(*batch_size, self.num_loc, device=self.device)
-                .uniform_(self.min_demand - 1, self.max_demand - 1)
-                .int()
-                + 1
-            )
-            .float()
-        )
+            torch.FloatTensor(*batch_size, self.num_loc, device=self.device)
+            .uniform_(self.min_demand - 1, self.max_demand - 1)
+            .int()
+            + 1
+        ).float()
 
         # Support for heterogeneous capacity if provided
         if not isinstance(self.capacity, torch.Tensor):
@@ -244,7 +241,7 @@ class CVRPEnv(RL4COEnvBase):
             },
             batch_size=batch_size,
             device=self.device,
-        )      
+        )
 
     @staticmethod
     def load_data(fpath, batch_size=[]):

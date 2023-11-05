@@ -80,10 +80,10 @@ class PCTSPEnv(RL4COEnvBase):
 
         # Done and reward
         done = (td["i"] > 0) & (current_node == 0)
-        
+
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
         reward = torch.zeros_like(done)
-        
+
         # Update state
         td.update(
             {

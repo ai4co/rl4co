@@ -5,11 +5,20 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.envs.eda import DPPEnv, MDPPEnv
 
 # Routing
-from rl4co.envs.routing import ATSPEnv, CVRPEnv, MTSPEnv, OPEnv, PCTSPEnv, PDPEnv, SDVRPEnv, SPCTSPEnv, TSPEnv
+from rl4co.envs.routing import (
+    ATSPEnv,
+    CVRPEnv,
+    MTSPEnv,
+    OPEnv,
+    PCTSPEnv,
+    PDPEnv,
+    SDVRPEnv,
+    SPCTSPEnv,
+    TSPEnv,
+)
 
 # Scheduling
 from rl4co.envs.scheduling import FFSPEnv, SMTWTPEnv
-
 
 # Register environments
 ENV_REGISTRY = {

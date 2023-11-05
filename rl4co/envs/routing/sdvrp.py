@@ -12,6 +12,7 @@ from torchrl.data import (
 
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
+
 from .cvrp import CVRPEnv
 
 log = get_pylogger(__name__)
@@ -84,12 +85,12 @@ class SDVRPEnv(CVRPEnv):
             -1, current_node, -delivered_demand
         )
 
-        # Get done 
+        # Get done
         done = ~(demand_with_depot > 0).any(-1)
-        
+
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
         reward = torch.zeros_like(done)
-        
+
         # Update state
         td.update(
             {

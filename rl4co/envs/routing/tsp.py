@@ -11,7 +11,6 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 

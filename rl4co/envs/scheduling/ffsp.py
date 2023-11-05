@@ -138,7 +138,7 @@ class FFSPEnv(RL4COEnvBase):
             job_mask[job_enable] = 0
 
             reward = td["reward"]
-        
+
         # Updated state
         td.update(
             {
