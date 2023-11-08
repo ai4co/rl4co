@@ -143,20 +143,24 @@ class TSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
+    def get_reward(self, td, actions) -> TensorDict:
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
+
+        # Gather locations in order of tour and return distance between them (i.e., -reward)
+        locs_ordered = gather_by_index(td["locs"], actions)
+        return -get_tour_length(locs_ordered)
+
     @staticmethod
-    def get_reward(td, actions) -> TensorDict:
-        locs = td["locs"]
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+        """Check that solution is valid: nodes are visited exactly once"""
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
             .view(1, -1)
             .expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
-
-        # Gather locations in order of tour and return distance between them (i.e., -reward)
-        locs_ordered = gather_by_index(locs, actions)
-        return -get_tour_length(locs_ordered)
-
+            
     def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
