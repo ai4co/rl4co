@@ -3,11 +3,11 @@ message: If you use this software, please cite it as below.
 title: RL4CO
 authors:
   - family-names: RL4CO Team
-url: https://github.com/kaist-silab/rl4co
+url: https://github.com/ai4co/rl4co
 
 preferred-citation:
   type: conference-paper
-  title: "RLCO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
+  title: "RL4CO: a Unified Reinforcement Learning for Combinatorial Optimization Library"
   authors:
     - family-names: Berto
       given-names: Federico
