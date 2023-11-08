@@ -1,8 +1,7 @@
 <div align="center">
 
-<!-- <img src="https://github.com/kaist-silab/rl4co/assets/34462374/249462ea-b15d-4358-8a11-6508903dae58" style="width:40%"> -->
 
-<img src="https://github.com/kaist-silab/rl4co/assets/48984123/01a547b2-9722-4540-b0e1-9c12af094b15" style="width:40%">
+<img src="https://github.com/ai4co/rl4co/assets/48984123/01a547b2-9722-4540-b0e1-9c12af094b15" style="width:40%">
 
 
 </br></br>
@@ -12,9 +11,8 @@
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
-![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?) <a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
-[![Test](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/kaist-silab/rl4co/actions/workflows/tests.yml)
-<!-- ![testing](https://github.com/kaist-silab/ncobench/actions/workflows/tests.yml/badge.svg) -->
+![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?) <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/notebooks/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+[![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
 
 [**Documentation**](https://rl4co.readthedocs.io/) |  [**Getting Started**](#getting-started) | [**Usage**](#usage) | [**Contributing**](#contributing) | [**Paper**](https://arxiv.org/abs/2306.17100) | [**Citation**](#cite-us)
 
@@ -32,10 +30,10 @@ RL4CO is built upon:
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-![RL4CO Overview](https://github.com/kaist-silab/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee)
+![RL4CO Overview](https://github.com/ai4co/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee)
 
 ## Getting started
-<a href="https://colab.research.google.com/github/kaist-silab/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 
 RL4CO is now available for installation on `pip`!
 ```bash
@@ -48,14 +46,14 @@ To get started, we recommend checking out our [quickstart notebook](notebooks/1-
 This command installs the bleeding edge `main` version, useful for staying up-to-date with the latest developments - for instance, if a bug has been fixed since the last official release but a new release hasn’t been rolled out yet:
 
 ```bash
-pip install -U git+https://github.com/kaist-silab/rl4co.git 
+pip install -U git+https://github.com/ai4co/rl4co.git 
 ```
 
 ### Local install and development
 If you want to develop RL4CO we recommend you to install it locally with `pip` in editable mode:
 
 ```bash
-git clone https://github.com/kaist-silab/rl4co && cd rl4co
+git clone https://github.com/ai4co/rl4co && cd rl4co
 pip install -e .
 ```
 
@@ -145,15 +143,6 @@ pytest tests
 
 ### Known Bugs
 
-> Note: please refer to [this issue](https://github.com/kaist-silab/rl4co/issues/95) for the newest version of TorchRL and TensorDict
-
-#### Bugs installing TorchRL (Python 3.11)
-
-`torchrl` is not yet available (in the `0.1.1` version) on PyPI for Python 3.11 (see [here](https://github.com/kaist-silab/rl4co/issues/90)). While `rl4co` can work with Python 3.11, we recommend using Python 3.10 for the time being:
-```bash
-conda create --name rl4co python=3.10
-pip install rl4co
-```
 
 #### Bugs installing PyTorch Geometric (PyG)
 
@@ -163,18 +152,17 @@ pip install torch_geometric
 ```
 
 
-
 ## Contributing
 [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
 
-Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/kaist-silab/rl4co/issues) or [submit a pull request](https://github.com/kaist-silab/rl4co/pulls).
+Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/ai4co/rl4co/issues) or [submit a pull request](https://github.com/ai4co/rl4co/pulls).
 If you would like to contribute, please check out our contribution guidelines   [here](.github/CONTRIBUTING.md). We welcome and look forward to all contributions to RL4CO!
 
 We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ) if you have any questions or would like to discuss RL4CO with us. We are open to collaborations and would love to hear from you 🚀
 
 ### Contributors
-<a href="https://github.com/kaist-silab/rl4co/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=kaist-silab/rl4co" />
+<a href="https://github.com/ai4co/rl4co/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ai4co/rl4co" />
 </a>
 
 ## Cite us
@@ -186,6 +174,6 @@ If you find RL4CO valuable for your research or applied projects:
     author={Federico Berto and Chuanbo Hua and Junyoung Park and Minsu Kim and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Joungho Kim and Jinkyoo Park},
     journal={arXiv preprint arXiv:2306.17100},
     year={2023},
-    url = {https://github.com/kaist-silab/rl4co}
+    url = {https://github.com/ai4co/rl4co}
 }
 ```
