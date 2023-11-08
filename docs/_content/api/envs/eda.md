@@ -4,7 +4,7 @@ Environment for Electronic Design Automation (EDA) problems
 ## Decap Placement Problem (DPP)
 
 ```{eval-rst}
-.. automodule:: rl4co.envs.dpp
+.. automodule:: rl4co.envs.eda.dpp
    :members:
    :undoc-members:
 ```
@@ -12,7 +12,7 @@ Environment for Electronic Design Automation (EDA) problems
 ## Multi-port Decap Placement Problem (mDPP)
 
 ```{eval-rst}
-.. automodule:: rl4co.envs.mdpp
+.. automodule:: rl4co.envs.eda.mdpp
    :members:
    :undoc-members:
 ```

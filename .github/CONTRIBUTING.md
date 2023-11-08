@@ -104,7 +104,7 @@ At the beginning this might seem like a tedious process (having to add the file 
 
 ## Issue Tracker
 
-If you encounter any bugs, issues, or have feature requests, please [create a new issue](https://github.com/kaist-silab/rl4co/issues/new/choose) on the project's GitHub repository. Provide a clear and descriptive title along with relevant details to help us address the problem or understand your request.
+If you encounter any bugs, issues, or have feature requests, please [create a new issue](https://github.com/ai4co/rl4co/issues/new/choose) on the project's GitHub repository. Provide a clear and descriptive title along with relevant details to help us address the problem or understand your request.
 
 ## Acknowledgements
 

@@ -66,6 +66,34 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
+
+## Matrix Encoding Network (MatNet)
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.matnet.model
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.matnet.policy
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.matnet.encoder
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.matnet.decoder
+   :members:
+   :undoc-members:
+```
+
+
 ## Multi-Decoder Attention Model (MDAM)
 
 ```{eval-rst}
