@@ -28,8 +28,8 @@ class TensorDictDataset(Dataset):
         )
 
     def add_key(self, key, value):
-        return self.data.update({key: value})  # native method
-
+        self.data.update({key: value})  # native method
+        return self
 
 def tensordict_collate_fn(x):
     """Equivalent to collating with `lambda x: x`"""
