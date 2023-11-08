@@ -13,7 +13,7 @@ version = {attr = "rl4co.__version__"}
 name = "rl4co"
 readme = "README.md"
 
-description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
+description = "RL4CO: a Unified Reinforcement Learning for Combinatorial Optimization Library"
 authors = [
     {name = "Federico Berto", email = "berto.federico2@gmail.com"},
     {name = "Chuanbo Hua", email="cbhua@kaist.ac.kr"},
@@ -39,7 +39,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# TODO: allow new TorchRL / TensorDict versions https://github.com/kaist-silab/rl4co/issues/95
 dependencies = [
     "torchrl>=0.2.0",
     "tensordict>=0.2.0",
@@ -62,8 +61,8 @@ testing = ["pytest", "pytest-cov"]
 dev = ["black", "ruff", "pre-commit>=3.3.3"]
 
 [project.urls]
-"Homepage" = "https://github.com/kaist-silab/rl4co"
-"Bug Tracker" = "https://github.com/kaist-silab/rl4co/issues"
+"Homepage" = "https://github.com/ai4co/rl4co"
+"Bug Tracker" = "https://github.com/ai4co/rl4co/issues"
 
 # Ruff + Black + isort combo for code formatting
 # Adapted from https://github.com/AntonOsika/gpt-engineer (kudos!)
