@@ -3,7 +3,7 @@
 ## RL4COLitModule
 
 ```{eval-rst}
-.. automodule:: rl4co.envs.common.base
+.. automodule:: rl4co.models.rl.common.base
    :members:
    :undoc-members:
 ```
