@@ -249,7 +249,7 @@ class RolloutBaseline(REINFORCEBaseline):
             .detach()
             .cpu()
         )
-        return dataset.add_key("extra", rewards)
+        return dataset.add_key("extra", rewards)  
 
     def __getstate__(self):
         """Do not include datasets in state to avoid pickling issues"""
