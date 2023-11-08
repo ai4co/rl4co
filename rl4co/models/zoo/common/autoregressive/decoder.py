@@ -192,6 +192,7 @@ class AutoregressiveDecoder(nn.Module):
             outputs.append(log_p)
             actions.append(action)
 
+        assert len(outputs) > 0, "No outputs were collected because all environments were done. Check your initial state"
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
