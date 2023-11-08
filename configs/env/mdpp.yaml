@@ -1,4 +1,4 @@
-_target_: rl4co.envs.mdpp.MDPPEnv
+_target_: rl4co.envs.MDPPEnv
 name: mdpp
 
 max_decaps: 20

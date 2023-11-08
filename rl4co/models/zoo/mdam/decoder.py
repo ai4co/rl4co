@@ -1,15 +1,14 @@
 import math
-from typing import Union
 
 from dataclasses import dataclass
-from tensordict import TensorDict
+from typing import Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs, get_log_likelihood
@@ -67,8 +66,7 @@ class Decoder(nn.Module):
         self.project_node_embeddings = nn.ModuleList(self.project_node_embeddings)
 
         self.project_fixed_context = [
-            nn.Linear(embedding_dim, embedding_dim, bias=False)
-            for _ in range(num_paths)
+            nn.Linear(embedding_dim, embedding_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_fixed_context = nn.ModuleList(self.project_fixed_context)
 
@@ -79,8 +77,7 @@ class Decoder(nn.Module):
         self.project_step_context = nn.ModuleList(self.project_step_context)
 
         self.project_out = [
-            nn.Linear(embedding_dim, embedding_dim, bias=False)
-            for _ in range(num_paths)
+            nn.Linear(embedding_dim, embedding_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_out = nn.ModuleList(self.project_out)
 
@@ -108,15 +105,15 @@ class Decoder(nn.Module):
         self.shrink_size = shrink_size
 
     def forward(
-            self, 
-            td: TensorDict, 
-            encoded_inputs: torch.Tensor, 
-            env: Union[str, RL4COEnvBase],
-            attn, 
-            V,
-            h_old,
-            **decoder_kwargs
-        ):
+        self,
+        td: TensorDict,
+        encoded_inputs: torch.Tensor,
+        env: Union[str, RL4COEnvBase],
+        attn,
+        V,
+        h_old,
+        **decoder_kwargs,
+    ):
         # SECTION: Decoder first step: calculate for the decoder divergence loss
         # Cost list and log likelihood list along with path
         output_list = []
@@ -261,7 +258,9 @@ class Decoder(nn.Module):
         step_context = self.context[path_index](
             fixed.node_embeddings, td
         )  # [batch, embed_dim]
-        glimpse_q = fixed.graph_context + step_context.unsqueeze(1).to(fixed.graph_context.device)
+        glimpse_q = fixed.graph_context + step_context.unsqueeze(1).to(
+            fixed.graph_context.device
+        )
 
         # Compute keys and values for the nodes
         (

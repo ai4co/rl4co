@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from torch.utils.data import DataLoader
 
+from rl4co.data.dataset import TensorDictDataset, tensordict_collate_fn
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
@@ -124,8 +125,8 @@ class PPO(RL4COLitModule):
     ):
         # Evaluate old actions, log probabilities, and rewards
         with torch.no_grad():
-            td = self.env.reset(batch)
-            out = self.policy(td, self.env, phase=phase, return_actions=True)
+            td = self.env.reset(batch)  # note: clone needed for dataloader
+            out = self.policy(td.clone(), self.env, phase=phase, return_actions=True)
 
         if phase == "train":
             batch_size = out["actions"].shape[0]
@@ -146,12 +147,17 @@ class PPO(RL4COLitModule):
             td.set("reward", out["reward"])
             td.set("action", out["actions"])
 
+            dataset = TensorDictDataset(td)
             dataloader = DataLoader(
-                td, batch_size=mini_batch_size, shuffle=True, collate_fn=lambda x: x
+                dataset,
+                batch_size=mini_batch_size,
+                shuffle=True,
+                collate_fn=tensordict_collate_fn,
             )
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
+                    previous_reward = sub_td["reward"].view(-1, 1)
                     ll, entropy = self.policy.evaluate_action(
                         sub_td, action=sub_td["action"]
                     )
@@ -163,7 +169,7 @@ class PPO(RL4COLitModule):
 
                     # Compute the advantage
                     value_pred = self.critic(sub_td)  # [batch, 1]
-                    adv = sub_td["reward"].view(-1, 1) - value_pred.detach()
+                    adv = previous_reward - value_pred.detach()
 
                     # Normalize advantage
                     if self.ppo_cfg["normalize_adv"]:
@@ -181,7 +187,7 @@ class PPO(RL4COLitModule):
                     ).mean()
 
                     # compute value function loss
-                    value_loss = F.huber_loss(value_pred, sub_td["reward"].view(-1, 1))
+                    value_loss = F.huber_loss(value_pred, previous_reward)
 
                     # compute total loss
                     loss = (

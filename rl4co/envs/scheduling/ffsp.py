@@ -139,30 +139,25 @@ class FFSPEnv(RL4COEnvBase):
 
             reward = td["reward"]
 
-        return TensorDict(
+        # Updated state
+        td.update(
             {
-                "next": {
-                    "stage_table": td["stage_table"],
-                    "machine_table": td["machine_table"],
-                    "time_idx": time_idx,
-                    "sub_time_idx": sub_time_idx,
-                    "batch_idx": batch_idx,
-                    "machine_idx": machine_idx,
-                    "schedule": schedule,
-                    "machine_wait_step": machine_wait_step,
-                    "job_location": job_location,
-                    "job_wait_step": job_wait_step,
-                    "job_duration": td["job_duration"],
-                    "reward": reward,
-                    "finish": finish,
-                    # Update variables
-                    "job_mask": job_mask,
-                    "stage_idx": stage_idx,
-                    "stage_machine_idx": stage_machine_idx,
-                }
-            },
-            td.shape,
+                "time_idx": time_idx,
+                "sub_time_idx": sub_time_idx,
+                "batch_idx": batch_idx,
+                "machine_idx": machine_idx,
+                "schedule": schedule,
+                "machine_wait_step": machine_wait_step,
+                "job_location": job_location,
+                "job_wait_step": job_wait_step,
+                "reward": reward,
+                "finish": finish,
+                "job_mask": job_mask,
+                "stage_idx": stage_idx,
+                "stage_machine_idx": stage_machine_idx,
+            }
         )
+        return td
 
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
@@ -321,7 +316,6 @@ class FFSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

@@ -1,4 +1,4 @@
-_target_: rl4co.envs.dpp.DPPEnv
+_target_: rl4co.envs.DPPEnv
 name: dpp
 
 max_decaps: 20

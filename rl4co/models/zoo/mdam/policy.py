@@ -1,26 +1,25 @@
-import torch.nn as nn
 from typing import Union
 
 from tensordict import TensorDict
-from rl4co.envs import RL4COEnvBase, get_env
 
+from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.env_embeddings import env_init_embedding
+from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.mdam.decoder import Decoder
 from rl4co.models.zoo.mdam.encoder import GraphAttentionEncoder
-from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
 class MDAMPolicy(AutoregressivePolicy):
-    """ Multi-Decoder Attention Model (MDAM) policy.
+    """Multi-Decoder Attention Model (MDAM) policy.
     Args:
 
     """
-    
+
     def __init__(
-        self, 
+        self,
         env_name: str,
         embedding_dim: int = 128,
         num_encoder_layers: int = 3,
@@ -35,13 +34,13 @@ class MDAMPolicy(AutoregressivePolicy):
                 embed_dim=embedding_dim,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
-                **kwargs
+                **kwargs,
             ),
             decoder=Decoder(
                 env_name=env_name,
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
-                **kwargs
+                **kwargs,
             ),
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,

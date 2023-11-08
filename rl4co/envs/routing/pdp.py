@@ -71,25 +71,22 @@ class PDPEnv(RL4COEnvBase):
         # We are done there are no unvisited locations
         done = torch.count_nonzero(available, dim=-1) == 0
 
-        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
-        reward = torch.ones_like(done) * float("-inf")
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        # Update step
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "current_node": current_node,
-                    "available": available,
-                    "to_deliver": to_deliver,
-                    "i": td["i"] + 1,
-                    "action_mask": action_mask,
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "current_node": current_node,
+                "available": available,
+                "to_deliver": to_deliver,
+                "i": td["i"] + 1,
+                "action_mask": action_mask,
+                "reward": reward,
+                "done": done,
+            }
         )
+        return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         if batch_size is None:
@@ -98,7 +95,7 @@ class PDPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        self.device = td.device
+        self.to(td.device)
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
@@ -170,7 +167,6 @@ class PDPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

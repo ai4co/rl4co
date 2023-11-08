@@ -17,9 +17,6 @@ defaults:
 # that are automatically generated with seed following Kool et al. (2019).
 env:
   num_loc: 50
-  data_dir: ${paths.root_dir}/data/tsp
-  val_file: tsp${env.num_loc}_val_seed4321.npz
-  test_file: tsp${env.num_loc}_test_seed1234.npz
 
 # Logging: we use Wandb in this case
 logger:

@@ -11,7 +11,6 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
@@ -21,7 +20,7 @@ log = get_pylogger(__name__)
 class TSPEnv(RL4COEnvBase):
     """
     Traveling Salesman Problem environment
-    At each step, the agent chooses a city to visit. The reward is the -infinite unless the agent visits all the cities.
+    At each step, the agent chooses a city to visit. The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
@@ -50,41 +49,38 @@ class TSPEnv(RL4COEnvBase):
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
         current_node = td["action"]
-        first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
+        first_node = current_node if td["i"].all() == 0 else td["first_node"]
 
-        # Set not visited to 0 (i.e., we visited the node)
+        # # Set not visited to 0 (i.e., we visited the node)
         available = td["action_mask"].scatter(
             -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
         )
 
         # We are done there are no unvisited locations
-        done = torch.count_nonzero(available, dim=-1) <= 0
+        done = torch.sum(available, dim=-1) == 0
 
-        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
-        reward = torch.ones_like(done) * float("-inf")
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "first_node": first_node,
-                    "current_node": current_node,
-                    "i": td["i"] + 1,
-                    "action_mask": available,
-                    "reward": reward,
-                    "done": done,
-                }
+                "first_node": first_node,
+                "current_node": current_node,
+                "i": td["i"] + 1,
+                "action_mask": available,
+                "reward": reward,
+                "done": done,
             },
-            td.shape,
         )
+        return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize locations
         init_locs = td["locs"] if td is not None else None
         if batch_size is None:
             batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        self.device = device = init_locs.device if init_locs is not None else self.device
+        device = init_locs.device if init_locs is not None else self.device
+        self.to(device)
         if init_locs is None:
             init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -106,6 +102,7 @@ class TSPEnv(RL4COEnvBase):
                 "current_node": current_node,
                 "i": i,
                 "action_mask": available,
+                "reward": torch.zeros((*batch_size, 1), dtype=torch.float32),
             },
             batch_size=batch_size,
         )
@@ -137,7 +134,6 @@ class TSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

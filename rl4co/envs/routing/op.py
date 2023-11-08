@@ -90,29 +90,23 @@ class OPEnv(RL4COEnvBase):
         # Done if went back to depot (except if it's the first step, since we start at the depot)
         done = (current_node.squeeze(-1) == 0) & (td["i"] > 0)
 
-        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
-        reward = torch.ones_like(done) * float("-inf")
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
 
-        td_step = TensorDict(
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "prize": td["prize"],
-                    "tour_length": tour_length,
-                    "current_loc": current_loc,
-                    "max_length": td["max_length"],
-                    "current_node": current_node,
-                    "visited": visited,
-                    "current_total_prize": current_total_prize,
-                    "i": td["i"] + 1,
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "tour_length": tour_length,
+                "current_loc": current_loc,
+                "current_node": current_node,
+                "visited": visited,
+                "current_total_prize": current_total_prize,
+                "i": td["i"] + 1,
+                "reward": reward,
+                "done": done,
+            }
         )
-        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step
+        td.set("action_mask", self.get_action_mask(td))
+        return td
 
     def _reset(
         self,
@@ -124,8 +118,7 @@ class OPEnv(RL4COEnvBase):
             batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
-        self.device = td.device
-
+        self.to(td.device)
         # Add depot to locs
         locs_with_depot = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
@@ -322,7 +315,6 @@ class OPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

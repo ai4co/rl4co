@@ -13,10 +13,7 @@
 # limitations under the License.
 from docutils import nodes
 from docutils.statemachine import StringList
-from sphinx.util.docutils import SphinxDirective
-
 from pt_lightning_sphinx_theme.extensions.pytorch_tutorials import (
-    cardnode,
     CustomCalloutItemDirective,
     CustomCardItemDirective,
     DisplayItemDirective,
@@ -24,7 +21,9 @@ from pt_lightning_sphinx_theme.extensions.pytorch_tutorials import (
     ReactGreeter,
     SlackButton,
     TwoColumns,
+    cardnode,
 )
+from sphinx.util.docutils import SphinxDirective
 
 
 class tutoriallistnode(nodes.General, nodes.Element):

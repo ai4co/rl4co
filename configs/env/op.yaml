@@ -1,4 +1,4 @@
-_target_: rl4co.envs.op.OPEnv
+_target_: rl4co.envs.OPEnv
 name: op
 
 num_loc: 20

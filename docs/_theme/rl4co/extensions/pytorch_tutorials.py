@@ -34,9 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 from docutils.statemachine import StringList
-from sphinx.util.docutils import SphinxDirective
-
 from pt_lightning_sphinx_theme.extensions.react import get_react_component_rst
+from sphinx.util.docutils import SphinxDirective
 
 try:
     FileNotFoundError
@@ -272,11 +271,23 @@ class DisplayItemDirective(Directive):
 
             image_class = ""
             if "image_center" in self.options:
-                image = "<img src='" + self.options["image_center"] + "' style=height:" + image_height + "  >"
+                image = (
+                    "<img src='"
+                    + self.options["image_center"]
+                    + "' style=height:"
+                    + image_height
+                    + "  >"
+                )
                 image_class = "image-center"
 
             elif "image_right" in self.options:
-                image = "<img src='" + self.options["image_right"] + "' style=height:" + image_height + "  >"
+                image = (
+                    "<img src='"
+                    + self.options["image_right"]
+                    + "' style=height:"
+                    + image_height
+                    + "  >"
+                )
                 image_class = "image-right"
             else:
                 image = ""
@@ -371,7 +382,11 @@ class LikeButtonWithTitle(Directive):
             raise
             # return []
         callout_rst = get_react_component_rst(
-            "LikeButtonWithTitle", width=width, margin=margin, title=title, padding=padding
+            "LikeButtonWithTitle",
+            width=width,
+            margin=margin,
+            title=title,
+            padding=padding,
         )
         callout_list = StringList(callout_rst.split("\n"))
         callout = nodes.paragraph()
@@ -427,7 +442,9 @@ class SlackButton(Directive):
             print(e)
             raise
             return []
-        callout_rst = SLACK_TEMPLATE.format(align=align, title=title, margin=margin, width=width)
+        callout_rst = SLACK_TEMPLATE.format(
+            align=align, title=title, margin=margin, width=width
+        )
         callout_list = StringList(callout_rst.split("\n"))
         callout = nodes.paragraph()
         self.state.nested_parse(callout_list, self.content_offset, callout)

@@ -6,10 +6,9 @@ import torch.nn.functional as F
 
 from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
 
 from rl4co import utils
-from rl4co.data.dataset import ExtraKeyDataset, tensordict_collate_fn
+from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.models.rl.common.critic import CriticNetwork
 
 log = utils.get_pylogger(__name__)
@@ -81,6 +80,7 @@ class ExponentialBaseline(REINFORCEBaseline):
 
 class MeanBaseline(REINFORCEBaseline):
     """Mean baseline: return mean of reward as baseline"""
+
     def __new__(cls, **kw):
         return ExponentialBaseline(beta=0.0, **kw)
 
@@ -158,13 +158,11 @@ class RolloutBaseline(REINFORCEBaseline):
 
     Args:
         bl_alpha: Alpha value for the baseline T-test
-        progress_bar: Whether to show progress bar for rollout
     """
 
-    def __init__(self, bl_alpha=0.05, progress_bar=False, **kw):
+    def __init__(self, bl_alpha=0.05, **kw):
         super(RolloutBaseline, self).__init__()
         self.bl_alpha = bl_alpha
-        self.progress_bar = progress_bar
 
     def setup(self, *args, **kw):
         self._update_model(*args, **kw)
@@ -235,9 +233,7 @@ class RolloutBaseline(REINFORCEBaseline):
 
         dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
 
-        rewards = torch.cat(
-            [eval_model(batch) for batch in tqdm(dl, disable=not self.progress_bar)], 0
-        )
+        rewards = torch.cat([eval_model(batch) for batch in dl], 0)
         return rewards
 
     def wrap_dataset(self, dataset, env, batch_size=64, device="cpu", **kw):
@@ -253,7 +249,7 @@ class RolloutBaseline(REINFORCEBaseline):
             .detach()
             .cpu()
         )
-        return ExtraKeyDataset(dataset, rewards)
+        return dataset.add_key("extra", rewards)
 
     def __getstate__(self):
         """Do not include datasets in state to avoid pickling issues"""

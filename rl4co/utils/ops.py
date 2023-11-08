@@ -6,7 +6,6 @@ from tensordict import TensorDict
 from torch import Tensor
 
 
-# @torch.jit.script
 def _batchify_single(
     x: Union[Tensor, TensorDict], repeats: int
 ) -> Union[Tensor, TensorDict]:
@@ -61,7 +60,6 @@ def unbatchify(
     return x
 
 
-# @torch.jit.script
 def gather_by_index(src, idx, dim=1, squeeze=True):
     """Gather elements from src by index idx along specified dim
 
@@ -76,13 +74,13 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
     return src.gather(dim, idx).squeeze() if squeeze else src.gather(dim, idx)
 
 
-# @torch.jit.script
+@torch.jit.script
 def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
     return (x - y).norm(p=2, dim=-1)
 
 
-# @torch.jit.script
+@torch.jit.script
 def get_tour_length(ordered_locs):
     """Compute the total tour distance for a batch of ordered tours.
     Computes the L2 norm between each pair of consecutive nodes in the tour and sums them up.

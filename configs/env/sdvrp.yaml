@@ -1,4 +1,4 @@
-_target_: rl4co.envs.sdvrp.SDVRPEnv
+_target_: rl4co.envs.SDVRPEnv
 name: sdvrp
 
 num_loc: 20

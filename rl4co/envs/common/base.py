@@ -1,5 +1,5 @@
 from os.path import join as pjoin
-from typing import Optional, Iterable
+from typing import Iterable, Optional
 
 import torch
 
@@ -40,6 +40,7 @@ class RL4COEnvBase(EnvBase):
         val_dataloader_names: list = None,
         test_dataloader_names: list = None,
         check_solution: bool = True,
+        _torchrl_mode: bool = False,  # TODO
         seed: int = None,
         device: str = "cpu",
         **kwargs,
@@ -47,6 +48,7 @@ class RL4COEnvBase(EnvBase):
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
+        self._torchrl_mode = _torchrl_mode
 
         def get_files(f):
             if f is not None:
@@ -84,6 +86,41 @@ class RL4COEnvBase(EnvBase):
         if seed is None:
             seed = torch.empty((), dtype=torch.int64).random_().item()
         self.set_seed(seed)
+
+    def step(self, td: TensorDict) -> TensorDict:
+        """Step function to call at each step of the episode containing an action.
+        If `_torchrl_mode` is True, we call `_torchrl_step` instead which set the
+        `next` key of the TensorDict to the next state - this is the usual way to do it in TorchRL,
+        but inefficient in our case
+        """
+        if not self._torchrl_mode:
+            # Default: just return the TensorDict without farther checks etc is faster
+            td = self._step(td)
+            return {"next": td}
+        else:
+            # Since we simplify the syntax
+            return self._torchrl_step(td)
+
+    def _torchrl_step(self, td: TensorDict) -> TensorDict:
+        """See :meth:`super().step` for more details.
+        This is the usual way to do it in TorchRL, but inefficient in our case
+
+        Note:
+            Here we clone the TensorDict to avoid recursion error, since we allow
+            for directly updating the TensorDict in the step function
+        """
+        # sanity check
+        self._assert_tensordict_shape(td)
+        next_preset = td.get("next", None)
+
+        next_tensordict = self._step(
+            td.clone()
+        )  # NOTE: we clone to avoid recursion error
+        next_tensordict = self._step_proc_data(next_tensordict)
+        if next_preset is not None:
+            next_tensordict.update(next_preset.exclude(*next_tensordict.keys(True, True)))
+        td.set("next", next_tensordict)
+        return td
 
     def _step(self, td: TensorDict) -> TensorDict:
         """Step function to call at each step of the episode containing an action.
@@ -177,6 +214,13 @@ class RL4COEnvBase(EnvBase):
         """Set the seed for the environment"""
         rng = torch.manual_seed(seed)
         self.rng = rng
+
+    def to(self, device):
+        """Override `to` device method for safety against `None` device (may be found in `TensorDict`))"""
+        if device is None:
+            return self
+        else:
+            return super().to(device)
 
     def __getstate__(self):
         """Return the state of the environment. By default, we want to avoid pickling

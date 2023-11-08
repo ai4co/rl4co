@@ -1,4 +1,4 @@
-_target_: rl4co.envs.spctsp.SPCTSPEnv
+_target_: rl4co.envs.SPCTSPEnv
 name: spctsp
 
 num_loc: 20

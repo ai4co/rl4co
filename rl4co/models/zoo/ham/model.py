@@ -7,7 +7,7 @@ from rl4co.models.zoo.ham.policy import HeterogeneousAttentionModelPolicy
 
 
 class HeterogeneousAttentionModel(REINFORCE):
-    """Heterogenous Attention Model for solving the Pickup and Delivery Problem based on 
+    """Heterogenous Attention Model for solving the Pickup and Delivery Problem based on
     REINFORCE: https://arxiv.org/abs/2110.02634.
 
     Args:
@@ -20,7 +20,7 @@ class HeterogeneousAttentionModel(REINFORCE):
     """
 
     def __init__(
-        self, 
+        self,
         env: RL4COEnvBase,
         policy: HeterogeneousAttentionModelPolicy = None,
         baseline: Union[REINFORCEBaseline, str] = "rollout",

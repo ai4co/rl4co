@@ -22,7 +22,7 @@ class MPDPEnv(RL4COEnvBase):
     The goal is to pick up and deliver all the packages while satisfying the precedence constraints.
     When an agent goes back to the depot, a new agent is spawned. In the min-max version, the goal is to minimize the
     maximum tour length among all agents.
-    The reward is the -infinite unless the agent visits all the cities.
+    The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Args:
@@ -111,36 +111,25 @@ class MPDPEnv(RL4COEnvBase):
 
         # Get done and reward
         done = visited.all(dim=-1, keepdim=True).squeeze(-1)
-        reward = torch.ones_like(done) * float(
-            "-inf"
-        )  # reward calculated via `get_reward` for now
+        reward = torch.zeros_like(done)
 
-        td_step = TensorDict(
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "visited": visited,
-                    "lengths": td["lengths"],
-                    "count_depot": td["count_depot"],
-                    "agent_idx": agent_idx,
-                    "cur_coord": cur_coord,
-                    "to_delivery": to_delivery,
-                    "left_request": td["left_request"],
-                    "depot_distance": depot_distance,
-                    "remain_sum_paired_distance": remain_sum_paired_distance,
-                    "remain_pickup_max_distance": remain_pickup_max_distance,
-                    "remain_delivery_max_distance": remain_delivery_max_distance,
-                    "add_pd_distance": td["add_pd_distance"],
-                    "longest_lengths": td["longest_lengths"],
-                    "i": td["i"] + 1,
-                    "done": done,
-                    "reward": reward,
-                }
-            },
-            td.shape,
+                "visited": visited,
+                "agent_idx": agent_idx,
+                "cur_coord": cur_coord,
+                "to_delivery": to_delivery,
+                "depot_distance": depot_distance,
+                "remain_sum_paired_distance": remain_sum_paired_distance,
+                "remain_pickup_max_distance": remain_pickup_max_distance,
+                "remain_delivery_max_distance": remain_delivery_max_distance,
+                "i": td["i"] + 1,
+                "done": done,
+                "reward": reward,
+            }
         )
-        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step
+        td.set("action_mask", self.get_action_mask(td))
+        return td
 
     def _reset(
         self,
@@ -154,7 +143,7 @@ class MPDPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
-        self.device = td.device
+        self.to(td.device)
 
         # NOTE: this is a hack to get the agent_num
         # agent_num = td["agent_num"][0].item() if agent_num is None else agent_num
@@ -425,7 +414,6 @@ class MPDPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

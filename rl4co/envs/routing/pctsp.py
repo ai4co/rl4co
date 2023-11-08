@@ -78,31 +78,26 @@ class PCTSPEnv(RL4COEnvBase):
         # Update visited
         visited = td["visited"].scatter(-1, current_node[..., None], 1)
 
-        # Done and reward. Calculation is done outside hence set -inf
+        # Done and reward
         done = (td["i"] > 0) & (current_node == 0)
-        reward = torch.ones_like(cur_total_prize) * float("-inf")
 
-        td_step = TensorDict(
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
+
+        # Update state
+        td.update(
             {
-                "next": {
-                    "locs": td["locs"],
-                    "current_node": current_node,
-                    "expected_prize": td["expected_prize"],
-                    "real_prize": td["real_prize"],
-                    "penalty": td["penalty"],
-                    "cur_total_prize": cur_total_prize,
-                    "cur_total_penalty": cur_total_penalty,
-                    "visited": visited,
-                    "prize_required": td["prize_required"],
-                    "i": td["i"] + 1,
-                    "reward": reward,
-                    "done": done,
-                },
-            },
-            batch_size=td.batch_size,
+                "current_node": current_node,
+                "cur_total_prize": cur_total_prize,
+                "cur_total_penalty": cur_total_penalty,
+                "visited": visited,
+                "i": td["i"] + 1,
+                "reward": reward,
+                "done": done,
+            }
         )
-        td_step["next"].set("action_mask", self.get_action_mask(td_step["next"]))
-        return td_step
+        td.set("action_mask", self.get_action_mask(td))
+        return td
 
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
@@ -111,7 +106,7 @@ class PCTSPEnv(RL4COEnvBase):
             batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
-        self.device = td.device
+        self.to(td.device)
 
         locs = torch.cat([td["depot"][..., None, :], td["locs"]], dim=-2)
         expected_prize = td["deterministic_prize"]
@@ -323,7 +318,6 @@ class PCTSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,

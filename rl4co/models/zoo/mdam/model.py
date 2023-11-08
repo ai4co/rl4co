@@ -1,4 +1,3 @@
-
 from typing import Union
 
 from rl4co.envs.common.base import RL4COEnvBase
@@ -8,10 +7,10 @@ from rl4co.models.zoo.mdam.policy import MDAMPolicy
 
 
 class MDAM(REINFORCE):
-    """ Multi-Decoder Attention Model (MDAM) is a model
-    to train multiple diverse policies, which effectively increases the chance of finding 
+    """Multi-Decoder Attention Model (MDAM) is a model
+    to train multiple diverse policies, which effectively increases the chance of finding
     good solutions compared with existing methods that train only one policy.
-    Reference link: https://arxiv.org/abs/2012.10638; 
+    Reference link: https://arxiv.org/abs/2012.10638;
     Implementation reference: https://github.com/liangxinedu/MDAM.
 
     Args:
@@ -24,15 +23,15 @@ class MDAM(REINFORCE):
     """
 
     def __init__(
-            self, 
-            env: RL4COEnvBase, 
-            policy: MDAMPolicy = None, 
-            baseline: Union[REINFORCEBaseline, str] = "rollout", 
-            policy_kwargs={},
-            baseline_kwargs={},
-            **kwargs
-        ):
+        self,
+        env: RL4COEnvBase,
+        policy: MDAMPolicy = None,
+        baseline: Union[REINFORCEBaseline, str] = "rollout",
+        policy_kwargs={},
+        baseline_kwargs={},
+        **kwargs,
+    ):
         if policy is None:
-            policy = MDAMPolicy(env.name, **policy_kwargs) 
+            policy = MDAMPolicy(env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)

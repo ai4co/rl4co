@@ -23,14 +23,14 @@ dynamic = ["version"]
 
 license = {file = "LICENSE"}
 
-# TODO: allow new Python versions https://github.com/kaist-silab/rl4co/issues/95
-requires-python = ">=3.8, <3.11" # https://github.com/kaist-silab/rl4co/issues/90
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: Apache Software License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -41,10 +41,9 @@ classifiers = [
 
 # TODO: allow new TorchRL / TensorDict versions https://github.com/kaist-silab/rl4co/issues/95
 dependencies = [
-    "torch>=2.0.0,<2.1.0", # Possibly TorchRL problem on Windows with older version
-    "torchrl==0.1.1",
-    "tensordict==0.1.1",
-    "lightning>=2.0.5",
+    "torchrl>=0.2.0",
+    "tensordict>=0.2.0",
+    "lightning>=2.1.0",
     "hydra-core",
     "hydra-colorlog",
     "omegaconf",

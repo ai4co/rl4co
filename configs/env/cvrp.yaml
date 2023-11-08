@@ -1,4 +1,4 @@
-_target_: rl4co.envs.cvrp.CVRPEnv
+_target_: rl4co.envs.CVRPEnv
 name: cvrp
 
 num_loc: 20

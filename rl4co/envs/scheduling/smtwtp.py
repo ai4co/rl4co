@@ -22,7 +22,7 @@ class SMTWTPEnv(RL4COEnvBase):
     SMTWTP is a scheduling problem in which a set of jobs must be processed on a single machine.
     Each job i has a processing time, a weight, and a due date. The objective is to minimize the sum of the weighted tardiness of all jobs,
     where the weighted tardiness of a job is defined as the product of its weight and the duration by which its completion time exceeds its due date.
-    At each step, the agent chooses a job to process. The reward is the -infinite unless the agent processes all the jobs.
+    At each step, the agent chooses a job to process. The reward is 0 unless the agent processes all the jobs.
     In that case, the reward is (-)objective value of the processing order: maximizing the reward is equivalent to minimizing the objective.
 
     Args:
@@ -80,25 +80,19 @@ class SMTWTPEnv(RL4COEnvBase):
         # We are done there are no unvisited locations
         done = torch.count_nonzero(available, dim=-1) <= 0
 
-        # The reward is calculated outside via get_reward for efficiency, so we set it to -inf here
-        reward = torch.ones_like(done) * float("-inf")
+        # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
+        reward = torch.zeros_like(done)
 
-        # The output must be written in a ``"next"`` entry
-        return TensorDict(
+        td.update(
             {
-                "next": {
-                    "job_due_time": td["job_due_time"],
-                    "job_weight": td["job_weight"],
-                    "job_process_time": td["job_process_time"],
-                    "current_job": current_job,
-                    "current_time": current_time,
-                    "action_mask": available,
-                    "reward": reward,
-                    "done": done,
-                }
-            },
-            td.shape,
+                "current_job": current_job,
+                "current_time": current_time,
+                "action_mask": available,
+                "reward": reward,
+                "done": done,
+            }
         )
+        return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialization
@@ -106,9 +100,8 @@ class SMTWTPEnv(RL4COEnvBase):
             batch_size = self.batch_size if td is None else td["job_due_time"].shape[:-1]
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
-        self.device = device = (
-            td["job_due_time"].device if td is not None else self.device
-        )
+        device = td["job_due_time"].device if td is not None else self.device
+        self.to(device)
 
         td = self.generate_data(batch_size) if td is None else td
 
@@ -170,7 +163,6 @@ class SMTWTPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.input_spec = self.observation_spec.clone()
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
