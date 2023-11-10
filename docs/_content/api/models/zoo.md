@@ -34,11 +34,6 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.ppo.decoder
-   :members:
-   :undoc-members:
-```
 
 ## Heterogeneous Attention Model (HAM)
 
@@ -134,11 +129,6 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.pomo.decoder
-   :members:
-   :undoc-members:
-```
 
 ## Pointer Network (PtrNet)
 
