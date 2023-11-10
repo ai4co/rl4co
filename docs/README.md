@@ -53,7 +53,7 @@ def my_func(param_a: int, param_b: Optional[float] = None) -> str:
 
 ##  ⚙️ Build docs locally
 
-**Step 1**. Install requirement packages: `pip install -r requirement.txt`;
+**Step 1**. Install requirement packages (from root folder): `pip install -r docs/requirement.txt`;
 
 **Step 2**. Run the building script:
 

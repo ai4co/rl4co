@@ -1,4 +1,5 @@
-rl4co[graph]
+# Install with local version. Need to run from root of repo
+.[graph]
 
 sphinx >6.0, <7.0
 myst-parser ==2.0.0
