@@ -220,11 +220,15 @@ class CVRPEnv(RL4COEnvBase):
         # Demand sampling Following Kool et al. (2019)
         # Generates a slightly different distribution than using torch.randint
         demand = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_demand - 1, self.max_demand - 1)
-            .int()
-            + 1
-        ).float().to(self.device)
+            (
+                torch.FloatTensor(*batch_size, self.num_loc)
+                .uniform_(self.min_demand - 1, self.max_demand - 1)
+                .int()
+                + 1
+            )
+            .float()
+            .to(self.device)
+        )
 
         # Support for heterogeneous capacity if provided
         if not isinstance(self.capacity, torch.Tensor):
@@ -236,7 +240,7 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": locs_with_depot[..., 1:, :],
                 "depot": locs_with_depot[..., 0, :],
-                "demand": demand / CAPACITIES[self.num_loc],
+                "demand": demand / self.capacity,
                 "capacity": capacity,
             },
             batch_size=batch_size,
