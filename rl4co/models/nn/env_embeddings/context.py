@@ -17,6 +17,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "tsp": TSPContext,
         "atsp": TSPContext,
         "cvrp": VRPContext,
+        "cvrptw": VRPContext,  # TODO adjust if necessary
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
         "spctsp": PCTSPContext,
