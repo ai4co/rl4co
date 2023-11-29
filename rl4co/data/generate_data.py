@@ -291,18 +291,21 @@ def generate_dataset(
                     np.savez(fname, **dataset)
 
 
-def generate_default_datasets(data_dir):
+def generate_default_datasets(data_dir, generate_eda=False):
     """Generate the default datasets used in the paper and save them to data_dir/problem"""
     generate_dataset(data_dir=data_dir, name="val", problem="all", seed=4321)
     generate_dataset(data_dir=data_dir, name="test", problem="all", seed=1234)
-    generate_dataset(
-        data_dir=data_dir,
-        name="test",
-        problem="mdpp",
-        seed=1234,
-        graph_sizes=[10],
-        dataset_size=100,
-    )  # EDA (mDPP)
+
+    # By default, we skip the EDA datasets since they can easily be generated on the fly when needed
+    if generate_eda:
+        generate_dataset(
+            data_dir=data_dir,
+            name="test",
+            problem="mdpp",
+            seed=1234,
+            graph_sizes=[10],
+            dataset_size=100,
+        )  # EDA (mDPP)
 
 
 if __name__ == "__main__":
