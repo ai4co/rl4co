@@ -2,6 +2,7 @@ from typing import Union
 
 import torch
 
+from einops import rearrange
 from tensordict import TensorDict
 from torch import Tensor
 
@@ -92,12 +93,19 @@ def get_tour_length(ordered_locs):
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
-def get_num_starts(td):
+def get_num_starts(td, env_name=None):
     """Returns the number of possible start nodes for the environment based on the action mask"""
-    return td["action_mask"].shape[-1]
+    num_starts = td["action_mask"].shape[-1]
+    if env_name == "pdp":
+        num_starts = (
+            num_starts - 1
+        ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
+    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
+        num_starts = num_starts - 1  # depot cannot be a start node
+    return num_starts
 
 
-def select_start_nodes(td, env, num_nodes=None):
+def select_start_nodes(td, env, num_starts):
     """Node selection strategy as proposed in POMO (Kwon et al. 2020)
     and extended in SymNCO (Kim et al. 2022).
     Selects different start nodes for each batch element
@@ -105,25 +113,28 @@ def select_start_nodes(td, env, num_nodes=None):
     Args:
         td: TensorDict containing the data. We may need to access the available actions to select the start nodes
         env: Environment may determine the node selection strategy
-        num_nodes: Number of nodes to select
+        num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    num_nodes = get_num_starts(td) if num_nodes is None else num_nodes
-
-    # Environments with depot: don't select the depot as start node
-    if env.name in ["op", "pctsp", "spctsp", "mtsp"]:
-        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
-            td.shape[0]
-        )
-    elif env.name == "pdp":
-        # select only pickup nodes (until N//2 + 1). Note that this should be selected beforehand (e.g. for
-        # 100 pickup and delivery nodes, we should select 50 as start nodes)
-        selected = torch.arange(1, num_nodes + 1, device=td.device).repeat_interleave(
+    if env.name in ["tsp"]:
+        selected = torch.arange(num_starts, device=td.device).repeat_interleave(
             td.shape[0]
         )
     else:
-        selected = torch.arange(num_nodes, device=td.device).repeat_interleave(
+        # Environments with depot: we do not select the depot as a start node
+        selected = torch.arange(1, num_starts + 1, device=td.device).repeat_interleave(
             td.shape[0]
         )
+        if env.name == "op":
+            if (td["action_mask"][..., 1:].float().sum(-1) < num_starts).any():
+                # for the orienteering problem, we may have some nodes that are not available
+                # so we need to resample from the distribution of available nodes
+                selected = (
+                    torch.multinomial(
+                        td["action_mask"][..., 1:].float(), num_starts, replacement=True
+                    )
+                    + 1
+                )  # re-add depot index
+                selected = rearrange(selected, "b n -> (n b)")
     return selected
 
 
