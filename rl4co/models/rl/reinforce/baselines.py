@@ -8,7 +8,6 @@ from scipy.stats import ttest_rel
 from torch.utils.data import DataLoader
 
 from rl4co import utils
-from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.models.rl.common.critic import CriticNetwork
 
 log = utils.get_pylogger(__name__)
@@ -231,7 +230,7 @@ class RolloutBaseline(REINFORCEBaseline):
                 batch = env.reset(batch.to(device))
                 return model(batch, env, decode_type="greedy")["reward"]
 
-        dl = DataLoader(dataset, batch_size=batch_size, collate_fn=tensordict_collate_fn)
+        dl = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn)
 
         rewards = torch.cat([eval_model(batch) for batch in dl], 0)
         return rewards
@@ -249,7 +248,7 @@ class RolloutBaseline(REINFORCEBaseline):
             .detach()
             .cpu()
         )
-        return dataset.add_key("extra", rewards)  
+        return dataset.add_key("extra", rewards)
 
     def __getstate__(self):
         """Do not include datasets in state to avoid pickling issues"""

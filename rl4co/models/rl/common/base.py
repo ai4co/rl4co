@@ -7,7 +7,6 @@ import torch.nn as nn
 from lightning import LightningModule
 from torch.utils.data import DataLoader
 
-from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.data.generate_data import generate_default_datasets
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.optim_helpers import create_optimizer, create_scheduler
@@ -36,7 +35,7 @@ class RL4COLitModule(LightningModule):
         lr_scheduler_kwargs: learning rate scheduler kwargs
         lr_scheduler_interval: learning rate scheduler interval
         lr_scheduler_monitor: learning rate scheduler monitor
-        generate_data: whether to generate data
+        generate_default_data: whether to generate default datasets, filling up the data directory
         shuffle_train_dataloader: whether to shuffle training dataloader
         dataloader_num_workers: number of workers for dataloader
         data_dir: data directory
@@ -63,7 +62,7 @@ class RL4COLitModule(LightningModule):
         },
         lr_scheduler_interval: str = "epoch",
         lr_scheduler_monitor: str = "val/reward",
-        generate_data: bool = True,
+        generate_default_data: bool = False,
         shuffle_train_dataloader: bool = True,
         dataloader_num_workers: int = 0,
         data_dir: str = "data/",
@@ -88,7 +87,7 @@ class RL4COLitModule(LightningModule):
             "batch_size": batch_size,
             "val_batch_size": val_batch_size,
             "test_batch_size": test_batch_size,
-            "generate_data": generate_data,
+            "generate_default_data": generate_default_data,
             "data_dir": data_dir,
             "train_data_size": train_data_size,
             "val_data_size": val_data_size,
@@ -135,12 +134,13 @@ class RL4COLitModule(LightningModule):
         self.val_batch_size = train_bs if val_bs is None else val_bs
         self.test_batch_size = self.val_batch_size if test_bs is None else test_bs
 
-        log.info("Setting up datasets")
-
-        # Create datasets automatically. If found, this will skip
-        if self.data_cfg["generate_data"]:
+        if self.data_cfg["generate_default_data"]:
+            log.info(
+                "Generating default datasets. If found, they will not be overwritten"
+            )
             generate_default_datasets(data_dir=self.data_cfg["data_dir"])
 
+        log.info("Setting up datasets")
         self.train_dataset = self.wrap_dataset(
             self.env.dataset(self.data_cfg["train_data_size"], phase="train")
         )
@@ -311,5 +311,5 @@ class RL4COLitModule(LightningModule):
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=self.dataloader_num_workers,
-            collate_fn=tensordict_collate_fn,
+            collate_fn=dataset.collate_fn,
         )

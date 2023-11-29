@@ -4,7 +4,6 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.data.transforms import StateAugmentation
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 
@@ -384,7 +383,7 @@ def evaluate_policy(
         batch_size=batch_size,
         shuffle=False,
         num_workers=0,
-        collate_fn=tensordict_collate_fn,
+        collate_fn=dataset.collate_fn,
     )
 
     # Run evaluation
