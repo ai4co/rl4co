@@ -159,7 +159,7 @@ class EAS(SearchBase):
 
         # Precompute the cache of the embeddings (i.e. q,k,v and logit_key)
         embeddings, _ = encoder(td_init)
-        cached_embeds = decoder._precompute_cache(embeddings, num_starts=group_s)
+        cached_embeds = decoder._precompute_cache(embeddings)
 
         # Collect optimizer parameters
         opt_params = []
