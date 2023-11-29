@@ -1,4 +1,5 @@
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
+from rl4co.utils.ops import select_start_nodes
 
 
 class POMOPolicy(AutoregressivePolicy):
@@ -21,6 +22,7 @@ class POMOPolicy(AutoregressivePolicy):
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
         normalization: Normalization type in the attention layers
+        select_start_nodes_fn: Function to select the start nodes for the environment defaulting to :func:`select_start_nodes`
         **kwargs: keyword arguments passed to the :class:`AutoregressivePolicy`
     """
 
@@ -32,6 +34,7 @@ class POMOPolicy(AutoregressivePolicy):
         num_heads: int = 8,
         normalization: str = "instance",
         use_graph_context: bool = False,
+        select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,
     ):
         super(POMOPolicy, self).__init__(
@@ -41,5 +44,6 @@ class POMOPolicy(AutoregressivePolicy):
             num_heads=num_heads,
             normalization=normalization,
             use_graph_context=use_graph_context,
+            select_start_nodes_fn=select_start_nodes_fn,
             **kwargs,
         )

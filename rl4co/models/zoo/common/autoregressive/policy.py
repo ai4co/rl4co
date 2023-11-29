@@ -9,6 +9,7 @@ from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
 from rl4co.models.zoo.common.autoregressive.encoder import GraphAttentionEncoder
+from rl4co.utils.ops import select_start_nodes
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -34,6 +35,7 @@ class AutoregressivePolicy(nn.Module):
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
         context_embedding: Model to use for the context embedding. If None, use the default embedding for the environment
         dynamic_embedding: Model to use for the dynamic embedding. If None, use the default embedding for the environment
+        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
         embedding_dim: Dimension of the node embeddings
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
@@ -49,12 +51,13 @@ class AutoregressivePolicy(nn.Module):
 
     def __init__(
         self,
-        env_name: [str, RL4COEnvBase],
+        env_name: [str, RL4COEnvBase] = "tsp",
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         init_embedding: nn.Module = None,
         context_embedding: nn.Module = None,
         dynamic_embedding: nn.Module = None,
+        select_start_nodes_fn: Callable = select_start_nodes,
         embedding_dim: int = 128,
         num_encoder_layers: int = 3,
         num_heads: int = 8,
@@ -97,6 +100,7 @@ class AutoregressivePolicy(nn.Module):
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
+                select_start_nodes_fn=select_start_nodes_fn,
                 mask_inner=mask_inner,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
@@ -126,7 +130,7 @@ class AutoregressivePolicy(nn.Module):
             phase: Phase of the algorithm (train, val, test)
             return_actions: Whether to return the actions
             return_entropy: Whether to return the entropy
-            decoder_kwargs: Keyword arguments for the decoder
+            decoder_kwargs: Keyword arguments for the decoder. See :class:`rl4co.models.zoo.common.autoregressive.decoder.AutoregressiveDecoder`
 
         Returns:
             out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
