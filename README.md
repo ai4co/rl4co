@@ -171,12 +171,13 @@ We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4
 If you find RL4CO valuable for your research or applied projects:
 
 ```bibtex
-@article{berto2023rl4co,
-    title = {{RL4CO}: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark},
+@inproceedings{berto2023rl4co,
+    title={{RL}4{CO}: a Unified Reinforcement Learning for Combinatorial Optimization Library},
     author={Federico Berto and Chuanbo Hua and Junyoung Park and Minsu Kim and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Joungho Kim and Jinkyoo Park},
-    journal={arXiv preprint arXiv:2306.17100},
+    booktitle={NeurIPS 2023 Workshop: New Frontiers in Graph Learning},
     year={2023},
-    url = {https://github.com/ai4co/rl4co}
+    url={https://openreview.net/forum?id=YXSJxi8dOV},
+    note={\url{https://github.com/ai4co/rl4co}}
 }
 ```
 
