@@ -3,6 +3,7 @@ from typing import Callable, Optional, Union
 from tensordict import TensorDict
 from torch import Tensor, nn
 
+from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.graph.attnnet import GraphAttentionNetwork
 
@@ -10,11 +11,14 @@ from rl4co.models.nn.graph.attnnet import GraphAttentionNetwork
 class CriticNetwork(nn.Module):
     """We make the critic network compatible with any problem by using encoder for any environment
     Refactored from Kool et al. (2019) which only worked for TSP. In our case, we make it
-    compatible with any problem by using the environment init embedding.
+    compatible with any problem by using the environment init embedding. Note that if no environment
+    name and no init embedding are provided, the critic network does not transform the input (i.e.
+    it should be a tensor of shape (batch_size, embedding_dim)).
 
     Args:
         env_name: environment name to solve
         encoder: Encoder to use for the critic
+        init_embedding: Initial embedding to use for the critic
         embedding_dim: Dimension of the embeddings
         hidden_dim: Hidden dimension for the feed-forward network
         num_layers: Number of layers for the encoder
@@ -27,6 +31,7 @@ class CriticNetwork(nn.Module):
         self,
         env_name: str = None,
         encoder: nn.Module = None,
+        init_embedding: nn.Module = None,
         embedding_dim: int = 128,
         hidden_dim: int = 512,
         num_layers: int = 3,
@@ -37,11 +42,17 @@ class CriticNetwork(nn.Module):
     ):
         super(CriticNetwork, self).__init__()
 
-        if env_name is None:
-            self.init_embedding = nn.Identity()
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
+        self.env_name = env_name
+
+        if env_name is None and init_embedding is None:
+            self.init_embedding = nn.Identity()  # No embedding
         else:
-            self.init_embedding = env_init_embedding(
-                env_name, {"embedding_dim": embedding_dim}
+            self.init_embedding = (
+                env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+                if init_embedding is None
+                else init_embedding
             )
 
         self.encoder = (
