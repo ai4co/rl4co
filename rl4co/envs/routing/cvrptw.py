@@ -84,7 +84,7 @@ class CVRPTWEnv(CVRPEnv):
         )
         min_times, max_times = torch.min(min_ts, max_ts), torch.max(min_ts, max_ts)
         time_windows = torch.stack((min_times, max_times), dim=-1)
-        time_windows[:, 0, :] = 0.0  # depot has no time window
+        time_windows[..., 0, :] = 0.0  # depot has no time window
 
         # first assume service durations of 0 (to be changed later)
         durations = torch.zeros(*batch_size, self.num_loc + 1, dtype=torch.float32)
@@ -114,7 +114,7 @@ class CVRPTWEnv(CVRPEnv):
         can_reach_in_time = (
             td["current_time"] + td["durations"] + dist
             # + dist[mask_locs].reshape(td["locs"].size(0), td["locs"].size(1) - 1)
-            <= td["time_windows"][:, :, 1]
+            <= td["time_windows"][..., 1]
         )
         # TODO include logic to send vehicles back to the depot
         # when their capacity is full but other customers still need to be served
