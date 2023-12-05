@@ -240,7 +240,7 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": locs_with_depot[..., 1:, :],
                 "depot": locs_with_depot[..., 0, :],
-                "demand": demand / CAPACITIES[self.num_loc],
+                "demand": demand / self.capacity,
                 "capacity": capacity,
             },
             batch_size=batch_size,
