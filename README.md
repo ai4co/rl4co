@@ -20,6 +20,10 @@
 
 ---
 
+RL4CO has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/)! 🎉
+
+---
+
 
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
@@ -50,7 +54,7 @@ To get started, we recommend checking out our [quickstart notebook](notebooks/1-
 This command installs the bleeding edge `main` version, useful for staying up-to-date with the latest developments - for instance, if a bug has been fixed since the last official release but a new release hasn’t been rolled out yet:
 
 ```bash
-pip install -U git+https://github.com/ai4co/rl4co.git 
+pip install -U git+https://github.com/ai4co/rl4co.git
 ```
 
 ### Local install and development
