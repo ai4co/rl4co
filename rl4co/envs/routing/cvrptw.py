@@ -24,11 +24,10 @@ class CVRPTWEnv(CVRPEnv):
 
     def __init__(
         self,
-        min_time: int = 0,
         max_time: int = 480,
         **kwargs,
     ):
-        self.min_time = min_time
+        self.min_time = 0  # always 0
         self.max_time = max_time
         super().__init__(**kwargs)
 
@@ -55,7 +54,6 @@ class CVRPTWEnv(CVRPEnv):
         )
 
         num_vehicles = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.int64)
-        # vehicle_idx = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.int64)
 
         # extend observation specs
         self.observation_spec = CompositeSpec(
@@ -108,9 +106,9 @@ class CVRPTWEnv(CVRPEnv):
         time_windows = torch.stack((min_times, max_times), dim=-1)
         # 6. Adjust durations
         durations = torch.min(durations, max_times - min_times)
-        # 7. the time window for the depot is set to [0,480]
-        time_windows[..., 0, 0] = 0  # depot has no time window
-        time_windows[..., 0, 1] = 480  # depot has no time window
+        # 7. time window for the depot
+        time_windows[..., 0, 0] = self.min_time
+        time_windows[..., 0, 1] = self.max_time
 
         # for the case later that durations != 0 are used, the durations for the depot must still be 0
         durations[:, 0] = 0.0
@@ -136,11 +134,17 @@ class CVRPTWEnv(CVRPEnv):
         return not_masked & can_reach_in_time
 
     def _step(self, td: TensorDict) -> TensorDict:
-        # update current_time
         batch_size = td["locs"].shape[0]
+        # update current_time
         distance = gather_by_index(td["distances"], td["action"]).reshape([batch_size, 1])
         duration = gather_by_index(td["durations"], td["action"]).reshape([batch_size, 1])
-        td["current_time"] = td["current_time"] + distance + duration
+        start_times = gather_by_index(td["time_windows"], td["action"])[..., 0].reshape(
+            [batch_size, 1]
+        )
+        td["current_time"] = (td["action"][:, None] != 0) * torch.max(
+            td["current_time"] + distance + duration, start_times
+        )
+        # current_node is updated to the selected action
         td = super()._step(td)
         return td
 
@@ -180,3 +184,12 @@ class CVRPTWEnv(CVRPEnv):
         )
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
+
+    @staticmethod
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+        CVRPEnv.check_solution_validity(td, actions)
+        # TODO include for loop to check time windows
+
+    @staticmethod
+    def render(td: TensorDict, actions=None, ax=None, limit_xy: bool = False, **kwargs):
+        CVRPEnv.render(td=td, actions=actions, ax=ax, limit_xy=limit_xy, **kwargs)
