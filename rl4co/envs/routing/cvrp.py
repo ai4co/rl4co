@@ -293,7 +293,16 @@ class CVRPEnv(RL4COEnvBase):
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def render(td: TensorDict, actions=None, ax=None):
+    def render(
+        td: TensorDict,
+        actions=None,
+        ax=None,
+        limit_xy: bool = True,
+        x_min: float = -0.05,
+        x_max: float = 1.05,
+        y_min: float = -0.05,
+        y_max: float = 1.05,
+    ):
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -418,6 +427,7 @@ class CVRPEnv(RL4COEnvBase):
             )
 
         # Setup limits and show
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
+        if limit_xy:
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, x_max)
         plt.show()
