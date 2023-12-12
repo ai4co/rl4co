@@ -11,6 +11,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.attention import LogitAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
+from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.models.nn.utils import decode_probs, get_log_likelihood
 from rl4co.utils.ops import batchify, get_num_starts, select_start_nodes, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -88,6 +89,10 @@ class AutoregressiveDecoder(nn.Module):
             if dynamic_embedding is None
             else dynamic_embedding
         )
+        self.is_dynamic_embedding = (
+            False if isinstance(self.dynamic_embedding, StaticEmbedding) else True
+        )
+
         self.use_graph_context = use_graph_context
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embedding_dim
@@ -138,10 +143,15 @@ class AutoregressiveDecoder(nn.Module):
             td: TensorDict containing the environment state after decoding
         """
 
+        # Instantiate environment if needed
+        if isinstance(env, str):
+            env_name = self.env_name if env is None else env
+            env = get_env(env_name)
+
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if "multistart" in decode_type:
             if num_starts is None:
-                num_starts = get_num_starts(td)
+                num_starts = get_num_starts(td, env.name)
         else:
             if num_starts is not None:
                 if num_starts > 1:
@@ -151,20 +161,15 @@ class AutoregressiveDecoder(nn.Module):
             num_starts = 0
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
-        cached_embeds = self._precompute_cache(embeddings, td=td, num_starts=num_starts)
+        cached_embeds = self._precompute_cache(embeddings, td=td)
 
         # Collect outputs
         outputs = []
         actions = []
 
-        # Instantiate environment if needed
-        if isinstance(env, str):
-            env_name = self.env_name if env is None else env
-            env = get_env(env_name)
-
         # Multi-start decoding: first action is chosen by ad-hoc node selection
         if num_starts > 1 or "multistart" in decode_type:
-            action = self.select_start_nodes_fn(td, env, num_nodes=num_starts)
+            action = self.select_start_nodes_fn(td, env, num_starts=num_starts)
 
             # Expand td to batch_size * num_starts
             td = batchify(td, num_starts)
@@ -192,7 +197,9 @@ class AutoregressiveDecoder(nn.Module):
             outputs.append(log_p)
             actions.append(action)
 
-        assert len(outputs) > 0, "No outputs were collected because all environments were done. Check your initial state"
+        assert (
+            len(outputs) > 0
+        ), "No outputs were collected because all environments were done. Check your initial state"
         outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
@@ -200,13 +207,14 @@ class AutoregressiveDecoder(nn.Module):
         return outputs, actions, td
 
     def _precompute_cache(
-        self, embeddings: Tensor, num_starts: int = 0, td: TensorDict = None
+        self,
+        embeddings: Tensor,
+        td: TensorDict = None,
     ):
         """Compute the cached embeddings for the attention
 
         Args:
             embeddings: Precomputed embeddings for the nodes
-            num_starts: Number of multi-starts to use. If 0, no multi-start decoding is used
             td: TensorDict containing the environment state.
             This one is not used in this class. However, passing Tensordict can be useful in child classes.
         """
@@ -220,10 +228,7 @@ class AutoregressiveDecoder(nn.Module):
 
         # Optionally disable the graph context from the initial embedding as done in POMO
         if self.use_graph_context:
-            graph_context = unbatchify(
-                batchify(self.project_fixed_context(embeddings.mean(1)), num_starts),
-                num_starts,
-            )
+            graph_context = self.project_fixed_context(embeddings.mean(1))
         else:
             graph_context = 0
 
@@ -253,35 +258,63 @@ class AutoregressiveDecoder(nn.Module):
             softmax_temp: Temperature for the softmax
             num_starts: Number of starts for the multi-start decoding
         """
-        # Unbatchify to [batch_size, num_starts, ...]. Has no effect if num_starts = 0
-        td_unbatch = unbatchify(td, num_starts)
 
-        step_context = self.context_embedding(cached.node_embeddings, td_unbatch)
-        glimpse_q = step_context + cached.graph_context
-        glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
+        # Get precomputed (cached) embeddings
+        node_embeds_cache, graph_context_cache = (
+            cached.node_embeddings,
+            cached.graph_context,
+        )
+        glimpse_k_stat, glimpse_v_stat, logit_k_stat = (
+            cached.glimpse_key,
+            cached.glimpse_val,
+            cached.logit_key,
+        )  # [B, N, H]
+        has_dyn_emb_multi_start = self.is_dynamic_embedding and num_starts > 1
 
-        # Compute keys and values for the nodes
-        (
-            glimpse_key_dynamic,
-            glimpse_val_dynamic,
-            logit_key_dynamic,
-        ) = self.dynamic_embedding(td_unbatch)
-        glimpse_k = cached.glimpse_key + glimpse_key_dynamic
-        glimpse_v = cached.glimpse_val + glimpse_val_dynamic
-        logit_k = cached.logit_key + logit_key_dynamic
+        # Handle efficient multi-start decoding
+        if has_dyn_emb_multi_start:
+            # if num_starts > 0 and we have some dynamic embeddings, we need to reshape them to [B*S, ...]
+            # since keys and values are not shared across starts (i.e. the episodes modify these embeddings at each step)
+            glimpse_k_stat = batchify(glimpse_k_stat, num_starts)
+            glimpse_v_stat = batchify(glimpse_v_stat, num_starts)
+            logit_k_stat = batchify(logit_k_stat, num_starts)
+            node_embeds_cache = batchify(node_embeds_cache, num_starts)
+            graph_context_cache = (
+                batchify(graph_context_cache, num_starts)
+                if isinstance(graph_context_cache, Tensor)
+                else graph_context_cache
+            )
+        elif num_starts > 1:
+            td = unbatchify(td, num_starts)
+            if isinstance(graph_context_cache, Tensor):
+                # add a dimension for num_starts (will automatically be broadcasted during addition)
+                graph_context_cache = graph_context_cache.unsqueeze(1)
+
+        step_context = self.context_embedding(node_embeds_cache, td)
+        glimpse_q = step_context + graph_context_cache
+        glimpse_q = (
+            glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
+        )  # add seq_len dim if not present
+
+        # Compute dynamic embeddings and add to static embeddings
+        glimpse_k_dyn, glimpse_v_dyn, logit_k_dyn = self.dynamic_embedding(td)
+        glimpse_k = glimpse_k_stat + glimpse_k_dyn
+        glimpse_v = glimpse_v_stat + glimpse_v_dyn
+        logit_k = logit_k_stat + logit_k_dyn
 
         # Get the mask
-        mask = ~td_unbatch["action_mask"]
+        mask = ~td["action_mask"]
 
         # Compute logits
         log_p = self.logit_attention(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
         )
 
-        # Now we need to reshape the logits and log_p to [batch_size*num_starts, num_nodes]
-        # Note that rearranging order is important here
-        log_p = rearrange(log_p, "b s l -> (s b) l") if num_starts > 1 else log_p
-        mask = rearrange(mask, "b s l -> (s b) l") if num_starts > 1 else mask
+        # Now we need to reshape the logits and log_p to [B*S,N,...] is num_starts > 1 without dynamic embeddings
+        # note that rearranging order is important here
+        if num_starts > 1 and not has_dyn_emb_multi_start:
+            log_p = rearrange(log_p, "b s l -> (s b) l", s=num_starts)
+            mask = rearrange(mask, "b s l -> (s b) l", s=num_starts)
         return log_p, mask
 
     def evaluate_action(

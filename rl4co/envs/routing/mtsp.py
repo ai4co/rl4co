@@ -354,4 +354,3 @@ class MTSPEnv(RL4COEnvBase):
         ax.set_title("mTSP")
         ax.set_xlabel("x-coordinate")
         ax.set_ylabel("y-coordinate")
-        plt.show()

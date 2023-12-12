@@ -160,7 +160,7 @@ class TSPEnv(RL4COEnvBase):
             .expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
-            
+
     def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
@@ -213,4 +213,3 @@ class TSPEnv(RL4COEnvBase):
         # Setup limits and show
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        plt.show()

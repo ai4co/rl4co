@@ -1,13 +1,10 @@
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-import torch
-import torch.nn as nn
-from einops import rearrange
-from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
-from rl4co.utils.ops import batchify, get_num_starts, select_start_nodes, unbatchify
 from tensordict import TensorDict
 from torch import Tensor
+
+from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
 
 
 @dataclass
@@ -20,9 +17,7 @@ class PrecomputedCache:
 
 
 class MatNetDecoder(AutoregressiveDecoder):
-    def _precompute_cache(
-        self, embeddings: Tuple[Tensor, Tensor], num_starts: int = 0, td: TensorDict = None
-    ):
+    def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], td: TensorDict = None):
         col_emb, row_emb = embeddings
         (
             glimpse_key_fixed,
@@ -34,10 +29,7 @@ class MatNetDecoder(AutoregressiveDecoder):
 
         # Optionally disable the graph context from the initial embedding as done in POMO
         if self.use_graph_context:
-            graph_context = unbatchify(
-                batchify(self.project_fixed_context(col_emb.mean(1)), num_starts),
-                num_starts,
-            )
+            graph_context = self.project_fixed_context(col_emb.mean(1))
         else:
             graph_context = 0
 
