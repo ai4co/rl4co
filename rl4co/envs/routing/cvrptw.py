@@ -185,6 +185,11 @@ class CVRPTWEnv(CVRPEnv):
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
 
+    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+        """The reward is the negative tour length. Time windows
+        are not considered for the calculation of the reward."""
+        return super().get_reward(td, actions)
+
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         CVRPEnv.check_solution_validity(td, actions)
