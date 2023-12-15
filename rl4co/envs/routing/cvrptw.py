@@ -141,8 +141,8 @@ class CVRPTWEnv(CVRPEnv):
         start_times = gather_by_index(td["time_windows"], td["action"])[..., 0].reshape(
             [batch_size, 1]
         )
-        td["current_time"] = (td["action"][:, None] != 0) * torch.max(
-            td["current_time"] + distance + duration, start_times
+        td["current_time"] = (td["action"][:, None] != 0) * (
+            torch.max(td["current_time"] + distance, start_times) + duration
         )
         # current_node is updated to the selected action
         td = super()._step(td)
@@ -188,7 +188,7 @@ class CVRPTWEnv(CVRPEnv):
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         CVRPEnv.check_solution_validity(td, actions)
-        # TODO include for loop to check time windows
+        # TODO include for-loop to check time windows
 
     @staticmethod
     def render(td: TensorDict, actions=None, ax=None, limit_xy: bool = False, **kwargs):
