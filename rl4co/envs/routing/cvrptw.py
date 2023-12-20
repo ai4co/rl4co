@@ -194,23 +194,7 @@ class CVRPTWEnv(CVRPEnv):
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         """The reward is the negative tour length. Time windows
         are not considered for the calculation of the reward."""
-        # Check that the solution is valid
-        if self.check_solution:
-            self.check_solution_validity(td, actions)
-
-        # Gather dataset in order of tour
-        batch_size = td["locs"].shape[0]
-        depot = td["locs"][..., 0:1, :]
-        locs_ordered = torch.cat(
-            [
-                depot,
-                gather_by_index(td["locs"], actions).reshape(
-                    [batch_size, actions.size(-1), 2]
-                ),
-            ],
-            dim=1,
-        )
-        return -get_tour_length(locs_ordered)
+        return super().get_reward(td, actions)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
