@@ -173,8 +173,17 @@ class CVRPEnv(RL4COEnvBase):
             self.check_solution_validity(td, actions)
 
         # Gather dataset in order of tour
+        batch_size = td["locs"].shape[0]
         depot = td["locs"][..., 0:1, :]
-        locs_ordered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
+        locs_ordered = torch.cat(
+            [
+                depot,
+                gather_by_index(td["locs"], actions).reshape(
+                    [batch_size, actions.size(-1), 2]
+                ),
+            ],
+            dim=1,
+        )
         return -get_tour_length(locs_ordered)
 
     @staticmethod
