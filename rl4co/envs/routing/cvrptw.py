@@ -11,7 +11,7 @@ from torchrl.data import (
 from zmq import device
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
-from rl4co.utils.ops import gather_by_index, get_distance
+from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
 
 
 class CVRPTWEnv(CVRPEnv):
@@ -36,6 +36,8 @@ class CVRPTWEnv(CVRPEnv):
 
         current_time = UnboundedContinuousTensorSpec(shape=(1), dtype=torch.float32)
 
+        current_loc = UnboundedContinuousTensorSpec(shape=(2), dtype=torch.float32)
+
         durations = BoundedTensorSpec(
             low=self.min_time,
             high=self.max_time,
@@ -59,6 +61,7 @@ class CVRPTWEnv(CVRPEnv):
         self.observation_spec = CompositeSpec(
             **self.observation_spec,
             current_time=current_time,
+            current_loc=current_loc,
             durations=durations,
             num_vehicles=num_vehicles,
             time_windows=time_windows,
@@ -125,7 +128,10 @@ class CVRPTWEnv(CVRPEnv):
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         not_masked = CVRPEnv.get_action_mask(td)
-        current_loc = gather_by_index(td["locs"], td["current_node"])
+        batch_size = td["locs"].shape[0]
+        current_loc = gather_by_index(td["locs"], td["current_node"]).reshape(
+            [batch_size, 2]
+        )
         dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1)
         td.update({"current_loc": current_loc, "distances": dist})
         can_reach_in_time = (
@@ -161,7 +167,7 @@ class CVRPTWEnv(CVRPEnv):
         # Create reset TensorDict
         td_reset = TensorDict(
             {
-                "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
+                "locs": torch.cat((td["depot"][..., None, :], td["locs"]), -2),
                 "demand": td["demand"],
                 "current_node": torch.zeros(
                     *batch_size, 1, dtype=torch.long, device=self.device
@@ -188,7 +194,23 @@ class CVRPTWEnv(CVRPEnv):
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         """The reward is the negative tour length. Time windows
         are not considered for the calculation of the reward."""
-        return super().get_reward(td, actions)
+        # Check that the solution is valid
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
+
+        # Gather dataset in order of tour
+        batch_size = td["locs"].shape[0]
+        depot = td["locs"][..., 0:1, :]
+        locs_ordered = torch.cat(
+            [
+                depot,
+                gather_by_index(td["locs"], actions).reshape(
+                    [batch_size, actions.size(-1), 2]
+                ),
+            ],
+            dim=1,
+        )
+        return -get_tour_length(locs_ordered)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
@@ -198,3 +220,10 @@ class CVRPTWEnv(CVRPEnv):
     @staticmethod
     def render(td: TensorDict, actions=None, ax=None, limit_xy: bool = False, **kwargs):
         CVRPEnv.render(td=td, actions=actions, ax=ax, limit_xy=limit_xy, **kwargs)
+
+    @staticmethod
+    def load_data(fpath, batch_size=[]):
+        """Dataset loading from file
+        Normalize demand by capacity to be in [0, 1]
+        """
+        return CVRPEnv.load_data(fpath, batch_size=batch_size)
