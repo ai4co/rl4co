@@ -19,19 +19,16 @@ env = CVRPTWEnv(
 )
 
 # try random policy
-batch_size = 3
+batch_size = 1
 
-for ii in range(50):
-    print("\n\nStart random policy...Run", ii + 1)
-    reward, td, actions = rollout(
-        env=env,
-        td=env.reset(batch_size=[batch_size]),
-        policy=random_policy,
-        max_steps=1000,
-    )
-    env.get_reward(td, actions)
-    print("Done with run", ii + 1)
-    print("Reward:\n", reward, "\nActions:\n", actions)
+reward, td, actions = rollout(
+    env=env,
+    td=env.reset(batch_size=[batch_size]),
+    policy=random_policy,
+    max_steps=1000,
+)
+env.get_reward(td, actions)
+print("Reward:\n", reward, "\nActions:\n", actions)
 
 # env.render(td, actions)
 
