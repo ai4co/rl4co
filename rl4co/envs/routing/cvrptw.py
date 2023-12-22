@@ -24,12 +24,13 @@ class CVRPTWEnv(CVRPEnv):
 
     def __init__(
         self,
+        max_loc: int = 100,  # different default value to CVRPEnv to match max_time, will be scaled
         max_time: int = 480,
         **kwargs,
     ):
         self.min_time = 0  # always 0
         self.max_time = max_time
-        super().__init__(**kwargs)
+        super().__init__(max_loc=max_loc, **kwargs)
 
     def _make_spec(self, td_params: TensorDict):
         super()._make_spec(td_params)
@@ -55,27 +56,23 @@ class CVRPTWEnv(CVRPEnv):
             dtype=torch.int64,
         )
 
-        num_vehicles = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.int64)
-
         # extend observation specs
         self.observation_spec = CompositeSpec(
             **self.observation_spec,
             current_time=current_time,
             current_loc=current_loc,
             durations=durations,
-            num_vehicles=num_vehicles,
             time_windows=time_windows,
             # vehicle_idx=vehicle_idx,
         )
 
-    def generate_data(self, batch_size) -> TensorDict:
+    def generate_data(self, batch_size, scale: bool = True) -> TensorDict:
         td = super().generate_data(batch_size)
 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # initialize at zero
         current_time = torch.zeros(*batch_size, 1, dtype=torch.float32)
-        num_vehicles = torch.ones(*batch_size, dtype=torch.int64)
 
         ## define service durations
         # generate randomly (first assume service durations of 0, to be changed later)
@@ -119,7 +116,6 @@ class CVRPTWEnv(CVRPEnv):
             {
                 "current_time": current_time,
                 "durations": durations,
-                "num_vehicles": num_vehicles,
                 "time_windows": time_windows,
             }
         )
@@ -183,7 +179,6 @@ class CVRPTWEnv(CVRPEnv):
                 ),
                 "current_time": td["current_time"],
                 "durations": td["durations"],
-                "num_vehicles": td["num_vehicles"],
                 "time_windows": td["time_windows"],
             },
             batch_size=batch_size,
