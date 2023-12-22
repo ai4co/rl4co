@@ -144,7 +144,11 @@ class CVRPTWEnv(CVRPEnv):
         can_reach_in_time = (
             td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
         )
-        return not_masked & can_reach_in_time
+        action_mask = not_masked & can_reach_in_time
+
+        # for batches where all actions are masked, set the depot as the only possible action
+        action_mask[torch.sum(action_mask, dim=-1) == 0, 0] = True
+        return action_mask
 
     def _step(self, td: TensorDict) -> TensorDict:
         batch_size = td["locs"].shape[0]
