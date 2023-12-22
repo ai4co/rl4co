@@ -26,10 +26,12 @@ class CVRPTWEnv(CVRPEnv):
         self,
         max_loc: int = 100,  # different default value to CVRPEnv to match max_time, will be scaled
         max_time: int = 480,
+        scale: bool = True,
         **kwargs,
     ):
         self.min_time = 0  # always 0
         self.max_time = max_time
+        self.scale = scale
         super().__init__(max_loc=max_loc, **kwargs)
 
     def _make_spec(self, td_params: TensorDict):
@@ -53,7 +55,7 @@ class CVRPTWEnv(CVRPEnv):
                 self.num_loc,
                 2,
             ),  # each location has a 2D time window (start, end)
-            dtype=torch.int64,
+            dtype=torch.float64,
         )
 
         # extend observation specs
@@ -66,7 +68,7 @@ class CVRPTWEnv(CVRPEnv):
             # vehicle_idx=vehicle_idx,
         )
 
-    def generate_data(self, batch_size, scale: bool = True) -> TensorDict:
+    def generate_data(self, batch_size) -> TensorDict:
         td = super().generate_data(batch_size)
 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -77,6 +79,12 @@ class CVRPTWEnv(CVRPEnv):
         ## define service durations
         # generate randomly (first assume service durations of 0, to be changed later)
         durations = torch.zeros(*batch_size, self.num_loc + 1, dtype=torch.float32)
+
+        # scale to [0, 1]
+        if self.scale:
+            durations = durations / self.max_time
+            td["depot"] = td["depot"] / self.max_time
+            td["locs"] = td["locs"] / self.max_time
 
         ## define time windows
         # 1. get distances from depot
@@ -89,6 +97,9 @@ class CVRPTWEnv(CVRPEnv):
         max_ts = torch.randint(
             self.min_time, self.max_time, (*batch_size, self.num_loc + 1)
         )
+        if self.scale:
+            min_ts = min_ts / self.max_time
+            max_ts = max_ts / self.max_time
         # 3. set the lower value to min, the higher to max
         min_times, max_times = torch.min(min_ts, max_ts), torch.max(min_ts, max_ts)
         # 4. limit min and max times s.t. the distance to the depot is considered
@@ -197,8 +208,8 @@ class CVRPTWEnv(CVRPEnv):
         # TODO include for-loop to check time windows
 
     @staticmethod
-    def render(td: TensorDict, actions=None, ax=None, limit_xy: bool = False, **kwargs):
-        CVRPEnv.render(td=td, actions=actions, ax=ax, limit_xy=limit_xy, **kwargs)
+    def render(td: TensorDict, actions=None, ax=None, scale_xy: bool = False, **kwargs):
+        CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
 
     @staticmethod
     def load_data(fpath, batch_size=[]):
