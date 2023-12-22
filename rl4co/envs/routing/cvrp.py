@@ -306,11 +306,7 @@ class CVRPEnv(RL4COEnvBase):
         td: TensorDict,
         actions=None,
         ax=None,
-        limit_xy: bool = True,
-        x_min: float = -0.05,
-        x_max: float = 1.05,
-        y_min: float = -0.05,
-        y_max: float = 1.05,
+        scale_xy: bool = True,
     ):
         import matplotlib.pyplot as plt
         import numpy as np
@@ -338,8 +334,8 @@ class CVRPEnv(RL4COEnvBase):
             actions = actions[0]
 
         locs = td["locs"]
-        scale = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
-        demands = td["demand"] * scale
+        scale_demand = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
+        demands = td["demand"] * scale_demand
 
         # add the depot at the first action and the end action
         actions = torch.cat([torch.tensor([0]), actions, torch.tensor([0])])
@@ -383,7 +379,7 @@ class CVRPEnv(RL4COEnvBase):
                 plt.Rectangle(
                     (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.015),
                     0.01,
-                    demands[node_idx - 1] / (scale * 10),
+                    demands[node_idx - 1] / (scale_demand * 10),
                     edgecolor=cm.Set2(0),
                     facecolor=cm.Set2(0),
                     fill=True,
@@ -436,7 +432,7 @@ class CVRPEnv(RL4COEnvBase):
             )
 
         # Setup limits and show
-        if limit_xy:
-            ax.set_xlim(x_min, x_max)
-            ax.set_ylim(y_min, x_max)
+        if scale_xy:
+            ax.set_xlim(-0.05, 1.05)
+            ax.set_ylim(-0.05, 1.05)
         plt.show()
