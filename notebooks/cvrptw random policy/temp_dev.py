@@ -8,7 +8,7 @@ from rl4co.utils.trainer import RL4COTrainer
 env_cvrp = CVRPEnv()
 
 env_cvrptw = CVRPTWEnv(
-    num_loc=50,
+    num_loc=30,
     min_loc=0,
     max_loc=150,
     min_demand=1,
@@ -17,29 +17,36 @@ env_cvrptw = CVRPTWEnv(
     capacity=10,
     min_time=0,
     max_time=480,
-    scale=False,
+    scale=True,
 )
+
+env_short = CVRPTWEnv(num_loc=20)
 
 env = env_cvrptw
 
 # batch size
 batch_size = 3
 
-# # try random policy
-# for ii in range(100):
-#     print("Start run", ii)
-#     reward, td, actions = rollout(
-#         env=env,
-#         td=env.reset(batch_size=[batch_size]),
-#         policy=random_policy,
-#         max_steps=1000,
-#     )
-#     env.get_reward(td, actions)
-#     print("Finished run", ii, "\tReward:\n", reward, "\nActions:\n", actions)
+print("### --- random policy --- ###")
+# try random policy
+for ii in range(5):
+    print("Start run", ii)
+    reward, td, actions = rollout(
+        env=env,
+        td=env.reset(batch_size=[batch_size]),
+        policy=random_policy,
+        max_steps=1000,
+    )
+    assert reward.shape == (batch_size,)
 
-# env.render(td, actions)
+    env.get_reward(td, actions)
+    print("Finished run", ii, "\tReward:\n", reward, "\nActions:\n", actions)
+    CVRPTWEnv.check_solution_validity(td, actions)
+
+env.render(td, actions)
 
 
+print("\n\n### --- AM --- ###")
 # Model: default is AM with REINFORCE and greedy rollout baseline
 print("Start attention model...")
 model = AttentionModel(
@@ -57,6 +64,7 @@ print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
 for td, actions in zip(td_init, out["actions"].cpu()):
     env.render(td, actions)
 
+print("\n\n### --- Training --- ###")
 # The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
 trainer = RL4COTrainer(
     max_epochs=3,
