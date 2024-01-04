@@ -229,28 +229,48 @@ class CVRPTWEnv(CVRPEnv):
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         CVRPEnv.check_solution_validity(td, actions)
-        # check time windows
-        # distance to depot
-        dist = get_distance(td["locs"][..., 0, :], td["locs"].transpose(0, 1)).transpose(
-            0, 1
-        )
-        assert torch.all(dist >= 0.0), "Distances must be non-negative."
-        # check vehicle can go back to depot in time
+        batch_size = td["locs"].shape[0]
+        # distances to depot
+        distances = get_distance(
+            td["locs"][..., 0, :], td["locs"].transpose(0, 1)
+        ).transpose(0, 1)
+        # basic checks on time windows
+        assert torch.all(distances >= 0.0), "Distances must be non-negative."
+        assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
         assert torch.all(
-            td["time_windows"][..., :, 1] + dist
+            td["time_windows"][..., :, 1] + distances
             <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
         ), "vehicle cannot get back to depot in time"
-        # make sure durations >= 0
         assert torch.all(
             td["durations"] >= 0.0
         ), "Service durations must be non-negative."
-        # make sure min_times < max_times + durations
         assert torch.all(
             td["time_windows"][..., 0] + td["durations"]
             <= td["time_windows"][..., 1] + 1e-6
         ), "service cannot be provided in given time window"
-        # check vehicles visits nodes in given time windows
-        # TODO include for-loop to check time windows
+        # check vehicles can meet deadlines
+        curr_time = torch.zeros(batch_size, 1, dtype=torch.float32, device=td.device)
+        curr_node = torch.zeros_like(curr_time, dtype=torch.int64, device=td.device)
+        for ii in range(actions.size(1)):
+            next_node = actions[:, ii]
+            dist = get_distance(
+                gather_by_index(td["locs"], curr_node).reshape([batch_size, 2]),
+                gather_by_index(td["locs"], next_node).reshape([batch_size, 2]),
+            ).reshape([batch_size, 1])
+            curr_time = torch.max(
+                curr_time + dist,
+                gather_by_index(td["time_windows"], next_node)[..., 0].reshape(
+                    [batch_size, 1]
+                ),
+            ) + gather_by_index(td["durations"], next_node).reshape([batch_size, 1])
+            assert torch.all(
+                curr_time
+                <= gather_by_index(td["time_windows"], next_node)[..., 1].reshape(
+                    [batch_size, 1]
+                )
+            ), "vehicle cannot meet deadline"
+            curr_node = next_node
+            curr_time[curr_node == 0] = 0.0  # reset time for depot
 
     @staticmethod
     def render(td: TensorDict, actions=None, ax=None, scale_xy: bool = False, **kwargs):
