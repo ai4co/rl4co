@@ -24,9 +24,9 @@ class CVRPTWEnv(CVRPEnv):
 
     def __init__(
         self,
-        max_loc: int = 100,  # different default value to CVRPEnv to match max_time, will be scaled
+        max_loc: int = 150,  # different default value to CVRPEnv to match max_time, will be scaled
         max_time: int = 480,
-        scale: bool = True,
+        scale: bool = False,
         **kwargs,
     ):
         self.min_time = 0  # always 0
@@ -74,54 +74,78 @@ class CVRPTWEnv(CVRPEnv):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # initialize at zero
-        current_time = torch.zeros(*batch_size, 1, dtype=torch.float32)
+        current_time = torch.zeros(
+            *batch_size, 1, dtype=torch.float32, device=self.device
+        )
 
         ## define service durations
         # generate randomly (first assume service durations of 0, to be changed later)
-        durations = torch.zeros(*batch_size, self.num_loc + 1, dtype=torch.float32)
-
-        # scale to [0, 1]
-        if self.scale:
-            durations = durations / self.max_time
-            td["depot"] = td["depot"] / self.max_time
-            td["locs"] = td["locs"] / self.max_time
+        durations = torch.zeros(
+            *batch_size, self.num_loc + 1, dtype=torch.float32, device=self.device
+        )
 
         ## define time windows
         # 1. get distances from depot
         dist = get_distance(td["depot"], td["locs"].transpose(0, 1)).transpose(0, 1)
-        dist = torch.cat((torch.zeros(*batch_size, 1), dist), dim=1)
-        # 2. randomly create min and max times (as int) for all nodes incl. depot
-        min_ts = torch.randint(
-            self.min_time, self.max_time, (*batch_size, self.num_loc + 1)
-        )
-        max_ts = torch.randint(
-            self.min_time, self.max_time, (*batch_size, self.num_loc + 1)
-        )
+        dist = torch.cat((torch.zeros(*batch_size, 1, device=self.device), dist), dim=1)
+        # 2. define upper bound for time windows, lower bound is the distance from the depot
+        upper_bound = self.max_time - dist
+        # 3. create random values between 0 and 1
+        ts_1 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
+        ts_2 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
+        # 4. scale values to lie between their respective min_time and max_time and convert to integer values
+        min_ts = (dist + (upper_bound - dist) * ts_1).int()
+        max_ts = (dist + (upper_bound - dist) * ts_2).int()
+        # 5. set the lower value to min, the higher to max
+        min_times = torch.min(min_ts, max_ts)
+        max_times = torch.max(min_ts, max_ts)
+        # 6. reset times for depot
+        min_times[..., :, 0] = 0.0
+        max_times[..., :, 0] = self.max_time
+
+        # 7. ensure min_times < max_times to prevent numerical errors in attention.py
+        # min_times == max_times may lead to nan values in _inner_mha()
+        mask = min_times == max_times
+        if torch.any(mask):
+            min_orig = min_times.clone()
+            max_orig = max_times.clone()
+            min_tmp = min_times.clone()
+            min_tmp[mask] = torch.max(
+                dist[mask].int(), min_tmp[mask] - 1
+            )  # we are handling integer values, so we can simply substract 1
+            min_times = min_tmp
+
+            mask2 = min_times == max_times  # update mask
+            if torch.any(mask2):
+                max_tmp = max_times.clone()
+                max_tmp[mask2] = torch.min(
+                    torch.floor(upper_bound[mask2]).int(),
+                    torch.max(
+                        torch.ceil(min_tmp[mask2] + durations[mask2]).int(),
+                        max_tmp[mask2] + 1,
+                    ),
+                )
+                max_times = max_tmp
+
+        # 8. Adjust durations
+        durations = torch.min(durations, max_times - min_times)
+
+        # scale to [0, 1]
         if self.scale:
-            min_ts = min_ts / self.max_time
-            max_ts = max_ts / self.max_time
-        # 3. set the lower value to min, the higher to max
-        min_times, max_times = torch.min(min_ts, max_ts), torch.max(min_ts, max_ts)
-        # 4. limit min and max times s.t. the distance to the depot is considered
-        max_times = torch.min(
-            self.max_time - dist, torch.max(max_times, self.min_time + dist + durations)
-        )
-        min_times = torch.max(
-            torch.min(min_times, max_times - durations), self.min_time + dist
-        )
+            durations = durations / self.max_time
+            min_times = min_times / self.max_time
+            max_times = max_times / self.max_time
+            td["depot"] = td["depot"] / self.max_time
+            td["locs"] = td["locs"] / self.max_time
+
+        # 9. stack to tensor time_windows
+        time_windows = torch.stack((min_times, max_times), dim=-1)
+
         assert torch.all(
-            min_times <= max_times
+            min_times < max_times
         ), "Please make sure the relation between max_loc and max_time allows for feasible solutions."
 
-        # 5. stack to tensor time_windows
-        time_windows = torch.stack((min_times, max_times), dim=-1)
-        # 6. Adjust durations
-        durations = torch.min(durations, max_times - min_times)
-        # 7. time window for the depot
-        time_windows[..., 0, 0] = self.min_time
-        time_windows[..., 0, 1] = self.max_time
-
-        # for the case later that durations != 0 are used, the durations for the depot must still be 0
+        # for the case later durations != 0 are used, the durations for the depot must still be 0
         durations[:, 0] = 0.0
         td.update(
             {
@@ -144,11 +168,7 @@ class CVRPTWEnv(CVRPEnv):
         can_reach_in_time = (
             td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
         )
-        action_mask = not_masked & can_reach_in_time
-
-        # for batches where all actions are masked, set the depot as the only possible action
-        action_mask[torch.sum(action_mask, dim=-1) == 0, 0] = True
-        return action_mask
+        return not_masked & can_reach_in_time
 
     def _step(self, td: TensorDict) -> TensorDict:
         batch_size = td["locs"].shape[0]
@@ -209,6 +229,27 @@ class CVRPTWEnv(CVRPEnv):
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         CVRPEnv.check_solution_validity(td, actions)
+        # check time windows
+        # distance to depot
+        dist = get_distance(td["locs"][..., 0, :], td["locs"].transpose(0, 1)).transpose(
+            0, 1
+        )
+        assert torch.all(dist >= 0.0), "Distances must be non-negative."
+        # check vehicle can go back to depot in time
+        assert torch.all(
+            td["time_windows"][..., :, 1] + dist
+            <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
+        ), "vehicle cannot get back to depot in time"
+        # make sure durations >= 0
+        assert torch.all(
+            td["durations"] >= 0.0
+        ), "Service durations must be non-negative."
+        # make sure min_times < max_times + durations
+        assert torch.all(
+            td["time_windows"][..., 0] + td["durations"]
+            <= td["time_windows"][..., 1] + 1e-6
+        ), "service cannot be provided in given time window"
+        # check vehicles visits nodes in given time windows
         # TODO include for-loop to check time windows
 
     @staticmethod
