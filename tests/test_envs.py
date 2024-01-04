@@ -7,6 +7,7 @@ import torch
 from rl4co.envs import (
     ATSPEnv,
     CVRPEnv,
+    CVRPTWEnv,
     DPPEnv,
     FFSPEnv,
     MDPPEnv,
@@ -28,7 +29,18 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 
 @pytest.mark.parametrize(
     "env_cls",
-    [TSPEnv, CVRPEnv, SDVRPEnv, PCTSPEnv, SPCTSPEnv, OPEnv, PDPEnv, MTSPEnv, ATSPEnv],
+    [
+        TSPEnv,
+        CVRPEnv,
+        CVRPTWEnv,
+        SDVRPEnv,
+        PCTSPEnv,
+        SPCTSPEnv,
+        OPEnv,
+        PDPEnv,
+        MTSPEnv,
+        ATSPEnv,
+    ],
 )
 def test_routing(env_cls, batch_size=2, size=20):
     env = env_cls(num_loc=size)
