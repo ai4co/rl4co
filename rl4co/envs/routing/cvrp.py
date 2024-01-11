@@ -154,9 +154,11 @@ class CVRPEnv(RL4COEnvBase):
         return td_reset
 
     @staticmethod
-    def get_action_mask(td: TensorDict) -> torch.Tensor:
+    def get_action_mask(td: TensorDict, vehicle_capacity: float = 1.0) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
-        exceeds_cap = td["demand"][:, None, :] + td["used_capacity"][..., None] > 1.0
+        exceeds_cap = (
+            td["demand"][:, None, :] + td["used_capacity"][..., None] > vehicle_capacity
+        )
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
@@ -171,8 +173,17 @@ class CVRPEnv(RL4COEnvBase):
             self.check_solution_validity(td, actions)
 
         # Gather dataset in order of tour
+        batch_size = td["locs"].shape[0]
         depot = td["locs"][..., 0:1, :]
-        locs_ordered = torch.cat([depot, gather_by_index(td["locs"], actions)], dim=1)
+        locs_ordered = torch.cat(
+            [
+                depot,
+                gather_by_index(td["locs"], actions).reshape(
+                    [batch_size, actions.size(-1), 2]
+                ),
+            ],
+            dim=1,
+        )
         return -get_tour_length(locs_ordered)
 
     @staticmethod
@@ -220,11 +231,15 @@ class CVRPEnv(RL4COEnvBase):
         # Demand sampling Following Kool et al. (2019)
         # Generates a slightly different distribution than using torch.randint
         demand = (
-            torch.FloatTensor(*batch_size, self.num_loc)
-            .uniform_(self.min_demand - 1, self.max_demand - 1)
-            .int()
-            + 1
-        ).float().to(self.device)
+            (
+                torch.FloatTensor(*batch_size, self.num_loc)
+                .uniform_(self.min_demand - 1, self.max_demand - 1)
+                .int()
+                + 1
+            )
+            .float()
+            .to(self.device)
+        )
 
         # Support for heterogeneous capacity if provided
         if not isinstance(self.capacity, torch.Tensor):
@@ -236,7 +251,7 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": locs_with_depot[..., 1:, :],
                 "depot": locs_with_depot[..., 0, :],
-                "demand": demand / CAPACITIES[self.num_loc],
+                "demand": demand / self.capacity,
                 "capacity": capacity,
             },
             batch_size=batch_size,
@@ -287,7 +302,12 @@ class CVRPEnv(RL4COEnvBase):
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def render(td: TensorDict, actions=None, ax=None):
+    def render(
+        td: TensorDict,
+        actions=None,
+        ax=None,
+        scale_xy: bool = True,
+    ):
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -314,8 +334,8 @@ class CVRPEnv(RL4COEnvBase):
             actions = actions[0]
 
         locs = td["locs"]
-        scale = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
-        demands = td["demand"] * scale
+        scale_demand = CAPACITIES.get(td["locs"].size(-2) - 1, 1)
+        demands = td["demand"] * scale_demand
 
         # add the depot at the first action and the end action
         actions = torch.cat([torch.tensor([0]), actions, torch.tensor([0])])
@@ -359,7 +379,7 @@ class CVRPEnv(RL4COEnvBase):
                 plt.Rectangle(
                     (locs[node_idx, 0] - 0.005, locs[node_idx, 1] + 0.015),
                     0.01,
-                    demands[node_idx - 1] / (scale * 10),
+                    demands[node_idx - 1] / (scale_demand * 10),
                     edgecolor=cm.Set2(0),
                     facecolor=cm.Set2(0),
                     fill=True,
@@ -412,6 +432,7 @@ class CVRPEnv(RL4COEnvBase):
             )
 
         # Setup limits and show
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
+        if scale_xy:
+            ax.set_xlim(-0.05, 1.05)
+            ax.set_ylim(-0.05, 1.05)
         plt.show()

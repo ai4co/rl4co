@@ -7,6 +7,7 @@ import torch
 from rl4co.envs import (
     ATSPEnv,
     CVRPEnv,
+    CVRPTWEnv,
     DPPEnv,
     FFSPEnv,
     MDPPEnv,
@@ -28,7 +29,18 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 
 @pytest.mark.parametrize(
     "env_cls",
-    [TSPEnv, CVRPEnv, SDVRPEnv, PCTSPEnv, SPCTSPEnv, OPEnv, PDPEnv, MTSPEnv, ATSPEnv],
+    [
+        TSPEnv,
+        CVRPEnv,
+        CVRPTWEnv,
+        SDVRPEnv,
+        PCTSPEnv,
+        SPCTSPEnv,
+        OPEnv,
+        PDPEnv,
+        MTSPEnv,
+        ATSPEnv,
+    ],
 )
 def test_routing(env_cls, batch_size=2, size=20):
     env = env_cls(num_loc=size)
@@ -38,8 +50,8 @@ def test_routing(env_cls, batch_size=2, size=20):
 
 
 @pytest.mark.parametrize("env_cls", [DPPEnv, MDPPEnv])
-def test_eda(env_cls, batch_size=2, size=20):
-    env = env_cls(num_loc=size)
+def test_eda(env_cls, batch_size=2, max_decaps=5):
+    env = env_cls(max_decaps=max_decaps)
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
     ## Note: we skip rendering for now because we need to collect extra data. TODO
     # env.render(td, actions)

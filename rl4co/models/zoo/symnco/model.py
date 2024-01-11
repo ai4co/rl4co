@@ -71,7 +71,7 @@ class SymNCO(REINFORCE):
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
-        n_start = get_num_starts(td) if n_start is None else n_start
+        n_start = get_num_starts(td, self.env.name) if n_start is None else n_start
 
         # Symmetric augmentation
         if n_aug > 1:

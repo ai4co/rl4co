@@ -20,6 +20,10 @@
 
 ---
 
+RL4CO has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/)! 🎉
+
+---
+
 
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
@@ -50,7 +54,7 @@ To get started, we recommend checking out our [quickstart notebook](notebooks/1-
 This command installs the bleeding edge `main` version, useful for staying up-to-date with the latest developments - for instance, if a bug has been fixed since the last official release but a new release hasn’t been rolled out yet:
 
 ```bash
-pip install -U git+https://github.com/ai4co/rl4co.git 
+pip install -U git+https://github.com/ai4co/rl4co.git
 ```
 
 ### Local install and development
@@ -171,12 +175,13 @@ We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4
 If you find RL4CO valuable for your research or applied projects:
 
 ```bibtex
-@article{berto2023rl4co,
-    title = {{RL4CO}: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark},
+@inproceedings{berto2023rl4co,
+    title={{RL}4{CO}: a Unified Reinforcement Learning for Combinatorial Optimization Library},
     author={Federico Berto and Chuanbo Hua and Junyoung Park and Minsu Kim and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Joungho Kim and Jinkyoo Park},
-    journal={arXiv preprint arXiv:2306.17100},
+    booktitle={NeurIPS 2023 Workshop: New Frontiers in Graph Learning},
     year={2023},
-    url = {https://github.com/ai4co/rl4co}
+    url={https://openreview.net/forum?id=YXSJxi8dOV},
+    note={\url{https://github.com/ai4co/rl4co}}
 }
 ```
 

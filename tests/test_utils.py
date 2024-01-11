@@ -15,9 +15,13 @@ from rl4co.utils.ops import batchify, unbatchify
         ),
     ],
 )
-def test_batchify(a):
-    a_batch = batchify(a, 5)
-    a_unbatch = unbatchify(a_batch, 5)
+@pytest.mark.parametrize("shape", [(2,), (2, 2), (2, 2, 2)])
+def test_batchify(a, shape):
+    # batchify: [b, ...] -> [b * prod(shape), ...]
+    # unbatchify: [b * prod(shape), ...] -> [b, shape[0], shape[1], ...]
+    a_batch = batchify(a, shape)
+    a_unbatch = unbatchify(a_batch, shape)
     if isinstance(a, TensorDict):
         a, a_unbatch = a["a"], a_unbatch["a"]
-    assert torch.allclose(a, a_unbatch[:, 0])
+    index = (slice(None),) + (0,) * len(shape)  # (slice(None), 0, 0, ..., 0)
+    assert torch.allclose(a, a_unbatch[index])

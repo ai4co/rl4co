@@ -87,7 +87,7 @@ def env_aug_feats(env_name: str = None):
     """What features to augment for a given environment
     Usually, locs already includes depot, so we don't need to augment depot
     """
-    return ("locs",)
+    return ["locs"]
 
 
 def min_max_normalize(x):
@@ -102,6 +102,7 @@ class StateAugmentation(object):
         num_augment: number of augmentations
         use_dihedral_8: whether to use dihedral_8_augmentation.  If True, then num_augment must be 8
         normalize: whether to normalize the augmented data
+        feats: list of features to augment
     """
 
     def __init__(
@@ -110,6 +111,7 @@ class StateAugmentation(object):
         num_augment: int = 8,
         use_dihedral_8: bool = False,
         normalize: bool = False,
+        feats: list = None,
     ):
         assert not (
             use_dihedral_8 and num_augment != 8
@@ -119,7 +121,7 @@ class StateAugmentation(object):
         else:
             self.augmentation = symmetric_augmentation
 
-        self.feats = env_aug_feats(env_name)
+        self.feats = env_aug_feats(env_name) if feats is None else feats
         self.num_augment = num_augment
         self.normalize = normalize
 

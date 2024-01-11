@@ -1,6 +1,5 @@
 from torch.utils.data import DataLoader
 
-from rl4co.data.dataset import tensordict_collate_fn
 from rl4co.envs import (
     CVRPEnv,
     DPPEnv,
@@ -54,7 +53,7 @@ def generate_env_data(env, size, batch_size):
         batch_size=batch_size,
         shuffle=False,
         num_workers=0,
-        collate_fn=tensordict_collate_fn,
+        collate_fn=dataset.collate_fn,
     )
 
     return env, next(iter(dataloader))

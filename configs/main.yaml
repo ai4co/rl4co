@@ -60,3 +60,7 @@ metrics:
   val: ["reward"]
   test: ["reward"]
   log_on_step: True
+
+# Set to True to generate data automatically on the first run
+model:
+  generate_default_data: True

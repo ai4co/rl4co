@@ -6,7 +6,15 @@ from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.pomo.policy import POMOPolicy
-from rl4co.utils.ops import gather_by_index, get_num_starts, unbatchify
+from rl4co.utils.ops import (
+    gather_by_index,
+    get_num_starts,
+    select_start_nodes,
+    unbatchify,
+)
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class POMO(REINFORCE):
@@ -22,6 +30,7 @@ class POMO(REINFORCE):
         num_augment: Number of augmentations (used only for validation and test)
         use_dihedral_8: Whether to use dihedral 8 augmentation
         num_starts: Number of starts for multi-start. If None, use the number of available actions
+        select_start_nodes_fn: Function to select the start nodes for the environment defaulting to :func:`select_start_nodes`
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -34,9 +43,17 @@ class POMO(REINFORCE):
         num_augment: int = 8,
         use_dihedral_8: bool = True,
         num_starts: int = None,
+        select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
+
+        # If select_start_nodes_fn is provided in policy_kwargs, we use that instead
+        if "select_start_nodes_fn" in policy_kwargs:
+            log.info(
+                "Overriding select_start_nodes_fn in POMO with the one provided in policy_kwargs"
+            )
+        policy_kwargs["select_start_nodes_fn"] = select_start_nodes_fn
 
         if policy is None:
             policy = POMOPolicy(env.name, **policy_kwargs)
@@ -48,9 +65,12 @@ class POMO(REINFORCE):
 
         self.num_starts = num_starts
         self.num_augment = num_augment
-        self.augment = StateAugmentation(
-            self.env.name, num_augment=self.num_augment, use_dihedral_8=use_dihedral_8
-        )
+        if self.num_augment > 1:
+            self.augment = StateAugmentation(
+                self.env.name, num_augment=self.num_augment, use_dihedral_8=use_dihedral_8
+            )
+        else:
+            self.augment = None
 
         # Add `_multistart` to decode type for train, val and test in policy
         for phase in ["train", "val", "test"]:
@@ -61,7 +81,7 @@ class POMO(REINFORCE):
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
-        n_start = get_num_starts(td) if n_start is None else n_start
+        n_start = get_num_starts(td, self.env.name) if n_start is None else n_start
 
         # During training, we do not augment the data
         if phase == "train":

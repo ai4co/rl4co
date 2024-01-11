@@ -74,10 +74,9 @@ class OPEnv(RL4COEnvBase):
         current_node = td["action"][:, None]
 
         # Update tour length
+        previus_loc = gather_by_index(td["locs"], td["current_node"])
         current_loc = gather_by_index(td["locs"], current_node)
-        tour_length = td["tour_length"] + (current_loc - td["current_loc"]).norm(
-            p=2, dim=-1
-        )
+        tour_length = td["tour_length"] + (current_loc - previus_loc).norm(p=2, dim=-1)
 
         # Update prize with collected prize
         current_total_prize = td["current_total_prize"] + gather_by_index(
@@ -96,7 +95,6 @@ class OPEnv(RL4COEnvBase):
         td.update(
             {
                 "tour_length": tour_length,
-                "current_loc": current_loc,
                 "current_node": current_node,
                 "visited": visited,
                 "current_total_prize": current_total_prize,
@@ -130,7 +128,6 @@ class OPEnv(RL4COEnvBase):
                     td["prize"], (1, 0), mode="constant", value=0
                 ),  # add 0 for depot
                 "tour_length": torch.zeros(*batch_size, device=self.device),
-                "current_loc": td["depot"],
                 # max_length is max length allowed when arriving at node, so subtract distance to return to depot
                 # Additionally, substract epsilon margin for numeric stability
                 "max_length": td["max_length"][..., None]
@@ -161,9 +158,9 @@ class OPEnv(RL4COEnvBase):
         """Get action mask with 1 = feasible action, 0 = infeasible action.
         Cannot visit if already visited, if depot has been visited, or if the length exceeds the maximum length.
         """
+        current_loc = gather_by_index(td["locs"], td["current_node"])[..., None, :]
         exceeds_length = (
-            td["tour_length"][..., None]
-            + (td["locs"] - td["current_loc"][..., None, :]).norm(p=2, dim=-1)
+            td["tour_length"][..., None] + (td["locs"] - current_loc).norm(p=2, dim=-1)
             > td["max_length"]
         )
         mask = td["visited"] | td["visited"][..., 0:1] | exceeds_length
@@ -176,7 +173,6 @@ class OPEnv(RL4COEnvBase):
 
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         """Reward is the sum of the prizes of visited nodes"""
-
         # In case all tours directly return to depot, prevent further problems
         if actions.size(-1) == 1:
             assert (actions == 0).all(), "If all length 1 tours, they should be zero"
@@ -218,7 +214,6 @@ class OPEnv(RL4COEnvBase):
                 + (td["locs"][..., 0:1, :] - td["locs"]).norm(p=2, dim=-1)
                 + 1e-6
             )
-
         assert (
             length[..., None] <= max_length + 1e-5
         ).all(), "Max length exceeded by {}".format(
@@ -298,12 +293,6 @@ class OPEnv(RL4COEnvBase):
             visited=UnboundedDiscreteTensorSpec(
                 shape=(self.num_loc + 1,),
                 dtype=torch.bool,
-            ),
-            current_loc=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
-                shape=(2,),
-                dtype=torch.float32,
             ),
             max_length=UnboundedContinuousTensorSpec(
                 shape=(1,),
@@ -402,4 +391,3 @@ class OPEnv(RL4COEnvBase):
         # Setup limits and show
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        plt.show()

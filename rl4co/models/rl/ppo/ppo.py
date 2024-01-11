@@ -6,7 +6,6 @@ import torch.nn.functional as F
 
 from torch.utils.data import DataLoader
 
-from rl4co.data.dataset import TensorDictDataset, tensordict_collate_fn
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
@@ -147,12 +146,13 @@ class PPO(RL4COLitModule):
             td.set("reward", out["reward"])
             td.set("action", out["actions"])
 
-            dataset = TensorDictDataset(td)
+            # Inherit the dataset class from the environment for efficiency
+            dataset = self.env.dataset_cls(td)
             dataloader = DataLoader(
                 dataset,
                 batch_size=mini_batch_size,
                 shuffle=True,
-                collate_fn=tensordict_collate_fn,
+                collate_fn=dataset.collate_fn,
             )
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K

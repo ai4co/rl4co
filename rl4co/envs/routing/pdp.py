@@ -290,4 +290,3 @@ class PDPEnv(RL4COEnvBase):
         # Setup limits and show
         ax.set_xlim(-0.05, 1.05)
         ax.set_ylim(-0.05, 1.05)
-        plt.show()

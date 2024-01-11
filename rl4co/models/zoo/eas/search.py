@@ -142,7 +142,7 @@ class EAS(SearchBase):
         td_init = self.env.reset(batch)
         n_aug, n_start, n_runs = (
             self.augmentation.num_augment,
-            get_num_starts(td_init),
+            get_num_starts(td_init, self.env.name),
             self.hparams.num_parallel_runs,
         )
         td_init = self.augmentation(td_init)
@@ -159,7 +159,7 @@ class EAS(SearchBase):
 
         # Precompute the cache of the embeddings (i.e. q,k,v and logit_key)
         embeddings, _ = encoder(td_init)
-        cached_embeds = decoder._precompute_cache(embeddings, num_starts=group_s)
+        cached_embeds = decoder._precompute_cache(embeddings)
 
         # Collect optimizer parameters
         opt_params = []

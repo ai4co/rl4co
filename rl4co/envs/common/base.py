@@ -24,8 +24,10 @@ class RL4COEnvBase(EnvBase):
         val_dataloader_names: Names of the dataloaders to use for validation
         test_dataloader_names: Names of the dataloaders to use for testing
         check_solution: Whether to check the validity of the solution at the end of the episode
+        dataset_cls: Dataset class to use for the environment (which can influence performance)
         seed: Seed for the environment
         device: Device to use. Generally, no need to set as tensors are updated on the fly
+        _torchrl_mode: Whether to use the TorchRL mode (see :meth:`step` for more details)
     """
 
     batch_locked = False
@@ -40,15 +42,17 @@ class RL4COEnvBase(EnvBase):
         val_dataloader_names: list = None,
         test_dataloader_names: list = None,
         check_solution: bool = True,
-        _torchrl_mode: bool = False,  # TODO
+        dataset_cls: callable = TensorDictDataset,
         seed: int = None,
         device: str = "cpu",
+        _torchrl_mode: bool = False,
         **kwargs,
     ):
         super().__init__(device=device, batch_size=[])
         self.data_dir = data_dir
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
         self._torchrl_mode = _torchrl_mode
+        self.dataset_cls = dataset_cls
 
         def get_files(f):
             if f is not None:
@@ -176,7 +180,7 @@ class RL4COEnvBase(EnvBase):
                 if isinstance(f, Iterable) and not isinstance(f, str):
                     names = getattr(self, f"{phase}_dataloader_names")
                     return {
-                        name: TensorDictDataset(self.load_data(_f, batch_size))
+                        name: self.dataset_cls(self.load_data(_f, batch_size))
                         for name, _f in zip(names, f)
                     }
                 else:
@@ -188,7 +192,7 @@ class RL4COEnvBase(EnvBase):
                 )
                 td = self.generate_data(batch_size)
 
-        return TensorDictDataset(td)
+        return self.dataset_cls(td)
 
     def generate_data(self, batch_size):
         """Dataset generation"""
