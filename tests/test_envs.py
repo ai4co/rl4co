@@ -9,6 +9,7 @@ from rl4co.envs import (
     CVRPEnv,
     DPPEnv,
     FFSPEnv,
+    JSSPEnv,
     MDPPEnv,
     MTSPEnv,
     OPEnv,
@@ -67,3 +68,13 @@ def test_smtwtp(env_cls, batch_size=2):
     )
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
     assert reward.shape == (batch_size,)
+
+
+@pytest.mark.parametrize("env_cls", [JSSPEnv])
+def test_jssp(env_cls):
+    env = env_cls(
+        num_jobs=4,
+        num_machines=5,
+    )
+    reward, td, actions = rollout(env, env.reset(), random_policy)
+    assert reward.shape == (1,)
