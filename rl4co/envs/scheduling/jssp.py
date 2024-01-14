@@ -223,7 +223,7 @@ class JSSPEnv(RL4COEnvBase):
         return tensordict
 
     def get_reward(self, td, actions):
-        return self.reward_sum
+        return self.reward_sum.unsqueeze(0)
 
     def render(self, *args, **kwargs):
         """Display a gantt chart of the solution."""
@@ -619,112 +619,24 @@ def uniform_instance_gen(n_j, n_m, low, high):
 
 
 if __name__ == "__main__":
+    """Test the JSSP on the OR-tools instance: https://developers.google.com/optimization/scheduling/job_shop"""
     low = 1
     high = 99
     n_j = 3
-    n_m = 4
+    n_m = 3
     torch.manual_seed(8)
     env = JSSPEnv(n_j, n_m)
-    from rl4co.models.nn.utils import random_policy, rollout
-
-    data = uniform_instance_gen(n_j=n_j, n_m=n_m, low=low, high=high)
-    print(env.reset(data))
-    reward, td, actions = rollout(env, env.reset(), random_policy)
+    durations = torch.tensor([[3, 2, 2], [2, 1, 4], [4, 3, 0]], dtype=torch.float32)
+    machines = torch.tensor([[1, 2, 3], [1, 3, 2], [2, 3, 1]], dtype=torch.int32)
+    data = TensorDict(
+        {"durations": durations.unsqueeze(0), "machines": machines.unsqueeze(0)},
+        batch_size=1,
+    )
+    ortools_sol = [0, 1, 2, 0, 1, 1, 0, 2, 2]
+    env.reset(data)
+    for action in ortools_sol:
+        data["action"] = torch.tensor([action], dtype=torch.long)
+        td = env._step(data)
     env.render()
 
-    ## DA QUI
-    # import time
-    # n_j = 3
-    # n_m = 4
-    # SEED = 8
-    # torch.manual_seed(SEED)
-    # env = JSSPEnv(n_j, n_m)
-    # '''arr = np.ones(3)
-    # idces = np.where(arr == -1)
-    # print(len(idces[0]))'''
-    #
-    # # rollout env random action
-    # t1 = time.time()
-    # low = 1
-    # high = 99
-    # data = uniform_instance_gen(n_j=n_j, n_m=n_m, low=low, high=high)
-    # durations = data["durations"].squeeze(0)
-    # machines = data["machines"].squeeze(0)
-    # print('Dur')
-    # print(data["durations"])
-    # print('Mach')
-    # print(data["machines"])
-    # print()
-    #
-    # # start time of operations on machines
-    # mchsStartTimes = -configs.high * torch.ones_like(durations.T, dtype=torch.int32)
-    # # Ops ID on machines
-    # opIDsOnMchs = -n_j * torch.ones_like(durations.T, dtype=torch.long)
-    #
-    # # random rollout to test
-    # # count = 0
-    # td = env.reset(data)
-    # omega = td["feasible_actions"].squeeze(0)
-    # mask = td["action_mask"].squeeze(0)
-    # rewards = []
-    # flags = []
-    # ts = []
-    # while True:
-    #     td["action"] = torch.multinomial(mask.float(), 1)
-    #     job_idx = td["action"].squeeze()
-    #     action = omega[job_idx].clone()
-    #     mch_a = torch.take(machines, action) - 1
-    #     print("machine_action: ", mch_a)
-    #     print('action: ', action)
-    #
-    #     t3 = time.time()
-    #     td = env._step(td)
-    #     adj = td["adjacency"].squeeze(0)
-    #     reward = td["reward"].squeeze()
-    #     done = td["done"].squeeze()
-    #     omega = td["feasible_actions"].squeeze(0)
-    #     mask = td["action_mask"].squeeze(0)
-    #     t4 = time.time()
-    #     ts.append(t4 - t3)
-    #     # jobRdyTime_a, mchRdyTime_a = calJobAndMchRdyTimeOfa(a=action, mchMat=machines, durMat=durations, mchsStartTimes=mchsStartTimes, opIDsOnMchs=opIDsOnMchs)
-    #     # print('mchRdyTime_a:', mchRdyTime_a)
-    #     startTime_a, flag = permissible_left_shift(action=action, durations=durations, machines=machines,
-    #                                              machines_start_times=mchsStartTimes, operations_on_machines=opIDsOnMchs)
-    #     flags.append(flag)
-    #     print('startTime_a:', startTime_a)
-    #     print('mchsStartTimes\n', mchsStartTimes)
-    #     if not torch.allclose(mchsStartTimes, env.machines_start_times):
-    #         print('NOOOOOOOOOOOOO')
-    #         print("Mchs: ", mchsStartTimes)
-    #         print("Env: ", env.machines_start_times)
-    #         print("\n")
-    #     print('opIDsOnMchs\n', opIDsOnMchs)
-    #     # print('LBs\n', env.LBs)
-    #     rewards.append(reward)
-    #     # print('ET after action:\n', env.LBs)
-    #     print()
-    #     if env.done():
-    #         break
-    # t2 = time.time()
-    # # print(t2 - t1)
-    # # print(sum(ts))
-    # # print(np.sum(opIDsOnMchs // n_m, axis=1))
-    # # print(np.where(mchsStartTimes == mchsStartTimes.max()))
-    # # print(opIDsOnMchs[np.where(mchsStartTimes == mchsStartTimes.max())])
-    # print("Last starting task end:\n", mchsStartTimes.max() + torch.take(durations, opIDsOnMchs[torch.where(mchsStartTimes == mchsStartTimes.max())]))
-    # # np.save('sol', opIDsOnMchs // n_m)
-    # # np.save('jobSequence', opIDsOnMchs)
-    # # np.save('testData', data)
-    # # print(mchsStartTimes)
-    # durAlongMchs = torch.take(durations, opIDsOnMchs)
-    # mchsEndTimes = mchsStartTimes + durAlongMchs
-    # print("Machines starting times:\n", mchsStartTimes)
-    # print("Machines ending times:\n", mchsEndTimes)
-    # print()
-    # print("Operations on machines:\n", env.operations_on_machines)
-    # print("Adjacency matrix:\n", env.adjacency)
-    # # print(sum(flags))
-    # # data = np.load('data.npy')
-    #
-    # # print(len(np.where(np.array(rewards) == 0)[0]))
-    # # print(rewards)
+    assert env.max_end_time == 11
