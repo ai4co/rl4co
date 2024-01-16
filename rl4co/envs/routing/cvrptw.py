@@ -2,16 +2,12 @@ from math import sqrt
 from typing import Optional
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
 from zmq import device
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
-from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
+from rl4co.utils.ops import gather_by_index, get_distance
+from rl4co.data.utils import load_solomon_instance
 
 
 class CVRPTWEnv(CVRPEnv):
@@ -277,8 +273,5 @@ class CVRPTWEnv(CVRPEnv):
         CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
 
     @staticmethod
-    def load_data(fpath, batch_size=[]):
-        """Dataset loading from file
-        Normalize demand by capacity to be in [0, 1]
-        """
-        return CVRPEnv.load_data(fpath, batch_size=batch_size)
+    def load_data(name: str, path_instances: str = None):
+        return load_solomon_instance(name=name, path=path_instances)
