@@ -82,6 +82,7 @@ trainer = RL4COTrainer(
 trainer.fit(model)
 
 ### --- Testing --- ###
+trainer.test(model)
 
 # Greedy rollouts over trained model (same states as previous plot)
 # model = model.to(device)
