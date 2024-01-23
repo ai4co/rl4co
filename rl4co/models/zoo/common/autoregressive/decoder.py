@@ -10,12 +10,12 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.attention import LogitAttention
+from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-from rl4co.models.nn.utils import decode_probs, get_log_likelihood
-from rl4co.utils.ops import batchify, get_num_starts, select_start_nodes, unbatchify
+from rl4co.models.nn.utils import get_log_likelihood
+from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
 
 log = get_pylogger(__name__)
 
@@ -146,7 +146,6 @@ class AutoregressiveDecoder(nn.Module):
             actions: Tensor of shape (batch_size, seq_len) containing the sampled actions
             td: TensorDict containing the environment state after decoding
         """
-
         # Instantiate environment if needed
         if isinstance(env, str):
             env_name = self.env_name if env is None else env
@@ -157,7 +156,9 @@ class AutoregressiveDecoder(nn.Module):
 
         # setup decoding strategy
         self.decode_strategy: DecodingStrategy = get_decoding_strategy(decode_type)
-        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env, num_starts=num_starts)
+        td, env, num_starts = self.decode_strategy.pre_decoder_hook(
+            td, env, num_starts=num_starts
+        )
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
