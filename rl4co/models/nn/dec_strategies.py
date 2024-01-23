@@ -35,30 +35,28 @@ def get_decoding_strategy(decoding_strategy, **config):
 class DecodingStrategy(nn.Module):
     name = ...
 
-    def __init__(self, *args, multistart=False, **kwargs) -> None:
+    def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
         super().__init__()
         self.actions = []
         self.logp = []
         self.multistart = multistart
-        self.num_starts = None
+        self.num_starts = num_starts
 
     def _step(
         self, logp: torch.Tensor, td: TensorDict, **kwargs
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         raise NotImplementedError("Must be implemented by subclass")
 
-    def pre_decoder_hook(self, td: TensorDict, env: RL4COEnvBase, num_starts: int = None):
+    def pre_decoder_hook(self, td: TensorDict, env: RL4COEnvBase):
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if self.multistart:
-            if num_starts is None:
+            if self.num_starts is None:
                 self.num_starts = get_num_starts(td, env.name)
-            else:
-                self.num_starts = num_starts
         else:
-            if num_starts is not None:
-                if num_starts > 1:
+            if self.num_starts is not None:
+                if self.num_starts > 1:
                     log.warn(
-                        f"num_starts={num_starts} is ignored for decode_type={self.name}"
+                        f"num_starts={self.num_starts} is ignored for decode_type={self.name}"
                     )
 
             self.num_starts = 0
@@ -106,7 +104,7 @@ class DecodingStrategy(nn.Module):
 class Greedy(DecodingStrategy):
     name = "greedy"
 
-    def __init__(self, *args, multistart=False, **kwargs) -> None:
+    def __init__(self, multistart=False, **kwargs) -> None:
         super().__init__()
         self.multistart = multistart
 
@@ -126,7 +124,7 @@ class Greedy(DecodingStrategy):
 class Sampling(DecodingStrategy):
     name = "sampling"
 
-    def __init__(self, *args, multistart=False, **kwargs) -> None:
+    def __init__(self, multistart=False, **kwargs) -> None:
         super().__init__()
         self.multistart = multistart
 
@@ -150,7 +148,7 @@ class Sampling(DecodingStrategy):
 class BeamSearch(DecodingStrategy):
     name = "beam_search"
 
-    def __init__(self, beam_width=None, select_best=True, *args, **kwargs) -> None:
+    def __init__(self, beam_width=None, select_best=True, **kwargs) -> None:
         super().__init__()
         self.beam_width = beam_width
         self.select_best = select_best

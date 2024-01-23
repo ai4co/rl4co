@@ -119,9 +119,9 @@ class AutoregressiveDecoder(nn.Module):
         embeddings: Tensor,
         env: Union[str, RL4COEnvBase] = None,
         decode_type: str = "sampling",
-        num_starts: int = None,
         softmax_temp: float = None,
         calc_reward: bool = True,
+        **strategy_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
         """Forward pass of the decoder
         Given the environment state and the pre-computed embeddings, compute the logits and sample actions
@@ -137,9 +137,9 @@ class AutoregressiveDecoder(nn.Module):
                 - "multistart_sampling": sample as sampling, but with multi-start decoding
                 - "multistart_greedy": sample as greedy, but with multi-start decoding
                 - "beam_search": perform beam search
-            num_starts: Number of multi-starts to use. If None, will be calculated from the action mask
             softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
             calc_reward: Whether to calculate the reward for the decoded sequence
+            strategy_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.models.nn.dec_strategies.DecodingStrategy`
 
         Returns:
             outputs: Tensor of shape (batch_size, seq_len, num_nodes) containing the logits
@@ -155,10 +155,10 @@ class AutoregressiveDecoder(nn.Module):
         cached_embeds = self._precompute_cache(embeddings, td=td)
 
         # setup decoding strategy
-        self.decode_strategy: DecodingStrategy = get_decoding_strategy(decode_type)
-        td, env, num_starts = self.decode_strategy.pre_decoder_hook(
-            td, env, num_starts=num_starts
+        self.decode_strategy: DecodingStrategy = get_decoding_strategy(
+            decode_type, **strategy_kwargs
         )
+        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env)
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
