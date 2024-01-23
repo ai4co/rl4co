@@ -157,7 +157,7 @@ class AutoregressiveDecoder(nn.Module):
 
         # setup decoding strategy
         self.decode_strategy: DecodingStrategy = get_decoding_strategy(decode_type)
-        td, env, num_starts = self.decode_strategy.pre_hook(td, env, num_starts=num_starts)
+        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env, num_starts=num_starts)
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
@@ -165,7 +165,7 @@ class AutoregressiveDecoder(nn.Module):
             td = self.decode_strategy.step(log_p, mask, td)
             td = env.step(td)["next"]
 
-        outputs, actions, td, env = self.decode_strategy.post_hook(td, env)
+        outputs, actions, td, env = self.decode_strategy.post_decoder_hook(td, env)
 
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
