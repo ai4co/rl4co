@@ -1,3 +1,4 @@
+import argparse
 import torch
 
 from rl4co.envs import CVRPEnv, CVRPTWEnv
@@ -25,70 +26,78 @@ env = env_cvrptw
 # batch size
 batch_size = 3
 
-
-### --- random policy --- ###
-# try random policy
-reward, td, actions = rollout(
-    env=env,
-    td=env.reset(batch_size=[batch_size]),
-    policy=random_policy,
-    max_steps=1000,
-)
-assert reward.shape == (batch_size,)
-
-env.get_reward(td, actions)
-CVRPTWEnv.check_solution_validity(td, actions)
-
-env.render(td, actions)
+if __name__ == "__main__":
+    print("in main")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--epochs", help="Number of epochs to train for", type=int, default=3
+    )
+    args = parser.parse_args()
 
 
-### --- AM --- ###
-# Model: default is AM with REINFORCE and greedy rollout baseline
-model = AttentionModel(
-    env,
-    baseline="rollout",
-    train_data_size=100_000,
-    val_data_size=10_000,
-)
+    ### --- random policy --- ###
+    # try random policy
+    reward, td, actions = rollout(
+        env=env,
+        td=env.reset(batch_size=[batch_size]),
+        policy=random_policy,
+        max_steps=1000,
+    )
+    assert reward.shape == (batch_size,)
 
-# Greedy rollouts over untrained model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-td_init = env.reset(batch_size=[3]).to(device)
-model = model.to(device)
-out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
+    env.get_reward(td, actions)
+    CVRPTWEnv.check_solution_validity(td, actions)
 
-# Plotting
-# print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
-# for td, actions in zip(td_init, out["actions"].cpu()):
-#     env.render(td, actions)
+    env.render(td, actions)
 
-### --- Logging --- ###
-import wandb
-from lightning.pytorch.loggers import WandbLogger
 
-wandb.login()
-logger = WandbLogger(project="routefinder", name="cvrptw-am")
+    ### --- AM --- ###
+    # Model: default is AM with REINFORCE and greedy rollout baseline
+    model = AttentionModel(
+        env,
+        baseline="rollout",
+        train_data_size=100_000,
+        val_data_size=10_000,
+    )
 
-### --- Training --- ###
-# The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
-trainer = RL4COTrainer(
-    max_epochs=100,
-    accelerator="auto",
-    devices=1,
-    logger=logger,
-)
+    # Greedy rollouts over untrained model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    td_init = env.reset(batch_size=[3]).to(device)
+    model = model.to(device)
+    out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
 
-# fit model
-trainer.fit(model)
+    # Plotting
+    # print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
+    # for td, actions in zip(td_init, out["actions"].cpu()):
+    #     env.render(td, actions)
 
-### --- Testing --- ###
-trainer.test(model)
+    ### --- Logging --- ###
+    import wandb
+    from lightning.pytorch.loggers import WandbLogger
 
-# Greedy rollouts over trained model (same states as previous plot)
-# model = model.to(device)
-# out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
+    wandb.login()
+    logger = WandbLogger(project="routefinder", name="cvrptw-am")
 
-# Plotting
-# print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
-# for td, actions in zip(td_init, out["actions"].cpu()):
-#     env.render(td, actions)
+    ### --- Training --- ###
+    # The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
+    trainer = RL4COTrainer(
+        max_epochs=args.epochs,
+        accelerator="auto",
+        devices=1,
+        logger=logger,
+    )
+
+    # fit model
+    trainer.fit(model)
+
+    ### --- Testing --- ###
+    trainer.test(model)
+
+    # Greedy rollouts over trained model (same states as previous plot)
+    # model = model.to(device)
+    # out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
+
+    # Plotting
+    # print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
+    # for td, actions in zip(td_init, out["actions"].cpu()):
+    #     env.render(td, actions)
