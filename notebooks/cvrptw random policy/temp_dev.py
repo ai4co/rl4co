@@ -1,13 +1,11 @@
 import argparse
 import torch
 
-from rl4co.envs import CVRPEnv, CVRPTWEnv
+from rl4co.envs import CVRPTWEnv
 from rl4co.models.nn.utils import rollout, random_policy
 from rl4co.models.zoo.am import AttentionModel
 from rl4co.utils.trainer import RL4COTrainer
 
-# env_cvrp = CVRPEnv()
-# env_short = CVRPTWEnv(num_loc=20)
 env_cvrptw = CVRPTWEnv(
     num_loc=30,
     min_loc=0,
@@ -27,16 +25,13 @@ env = env_cvrptw
 batch_size = 3
 
 if __name__ == "__main__":
-    print("in main")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--epochs", help="Number of epochs to train for", type=int, default=3
     )
     args = parser.parse_args()
 
-
     ### --- random policy --- ###
-    # try random policy
     reward, td, actions = rollout(
         env=env,
         td=env.reset(batch_size=[batch_size]),
@@ -49,7 +44,6 @@ if __name__ == "__main__":
     CVRPTWEnv.check_solution_validity(td, actions)
 
     env.render(td, actions)
-
 
     ### --- AM --- ###
     # Model: default is AM with REINFORCE and greedy rollout baseline
@@ -65,11 +59,6 @@ if __name__ == "__main__":
     td_init = env.reset(batch_size=[3]).to(device)
     model = model.to(device)
     out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
-
-    # Plotting
-    # print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
-    # for td, actions in zip(td_init, out["actions"].cpu()):
-    #     env.render(td, actions)
 
     ### --- Logging --- ###
     import wandb
@@ -92,12 +81,3 @@ if __name__ == "__main__":
 
     ### --- Testing --- ###
     trainer.test(model)
-
-    # Greedy rollouts over trained model (same states as previous plot)
-    # model = model.to(device)
-    # out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
-
-    # Plotting
-    # print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
-    # for td, actions in zip(td_init, out["actions"].cpu()):
-    #     env.render(td, actions)
