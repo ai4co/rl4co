@@ -107,22 +107,20 @@ class CVRPTWEnv(CVRPEnv):
         # min_times == max_times may lead to nan values in _inner_mha()
         mask = min_times == max_times
         if torch.any(mask):
-            min_orig = min_times.clone()
-            max_orig = max_times.clone()
             min_tmp = min_times.clone()
             min_tmp[mask] = torch.max(
                 dist[mask].int(), min_tmp[mask] - 1
             )  # we are handling integer values, so we can simply substract 1
             min_times = min_tmp
 
-            mask2 = min_times == max_times  # update mask
-            if torch.any(mask2):
+            mask = min_times == max_times  # update mask
+            if torch.any(mask):
                 max_tmp = max_times.clone()
-                max_tmp[mask2] = torch.min(
-                    torch.floor(upper_bound[mask2]).int(),
+                max_tmp[mask] = torch.min(
+                    torch.floor(upper_bound[mask]).int(),
                     torch.max(
-                        torch.ceil(min_tmp[mask2] + durations[mask2]).int(),
-                        max_tmp[mask2] + 1,
+                        torch.ceil(min_tmp[mask] + durations[mask]).int(),
+                        max_tmp[mask] + 1,
                     ),
                 )
                 max_times = max_tmp
