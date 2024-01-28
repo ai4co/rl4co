@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 import torch
 
 from tensordict.tensordict import TensorDict
+from torchrl.data import CompositeSpec, DiscreteTensorSpec, UnboundedContinuousTensorSpec
 
 from rl4co.envs.common.base import RL4COEnvBase
 
@@ -34,6 +35,54 @@ class JSSPEnv(RL4COEnvBase):
 
     def __init__(self, num_jobs, num_machines, **kwargs):
         super().__init__(**kwargs)
+        self.batch_size = torch.Size([1])
+        adjacency_spec = DiscreteTensorSpec(
+            n=2,
+            shape=torch.Size((1, num_jobs * num_machines, num_jobs * num_machines)),
+            device=self.device,
+            dtype=torch.int64,
+        )
+        features_spec = UnboundedContinuousTensorSpec(
+            shape=torch.Size((1, num_jobs * num_machines, 2)),
+            device=self.device,
+        )
+        feasible_actions_spec = DiscreteTensorSpec(
+            n=num_jobs * num_machines,
+            shape=torch.Size(
+                (
+                    1,
+                    num_jobs,
+                )
+            ),
+            device=self.device,
+            dtype=torch.int64,
+        )
+        action_mask_spec = DiscreteTensorSpec(
+            n=2,
+            shape=torch.Size(
+                (
+                    1,
+                    num_jobs,
+                )
+            ),
+            device=self.device,
+            dtype=torch.bool,
+        )
+
+        self.observation_spec = CompositeSpec(
+            adjacency=adjacency_spec,
+            features=features_spec,
+            feasible_actions=feasible_actions_spec,
+            action_mask=action_mask_spec,
+            shape=self.batch_size,
+        )
+
+        self.action_spec = DiscreteTensorSpec(
+            n=num_jobs,
+            shape=self.batch_size,
+            device=self.device,
+            dtype=torch.int64,
+        )
 
         self.num_jobs = num_jobs
         self.num_machines = num_machines
@@ -136,7 +185,7 @@ class JSSPEnv(RL4COEnvBase):
         reward = -(self.LBs.max() - self.max_end_time)
         if reward == 0:
             reward = torch.tensor(configs.rewardscale)
-            self.reward_sum += reward
+            self.positive_reward += reward
         self.max_end_time = self.LBs.max()
 
         tensordict = TensorDict(
@@ -166,16 +215,14 @@ class JSSPEnv(RL4COEnvBase):
         # record action history
         self.partial_sol_sequence = []
         self.flags = []
-        self.reward_sum = 0
+        self.positive_reward = 0
 
         # initialize adj matrix
         conj_nei_up_stream = torch.diag_embed(torch.ones(self.num_tasks - 1), offset=-1)
         # first column does not have upper stream conj_nei
         conj_nei_up_stream[self.first_col] = 0
         self_as_nei = torch.eye(self.num_tasks, dtype=torch.float32, device=self.device)
-        self.adjacency = (
-            self_as_nei + conj_nei_up_stream
-        )  # TODO check conj_nei_low_stream
+        self.adjacency = self_as_nei + conj_nei_up_stream
 
         # initialize features
         self.LBs = torch.cumsum(self.durations, dim=1)
@@ -223,7 +270,7 @@ class JSSPEnv(RL4COEnvBase):
         return tensordict
 
     def get_reward(self, td, actions):
-        return self.reward_sum.unsqueeze(0)
+        return self.positive_reward.unsqueeze(0)
 
     def render(self, *args, **kwargs):
         """Display a gantt chart of the solution."""
@@ -588,7 +635,7 @@ def get_action_nbghs(
     Returns:
         Tuple of ints containing the predecessor and successor of the given action.
     """
-    coordAction = torch.where(op_id_on_mchs == action)
+    coordAction = torch.nonzero(op_id_on_mchs == action, as_tuple=True)
     precd = op_id_on_mchs[
         coordAction[0],
         coordAction[1] - 1 if coordAction[1].item() > 0 else coordAction[1],
@@ -599,8 +646,8 @@ def get_action_nbghs(
         if coordAction[1].item() + 1 < op_id_on_mchs.shape[-1]
         else coordAction[1],
     ].item()
-    succd = action if succ_temp < 0 else succ_temp
-    return precd, succd
+    succd = action.item() if succ_temp < 0 else succ_temp
+    return int(precd), int(succd)
 
 
 def permute_rows(x: torch.Tensor) -> torch.Tensor:
@@ -616,27 +663,3 @@ def uniform_instance_gen(n_j, n_m, low, high):
     return TensorDict(
         {"durations": times.unsqueeze(0), "machines": machines.unsqueeze(0)}, batch_size=1
     )
-
-
-if __name__ == "__main__":
-    """Test the JSSP on the OR-tools instance: https://developers.google.com/optimization/scheduling/job_shop"""
-    low = 1
-    high = 99
-    n_j = 3
-    n_m = 3
-    torch.manual_seed(8)
-    env = JSSPEnv(n_j, n_m)
-    durations = torch.tensor([[3, 2, 2], [2, 1, 4], [4, 3, 0]], dtype=torch.float32)
-    machines = torch.tensor([[1, 2, 3], [1, 3, 2], [2, 3, 1]], dtype=torch.int32)
-    data = TensorDict(
-        {"durations": durations.unsqueeze(0), "machines": machines.unsqueeze(0)},
-        batch_size=1,
-    )
-    ortools_sol = [0, 1, 2, 0, 1, 1, 0, 2, 2]
-    env.reset(data)
-    for action in ortools_sol:
-        data["action"] = torch.tensor([action], dtype=torch.long)
-        td = env._step(data)
-    env.render()
-
-    assert env.max_end_time == 11

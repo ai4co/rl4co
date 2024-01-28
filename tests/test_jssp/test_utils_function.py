@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from rl4co.envs.scheduling.jssp import end_time_lb, last_nonzero_indices
+from rl4co.envs.scheduling.jssp import end_time_lb, get_action_nbghs, last_nonzero_indices
 
 
 @pytest.fixture
@@ -30,5 +30,19 @@ def test_end_time_lb(ending_times, durations):
     assert torch.allclose(returned, expected)
 
 
-def test_get_action_nbghs():
-    pass
+def test_get_action_nbghs_no_neigh():
+    op_on_mach = torch.tensor([[1, -1], [-1, -1]], dtype=torch.float32)
+    action_nbghs = get_action_nbghs(action=torch.tensor([1]), op_id_on_mchs=op_on_mach)
+    assert action_nbghs == (1, 1)
+
+
+def test_get_action_nbghs_only_precd():
+    op_on_mach = torch.tensor([[1, 2], [-1, -1]], dtype=torch.float32)
+    action_nbghs = get_action_nbghs(action=torch.tensor([2]), op_id_on_mchs=op_on_mach)
+    assert action_nbghs == (1, 2)
+
+
+def test_get_action_nbghs_only_succd():
+    op_on_mach = torch.tensor([[1, 2], [-1, -1]], dtype=torch.float32)
+    action_nbghs = get_action_nbghs(action=torch.tensor([1]), op_id_on_mchs=op_on_mach)
+    assert action_nbghs == (1, 2)
