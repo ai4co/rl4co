@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import torch
-import torch.nn as nn
 
 from tensordict.tensordict import TensorDict
 
@@ -23,7 +22,7 @@ def get_decoding_strategy(decoding_strategy, **config):
 
     if decoding_strategy not in strategy_registry:
         log.warning(
-            f"Unknown environment name '{decoding_strategy}'. Available dynamic embeddings: {strategy_registry.keys()}. Defaulting to Sampling."
+            f"Unknown decode type '{decoding_strategy}'. Available decode types: {strategy_registry.keys()}. Defaulting to Sampling."
         )
 
     if "multistart" in decoding_strategy:
@@ -32,11 +31,10 @@ def get_decoding_strategy(decoding_strategy, **config):
     return strategy_registry.get(decoding_strategy, Sampling)(**config)
 
 
-class DecodingStrategy(nn.Module):
-    name = ...
+class DecodingStrategy:
+    name = "base"
 
     def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
-        super().__init__()
         self.actions = []
         self.logp = []
         self.multistart = multistart
@@ -104,9 +102,8 @@ class DecodingStrategy(nn.Module):
 class Greedy(DecodingStrategy):
     name = "greedy"
 
-    def __init__(self, multistart=False, **kwargs) -> None:
-        super().__init__()
-        self.multistart = multistart
+    def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
+        super().__init__(multistart=multistart, num_starts=num_starts)
 
     def _step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
@@ -124,9 +121,8 @@ class Greedy(DecodingStrategy):
 class Sampling(DecodingStrategy):
     name = "sampling"
 
-    def __init__(self, multistart=False, **kwargs) -> None:
-        super().__init__()
-        self.multistart = multistart
+    def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
+        super().__init__(multistart=multistart, num_starts=num_starts)
 
     def _step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
@@ -184,11 +180,12 @@ class BeamSearch(DecodingStrategy):
         td = env.step(td)["next"]
 
         log_p = torch.zeros_like(td["action_mask"], device=td.device)
+        beam_parent = torch.zeros(log_p.size(0), device=td.device, dtype=torch.int32)
 
         self.logp.append(log_p)
         self.actions.append(action)
         self.parent_beam_logp = log_p.gather(1, action[..., None])
-        self.beam_path.append(torch.zeros(log_p.size(0)))
+        self.beam_path.append(beam_parent)
 
         return td, env, self.beam_width
 
