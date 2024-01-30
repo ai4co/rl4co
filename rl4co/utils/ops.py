@@ -184,7 +184,9 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
         cost_matrix[torch.arange(n), torch.arange(n)] = diag_value
 
     # generate PyG-compatiable edge_index
-    edge_index_u = torch.repeat_interleave(torch.arange(m), topk_indices.shape[1])
+    edge_index_u = torch.repeat_interleave(
+        torch.arange(m, device=cost_matrix.device), topk_indices.shape[1]
+    )
     edge_index_v = topk_indices.flatten()
     edge_index = torch.stack([edge_index_u, edge_index_v])
 
