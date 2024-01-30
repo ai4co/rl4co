@@ -8,17 +8,6 @@ from torchrl.data import CompositeSpec, DiscreteTensorSpec, UnboundedContinuousT
 from rl4co.envs.common.base import RL4COEnvBase
 
 
-class Configs:
-    low = 1
-    high = 99
-    et_normalize_coef = 1000
-    rewardscale = 0.0
-    init_quality_flag = False
-
-
-configs = Configs()
-
-
 class JSSPEnv(RL4COEnvBase):
     """Job Shop Scheduling Problem (JSSP) environment.
     As per the definition given in https://arxiv.org/pdf/2010.12367.pdf.
@@ -26,67 +15,47 @@ class JSSPEnv(RL4COEnvBase):
     In this variation, the number of operations per job is equal to the number of machines.
 
     Args:
+        num_jobs (int): Number of jobs.
+        num_machines (int): Number of machines.
+        low (int, optional): Lower bound for the random generation of the durations. Defaults to 1.
+        high (int, optional): Upper bound for the random generation of the durations. Defaults to 99.
+        et_normalize_coef (int, optional): Coefficient used to normalize the end time of each job. Defaults to 1000.
+        rewardscale (float, optional): Scale factor for the reward. Defaults to 0.0.
+        init_quality_flag (bool, optional): Flag to initialize the quality of the initial solution to 0.
+            Defaults to False.
 
     Note:
-        -
+        The number of operations per job is equal to the number of machines.
     """
 
     name = "jssp"
 
-    def __init__(self, num_jobs, num_machines, **kwargs):
+    def __init__(
+        self,
+        num_jobs,
+        num_machines,
+        low=1,
+        high=99,
+        et_normalize_coef=1000,
+        rewardscale=0.0,
+        init_quality_flag=False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.batch_size = torch.Size([1])
-        adjacency_spec = DiscreteTensorSpec(
-            n=2,
-            shape=torch.Size((1, num_jobs * num_machines, num_jobs * num_machines)),
-            device=self.device,
-            dtype=torch.int64,
-        )
-        features_spec = UnboundedContinuousTensorSpec(
-            shape=torch.Size((1, num_jobs * num_machines, 2)),
-            device=self.device,
-        )
-        feasible_actions_spec = DiscreteTensorSpec(
-            n=num_jobs * num_machines,
-            shape=torch.Size(
-                (
-                    1,
-                    num_jobs,
-                )
-            ),
-            device=self.device,
-            dtype=torch.int64,
-        )
-        action_mask_spec = DiscreteTensorSpec(
-            n=2,
-            shape=torch.Size(
-                (
-                    1,
-                    num_jobs,
-                )
-            ),
-            device=self.device,
-            dtype=torch.bool,
-        )
-
-        self.observation_spec = CompositeSpec(
-            adjacency=adjacency_spec,
-            features=features_spec,
-            feasible_actions=feasible_actions_spec,
-            action_mask=action_mask_spec,
-            shape=self.batch_size,
-        )
-
-        self.action_spec = DiscreteTensorSpec(
-            n=num_jobs,
-            shape=self.batch_size,
-            device=self.device,
-            dtype=torch.int64,
-        )
+        self._low = low
+        self._high = high
+        self._et_normalize_coef = et_normalize_coef
+        self._rewardscale = rewardscale
+        self._init_quality_flag = init_quality_flag
 
         self.num_jobs = num_jobs
         self.num_machines = num_machines
         self.num_tasks = self.num_jobs * self.num_machines
+
+        # create specs for observation and action
+        self._make_spec()
+
         # the task id for first column
         self.first_col = torch.arange(
             start=0,
@@ -123,8 +92,8 @@ class JSSPEnv(RL4COEnvBase):
 
     def done(self):
         if len(self.partial_sol_sequence) == self.num_tasks:
-            return torch.tensor(True)
-        return torch.tensor(False)
+            return torch.tensor(True, device=self.device)
+        return torch.tensor(False, device=self.device)
 
     def _step(self, td: TensorDict) -> TensorDict:
         job_idx = td["action"].squeeze()
@@ -149,6 +118,7 @@ class JSSPEnv(RL4COEnvBase):
                 machines=self.machines,
                 machines_start_times=self.machines_start_times,
                 operations_on_machines=self.operations_on_machines,
+                high_value=self._high,
             )
             self.flags.append(flag)
             # update omega or mask
@@ -177,14 +147,14 @@ class JSSPEnv(RL4COEnvBase):
         # prepare for return
         features = torch.concatenate(
             (
-                self.LBs.reshape(-1, 1) / configs.et_normalize_coef,
+                self.LBs.reshape(-1, 1) / self._et_normalize_coef,
                 self.finished_mark.reshape(-1, 1),
             ),
             dim=1,
         )
         reward = -(self.LBs.max() - self.max_end_time)
         if reward == 0:
-            reward = torch.tensor(configs.rewardscale)
+            reward = torch.tensor(self._rewardscale, device=self.device)
             self.positive_reward += reward
         self.max_end_time = self.LBs.max()
 
@@ -202,11 +172,15 @@ class JSSPEnv(RL4COEnvBase):
 
         return tensordict
 
-    def _reset(self, td: Optional[TensorDict] = None) -> TensorDict:
+    def _reset(self, td: Optional[TensorDict] = None, **kwargs) -> TensorDict:
         """Reset the environment."""
         if td is None:
             td = uniform_instance_gen(
-                self.num_jobs, self.num_machines, configs.low, configs.high
+                self.num_jobs,
+                self.num_machines,
+                self._low,
+                self._high,
+                device=self.device,
             )
 
         self.machines = td["machines"].squeeze(0)
@@ -215,10 +189,12 @@ class JSSPEnv(RL4COEnvBase):
         # record action history
         self.partial_sol_sequence = []
         self.flags = []
-        self.positive_reward = 0
+        self.positive_reward = torch.tensor([0.0], device=self.device)
 
         # initialize adj matrix
-        conj_nei_up_stream = torch.diag_embed(torch.ones(self.num_tasks - 1), offset=-1)
+        conj_nei_up_stream = torch.diag_embed(
+            torch.ones(self.num_tasks - 1, device=self.device), offset=-1
+        )
         # first column does not have upper stream conj_nei
         conj_nei_up_stream[self.first_col] = 0
         self_as_nei = torch.eye(self.num_tasks, dtype=torch.float32, device=self.device)
@@ -226,13 +202,13 @@ class JSSPEnv(RL4COEnvBase):
 
         # initialize features
         self.LBs = torch.cumsum(self.durations, dim=1)
-        self.initial_quality = self.LBs.max() if not configs.init_quality_flag else 0
+        self.initial_quality = self.LBs.max() if not self._init_quality_flag else 0
         self.max_end_time = self.initial_quality.clone()
         self.finished_mark = torch.zeros_like(self.machines)
 
         features = torch.concatenate(
             [
-                self.LBs.reshape(self.num_tasks, 1) / configs.et_normalize_coef,
+                self.LBs.reshape(self.num_tasks, 1) / self._et_normalize_coef,
                 self.finished_mark.reshape(self.num_tasks, 1),
             ],
             dim=1,
@@ -245,11 +221,12 @@ class JSSPEnv(RL4COEnvBase):
         self.mask = torch.zeros(
             size=(self.num_jobs,),
             dtype=torch.bool,
+            device=self.device,
         )
 
         # start time of operations on machines
         self.machines_start_times = (
-            torch.ones_like(self.durations.T, dtype=torch.int32) * -configs.high
+            torch.ones_like(self.durations.T, dtype=torch.int32) * -self._high
         )
         # Ops ID on machines
         self.operations_on_machines = -self.num_jobs * torch.ones_like(
@@ -269,6 +246,57 @@ class JSSPEnv(RL4COEnvBase):
         )
         return tensordict
 
+    def _make_spec(self) -> None:
+        adjacency_spec = DiscreteTensorSpec(
+            n=2,
+            shape=torch.Size(
+                (1, self.num_jobs * self.num_machines, self.num_jobs * self.num_machines)
+            ),
+            device=self.device,
+            dtype=torch.int64,
+        )
+        features_spec = UnboundedContinuousTensorSpec(
+            shape=torch.Size((1, self.num_jobs * self.num_machines, 2)),
+            device=self.device,
+        )
+        feasible_actions_spec = DiscreteTensorSpec(
+            n=self.num_jobs * self.num_machines,
+            shape=torch.Size(
+                (
+                    1,
+                    self.num_jobs,
+                )
+            ),
+            device=self.device,
+            dtype=torch.int64,
+        )
+        action_mask_spec = DiscreteTensorSpec(
+            n=2,
+            shape=torch.Size(
+                (
+                    1,
+                    self.num_jobs,
+                )
+            ),
+            device=self.device,
+            dtype=torch.bool,
+        )
+
+        self.observation_spec = CompositeSpec(
+            adjacency=adjacency_spec,
+            features=features_spec,
+            feasible_actions=feasible_actions_spec,
+            action_mask=action_mask_spec,
+            shape=self.batch_size,
+        )
+
+        self.action_spec = DiscreteTensorSpec(
+            n=self.num_jobs,
+            shape=self.batch_size,
+            device=self.device,
+            dtype=torch.int64,
+        )
+
     def get_reward(self, td, actions):
         return self.positive_reward.unsqueeze(0)
 
@@ -280,24 +308,23 @@ class JSSPEnv(RL4COEnvBase):
         plt.title("Gantt Chart")
         plt.xlabel("Time")
         plt.ylabel("Machine")
-        plt.yticks(range(self.num_machines), range(1, self.num_machines + 1))
+        plt.yticks(
+            range(self.num_machines), [str(x) for x in range(1, self.num_machines + 1)]
+        )
         plt.grid(True)
 
-        durAlongMchs = torch.take(
+        dur_along_machines = torch.take(
             self.durations, self.operations_on_machines.to(dtype=torch.long)
         )
 
         for machine in range(self.num_machines):
             for job in range(self.num_jobs):
-                # job_idx = task // self.num_machines
-                # start_time_idx = (self.operations_on_machines == task).nonzero(as_tuple=True)
-                # mac_idx = start_time_idx[0]
                 task = self.operations_on_machines[machine, job]
                 job_num = task // self.num_machines
                 plt.barh(
                     y=machine,
                     left=self.machines_start_times[machine, job],
-                    width=durAlongMchs[machine, job],
+                    width=dur_along_machines[machine, job],
                     color="C{}".format(job_num),
                     label="Job {}".format(job_num),
                 )
@@ -305,7 +332,7 @@ class JSSPEnv(RL4COEnvBase):
                 text_to_add = [
                     f"Task {task}:",
                     f"{self.machines_start_times[machine, job].item()}",
-                    f"{(self.machines_start_times[machine, job] + durAlongMchs[machine, job]).item()}",
+                    f"{(self.machines_start_times[machine, job] + dur_along_machines[machine, job]).item()}",
                 ]
                 for idx, line in enumerate(text_to_add):
                     plt.text(
@@ -337,11 +364,11 @@ def last_nonzero_indices(
     dim = 1
     mask = (ending_times != 0).to(dtype=torch.int32)
     val = ending_times.shape[dim] - torch.flip(mask, dims=[dim]).argmax(dim=dim) - 1
-    yAxis = torch.where(mask.any(dim=dim), val, invalid_val)
-    xAxis = torch.arange(ending_times.shape[0], dtype=torch.int64)
-    xRet = xAxis[yAxis >= 0]
-    yRet = yAxis[yAxis >= 0]
-    return xRet, yRet
+    y_axis = torch.where(mask.any(dim=dim), val, invalid_val)
+    x_axis = torch.arange(
+        ending_times.shape[0], dtype=torch.int64, device=ending_times.device
+    )
+    return x_axis[y_axis >= 0], y_axis[y_axis >= 0]
 
 
 def end_time_lb(ending_times: torch.Tensor, durations: torch.Tensor) -> torch.Tensor:
@@ -376,7 +403,7 @@ def end_time_lb(ending_times: torch.Tensor, durations: torch.Tensor) -> torch.Te
 
 
 def permissible_left_shift(
-    action, durations, machines, machines_start_times, operations_on_machines
+    action, durations, machines, machines_start_times, operations_on_machines, high_value
 ):
     """
     Calculate the permissible left shift of the given action.
@@ -420,6 +447,7 @@ def permissible_left_shift(
             machine_ready_time,
             start_times_for_selected_machine,
             op_for_selected_machine,
+            high_value=high_value,
         )
     else:
         index_legal_pos, legal_pos, end_time_possible_pos = extract_legal_pos(
@@ -438,6 +466,7 @@ def permissible_left_shift(
                 machine_ready_time,
                 start_times_for_selected_machine,
                 op_for_selected_machine,
+                high_value=high_value,
             )
         else:
             flag = True
@@ -458,8 +487,9 @@ def put_in_the_end(
     machine_ready_time,
     start_times_for_selected_machine,
     op_for_selected_machine,
+    high_value,
 ):
-    index = torch.where(start_times_for_selected_machine == -configs.high)[0][0]
+    index = torch.where(start_times_for_selected_machine == -high_value)[0][0]
     start_time = max(op_ready_time, machine_ready_time)
     start_times_for_selected_machine[index] = start_time
     op_for_selected_machine[index] = action
@@ -599,7 +629,7 @@ def job_machines_ready_time(
             + duration_previous_op_in_job
         )
     else:
-        op_ready_time = torch.tensor([0])
+        op_ready_time = torch.tensor([0], device=action.device)
     # cal machine_ready_time
     previous_op_in_machine = (
         operations_on_machines[selected_machine][
@@ -635,30 +665,32 @@ def get_action_nbghs(
     Returns:
         Tuple of ints containing the predecessor and successor of the given action.
     """
-    coordAction = torch.nonzero(op_id_on_mchs == action, as_tuple=True)
+    action_coordinates = torch.nonzero(op_id_on_mchs == action, as_tuple=True)
     precd = op_id_on_mchs[
-        coordAction[0],
-        coordAction[1] - 1 if coordAction[1].item() > 0 else coordAction[1],
+        action_coordinates[0],
+        action_coordinates[1] - 1
+        if action_coordinates[1].item() > 0
+        else action_coordinates[1],
     ].item()
     succ_temp = op_id_on_mchs[
-        coordAction[0],
-        coordAction[1] + 1
-        if coordAction[1].item() + 1 < op_id_on_mchs.shape[-1]
-        else coordAction[1],
+        action_coordinates[0],
+        action_coordinates[1] + 1
+        if action_coordinates[1].item() + 1 < op_id_on_mchs.shape[-1]
+        else action_coordinates[1],
     ].item()
     succd = action.item() if succ_temp < 0 else succ_temp
     return int(precd), int(succd)
 
 
 def permute_rows(x: torch.Tensor) -> torch.Tensor:
-    ix_i = torch.tile(torch.arange(x.shape[0]), (x.shape[1], 1)).T
+    ix_i = torch.tile(torch.arange(x.shape[0], device=x.device), (x.shape[1], 1)).T
     ix_j = torch.rand(x.shape).argsort(dim=1)
     return x[ix_i, ix_j]
 
 
-def uniform_instance_gen(n_j, n_m, low, high):
+def uniform_instance_gen(n_j, n_m, low, high, device):
     times = torch.randint(low=low, high=high, size=(n_j, n_m), dtype=torch.float32)
-    machines = torch.arange(1, n_m + 1).unsqueeze(0).repeat(n_j, 1)
+    machines = torch.arange(1, n_m + 1, device=device).unsqueeze(0).repeat(n_j, 1)
     machines = permute_rows(machines)
     return TensorDict(
         {"durations": times.unsqueeze(0), "machines": machines.unsqueeze(0)}, batch_size=1
