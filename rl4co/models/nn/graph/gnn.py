@@ -11,12 +11,12 @@ class GNNLayer(nn.Module):
     """Graph Neural Network Layer for processing graph structures.
 
     Args:
-        units (int): The number of units in each linear transformation layer.
-        act_fn (str): The name of the activation function to use after each linear layer. Defaults to 'silu'.
-        agg_fn (str): The name of the global aggregation function to use for pooling features across the graph. Defaults to 'mean'.
+        units: The number of units in each linear transformation layer.
+        act_fn: The name of the activation function to use after each linear layer. Defaults to 'silu'.
+        agg_fn: The name of the global aggregation function to use for pooling features across the graph. Defaults to 'mean'.
     """
 
-    def __init__(self, units, act_fn="silu", agg_fn="mean"):
+    def __init__(self, units: int, act_fn: str = "silu", agg_fn: str = "mean"):
         super(GNNLayer, self).__init__()
         self.units = units
         self.act_fn = getattr(nn.functional, act_fn)
@@ -57,16 +57,16 @@ class GNNLayer(nn.Module):
 
 
 class GNNEncoder(nn.Module):
-    """TGraph Neural Network for encoding graph structures into vector representations.
+    """Graph Neural Network for encoding graph structures into vector representations.
 
     Args:
-        num_layers (int): The number of GNN layers to stack in the network.
-        embedding_dim (int): The dimensionality of the embeddings for each node in the graph.
-        act_fn (str): The activation function to use in each GNNLayer. Defaults to 'silu'.
-        agg_fn (str): The aggregation function to use in each GNNLayer for pooling features. Defaults to 'mean'.
+        num_layers: The number of GNN layers to stack in the network.
+        embedding_dim: The dimensionality of the embeddings for each node in the graph.
+        act_fn: The activation function to use in each GNNLayer, see https://pytorch.org/docs/stable/nn.functional.html#non-linear-activation-functions for available options. Defaults to 'silu'.
+        agg_fn: The aggregation function to use in each GNNLayer for pooling features. Options: 'add', 'mean', 'max'. Defaults to 'mean'.
     """
 
-    def __init__(self, num_layers, embedding_dim, act_fn="silu", agg_fn="mean"):
+    def __init__(self, num_layers: int, embedding_dim: int, act_fn="silu", agg_fn="mean"):
         super(GNNEncoder, self).__init__()
         self.act_fn = act_fn
         self.agg_fn = agg_fn
@@ -81,9 +81,9 @@ class GNNEncoder(nn.Module):
         applying specified transformations and aggregations to learn graph representations.
 
         Args:
-            x (Tensor): The node features of the graph with shape [num_nodes, embedding_dim].
-            edge_index (LongTensor): The edge indices of the graph with shape [2, num_edges].
-            w (Tensor): The edge attributes or weights with shape [num_edges, num_edge_features].
+            x: The node features of the graph with shape [num_nodes, embedding_dim].
+            edge_index: The edge indices of the graph with shape [2, num_edges].
+            w: The edge attributes or weights with shape [num_edges, num_edge_features].
         """
         for layer in self.layers:
             x, w = layer(x, edge_index, w)

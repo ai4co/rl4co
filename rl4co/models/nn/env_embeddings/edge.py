@@ -1,7 +1,15 @@
+import torch
 import torch.nn as nn
 
 from torch import Tensor
-from torch_geometric.data import Batch, Data
+
+try:
+    from torch_geometric.data import Batch, Data
+except ImportError:
+    raise ImportError(
+        "torch_geometric not found. Please install torch_geometric using instructions from "
+        "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html ."
+    )
 
 from rl4co.utils.ops import get_distance_matrix, get_full_graph_edge_index, sparsify_graph
 from rl4co.utils.pylogger import get_pylogger
@@ -28,6 +36,7 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
         "mdpp": TSPEdgeEmbedding,
         "pdp": TSPEdgeEmbedding,
         "mtsp": TSPEdgeEmbedding,
+        "smtwtp": NoEdgeEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -54,12 +63,12 @@ class TSPEdgeEmbedding(nn.Module):
         self.sparsify = sparsify
         self.edge_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
 
-    def forward(self, td, init_embedding: Tensor):
+    def forward(self, td, init_embeddings: Tensor):
         cost_matrix = get_distance_matrix(td["locs"])
-        batch = self._cost_matrix_to_graph(cost_matrix, init_embedding)
+        batch = self._cost_matrix_to_graph(cost_matrix, init_embeddings)
         return batch
 
-    def _cost_matrix_to_graph(self, batch_cost_matrix: Tensor, init_embedding: Tensor):
+    def _cost_matrix_to_graph(self, batch_cost_matrix: Tensor, init_embeddings: Tensor):
         """Convert batched cost_matrix to batched PyG graph, and calculate edge embeddings.
 
         Args:
@@ -79,7 +88,7 @@ class TSPEdgeEmbedding(nn.Module):
                 edge_attr = cost_matrix[edge_index[0], edge_index[1]]
 
             graph = Data(
-                x=init_embedding[index],
+                x=init_embeddings[index],
                 edge_index=edge_index,
                 edge_attr=edge_attr,
             )
@@ -93,6 +102,32 @@ class TSPEdgeEmbedding(nn.Module):
 class ATSPEdgeEmbedding(TSPEdgeEmbedding):
     """TODO"""
 
-    def forward(self, td, init_embedding: Tensor):
-        batch = self._cost_matrix_to_graph(td["cost_matrix"], init_embedding)
+    def forward(self, td, init_embeddings: Tensor):
+        batch = self._cost_matrix_to_graph(td["cost_matrix"], init_embeddings)
+        return batch
+
+
+class NoEdgeEmbedding(nn.Module):
+    """TODO"""
+
+    def __init__(self, embedding_dim, self_loop=False, **kwargs):
+        super(NoEdgeEmbedding, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.self_loop = self_loop
+
+    def forward(self, td, init_embeddings: Tensor):
+        data_list = []
+        n = init_embeddings.shape[1]
+        device = init_embeddings.device
+        edge_index = get_full_graph_edge_index(n, self_loop=self.self_loop).to(device)
+
+        for node_embed in init_embeddings:
+            data = Data(
+                x=node_embed,
+                edge_index=edge_index,
+                edge_attr=torch.zeros((n, self.embedding_dim), device=device),
+            )
+            data_list.append(data)
+
+        batch = Batch.from_data_list(data_list)
         return batch
