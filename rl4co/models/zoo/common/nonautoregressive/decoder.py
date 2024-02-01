@@ -59,19 +59,26 @@ class NonAutoregressiveDecoder(nn.Module):
             env = get_env(env_name)
 
         # calculate heatmap
-        # batch_logits = self._mlp_decode(data)
-        # heatmaps_logp = self._make_heatmaps(batch_logits)
+        batch_logits = self._mlp_decode(data)
+        heatmaps_logp = self._make_heatmaps(batch_logits)
 
         # setup decoding strategy
         self.decode_strategy: DecodingStrategy = get_decoding_strategy(
             decode_type, **strategy_kwargs
         )
 
+        # Set the first action to 0
+        action = torch.zeros(
+            td["action_mask"].size(0), dtype=torch.long, device=td.device
+        )
+        td.set("action", action)
+        td = env.step(td)["next"]
+        
         # Main decoding: loop until all sequences are done
-        # while not td["done"].all():
-        #     log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
-        #     td = self.decode_strategy.step(log_p, mask, td)
-        #     td = env.step(td)["next"]
+        while not td["done"].all():
+            log_p, mask = self._get_log_p(td, heatmaps_logp)
+            td = self.decode_strategy.step(log_p, mask, td)
+            td = env.step(td)["next"]
 
     def _mlp_decode(self, data):
         edge_attr = data.edge_attr
@@ -94,3 +101,19 @@ class NonAutoregressiveDecoder(nn.Module):
             heatmaps_logp[index, edge_index[0], edge_index[1]] = edge_attr
 
         return heatmaps_logp
+    
+    def _get_log_p(
+        self,
+        td: TensorDict,
+        heatmaps_logp : Tensor,
+        num_starts: int = 0,
+    ):
+        
+        # Get the mask
+        mask = ~td["action_mask"]
+        
+        current_action = td.get("action", None)
+        log_p = heatmaps_logp[torch.arange(heatmaps_logp.size(0)), current_action, :]
+        log_p[mask] = float("-inf")
+        
+        return log_p, mask
