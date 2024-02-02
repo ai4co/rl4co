@@ -34,10 +34,8 @@ class GNNLayer(nn.Module):
         self.e_bn = gnn.BatchNorm(units)
 
     def forward(self, x, edge_index, edge_attr):
-        x = x
-        w = edge_attr
         x0 = x
-        w0 = w
+        w0 = w = edge_attr
 
         # Vertex updates
         x1 = self.v_lin1(x0)
@@ -57,7 +55,7 @@ class GNNLayer(nn.Module):
 
 
 class GNNEncoder(nn.Module):
-    """Graph Neural Network for encoding graph structures into vector representations.
+    """Graph Neural Network as in Joshi et al. (2022).
 
     Args:
         num_layers: The number of GNN layers to stack in the network.
@@ -68,7 +66,7 @@ class GNNEncoder(nn.Module):
 
     def __init__(self, num_layers: int, embedding_dim: int, act_fn="silu", agg_fn="mean"):
         super(GNNEncoder, self).__init__()
-        self.act_fn = act_fn
+        self.act_fn = getattr(nn.functional, act_fn)
         self.agg_fn = agg_fn
 
         # Stack of GNN layers
@@ -83,8 +81,10 @@ class GNNEncoder(nn.Module):
         Args:
             x: The node features of the graph with shape [num_nodes, embedding_dim].
             edge_index: The edge indices of the graph with shape [2, num_edges].
-            w: The edge attributes or weights with shape [num_edges, num_edge_features].
+            w: The edge attributes or weights with shape [num_edges, embedding_dim].
         """
+        x = self.act_fn(x)
+        w = self.act_fn(w)
         for layer in self.layers:
             x, w = layer(x, edge_index, w)
         return x, w

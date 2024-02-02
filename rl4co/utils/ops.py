@@ -160,13 +160,13 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
 
     Args:
         cost_matrix: Tensor of shape [m, n]
-        k_sparse: Number of edges to keep for each node. Defaults to max(n//4, 3) if not provided.
+        k_sparse: Number of edges to keep for each node. Defaults to max(n//5, 10) if not provided.
         self_loop: Include self-loop edges in the generated graph when m==n. Defaults to False.
     """
     m, n = cost_matrix.shape
-    k_sparse = max(n // 4, 3) if k_sparse is None else k_sparse
+    k_sparse = max(n // 5, 10) if k_sparse is None else k_sparse
 
-    diag_value = cost_matrix.diag()
+    # diag_value = cost_matrix.diag()
 
     # fill diagonal value with +inf to exclude them from topk results
     if not self_loop and m == n:
@@ -180,8 +180,8 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
     )
 
     # restore diagonal values
-    if not self_loop and m == n:
-        cost_matrix[torch.arange(n), torch.arange(n)] = diag_value
+    # if not self_loop and m == n:
+    #     cost_matrix[torch.arange(n), torch.arange(n)] = diag_value
 
     # generate PyG-compatiable edge_index
     edge_index_u = torch.repeat_interleave(

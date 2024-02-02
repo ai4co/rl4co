@@ -5,6 +5,11 @@ from rl4co.models.zoo.common.autoregressive import (
     AutoregressivePolicy,
     GraphAttentionEncoder,
 )
+from rl4co.models.zoo.common.nonautoregressive import (
+    NonAutoregressiveDecoder,
+    NonAutoregressiveEncoder,
+    NonAutoregressivePolicy,
+)
 from rl4co.models.zoo.common.search import SearchBase
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay
 from rl4co.models.zoo.ham import (

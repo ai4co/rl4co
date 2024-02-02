@@ -3,7 +3,6 @@ from typing import Optional, Union
 import torch.nn as nn
 
 from tensordict import TensorDict
-from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.env_embeddings import env_init_embedding
@@ -11,11 +10,17 @@ from rl4co.models.nn.env_embeddings.edge import env_edge_embedding
 from rl4co.models.nn.graph.gnn import GNNEncoder
 
 
-class AnisotropicGNNEncoder(nn.Module):
-    """Anisotropic Graph Neural Networks as in Joshi et al. (2022)
+class NonAutoregressiveEncoder(nn.Module):
+    """Anisotropic Graph Neural Network encoder with edge-gating mechanism as in Joshi et al. (2022)
 
     Args:
-        TODO
+        env_name: _description_
+        embedding_dim: _description_
+        num_layers: _description_
+        init_embedding: _description_.
+        edge_embedding: _description_.
+        act_fn: The activation function to use in each GNNLayer, see https://pytorch.org/docs/stable/nn.functional.html#non-linear-activation-functions for available options. Defaults to 'silu'.
+        agg_fn: The aggregation function to use in each GNNLayer for pooling features. Options: 'add', 'mean', 'max'. Defaults to 'mean'.
     """
 
     def __init__(
@@ -28,7 +33,7 @@ class AnisotropicGNNEncoder(nn.Module):
         act_fn="silu",
         agg_fn="mean",
     ):
-        super(AnisotropicGNNEncoder, self).__init__()
+        super(NonAutoregressiveEncoder, self).__init__()
         self.env_name = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
 
         self.init_embedding = (
@@ -50,7 +55,7 @@ class AnisotropicGNNEncoder(nn.Module):
             agg_fn=agg_fn,
         )
 
-    def forward(self, td: TensorDict) -> Tensor:
+    def forward(self, td: TensorDict):
         """Forward pass of the encoder.
         Transform the input TensorDict into the latent representation.
         """
@@ -61,5 +66,5 @@ class AnisotropicGNNEncoder(nn.Module):
         # Process embedding
         data.x, data.edge_attr = self.net(data.x, data.edge_index, data.edge_attr)
 
-        # Return latent representation
-        return data
+        # Return latent representation and initial embeddings
+        return data, node_embed

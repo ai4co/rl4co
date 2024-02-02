@@ -1,13 +1,13 @@
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import torch.nn as nn
 
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
+from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.nonautoregressive.decoder import NonAutoregressiveDecoder
-from rl4co.models.zoo.common.nonautoregressive.encoder import AnisotropicGNNEncoder
-from rl4co.utils.ops import select_start_nodes
+from rl4co.models.zoo.common.nonautoregressive.encoder import NonAutoregressiveEncoder
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -23,11 +23,9 @@ class NonAutoregressivePolicy(nn.Module):
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
         edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
         select_start_nodes_fn: Function to select the start nodes for multi-start decoding
-
-        embedding_dim: Dimension of the node embeddings
+        embedding_dim: Dimension of the embeddings
         num_encoder_layers: Number of layers in the encoder
         num_decoder_layers: Number of layers in the decoder
-
         train_decode_type: Type of decoding during training
         val_decode_type: Type of decoding during validation
         test_decode_type: Type of decoding during testing
@@ -41,13 +39,12 @@ class NonAutoregressivePolicy(nn.Module):
         decoder: Optional[nn.Module] = None,
         init_embedding: Optional[nn.Module] = None,
         edge_embedding: Optional[nn.Module] = None,
-        select_start_nodes_fn: Callable = select_start_nodes,
-        embedding_dim: int = 32,
-        num_encoder_layers: int = 12,
-        num_decoder_layers: int = 3,
-        train_decode_type: str = "sampling",
-        val_decode_type: str = "greedy",
-        test_decode_type: str = "greedy",
+        embedding_dim: int = 64,
+        num_encoder_layers: int = 15,
+        num_decoder_layers: int = 5,
+        train_decode_type: str = "multistart_sampling",
+        val_decode_type: str = "multistart_greedy",
+        test_decode_type: str = "multistart_greedy",
         **unused_kw,
     ):
         super(NonAutoregressivePolicy, self).__init__()
@@ -58,8 +55,8 @@ class NonAutoregressivePolicy(nn.Module):
         self.env_name = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
 
         if encoder is None:
-            log.info("Initializing default AnisotropicGNNEncoder")
-            self.encoder = AnisotropicGNNEncoder(
+            log.info("Initializing default NonAutoregressiveEncoder")
+            self.encoder = NonAutoregressiveEncoder(
                 env_name=self.env_name,
                 embedding_dim=embedding_dim,
                 num_layers=num_encoder_layers,
@@ -75,7 +72,6 @@ class NonAutoregressivePolicy(nn.Module):
                 env_name=self.env_name,
                 embedding_dim=embedding_dim,
                 num_layers=num_decoder_layers,
-                select_start_nodes_fn=select_start_nodes_fn,
             )
         else:
             self.decoder = decoder
@@ -109,7 +105,7 @@ class NonAutoregressivePolicy(nn.Module):
         """
 
         # ENCODER: get embeddings from initial state
-        data = self.encoder(td)
+        data, init_embeds = self.encoder(td)
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -124,4 +120,24 @@ class NonAutoregressivePolicy(nn.Module):
         # DECODER: main rollout with autoregressive decoding
         log_p, actions, td_out = self.decoder(td, data, env, **decoder_kwargs)
 
-        return data
+        # Log likelihood is calculated within the model
+        log_likelihood = get_log_likelihood(
+            log_p, actions, td_out.get("mask", None)
+        )  # , return_sum=False).mean(-1)
+
+        out = {
+            "reward": td_out["reward"],
+            "log_likelihood": log_likelihood,
+        }
+        if return_actions:
+            out["actions"] = actions
+
+        if return_entropy:
+            entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
+            entropy = entropy.sum(dim=1)  # [batch]
+            out["entropy"] = entropy
+
+        if return_init_embeds:
+            out["init_embeds"] = init_embeds
+
+        return out
