@@ -55,9 +55,6 @@ class EdgeHeatmapGenerator(nn.Module):
 
         self.act = getattr(nn.functional, act_fn) if isinstance(act_fn, str) else act_fn
 
-        self.scale_param = nn.Parameter(torch.ones(1) * 5, requires_grad=True)
-        self.default_logp = nn.Parameter(torch.zeros(1), requires_grad=True)
-
         self.undirected_graph = undirected_graph
 
     def forward(self, data: Batch) -> Tensor:
@@ -65,7 +62,7 @@ class EdgeHeatmapGenerator(nn.Module):
         edge_attr = data.edge_attr  # type: ignore
         for layer in self.linears:
             edge_attr = self.act(layer(edge_attr))
-        data.edge_attr = torch.sigmoid(self.output(edge_attr)) * self.scale_param  # type: ignore
+        data.edge_attr = torch.sigmoid(self.output(edge_attr)) * 10  # type: ignore
 
         heatmaps_logp = self._make_heatmaps(data)
         return heatmaps_logp
@@ -76,21 +73,18 @@ class EdgeHeatmapGenerator(nn.Module):
         batch_size = len(graphs)
         num_nodes = graphs[0].x.shape[0]
 
-        heatmaps_logp = (
-            torch.ones(
-                (batch_size, num_nodes, num_nodes),
-                device=device,
-                dtype=graphs[0].edge_attr.dtype,
-            )
-            * self.default_logp
+        heatmaps_logp = torch.zeros(
+            (batch_size, num_nodes, num_nodes),
+            device=device,
+            dtype=graphs[0].edge_attr.dtype,
         )
+
         for index, graph in enumerate(graphs):
             edge_index, edge_attr = graph.edge_index, graph.edge_attr
             heatmaps_logp[index, edge_index[0], edge_index[1]] = edge_attr.flatten()
 
         if self.undirected_graph:
-            heatmaps_logp = heatmaps_logp + heatmaps_logp.transpose(1, 2)
-        heatmaps_logp = nn.functional.log_softmax(heatmaps_logp, dim=-1)
+            heatmaps_logp = (heatmaps_logp + heatmaps_logp.transpose(1, 2)) * 0.5
 
         return heatmaps_logp
 
@@ -165,6 +159,8 @@ class NonAutoregressiveDecoder(nn.Module):
         else:
             batch_size = heatmaps_logp.shape[0]
             _indexer = _multistart_batched_index(batch_size, num_starts)
-            log_p = heatmaps_logp[_indexer, current_action, :].clone()
+            log_p = heatmaps_logp[_indexer, current_action, :]
+
         log_p[mask] = -torch.inf
+        log_p = nn.functional.log_softmax(log_p, -1)
         return log_p, mask

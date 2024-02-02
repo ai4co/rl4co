@@ -8,6 +8,7 @@ from rl4co.models.zoo.common.autoregressive import (
 from rl4co.models.zoo.common.nonautoregressive import (
     NonAutoregressiveDecoder,
     NonAutoregressiveEncoder,
+    NonAutoregressiveModel,
     NonAutoregressivePolicy,
 )
 from rl4co.models.zoo.common.search import SearchBase

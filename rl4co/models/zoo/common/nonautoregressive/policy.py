@@ -98,7 +98,8 @@ class NonAutoregressivePolicy(nn.Module):
             phase: Phase of the algorithm (train, val, test)
             return_actions: Whether to return the actions
             return_entropy: Whether to return the entropy
-            decoder_kwargs: Keyword arguments for the decoder. See :class:`rl4co.models.zoo.common.autoregressive.decoder.AutoregressiveDecoder`
+            return_init_embeds: Whether to return the initial embeddings
+            decoder_kwargs: Keyword arguments for the decoder
 
         Returns:
             out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
@@ -129,6 +130,7 @@ class NonAutoregressivePolicy(nn.Module):
             "reward": td_out["reward"],
             "log_likelihood": log_likelihood,
         }
+
         if return_actions:
             out["actions"] = actions
 

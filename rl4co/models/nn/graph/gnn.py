@@ -55,7 +55,7 @@ class GNNLayer(nn.Module):
 
 
 class GNNEncoder(nn.Module):
-    """Graph Neural Network as in Joshi et al. (2022).
+    """Anisotropic Graph Neural Network encoder with edge-gating mechanism as in Joshi et al. (2022)
 
     Args:
         num_layers: The number of GNN layers to stack in the network.

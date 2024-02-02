@@ -14,11 +14,11 @@ class NonAutoregressiveEncoder(nn.Module):
     """Anisotropic Graph Neural Network encoder with edge-gating mechanism as in Joshi et al. (2022)
 
     Args:
-        env_name: _description_
-        embedding_dim: _description_
-        num_layers: _description_
-        init_embedding: _description_.
-        edge_embedding: _description_.
+        env_name: Name of the environment used to initialize embeddings
+        embedding_dim: Dimension of the node embeddings
+        num_layers: Number of layers in the encoder
+        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
+        edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
         act_fn: The activation function to use in each GNNLayer, see https://pytorch.org/docs/stable/nn.functional.html#non-linear-activation-functions for available options. Defaults to 'silu'.
         agg_fn: The aggregation function to use in each GNNLayer for pooling features. Options: 'add', 'mean', 'max'. Defaults to 'mean'.
     """
