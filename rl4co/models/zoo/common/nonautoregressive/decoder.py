@@ -90,7 +90,29 @@ class EdgeHeatmapGenerator(nn.Module):
 
 
 class NonAutoregressiveDecoder(nn.Module):
-    """TODO"""
+    """Non-autoregressive decoder for constructing solutions for combinatorial optimization problems.
+    This model utilizes a multi-layer perceptron (MLP) approach to predict edge attributes directly from the input graph features,
+    which are then transformed into a heatmap representation to facilitate the decoding of the solution. The decoding process
+    is managed by a specified strategy which could vary from simple greedy selection to more complex sampling methods.
+    
+    Note:
+        This decoder's performance heavily relies on the ability of the MLP to capture the dependencies between different
+        parts of the solution without the iterative refinement provided by autoregressive models. It is particularly useful
+        in scenarios where the solution space can be effectively explored in a parallelized manner or when the solution components
+        are largely independent.
+    
+    Warning:
+        The effectiveness of the non-autoregressive approach can vary significantly across different problem types and configurations.
+        It may require careful tuning of the model architecture and decoding strategy to achieve competitive results.
+    
+    Args:
+        env_name: environment name to solve
+        embedding_dim: Dimension of the embeddings
+        num_layers: Number of linear layers to use in the MLP
+        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
+        act_fn: Activation function to use between linear layers. Can be a string name or a direct callable
+        linear_bias: Whether to use a bias term in the linear layers
+    """
 
     def __init__(
         self,

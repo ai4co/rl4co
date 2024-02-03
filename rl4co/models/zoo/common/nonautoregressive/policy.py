@@ -14,7 +14,10 @@ log = get_pylogger(__name__)
 
 
 class NonAutoregressivePolicy(nn.Module):
-    """TODO
+    """Base Non-autoregressive policy for NCO construction methods.
+    The policy performs the following steps:
+        1. Encode the environment initial state into node embeddings
+        2. Decode (non-autoregressively) to construct the solution to the NCO problem
 
     Args:
         env_name: Name of the environment used to initialize embeddings
