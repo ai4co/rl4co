@@ -18,7 +18,9 @@ log = get_pylogger(__name__)
 
 
 def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
-    """TODO
+    """Retrieve the edge embedding module specific to the environment. Edge embeddings are crucial for
+    transforming the raw edge features into a format suitable for the neural network, especially in
+    graph neural networks where edge features can significantly impact the model's performance.
 
     Args:
         env: Environment or its name.
@@ -48,7 +50,11 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
 
 
 class TSPEdgeEmbedding(nn.Module):
-    """TODO"""
+    """Edge embedding module for the Traveling Salesman Problem (TSP) and related problems.
+    This module converts the cost matrix or the distances between nodes into embeddings that can be
+    used by the neural network. It supports sparsification to focus on a subset of relevant edges,
+    which is particularly useful for large graphs.
+    """
 
     def __init__(
         self,
@@ -100,7 +106,10 @@ class TSPEdgeEmbedding(nn.Module):
 
 
 class ATSPEdgeEmbedding(TSPEdgeEmbedding):
-    """TODO"""
+    """Edge embedding module for the Asymmetric Traveling Salesman Problem (ATSP).
+    Inherits from TSPEdgeEmbedding and adapts the edge embedding process to handle
+    asymmetric cost matrices, where the cost from node i to node j may not be the same as from j to i.
+    """
 
     def forward(self, td, init_embeddings: Tensor):
         batch = self._cost_matrix_to_graph(td["cost_matrix"], init_embeddings)
@@ -108,7 +117,10 @@ class ATSPEdgeEmbedding(TSPEdgeEmbedding):
 
 
 class NoEdgeEmbedding(nn.Module):
-    """TODO"""
+    """A module for environments that do not require edge embeddings, or where edge features
+    are not used. This can be useful for simplifying models in problems where only node
+    features are relevant.
+    """
 
     def __init__(self, embedding_dim, self_loop=False, **kwargs):
         super(NoEdgeEmbedding, self).__init__()
