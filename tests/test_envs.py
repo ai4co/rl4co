@@ -77,4 +77,4 @@ def test_jssp(env_cls):
         num_machines=5,
     )
     reward, td, actions = rollout(env, env.reset(), random_policy)
-    assert reward.shape == (1,)
+    assert reward.shape == (1, 1)
