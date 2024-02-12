@@ -8,7 +8,6 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
     UnboundedDiscreteTensorSpec,
 )
-from zmq import device
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
 from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
@@ -37,9 +36,13 @@ class CVRPTWEnv(CVRPEnv):
     def _make_spec(self, td_params: TensorDict):
         super()._make_spec(td_params)
 
-        current_time = UnboundedContinuousTensorSpec(shape=(1), dtype=torch.float32, device=self.device)
+        current_time = UnboundedContinuousTensorSpec(
+            shape=(1), dtype=torch.float32, device=self.device
+        )
 
-        current_loc = UnboundedContinuousTensorSpec(shape=(2), dtype=torch.float32, device=self.device)
+        current_loc = UnboundedContinuousTensorSpec(
+            shape=(2), dtype=torch.float32, device=self.device
+        )
 
         durations = BoundedTensorSpec(
             low=self.min_time,
