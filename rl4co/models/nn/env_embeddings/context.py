@@ -147,7 +147,7 @@ class SVRPContext(EnvContext):
 
     def __init__(self, embedding_dim):
         super(SVRPContext, self).__init__(
-            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 1
+            embedding_dim=embedding_dim, step_context_dim=embedding_dim
         )
 
     def forward(self, embeddings, td):
