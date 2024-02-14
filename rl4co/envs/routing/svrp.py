@@ -130,9 +130,6 @@ class SVRPEnv(RL4COEnvBase):
             }
         )
         td.set("action_mask", self.get_action_mask(td))
-        print("current_node:\n", td["current_node"])
-        print("visited:\n", td["visited"].squeeze(-1))
-        print("action_mask:\n", td["action_mask"])
         return td
 
     def _reset(
@@ -260,7 +257,7 @@ if __name__ == "__main__":
     ### --- random policy --- ###
     reward, td, actions = rollout(
         env=env,
-        td=td_init.clone(),
+        td=env.reset(batch_size=[batch_size]).to(device),
         policy=random_policy,
         max_steps=1000,
     )
@@ -269,6 +266,10 @@ if __name__ == "__main__":
     print("td", td)
 
     assert reward.shape == (batch_size,)
+    print("batch_size", batch_size)
+
+    env.get_reward(td, actions)
+    # SVRPEnv.check_solution_validity(td, actions)
 
     ### --- AM --- ###
     # Model: default is AM with REINFORCE and greedy rollout baseline
@@ -277,11 +278,19 @@ if __name__ == "__main__":
         baseline="rollout",
         train_data_size=100_000,
         val_data_size=10_000,
+        batch_size=batch_size,
     )
+    print("model", model)
 
     # Greedy rollouts over untrained model
+    td_init = env.reset(batch_size=[batch_size]).to(device)
     model = model.to(device)
-    out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
+    out = model(
+        td=td_init.clone(),
+        phase="test",
+        decode_type="greedy",
+        return_actions=True,
+    )
 
     print("out", out)
 
