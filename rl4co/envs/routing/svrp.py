@@ -207,7 +207,7 @@ class SVRPEnv(RL4COEnvBase):
         travel_to = torch.roll(locs_ordered, -1, dims=-2)
         distances = get_distance(locs_ordered, travel_to)
 
-        return (distances * costs).sum(-1)
+        return -(distances * costs).sum(-1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
