@@ -94,6 +94,7 @@ class SVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
+        batch_size = td["locs"].shape[0]
         # check skill level
         current_tech_skill = gather_by_index(td["techs"], td["current_tech"]).reshape(
             [batch_size, 1]
@@ -168,7 +169,6 @@ class SVRPEnv(RL4COEnvBase):
         return td_reset
 
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
-        print("Calculate reward...")
         # Check that the solution is valid
         # if self.check_solution:
         #     self.check_solution_validity(td, actions)
