@@ -12,9 +12,7 @@ from torchrl.data import (
 
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.models.zoo.am import AttentionModel
 from rl4co.utils.ops import gather_by_index, get_distance
-from rl4co.utils.trainer import RL4COTrainer
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -38,7 +36,6 @@ class SVRPEnv(RL4COEnvBase):
         td_params: TensorDict = None,
         **kwargs,
     ):
-        print("SVRPEnv init...")
         super().__init__(**kwargs)
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -50,9 +47,38 @@ class SVRPEnv(RL4COEnvBase):
         self._make_spec(td_params)
 
     def _make_spec(self, td_params: TensorDict = None):
-        print("_make_spec...")
-        # TODO
-        None
+        """Make the observation and action specs from the parameters."""
+        self.observation_spec = CompositeSpec(
+            locs=BoundedTensorSpec(
+                minimum=self.min_loc,
+                maximum=self.max_loc,
+                shape=(self.num_loc + 1, 2),
+                dtype=torch.float32,
+            ),
+            current_node=UnboundedDiscreteTensorSpec(
+                shape=(1),
+                dtype=torch.int64,
+            ),
+            skills=BoundedTensorSpec(
+                minimum=self.min_skill,
+                maximum=self.max_skill,
+                shape=(self.num_loc, 1),
+                dtype=torch.float32,
+            ),
+            action_mask=UnboundedDiscreteTensorSpec(
+                shape=(self.num_loc + 1, 1),
+                dtype=torch.bool,
+            ),
+            shape=(),
+        )
+        self.action_spec = BoundedTensorSpec(
+            shape=(1,),
+            dtype=torch.int64,
+            minimum=0,
+            maximum=self.num_loc + 1,
+        )
+        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,), dtype=torch.float32)
+        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     def generate_data(self, batch_size):
         # Batch size input check
@@ -137,7 +163,7 @@ class SVRPEnv(RL4COEnvBase):
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
     ) -> TensorDict:
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
+            batch_size = self.batch_size if td is None else td["locs"].shape[0]
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -149,7 +175,6 @@ class SVRPEnv(RL4COEnvBase):
             {
                 "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
                 "techs": td["techs"],
-                "tech_costs": torch.tensor(self.tech_costs, device=self.device),
                 "skills": td["skills"],
                 "current_node": torch.zeros(
                     *batch_size, 1, dtype=torch.long, device=self.device
@@ -170,8 +195,8 @@ class SVRPEnv(RL4COEnvBase):
 
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         # Check that the solution is valid
-        # if self.check_solution:
-        #     self.check_solution_validity(td, actions)
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
 
         # Gather dataset in order of tour
         batch_size = td["locs"].shape[0]
@@ -206,118 +231,149 @@ class SVRPEnv(RL4COEnvBase):
 
         travel_to = torch.roll(locs_ordered, -1, dims=-2)
         distances = get_distance(locs_ordered, travel_to)
-
         return -(distances * costs).sum(-1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
-        print("check_solution_validity...")
-        # TODO
-        None
+        """Check that solution is valid: nodes are not visited twice except depot and required skill levels are always met."""
+        batch_size, graph_size = td["skills"].shape[0], td["skills"].shape[1]
+        sorted_pi = actions.data.sort(1).values
+
+        # Sorting it should give all zeros at front and then 1...n
+        assert (
+            torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
+            .view(1, -1)
+            .expand(batch_size, graph_size)
+            == sorted_pi[:, -graph_size:]
+        ).all() and (sorted_pi[:, :-graph_size] == 0).all(), "Invalid tour"
+
+        # make sure all required skill  levels are met
+        indices = torch.nonzero(actions == 0)
+        skills = torch.cat(
+            [torch.zeros(batch_size, 1, 1, device=td.device), td["skills"]], 1
+        )
+        skills_ordered = gather_by_index(skills, actions).reshape(
+            [batch_size, actions.size(-1), 1]
+        )
+        batch = start = tech = 0
+        for each in indices:
+            if each[0] > batch:
+                start = tech = 0
+                batch = each[0]
+            assert (
+                skills_ordered[batch, start : each[1]] <= td["techs"][batch, tech]
+            ).all(), "Skill level not met"
+            start = each[1] + 1  # skip the depot
+            tech += 1
 
     @staticmethod
-    def render(td: TensorDict, actions=None, **kwargs):
-        # TODO
-        None
+    def render(
+        td: TensorDict,
+        actions=None,
+        ax=None,
+        **kwargs,
+    ):
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        from matplotlib import cm, colormaps
+
+        num_routine = (actions == 0).sum().item() + 2
+        base = colormaps["nipy_spectral"]
+        color_list = base(np.linspace(0, 1, num_routine))
+        cmap_name = base.name + str(num_routine)
+        out = base.from_list(cmap_name, color_list, num_routine)
+
+        if ax is None:
+            # Create a plot of the nodes
+            _, ax = plt.subplots()
+
+        td = td.detach().cpu()
+
+        if actions is None:
+            actions = td.get("action", None)
+
+        # if batch_size greater than 0 , we need to select the first batch element
+        if td.batch_size != torch.Size([]):
+            td = td[0]
+            actions = actions[0]
+
+        locs = td["locs"]
+
+        # add the depot at the first action and the end action
+        actions = torch.cat([torch.tensor([0]), actions, torch.tensor([0])])
+
+        # gather locs in order of action if available
+        if actions is None:
+            log.warning("No action in TensorDict, rendering unsorted locs")
+        else:
+            locs = locs
+
+        # Cat the first node to the end to complete the tour
+        x, y = locs[:, 0], locs[:, 1]
+
+        # plot depot
+        ax.scatter(
+            locs[0, 0],
+            locs[0, 1],
+            edgecolors=cm.Set2(2),
+            facecolors="none",
+            s=100,
+            linewidths=2,
+            marker="s",
+            alpha=1,
+        )
+
+        # plot visited nodes
+        ax.scatter(
+            x[1:],
+            y[1:],
+            edgecolors=cm.Set2(0),
+            facecolors="none",
+            s=50,
+            linewidths=2,
+            marker="o",
+            alpha=1,
+        )
+
+        # text depot
+        ax.text(
+            locs[0, 0],
+            locs[0, 1] - 0.025,
+            "Depot",
+            horizontalalignment="center",
+            verticalalignment="top",
+            fontsize=10,
+            color=cm.Set2(2),
+        )
+
+        # plot actions
+        color_idx = 0
+        for action_idx in range(len(actions) - 1):
+            if actions[action_idx] == 0:
+                color_idx += 1
+            from_loc = locs[actions[action_idx]]
+            to_loc = locs[actions[action_idx + 1]]
+            ax.plot(
+                [from_loc[0], to_loc[0]],
+                [from_loc[1], to_loc[1]],
+                color=out(color_idx),
+                lw=1,
+            )
+            ax.annotate(
+                "",
+                xy=(to_loc[0], to_loc[1]),
+                xytext=(from_loc[0], from_loc[1]),
+                arrowprops=dict(arrowstyle="-|>", color=out(color_idx)),
+                size=15,
+                annotation_clip=False,
+            )
+        plt.show()
 
     @staticmethod
     def load_data(fpath, batch_size=...):
-        print("load_data...")
-        # TODO
-        return None
-
-
-if __name__ == "__main__":
-    import argparse
-    from rl4co.models.nn.utils import rollout, random_policy
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--epochs", help="Number of epochs to train for", type=int, default=3
-    )
-    args = parser.parse_args()
-
-    # device
-    device_str = (
-        "cuda"
-        if torch.cuda.is_available()
-        else (
-            "mps"
-            if (torch.backends.mps.is_available() and torch.backends.mps.is_built())
-            else "cpu"
-        )
-    )
-    device = torch.device(device_str)
-    # env
-    batch_size = 3
-
-    env = SVRPEnv(num_loc=20, device=device_str)
-    td_init = env.reset(batch_size=[batch_size]).to(device)
-
-    ### --- random policy --- ###
-    reward, td, actions = rollout(
-        env=env,
-        td=env.reset(batch_size=[batch_size]).to(device),
-        policy=random_policy,
-        max_steps=1000,
-    )
-    print("reward", reward)
-    print("actions", actions)
-    print("td", td)
-
-    assert reward.shape == (batch_size,)
-    print("batch_size", batch_size)
-
-    env.get_reward(td, actions)
-    # SVRPEnv.check_solution_validity(td, actions)
-
-    ### --- AM --- ###
-    # Model: default is AM with REINFORCE and greedy rollout baseline
-    model = AttentionModel(
-        env=env,
-        baseline="rollout",
-        train_data_size=100_000,
-        val_data_size=10_000,
-        batch_size=batch_size,
-    )
-    print("model", model)
-
-    # Greedy rollouts over untrained model
-    td_init = env.reset(batch_size=[batch_size]).to(device)
-    model = model.to(device)
-    out = model(
-        td=td_init.clone(),
-        phase="test",
-        decode_type="greedy",
-        return_actions=True,
-    )
-
-    print("out", out)
-
-    ### --- Logging --- ###
-    from datetime import date, datetime
-    import wandb
-    from lightning.pytorch.loggers import WandbLogger
-
-    date_time_str = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-
-    wandb.login()
-    logger = WandbLogger(
-        project="routefinder",
-        name=f"skill-vrp_am_{date_time_str}",
-    )
-
-    ### --- Training --- ###
-    # The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
-    trainer = RL4COTrainer(
-        max_epochs=args.epochs,
-        accelerator="auto",
-        devices=1,
-        logger=logger,
-    )
-
-    # fit model
-    trainer.fit(model)
-
-    ### --- Testing --- ###
-    trainer.test(model)
+        """Dataset loading from file"""
+        td_load = load_npz_to_tensordict(fpath)
+        # td_load.set("demand", td_load["demand"] / td_load["capacity"][:, None])
+        # TODO adjust for Skill-VRP
+        return td_load
