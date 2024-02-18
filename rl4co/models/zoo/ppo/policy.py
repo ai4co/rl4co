@@ -1,7 +1,7 @@
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 
 
-class PPOPolicy(AutoregressivePolicy):
+class L2DPolicy(AutoregressivePolicy):
     """PPO Policy. The backbone model is inspired by the Kool et al. (2019): https://arxiv.org/abs/1803.08475.
     This is simply a wrapper around the `AutoregressivePolicy` class. PPO needs an `evaluate_actions` method
     inside `AutoregressivePolicy` to work properly to obtain log probabilities and entropy of actions
@@ -25,7 +25,7 @@ class PPOPolicy(AutoregressivePolicy):
         normalization: str = "batch",
         **kwargs,
     ):
-        super(PPOPolicy, self).__init__(
+        super().__init__(
             env_name=env_name,
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,

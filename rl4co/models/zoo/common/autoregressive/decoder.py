@@ -110,6 +110,38 @@ class AutoregressiveDecoder(nn.Module):
 
         self.select_start_nodes_fn = select_start_nodes_fn
 
+    def _decoder_only_forward(
+        self,
+        td: TensorDict,
+        env: RL4COEnvBase,
+        decode_type: str,
+        calc_reward: bool = True,
+    ) -> Tuple[Tensor, Tensor, TensorDict]:
+        # TODO something like this:
+        outputs = []
+        actions = []
+        while not td["done"].all():
+            log_p, mask = self.dynamic_embedding(td)
+
+            # Select the indices of the next nodes in the sequences, result (batch_size) long
+            action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
+
+            td.set("action", action)
+            td = env.step(td)["next"]
+
+            # Collect output of step
+            outputs.append(log_p)
+            actions.append(action)
+
+        assert (
+            len(outputs) > 0
+        ), "No outputs were collected because all environments were done. Check your initial state"
+        outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
+        if calc_reward:
+            td.set("reward", env.get_reward(td, actions))
+
+        return outputs, actions, td
+
     def forward(
         self,
         td: TensorDict,
@@ -147,6 +179,9 @@ class AutoregressiveDecoder(nn.Module):
         if isinstance(env, str):
             env_name = self.env_name if env is None else env
             env = get_env(env_name)
+
+        if embeddings is None:
+            return self._decoder_only_forward(td, env, decode_type)
 
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if "multistart" in decode_type:
