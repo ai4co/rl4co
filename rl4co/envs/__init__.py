@@ -14,6 +14,7 @@ from rl4co.envs.routing import (
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
+    SVRPEnv,
     SPCTSPEnv,
     TSPEnv,
 )
@@ -34,6 +35,7 @@ ENV_REGISTRY = {
     "pctsp": PCTSPEnv,
     "pdp": PDPEnv,
     "sdvrp": SDVRPEnv,
+    "svrp": SVRPEnv,
     "spctsp": SPCTSPEnv,
     "tsp": TSPEnv,
     "smtwtp": SMTWTPEnv,
