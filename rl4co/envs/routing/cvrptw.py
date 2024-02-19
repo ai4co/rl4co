@@ -10,7 +10,11 @@ from torchrl.data import (
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
 from rl4co.utils.ops import gather_by_index, get_distance
-from rl4co.data.utils import load_solomon_instance
+from rl4co.data.utils import (
+    load_npz_to_tensordict,
+    load_solomon_instance,
+    load_solomon_solution,
+)
 
 
 class CVRPTWEnv(CVRPEnv):
@@ -77,11 +81,6 @@ class CVRPTWEnv(CVRPEnv):
         td = super().generate_data(batch_size)
 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # initialize at zero
-        current_time = torch.zeros(
-            *batch_size, 1, dtype=torch.float32, device=self.device
-        )
 
         ## define service durations
         # generate randomly (first assume service durations of 0, to be changed later)
@@ -152,7 +151,6 @@ class CVRPTWEnv(CVRPEnv):
         durations[:, 0] = 0.0
         td.update(
             {
-                "current_time": current_time,
                 "durations": durations,
                 "time_windows": time_windows,
             }
@@ -206,6 +204,9 @@ class CVRPTWEnv(CVRPEnv):
                 "current_node": torch.zeros(
                     *batch_size, 1, dtype=torch.long, device=self.device
                 ),
+                "current_time": torch.zeros(
+                    *batch_size, 1, dtype=torch.float32, device=self.device
+                ),
                 "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
                 "vehicle_capacity": torch.full(
                     (*batch_size, 1), self.vehicle_capacity, device=self.device
@@ -215,7 +216,6 @@ class CVRPTWEnv(CVRPEnv):
                     dtype=torch.uint8,
                     device=self.device,
                 ),
-                "current_time": td["current_time"],
                 "durations": td["durations"],
                 "time_windows": td["time_windows"],
             },
@@ -280,5 +280,75 @@ class CVRPTWEnv(CVRPEnv):
         CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
 
     @staticmethod
-    def load_data(name: str, path_instances: str = None):
-        return load_solomon_instance(name=name, path=path_instances)
+    def load_data(name: str, solomon=False, path_instances: str = None, type: str = None):
+        if solomon == True:
+            assert type in [
+                "instance",
+                "solution",
+            ], "type must be either 'instance' or 'solution'"
+            if type == "instance":
+                instance = load_solomon_instance(name=name, path=path_instances)
+            elif type == "solution":
+                instance = load_solomon_solution(name=name, path=path_instances)
+            return instance
+        return load_npz_to_tensordict(filename=name)
+
+    def extract_from_solomon(self, instance: dict, batch_size: int = 1):
+        # convert to format used in CVRPTWEnv
+        self.min_demand = instance["demand"][1:].min()
+        self.max_demand = instance["demand"][1:].max()
+        self.vehicle_capacity = instance["capacity"]
+        self.min_loc = instance["node_coord"][1:].min()
+        self.max_loc = instance["node_coord"][1:].max()
+        self.min_time = instance["time_window"][:, 0].min()
+        self.max_time = instance["time_window"][:, 1].max()
+        assert self.min_time == 0, "Time window of depot must start at 0."
+        assert (
+            self.max_time == instance["time_window"][0, 1]
+        ), "Depot must have latest end time."
+        td = TensorDict(
+            {
+                "depot": torch.tensor(
+                    instance["node_coord"][0], dtype=torch.float32
+                ).repeat(batch_size, 1),
+                "locs": torch.tensor(
+                    instance["node_coord"][1:], dtype=torch.float32
+                ).repeat(batch_size, 1, 1),
+                "demand": torch.tensor(
+                    instance["demand"][1:], dtype=torch.float32
+                ).repeat(batch_size, 1),
+                "durations": torch.tensor(
+                    instance["service_time"], dtype=torch.int64
+                ).repeat(batch_size, 1),
+                "time_windows": torch.tensor(
+                    instance["time_window"], dtype=torch.int64
+                ).repeat(batch_size, 1, 1),
+            },
+            batch_size=1,  # will batch size always be 1 for loaded instances?
+        )
+        return self.reset(td, batch_size=batch_size)
+
+
+if __name__ == "__main__":
+    import torch
+
+    env = CVRPTWEnv(
+        num_loc=50,
+        min_loc=0,
+        max_loc=150,
+        min_demand=1,
+        max_demand=10,
+        vehicle_capacity=1,
+        capacity=10,
+        min_time=0,
+        max_time=480,
+    )
+
+    batch_size = 1
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    td_new = CVRPTWEnv.load_data(name="C101", solomon=True, type="instance")
+    td = env.convert_from_solomon(td_new, batch_size=batch_size).to(device)
+
+    # TDOO use the environment parameters extracted from the solomon instance to generate new instances for training.
+    # train the environment, then verify the reward and the individual steps (validity!) of the returned solution and compare to the solution from the solomon instance
