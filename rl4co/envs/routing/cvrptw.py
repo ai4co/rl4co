@@ -2,8 +2,11 @@ from math import sqrt
 from typing import Optional
 import torch
 from tensordict.tensordict import TensorDict
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
-from zmq import device
+from torchrl.data import (
+    BoundedTensorSpec,
+    CompositeSpec,
+    UnboundedContinuousTensorSpec,
+)
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
 from rl4co.utils.ops import gather_by_index, get_distance
@@ -33,15 +36,20 @@ class CVRPTWEnv(CVRPEnv):
     def _make_spec(self, td_params: TensorDict):
         super()._make_spec(td_params)
 
-        current_time = UnboundedContinuousTensorSpec(shape=(1), dtype=torch.float32)
+        current_time = UnboundedContinuousTensorSpec(
+            shape=(1), dtype=torch.float32, device=self.device
+        )
 
-        current_loc = UnboundedContinuousTensorSpec(shape=(2), dtype=torch.float32)
+        current_loc = UnboundedContinuousTensorSpec(
+            shape=(2), dtype=torch.float32, device=self.device
+        )
 
         durations = BoundedTensorSpec(
             low=self.min_time,
             high=self.max_time,
             shape=(self.num_loc, 1),
             dtype=torch.int64,
+            device=self.device,
         )
 
         time_windows = BoundedTensorSpec(
@@ -51,7 +59,8 @@ class CVRPTWEnv(CVRPEnv):
                 self.num_loc,
                 2,
             ),  # each location has a 2D time window (start, end)
-            dtype=torch.float64,
+            dtype=torch.float32,
+            device=self.device,
         )
 
         # extend observation specs
