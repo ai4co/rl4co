@@ -273,8 +273,8 @@ class OPEnv(RL4COEnvBase):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
+                low=self.min_loc,
+                high=self.max_loc,
                 shape=(self.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
@@ -307,8 +307,8 @@ class OPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_loc + 1,
+            low=0,
+            high=self.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
