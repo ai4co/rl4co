@@ -123,7 +123,7 @@ class PPO(RL4COLitModule):
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         # Evaluate old actions, log probabilities, and rewards
-        with torch.inference_mode():
+        with torch.torch.no_grad():
             td = self.env.reset(batch)  # note: clone needed for dataloader
             out = self.policy(td.clone(), self.env, phase=phase, return_actions=True)
 
