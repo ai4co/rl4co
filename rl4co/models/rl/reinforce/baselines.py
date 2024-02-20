@@ -188,7 +188,7 @@ class RolloutBaseline(REINFORCEBaseline):
             This is not differentiable and should only be used for evaluation.
             Also, it is recommended to use the `rollout` method directly instead of this method.
         """
-        with torch.no_grad():
+        with torch.inference_mode():
             reward = self.model(td, env)["reward"]
         return reward, 0
 
@@ -226,7 +226,7 @@ class RolloutBaseline(REINFORCEBaseline):
         model = model.to(device)
 
         def eval_model(batch):
-            with torch.no_grad():
+            with torch.inference_mode():
                 batch = env.reset(batch.to(device))
                 return model(batch, env, decode_type="greedy")["reward"]
 
