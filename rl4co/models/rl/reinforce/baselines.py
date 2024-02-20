@@ -293,7 +293,9 @@ def get_reinforce_baseline(name, **kw):
         return WarmupBaseline(
             RolloutBaseline(bl_alpha=bl_alpha), warmup_epochs, warmup_exp_beta
         )
-
+    
+    if name is None:
+        name = "no" # default to no baseline
     baseline_cls = REINFORCE_BASELINES_REGISTRY.get(name, None)
     if baseline_cls is None:
         raise ValueError(
