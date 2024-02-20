@@ -280,7 +280,12 @@ class CVRPTWEnv(CVRPEnv):
         CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
 
     @staticmethod
-    def load_data(name: str, solomon=False, path_instances: str = None, type: str = None):
+    def load_data(
+        name: str,
+        solomon=False,
+        path_instances: str = None,
+        type: str = None,
+    ):
         if solomon == True:
             assert type in [
                 "instance",
@@ -331,24 +336,68 @@ class CVRPTWEnv(CVRPEnv):
 
 if __name__ == "__main__":
     import torch
+    from rl4co.models.zoo.am import AttentionModel
+    from rl4co.utils.trainer import RL4COTrainer
 
-    env = CVRPTWEnv(
-        num_loc=50,
-        min_loc=0,
-        max_loc=150,
-        min_demand=1,
-        max_demand=10,
-        vehicle_capacity=1,
-        capacity=10,
-        min_time=0,
-        max_time=480,
-    )
-
-    batch_size = 1
+    env = CVRPTWEnv()
+    max_epochs = 3
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    td_new = CVRPTWEnv.load_data(name="C101", solomon=True, type="instance")
-    td = env.convert_from_solomon(td_new, batch_size=batch_size).to(device)
+    instance = CVRPTWEnv.load_data(name="C101", solomon=True, type="instance")
+    # this sets the environment parameters to the parameters of the solomon instance
+    td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
+
+    batch_size = 3
+
+    checkpoint_path = f"data/cvrptw_manual_test.ckpt"
+
+    def local_train(save_path: str = None):
+        # Model: default is AM with REINFORCE and greedy rollout baseline
+        model = AttentionModel(
+            env,
+            baseline="rollout",
+            train_data_size=100_000,
+            val_data_size=10_000,
+        )
+
+        # Greedy rollouts over untrained model
+        td_init = env.reset(batch_size=[batch_size]).to(device)
+        model = model.to(device)
+        out = model(
+            td_init.clone(), phase="test", decode_type="greedy", return_actions=True
+        )
+
+        ### --- Training --- ###
+        # The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
+        trainer = RL4COTrainer(
+            max_epochs=max_epochs,
+            accelerator="auto",
+            devices=1,
+            logger=None,
+        )
+
+        # fit model
+        trainer.fit(model)
+
+        ### --- Saving --- ###
+        trainer.save_checkpoint(filepath=save_path)
+        return model, trainer
+
+    def local_test(trainer, model, checkpoint_path: str = None):
+        lit_model = AttentionModel.load_from_checkpoint(
+            checkpoint_path, load_baseline=False
+        )
+        policy, env = lit_model.policy, lit_model.env
+        policy = policy.to(device)
+
+        ### --- Testing --- ###
+        trainer.test(model)
+
+        out = model(
+            td_test.clone(), phase="test", decode_type="greedy", return_actions=True
+        )
+
+    local_train(save_path=checkpoint_path)
 
     # TDOO use the environment parameters extracted from the solomon instance to generate new instances for training.
     # train the environment, then verify the reward and the individual steps (validity!) of the returned solution and compare to the solution from the solomon instance
