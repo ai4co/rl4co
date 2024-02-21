@@ -14,7 +14,11 @@ log = get_pylogger(__name__)
 
 
 class RL4COEnvBase(EnvBase):
-    """Base class for RL4CO environments based on TorchRL EnvBase
+    """Base class for RL4CO environments based on TorchRL EnvBase.
+    The environment has the usual methods for stepping, resetting, and getting the specifications of the environment
+    that shoud be implemented by the subclasses of this class.
+    It also has methods for getting the reward, action mask, and checking the validity of the solution, and
+    for generating and loading the datasets (supporting multiple dataloaders as well for validation and testing).
 
     Args:
         data_dir: Root directory for the dataset
@@ -27,6 +31,9 @@ class RL4COEnvBase(EnvBase):
         dataset_cls: Dataset class to use for the environment (which can influence performance)
         seed: Seed for the environment
         device: Device to use. Generally, no need to set as tensors are updated on the fly
+        batch_size: Batch size to use for the environment. Generally, no need to set as tensors are updated on the fly
+        run_type_checks: If True, run type checks on the TensorDicts at each step
+        allow_done_after_reset: If True, an environment can be done after a reset
         _torchrl_mode: Whether to use the TorchRL mode (see :meth:`step` for more details)
     """
 
@@ -45,10 +52,24 @@ class RL4COEnvBase(EnvBase):
         dataset_cls: callable = TensorDictDataset,
         seed: int = None,
         device: str = "cpu",
+        batch_size: torch.Size = None,
+        run_type_checks: bool = False,
+        allow_done_after_reset: bool = False,
         _torchrl_mode: bool = False,
         **kwargs,
     ):
-        super().__init__(device=device, batch_size=[])
+        super().__init__(
+            device=device,
+            batch_size=batch_size,
+            run_type_checks=run_type_checks,
+            allow_done_after_reset=allow_done_after_reset,
+        )
+        # if any kwargs are left, we want to warn the user
+        if kwargs:
+            log.warning(
+                f"Unused keyword arguments: {', '.join(kwargs.keys())}. "
+                "Please check the documentation for the correct keyword arguments"
+            )
         self.data_dir = data_dir
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
         self._torchrl_mode = _torchrl_mode

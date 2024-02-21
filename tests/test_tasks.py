@@ -21,6 +21,9 @@ def cfg_train_global() -> DictConfig:
             cfg.model.train_data_size = 100
             cfg.model.val_data_size = 100
             cfg.model.test_data_size = 100
+            cfg.model.batch_size = 2 # faster for CPU (not sure exactly why)
+            cfg.env.val_file = None # validate on self-generated data
+            cfg.env.test_file = None # validate on self-generated data
             cfg.trainer.accelerator = "cpu"
             cfg.trainer.devices = 1
             cfg.extras.print_config = False

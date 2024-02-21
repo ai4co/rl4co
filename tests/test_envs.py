@@ -61,9 +61,6 @@ def test_scheduling(env_cls, batch_size=2):
 
 @pytest.mark.parametrize("env_cls", [SMTWTPEnv])
 def test_smtwtp(env_cls, batch_size=2):
-    env = env_cls(
-        num_job=4,
-        batch_size=[batch_size],
-    )
+    env = env_cls(num_job=4)
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
     assert reward.shape == (batch_size,)

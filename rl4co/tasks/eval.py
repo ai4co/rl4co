@@ -39,7 +39,7 @@ class EvalBase:
         end_event = torch.cuda.Event(enable_timing=True)
         start_event.record()
 
-        with torch.no_grad():
+        with torch.inference_mode():
             rewards_list = []
             actions_list = []
 
