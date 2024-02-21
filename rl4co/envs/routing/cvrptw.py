@@ -336,20 +336,44 @@ class CVRPTWEnv(CVRPEnv):
 
 if __name__ == "__main__":
     import torch
+    from rl4co.models.nn.utils import rollout, random_policy
     from rl4co.models.zoo.am import AttentionModel
+    from rl4co.models.zoo.pomo import POMO
     from rl4co.utils.trainer import RL4COTrainer
 
     env = CVRPTWEnv()
-    max_epochs = 3
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    instance = CVRPTWEnv.load_data(name="C101", solomon=True, type="instance")
+    instance = CVRPTWEnv.load_data(name="R101", solomon=True, type="instance")
     # this sets the environment parameters to the parameters of the solomon instance
     td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
 
     batch_size = 3
 
     checkpoint_path = f"data/cvrptw_manual_test.ckpt"
+
+    solution = CVRPTWEnv.load_data(name="R101", solomon=True, type="solution")
+
+    model = POMO(
+        env,
+        baseline="shared",
+        train_data_size=1000,
+        val_data_size=100,
+    )
+    model = model.to(device)
+    out = model(td_test.clone(), phase="test", decode_type="greedy", return_actions=True)
+
+    # Plotting
+    print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
+    for td, actions in zip(td_test, out["actions"].cpu()):
+        env.render(td, actions)
+
+    reward, td, actions = rollout(
+        env=env,
+        td=td_test,
+        policy=random_policy,
+        max_steps=100_000_000,
+    )
 
     def local_train(save_path: str = None):
         # Model: default is AM with REINFORCE and greedy rollout baseline
@@ -397,7 +421,7 @@ if __name__ == "__main__":
             td_test.clone(), phase="test", decode_type="greedy", return_actions=True
         )
 
-    local_train(save_path=checkpoint_path)
+    # local_train(save_path=checkpoint_path)
 
     # TDOO use the environment parameters extracted from the solomon instance to generate new instances for training.
     # train the environment, then verify the reward and the individual steps (validity!) of the returned solution and compare to the solution from the solomon instance
