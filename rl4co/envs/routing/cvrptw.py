@@ -314,19 +314,29 @@ class CVRPTWEnv(CVRPEnv):
         td = TensorDict(
             {
                 "depot": torch.tensor(
-                    instance["node_coord"][0], dtype=torch.float32
+                    instance["node_coord"][0],
+                    dtype=torch.float32,
+                    device=self.device,
                 ).repeat(batch_size, 1),
                 "locs": torch.tensor(
-                    instance["node_coord"][1:], dtype=torch.float32
+                    instance["node_coord"][1:],
+                    dtype=torch.float32,
+                    device=self.device,
                 ).repeat(batch_size, 1, 1),
                 "demand": torch.tensor(
-                    instance["demand"][1:], dtype=torch.float32
+                    instance["demand"][1:],
+                    dtype=torch.float32,
+                    device=self.device,
                 ).repeat(batch_size, 1),
                 "durations": torch.tensor(
-                    instance["service_time"], dtype=torch.int64
+                    instance["service_time"],
+                    dtype=torch.int64,
+                    device=self.device,
                 ).repeat(batch_size, 1),
                 "time_windows": torch.tensor(
-                    instance["time_window"], dtype=torch.int64
+                    instance["time_window"],
+                    dtype=torch.int64,
+                    device=self.device,
                 ).repeat(batch_size, 1, 1),
             },
             batch_size=1,  # will batch size always be 1 for loaded instances?
@@ -336,92 +346,40 @@ class CVRPTWEnv(CVRPEnv):
 
 if __name__ == "__main__":
     import torch
-    from rl4co.models.nn.utils import rollout, random_policy
-    from rl4co.models.zoo.am import AttentionModel
-    from rl4co.models.zoo.pomo import POMO
-    from rl4co.utils.trainer import RL4COTrainer
-
-    env = CVRPTWEnv()
+    from rl4co.utils.ops import gather_by_index, get_tour_length
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    instance = CVRPTWEnv.load_data(name="R101", solomon=True, type="instance")
-    # this sets the environment parameters to the parameters of the solomon instance
+    instance_name = "R101"
+
+    env = CVRPTWEnv(device=device)
+    instance = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="instance")
+    solution = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="solution")
+
+    # this sets the environment parameters to the parameters of the solomon instance,
+    # in case we'd want to create more instances with the same parameters
     td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
 
-    batch_size = 3
+    actions = [0]
+    for route in solution["routes"]:
+        actions.extend(route)
+        actions.append(0)
+    actions = torch.tensor(actions, dtype=torch.long, device=env.device).unsqueeze(0)
 
-    checkpoint_path = f"data/cvrptw_manual_test.ckpt"
-
-    solution = CVRPTWEnv.load_data(name="R101", solomon=True, type="solution")
-
-    model = POMO(
-        env,
-        baseline="shared",
-        train_data_size=1000,
-        val_data_size=100,
+    # calculate reward without checking validity
+    td = td_test.clone()
+    # Gather dataset in order of tour
+    batch_size = td["locs"].shape[0]
+    depot = td["locs"][..., 0:1, :]
+    locs_ordered = torch.cat(
+        [
+            depot,
+            gather_by_index(td["locs"], actions).reshape(
+                [batch_size, actions.size(-1), 2]
+            ),
+        ],
+        dim=1,
     )
-    model = model.to(device)
-    out = model(td_test.clone(), phase="test", decode_type="greedy", return_actions=True)
+    print("reward:", -get_tour_length(locs_ordered))
 
-    # Plotting
-    print(f"Tour lengths: {[f'{-r.item():.2f}' for r in out['reward']]}")
-    for td, actions in zip(td_test, out["actions"].cpu()):
-        env.render(td, actions)
-
-    reward, td, actions = rollout(
-        env=env,
-        td=td_test,
-        policy=random_policy,
-        max_steps=100_000_000,
-    )
-
-    def local_train(save_path: str = None):
-        # Model: default is AM with REINFORCE and greedy rollout baseline
-        model = AttentionModel(
-            env,
-            baseline="rollout",
-            train_data_size=100_000,
-            val_data_size=10_000,
-        )
-
-        # Greedy rollouts over untrained model
-        td_init = env.reset(batch_size=[batch_size]).to(device)
-        model = model.to(device)
-        out = model(
-            td_init.clone(), phase="test", decode_type="greedy", return_actions=True
-        )
-
-        ### --- Training --- ###
-        # The RL4CO trainer is a wrapper around PyTorch Lightning's `Trainer` class which adds some functionality and more efficient defaults
-        trainer = RL4COTrainer(
-            max_epochs=max_epochs,
-            accelerator="auto",
-            devices=1,
-            logger=None,
-        )
-
-        # fit model
-        trainer.fit(model)
-
-        ### --- Saving --- ###
-        trainer.save_checkpoint(filepath=save_path)
-        return model, trainer
-
-    def local_test(trainer, model, checkpoint_path: str = None):
-        lit_model = AttentionModel.load_from_checkpoint(
-            checkpoint_path, load_baseline=False
-        )
-        policy, env = lit_model.policy, lit_model.env
-        policy = policy.to(device)
-
-        ### --- Testing --- ###
-        trainer.test(model)
-
-        out = model(
-            td_test.clone(), phase="test", decode_type="greedy", return_actions=True
-        )
-
-    # local_train(save_path=checkpoint_path)
-
-    # TDOO use the environment parameters extracted from the solomon instance to generate new instances for training.
-    # train the environment, then verify the reward and the individual steps (validity!) of the returned solution and compare to the solution from the solomon instance
+    env.get_reward(td_test, actions)
+    env.check_solution_validity(td_test, actions)
