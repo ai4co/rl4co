@@ -25,7 +25,7 @@ def test_base_policy_multistart(env_name, size=20, batch_size=2):
     td = env.reset(x)
     policy = AutoregressivePolicy(env.name)
     num_starts = size // 2 if env.name in ["pdp"] else size
-    out = policy(td, env, decode_type="greedy_multistart", num_starts=num_starts)
+    out = policy(td, env, decode_type="multistart_greedy", num_starts=num_starts)
     assert out["reward"].shape == (
         batch_size * num_starts,
     )  # to evaluate, we could just unbatchify
