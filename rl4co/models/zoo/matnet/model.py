@@ -21,6 +21,7 @@ class MatNet(POMO):
         batch_size: int = 200,
         policy_params: dict = {},
         model_params: dict = {},
+        **kwargs,
     ):
         if policy is None:
             policy = MatNetPolicy(env_name=env.name, **policy_params)
@@ -28,12 +29,8 @@ class MatNet(POMO):
         super(MatNet, self).__init__(
             env=env,
             policy=policy,
-            optimizer_kwargs=optimizer_kwargs,
-            lr_scheduler=lr_scheduler,
-            lr_scheduler_kwargs=lr_scheduler_kwargs,
             use_dihedral_8=use_dihedral_8,
             num_starts=num_starts,
-            train_data_size=train_data_size,
-            batch_size=batch_size,
-            **model_params,
+            num_augment=0, # NOTE: for MatNet we don't use augmentation
+            **kwargs,
         )
