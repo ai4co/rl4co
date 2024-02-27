@@ -285,6 +285,7 @@ class CVRPTWEnv(CVRPEnv):
         solomon=False,
         path_instances: str = None,
         type: str = None,
+        compute_edge_weights: bool = False,
     ):
         if solomon == True:
             assert type in [
@@ -292,7 +293,9 @@ class CVRPTWEnv(CVRPEnv):
                 "solution",
             ], "type must be either 'instance' or 'solution'"
             if type == "instance":
-                instance = load_solomon_instance(name=name, path=path_instances)
+                instance = load_solomon_instance(
+                    name=name, path=path_instances, edge_weights=compute_edge_weights
+                )
             elif type == "solution":
                 instance = load_solomon_solution(name=name, path=path_instances)
             return instance
@@ -349,37 +352,56 @@ if __name__ == "__main__":
     from rl4co.utils.ops import gather_by_index, get_tour_length
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    instance_name = "R101"
 
-    env = CVRPTWEnv(device=device)
-    instance = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="instance")
-    solution = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="solution")
+    for num in range(1, 11):
+        instance_name = f"R1_10_{num}"
+        print("Instance:", instance_name)
 
-    # this sets the environment parameters to the parameters of the solomon instance,
-    # in case we'd want to create more instances with the same parameters
-    td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
+        env = CVRPTWEnv(device=device)
+        instance = CVRPTWEnv.load_data(
+            name=instance_name, solomon=True, type="instance", compute_edge_weights=True
+        )
+        solution = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="solution")
 
-    actions = [0]
-    for route in solution["routes"]:
-        actions.extend(route)
-        actions.append(0)
-    actions = torch.tensor(actions, dtype=torch.long, device=env.device).unsqueeze(0)
+        # this sets the environment parameters to the parameters of the solomon instance,
+        # in case we'd want to create more instances with the same parameters
+        td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
 
-    # calculate reward without checking validity
-    td = td_test.clone()
-    # Gather dataset in order of tour
-    batch_size = td["locs"].shape[0]
-    depot = td["locs"][..., 0:1, :]
-    locs_ordered = torch.cat(
-        [
-            depot,
-            gather_by_index(td["locs"], actions).reshape(
-                [batch_size, actions.size(-1), 2]
-            ),
-        ],
-        dim=1,
-    )
-    print("reward:", -get_tour_length(locs_ordered))
+        actions = [0]
+        for route in solution["routes"]:
+            actions.extend(route)
+            actions.append(0)
+        actions = torch.tensor(actions, dtype=torch.long, device=env.device).unsqueeze(0)
+        print("actions:", actions)
 
-    env.get_reward(td_test, actions)
-    env.check_solution_validity(td_test, actions)
+        # calculate reward without checking validity
+        td = td_test.clone()
+        # Gather dataset in order of tour
+        batch_size = td["locs"].shape[0]
+        depot = td["locs"][..., 0:1, :]
+        locs_ordered = torch.cat(
+            [
+                depot,
+                gather_by_index(td["locs"], actions).reshape(
+                    [batch_size, actions.size(-1), 2]
+                ),
+            ],
+            dim=1,
+        )
+        print("calculated reward:", -get_tour_length(locs_ordered).item())
+        print("official reward:", -solution["cost"])
+        diff = -get_tour_length(locs_ordered).item() - -solution["cost"]
+        print("Difference:", diff, "(", diff / -solution["cost"] * 100, "% )")
+
+        try:
+            env.get_reward(td_test, actions)
+        except AssertionError as e:
+            print("!", e)
+
+        if num == 9:
+            input()
+        print()
+
+    # torch.all(
+    #     td["time_windows"][..., 0] + td["durations"] <= td["time_windows"][..., 1] + 1e-6
+    # )
