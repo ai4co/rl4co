@@ -78,7 +78,13 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
 @torch.jit.script
 def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
-    return (x - y).norm(p=2, dim=-1)
+    squared_diff = (x - y) ** 2  # Compute element-wise squared differences
+    summed_squared_diff = torch.sum(squared_diff, dim=-1)  # Sum along the last dimension
+    distance = torch.sqrt(
+        summed_squared_diff
+    )  # Take square root to get the Euclidean distance
+    return distance
+    # return (x - y).norm(p=2, dim=-1)
 
 
 @torch.jit.script
