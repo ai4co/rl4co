@@ -20,7 +20,21 @@ log = get_pylogger(__name__)
 
 class SVRPEnv(RL4COEnvBase):
     """
-    Basic Skill-VRP environment.
+    Basic Skill-VRP environment. The environment is a variant of the Capacitated Vehicle Routing Problem (CVRP).
+    Each technician has a certain skill-level and each customer node requires a certain skill-level to be serviced.
+    Each customer node needs is to be serviced by exactly one technician. Technicians can only service nodes if
+    their skill-level is greater or equal to the required skill-level of the node. The environment is episodic and
+    the goal is to minimize the total travel cost of the technicians. The travel cost depends on the skill-level of
+    the technician. The environment is defined by the following parameters:
+
+    Args:
+        num_loc (int): Number of customer locations. Default: 20
+        min_loc (float): Minimum value for the location coordinates. Default: 0
+        max_loc (float): Maximum value for the location coordinates. Default: 1
+        min_skill (float): Minimum skill level of the technicians. Default: 1
+        max_skill (float): Maximum skill level of the technicians. Default: 10
+        tech_costs (list): List of travel costs for the technicians. Default: [1, 2, 3]. The number of entries in this list determines the number of available technicians.
+        td_params (TensorDict): Parameters for the TensorDict. Default: None
     """
 
     name = "svrp"
@@ -81,6 +95,9 @@ class SVRPEnv(RL4COEnvBase):
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     def generate_data(self, batch_size):
+        """Generate data for the basic Skill-VRP. The data consists of the locations of the customers,
+        the skill-levels of the technicians and the required skill-levels of the customers.
+        The data is generated randomly within the given bounds."""
         # Batch size input check
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
@@ -93,7 +110,6 @@ class SVRPEnv(RL4COEnvBase):
 
         # Initialize technicians and sort ascendingly
         techs, _ = torch.sort(
-            # TODO should these be integer or float?
             torch.FloatTensor(*batch_size, self.num_tech, 1)
             .uniform_(self.min_skill, self.max_skill)
             .to(self.device),
@@ -120,6 +136,11 @@ class SVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
+        """Calculates the action mask for the Skill-VRP. The action mask is a binary mask that indicates which customer nodes can be services, given the previous decisions.
+        For the Skill-VRP, a node can be serviced if the technician has the required skill-level and the node has not been visited yet.
+        The depot cannot be visited if there are still unserved nodes and the technician either just visited the depot or is the last technician
+        (because every customer node needs to be visited).
+        """
         batch_size = td["locs"].shape[0]
         # check skill level
         current_tech_skill = gather_by_index(td["techs"], td["current_tech"]).reshape(
@@ -136,6 +157,9 @@ class SVRPEnv(RL4COEnvBase):
         return ~torch.cat((mask_depot[..., None], mask_loc), -2).squeeze(-1)
 
     def _step(self, td: TensorDict) -> torch.Tensor:
+        """Step function for the Skill-VRP. If a technician returns to the depot, the next technician is sent out.
+        The visited node is marked as visited. The reward is set to zero and the done flag is set if all nodes have been visited.
+        """
         current_node = td["action"][:, None]  # Add dimension for step
 
         # if I go back to the depot, send out next technician
@@ -194,6 +218,8 @@ class SVRPEnv(RL4COEnvBase):
         return td_reset
 
     def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+        """Calculated the reward, where the reward is the negative total travel cost of the technicians.
+        The travel cost depends on the skill-level of the technician."""
         # Check that the solution is valid
         if self.check_solution:
             self.check_solution_validity(td, actions)
@@ -373,7 +399,4 @@ class SVRPEnv(RL4COEnvBase):
     @staticmethod
     def load_data(fpath, batch_size=...):
         """Dataset loading from file"""
-        td_load = load_npz_to_tensordict(fpath)
-        # td_load.set("demand", td_load["demand"] / td_load["capacity"][:, None])
-        # TODO adjust for Skill-VRP
-        return td_load
+        return load_npz_to_tensordict(fpath)
