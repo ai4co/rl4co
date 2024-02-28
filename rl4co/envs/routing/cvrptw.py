@@ -6,11 +6,15 @@ from torchrl.data import (
     BoundedTensorSpec,
     CompositeSpec,
     UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
 )
 
 from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
-from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
+from rl4co.utils.ops import gather_by_index, get_distance
+from rl4co.data.utils import (
+    load_npz_to_tensordict,
+    load_solomon_instance,
+    load_solomon_solution,
+)
 
 
 class CVRPTWEnv(CVRPEnv):
@@ -59,7 +63,7 @@ class CVRPTWEnv(CVRPEnv):
                 self.num_loc,
                 2,
             ),  # each location has a 2D time window (start, end)
-            dtype=torch.float32,
+            dtype=torch.int64,
             device=self.device,
         )
 
@@ -74,14 +78,14 @@ class CVRPTWEnv(CVRPEnv):
         )
 
     def generate_data(self, batch_size) -> TensorDict:
+        """
+        Generates time windows and service durations for the locations. The depot has a time window of [0, max_time].
+        The time windows define the time span within which a service has to be started. To reach the depot in time from the last node,
+        the end time of each node is bounded by the service duration and the distance back to the depot.
+        """
         td = super().generate_data(batch_size)
 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # initialize at zero
-        current_time = torch.zeros(
-            *batch_size, 1, dtype=torch.float32, device=self.device
-        )
 
         ## define service durations
         # generate randomly (first assume service durations of 0, to be changed later)
@@ -94,7 +98,8 @@ class CVRPTWEnv(CVRPEnv):
         dist = get_distance(td["depot"], td["locs"].transpose(0, 1)).transpose(0, 1)
         dist = torch.cat((torch.zeros(*batch_size, 1, device=self.device), dist), dim=1)
         # 2. define upper bound for time windows, lower bound is the distance from the depot
-        upper_bound = self.max_time - dist
+        # upper_bound = self.max_time - dist
+        upper_bound = self.max_time - dist - durations
         # 3. create random values between 0 and 1
         ts_1 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
         ts_2 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
@@ -118,7 +123,7 @@ class CVRPTWEnv(CVRPEnv):
             )  # we are handling integer values, so we can simply substract 1
             min_times = min_tmp
 
-            mask = min_times == max_times  # update mask
+            mask = min_times == max_times  # update mask to new min_times
             if torch.any(mask):
                 max_tmp = max_times.clone()
                 max_tmp[mask] = torch.min(
@@ -131,7 +136,7 @@ class CVRPTWEnv(CVRPEnv):
                 max_times = max_tmp
 
         # 8. Adjust durations
-        durations = torch.min(durations, max_times - min_times)
+        # durations = torch.min(durations, max_times - min_times)
 
         # scale to [0, 1]
         if self.scale:
@@ -152,7 +157,6 @@ class CVRPTWEnv(CVRPEnv):
         durations[:, 0] = 0.0
         td.update(
             {
-                "current_time": current_time,
                 "durations": durations,
                 "time_windows": time_windows,
             }
@@ -168,9 +172,12 @@ class CVRPTWEnv(CVRPEnv):
         )
         dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1)
         td.update({"current_loc": current_loc, "distances": dist})
+        # can_reach_in_time = (
+        #     td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
+        # )
         can_reach_in_time = (
-            td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
-        )
+            td["current_time"] + dist <= td["time_windows"][..., 1]
+        )  # I only need to start the service before the time window ends, not finish it.
         return not_masked & can_reach_in_time
 
     def _step(self, td: TensorDict) -> TensorDict:
@@ -206,6 +213,9 @@ class CVRPTWEnv(CVRPEnv):
                 "current_node": torch.zeros(
                     *batch_size, 1, dtype=torch.long, device=self.device
                 ),
+                "current_time": torch.zeros(
+                    *batch_size, 1, dtype=torch.float32, device=self.device
+                ),
                 "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
                 "vehicle_capacity": torch.full(
                     (*batch_size, 1), self.vehicle_capacity, device=self.device
@@ -215,7 +225,6 @@ class CVRPTWEnv(CVRPEnv):
                     dtype=torch.uint8,
                     device=self.device,
                 ),
-                "current_time": td["current_time"],
                 "durations": td["durations"],
                 "time_windows": td["time_windows"],
             },
@@ -241,16 +250,15 @@ class CVRPTWEnv(CVRPEnv):
         assert torch.all(distances >= 0.0), "Distances must be non-negative."
         assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
         assert torch.all(
-            td["time_windows"][..., :, 1] + distances
+            td["time_windows"][..., :, 0] + distances + td["durations"]
             <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
-        ), "vehicle cannot get back to depot in time"
+        ), "vehicle cannot perform service and get back to depot in time."
         assert torch.all(
             td["durations"] >= 0.0
         ), "Service durations must be non-negative."
         assert torch.all(
-            td["time_windows"][..., 0] + td["durations"]
-            <= td["time_windows"][..., 1] + 1e-6
-        ), "service cannot be provided in given time window"
+            td["time_windows"][..., 0] < td["time_windows"][..., 1]
+        ), "there are unfeasible time windows"
         # check vehicles can meet deadlines
         curr_time = torch.zeros(batch_size, 1, dtype=torch.float32, device=td.device)
         curr_node = torch.zeros_like(curr_time, dtype=torch.int64, device=td.device)
@@ -261,17 +269,20 @@ class CVRPTWEnv(CVRPEnv):
                 gather_by_index(td["locs"], next_node).reshape([batch_size, 2]),
             ).reshape([batch_size, 1])
             curr_time = torch.max(
-                curr_time + dist,
+                (curr_time + dist).int(),
                 gather_by_index(td["time_windows"], next_node)[..., 0].reshape(
                     [batch_size, 1]
                 ),
-            ) + gather_by_index(td["durations"], next_node).reshape([batch_size, 1])
+            )
             assert torch.all(
                 curr_time
                 <= gather_by_index(td["time_windows"], next_node)[..., 1].reshape(
                     [batch_size, 1]
                 )
-            ), "vehicle cannot meet deadline"
+            ), "vehicle cannot start service before deadline"
+            curr_time = curr_time + gather_by_index(td["durations"], next_node).reshape(
+                [batch_size, 1]
+            )
             curr_node = next_node
             curr_time[curr_node == 0] = 0.0  # reset time for depot
 
@@ -280,8 +291,134 @@ class CVRPTWEnv(CVRPEnv):
         CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
 
     @staticmethod
-    def load_data(fpath, batch_size=[]):
-        """Dataset loading from file
-        Normalize demand by capacity to be in [0, 1]
-        """
-        return CVRPEnv.load_data(fpath, batch_size=batch_size)
+    def load_data(
+        name: str,
+        solomon=False,
+        path_instances: str = None,
+        type: str = None,
+        compute_edge_weights: bool = False,
+    ):
+        if solomon == True:
+            assert type in [
+                "instance",
+                "solution",
+            ], "type must be either 'instance' or 'solution'"
+            if type == "instance":
+                instance = load_solomon_instance(
+                    name=name, path=path_instances, edge_weights=compute_edge_weights
+                )
+            elif type == "solution":
+                instance = load_solomon_solution(name=name, path=path_instances)
+            return instance
+        return load_npz_to_tensordict(filename=name)
+
+    def extract_from_solomon(self, instance: dict, batch_size: int = 1):
+        # convert to format used in CVRPTWEnv
+        self.min_demand = instance["demand"][1:].min()
+        self.max_demand = instance["demand"][1:].max()
+        self.vehicle_capacity = instance["capacity"]
+        self.min_loc = instance["node_coord"][1:].min()
+        self.max_loc = instance["node_coord"][1:].max()
+        self.min_time = instance["time_window"][:, 0].min()
+        self.max_time = instance["time_window"][:, 1].max()
+        assert self.min_time == 0, "Time window of depot must start at 0."
+        assert (
+            self.max_time == instance["time_window"][0, 1]
+        ), "Depot must have latest end time."
+        td = TensorDict(
+            {
+                "depot": torch.tensor(
+                    instance["node_coord"][0],
+                    dtype=torch.float32,
+                    device=self.device,
+                ).repeat(batch_size, 1),
+                "locs": torch.tensor(
+                    instance["node_coord"][1:],
+                    dtype=torch.float32,
+                    device=self.device,
+                ).repeat(batch_size, 1, 1),
+                "demand": torch.tensor(
+                    instance["demand"][1:],
+                    dtype=torch.float32,
+                    device=self.device,
+                ).repeat(batch_size, 1),
+                "durations": torch.tensor(
+                    instance["service_time"],
+                    dtype=torch.int64,
+                    device=self.device,
+                ).repeat(batch_size, 1),
+                "time_windows": torch.tensor(
+                    instance["time_window"],
+                    dtype=torch.int64,
+                    device=self.device,
+                ).repeat(batch_size, 1, 1),
+            },
+            batch_size=1,  # will batch size always be 1 for loaded instances?
+        )
+        return self.reset(td, batch_size=batch_size)
+
+
+if __name__ == "__main__":
+    import torch
+    from rl4co.utils.ops import gather_by_index, get_tour_length
+
+    torch.set_printoptions(precision=10)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def evaluate_instance(instance_name: str):
+        env = CVRPTWEnv(device=device)
+        print("Instance:", instance_name)
+
+        instance = CVRPTWEnv.load_data(
+            name=instance_name, solomon=True, type="instance", compute_edge_weights=True
+        )
+        solution = CVRPTWEnv.load_data(name=instance_name, solomon=True, type="solution")
+
+        # this sets the environment parameters to the parameters of the solomon instance,
+        # in case we'd want to create more instances with the same parameters
+        td_test = env.extract_from_solomon(instance, batch_size=1).to(device)
+
+        actions = [0]
+        for route in solution["routes"]:
+            actions.extend(route)
+            actions.append(0)
+        actions = torch.tensor(actions, dtype=torch.long, device=env.device).unsqueeze(0)
+        print("actions:", actions)
+
+        # calculate reward without checking validity
+        td = td_test.clone()
+        # Gather dataset in order of tour
+        batch_size = td["locs"].shape[0]
+        depot = td["locs"][..., 0:1, :]
+        locs_ordered = torch.cat(
+            [
+                depot,
+                gather_by_index(td["locs"], actions).reshape(
+                    [batch_size, actions.size(-1), 2]
+                ),
+            ],
+            dim=1,
+        )
+        print("calculated reward:", -get_tour_length(locs_ordered).item())
+        print("official reward:", -solution["cost"])
+        diff = -get_tour_length(locs_ordered).item() - -solution["cost"]
+        print("Difference:", diff, "(", diff / -solution["cost"] * 100, "% )")
+
+        try:
+            env.get_reward(td_test, actions)
+        except AssertionError as e:
+            print("!", e)
+
+        return instance, solution, td
+
+    ls_eval = range(1, 11)
+    # ls_eval = [1, 2, 3, 6]
+    for num in ls_eval:
+        instance_name = f"R1_10_{num}"
+        instance, solution, td = evaluate_instance(instance_name)
+        print()
+
+    # torch.all(
+    #     td["time_windows"][..., 0] + td["durations"] <= td["time_windows"][..., 1] + 1e-6
+    # )
