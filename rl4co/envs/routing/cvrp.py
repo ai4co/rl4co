@@ -51,7 +51,6 @@ class CVRPEnv(RL4COEnvBase):
         min_demand: minimum value for the demand of each customer
         max_demand: maximum value for the demand of each customer
         vehicle_capacity: capacity of the vehicle
-        capacity: capacity of the vehicle
         td_params: parameters of the environment
     """
 
