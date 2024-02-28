@@ -337,8 +337,8 @@ class MPDPEnv(RL4COEnvBase):
         max_nodes = self.num_loc + self.max_num_agents + 1
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
+                low=self.min_loc,
+                high=self.max_loc,
                 shape=(max_nodes, 2),
                 dtype=torch.float32,
             ),
@@ -363,8 +363,8 @@ class MPDPEnv(RL4COEnvBase):
                 dtype=torch.float32,
             ),
             cur_coord=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
+                low=self.min_loc,
+                high=self.max_loc,
                 shape=(2,),
                 dtype=torch.float32,
             ),
@@ -417,8 +417,8 @@ class MPDPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=max_nodes,
+            low=0,
+            high=max_nodes,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

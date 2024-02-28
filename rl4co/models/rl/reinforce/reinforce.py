@@ -139,7 +139,7 @@ class REINFORCE(RL4COLitModule):
 
     def set_decode_type_multistart(self, phase: str):
         """Set decode type to `multistart` for train, val and test in policy.
-        For example, if the decode type is `greedy`, it will be set to `greedy_multistart`.
+        For example, if the decode type is `greedy`, it will be set to `multistart_greedy`.
 
         Args:
             phase: Phase to set decode type for. Must be one of `train`, `val` or `test`.
@@ -148,12 +148,12 @@ class REINFORCE(RL4COLitModule):
         attr_get = getattr(self.policy, attribute)
         # If does not exist, log error
         if attr_get is None:
-            log.error(f"Decode type for {phase} is None. Cannot add `_multistart`.")
+            log.error(f"Decode type for {phase} is None. Cannot prepend `multistart_`.")
             return
         elif "multistart" in attr_get:
             return
         else:
-            setattr(self.policy, attribute, f"{attr_get}_multistart")
+            setattr(self.policy, attribute, f"multistart_{attr_get}")
 
     @classmethod
     def load_from_checkpoint(

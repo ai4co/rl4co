@@ -57,7 +57,7 @@ def forward_eas(
     best_solutions,
     iter_count: int = 0,
     env: Union[str, RL4COEnvBase] = None,
-    decode_type: str = "sampling_multistart",
+    decode_type: str = "multistart_sampling",
     num_starts: int = None,
     softmax_temp: float = None,
     **unused_kwargs,

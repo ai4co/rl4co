@@ -1,6 +1,6 @@
 import pytest
 
-from rl4co.envs import PDPEnv, TSPEnv
+from rl4co.envs import PDPEnv, TSPEnv, ATSPEnv
 from rl4co.models import (
     ActiveSearch,
     AttentionModel,
@@ -8,6 +8,7 @@ from rl4co.models import (
     EASEmb,
     EASLay,
     HeterogeneousAttentionModel,
+    MatNet,
     PPOModel,
     SymNCO,
 )
@@ -56,6 +57,20 @@ def test_ham():
     model = HeterogeneousAttentionModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_matnet():
+    env = ATSPEnv(num_loc=20)
+    model = MatNet(
+        env, 
+        baseline="shared", 
+        train_data_size=10, 
+        val_data_size=10, 
+        test_data_size=10,
+    ) 
     trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
     trainer.test(model)

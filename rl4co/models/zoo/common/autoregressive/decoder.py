@@ -10,10 +10,11 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.attention import LogitAttention
+from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-from rl4co.models.nn.utils import decode_probs, get_log_likelihood
-from rl4co.utils.ops import batchify, get_num_starts, select_start_nodes, unbatchify
+from rl4co.models.nn.utils import get_log_likelihood
+from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -110,15 +111,17 @@ class AutoregressiveDecoder(nn.Module):
 
         self.select_start_nodes_fn = select_start_nodes_fn
 
+        self.decode_strategy = None
+
     def forward(
         self,
         td: TensorDict,
         embeddings: Tensor,
         env: Union[str, RL4COEnvBase] = None,
         decode_type: str = "sampling",
-        num_starts: int = None,
         softmax_temp: float = None,
         calc_reward: bool = True,
+        **strategy_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
         """Forward pass of the decoder
         Given the environment state and the pre-computed embeddings, compute the logits and sample actions
@@ -133,74 +136,38 @@ class AutoregressiveDecoder(nn.Module):
                 - "greedy": take the argmax of the logits
                 - "multistart_sampling": sample as sampling, but with multi-start decoding
                 - "multistart_greedy": sample as greedy, but with multi-start decoding
-            num_starts: Number of multi-starts to use. If None, will be calculated from the action mask
+                - "beam_search": perform beam search
             softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
             calc_reward: Whether to calculate the reward for the decoded sequence
+            strategy_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.models.nn.dec_strategies.DecodingStrategy`
 
         Returns:
             outputs: Tensor of shape (batch_size, seq_len, num_nodes) containing the logits
             actions: Tensor of shape (batch_size, seq_len) containing the sampled actions
             td: TensorDict containing the environment state after decoding
         """
-
         # Instantiate environment if needed
         if isinstance(env, str):
             env_name = self.env_name if env is None else env
             env = get_env(env_name)
 
-        # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
-        if "multistart" in decode_type:
-            if num_starts is None:
-                num_starts = get_num_starts(td, env.name)
-        else:
-            if num_starts is not None:
-                if num_starts > 1:
-                    log.warn(
-                        f"num_starts={num_starts} is ignored for decode_type={decode_type}"
-                    )
-            num_starts = 0
-
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute_cache(embeddings, td=td)
 
-        # Collect outputs
-        outputs = []
-        actions = []
-
-        # Multi-start decoding: first action is chosen by ad-hoc node selection
-        if num_starts > 1 or "multistart" in decode_type:
-            action = self.select_start_nodes_fn(td, env, num_starts=num_starts)
-
-            # Expand td to batch_size * num_starts
-            td = batchify(td, num_starts)
-
-            td.set("action", action)
-            td = env.step(td)["next"]
-            log_p = torch.zeros_like(
-                td["action_mask"], device=td.device
-            )  # first log_p is 0, so p = log_p.exp() = 1
-
-            outputs.append(log_p)
-            actions.append(action)
+        # setup decoding strategy
+        self.decode_strategy: DecodingStrategy = get_decoding_strategy(
+            decode_type, **strategy_kwargs
+        )
+        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env)
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
-
-            # Select the indices of the next nodes in the sequences, result (batch_size) long
-            action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
-
-            td.set("action", action)
+            td = self.decode_strategy.step(log_p, mask, td)
             td = env.step(td)["next"]
 
-            # Collect output of step
-            outputs.append(log_p)
-            actions.append(action)
+        outputs, actions, td, env = self.decode_strategy.post_decoder_hook(td, env)
 
-        assert (
-            len(outputs) > 0
-        ), "No outputs were collected because all environments were done. Check your initial state"
-        outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
 
