@@ -63,7 +63,7 @@ class CVRPTWEnv(CVRPEnv):
                 self.num_loc,
                 2,
             ),  # each location has a 2D time window (start, end)
-            dtype=torch.float32,
+            dtype=torch.int64,
             device=self.device,
         )
 
@@ -78,6 +78,11 @@ class CVRPTWEnv(CVRPEnv):
         )
 
     def generate_data(self, batch_size) -> TensorDict:
+        """
+        Generates time windows and service durations for the locations. The depot has a time window of [0, max_time].
+        The time windows define the time span within which a service has to be started. To reach the depot in time from the last node,
+        the end time of each node is bounded by the service duration and the distance back to the depot.
+        """
         td = super().generate_data(batch_size)
 
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -93,7 +98,8 @@ class CVRPTWEnv(CVRPEnv):
         dist = get_distance(td["depot"], td["locs"].transpose(0, 1)).transpose(0, 1)
         dist = torch.cat((torch.zeros(*batch_size, 1, device=self.device), dist), dim=1)
         # 2. define upper bound for time windows, lower bound is the distance from the depot
-        upper_bound = self.max_time - dist
+        # upper_bound = self.max_time - dist
+        upper_bound = self.max_time - dist - durations
         # 3. create random values between 0 and 1
         ts_1 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
         ts_2 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
@@ -117,7 +123,7 @@ class CVRPTWEnv(CVRPEnv):
             )  # we are handling integer values, so we can simply substract 1
             min_times = min_tmp
 
-            mask = min_times == max_times  # update mask
+            mask = min_times == max_times  # update mask to new min_times
             if torch.any(mask):
                 max_tmp = max_times.clone()
                 max_tmp[mask] = torch.min(
@@ -130,7 +136,7 @@ class CVRPTWEnv(CVRPEnv):
                 max_times = max_tmp
 
         # 8. Adjust durations
-        durations = torch.min(durations, max_times - min_times)
+        # durations = torch.min(durations, max_times - min_times)
 
         # scale to [0, 1]
         if self.scale:
@@ -166,9 +172,12 @@ class CVRPTWEnv(CVRPEnv):
         )
         dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1)
         td.update({"current_loc": current_loc, "distances": dist})
+        # can_reach_in_time = (
+        #     td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
+        # )
         can_reach_in_time = (
-            td["current_time"] + td["durations"] + dist <= td["time_windows"][..., 1]
-        )
+            td["current_time"] + dist <= td["time_windows"][..., 1]
+        )  # I only need to start the service before the time window ends, not finish it.
         return not_masked & can_reach_in_time
 
     def _step(self, td: TensorDict) -> TensorDict:
@@ -241,16 +250,15 @@ class CVRPTWEnv(CVRPEnv):
         assert torch.all(distances >= 0.0), "Distances must be non-negative."
         assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
         assert torch.all(
-            td["time_windows"][..., :, 1] + distances
+            td["time_windows"][..., :, 0] + distances + td["durations"]
             <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
-        ), "vehicle cannot get back to depot in time"
+        ), "vehicle cannot perform service and get back to depot in time."
         assert torch.all(
             td["durations"] >= 0.0
         ), "Service durations must be non-negative."
         assert torch.all(
-            td["time_windows"][..., 0] + td["durations"]
-            <= td["time_windows"][..., 1] + 1e-6
-        ), "service cannot be provided in given time window"
+            td["time_windows"][..., 0] < td["time_windows"][..., 1]
+        ), "there are unfeasible time windows"
         # check vehicles can meet deadlines
         curr_time = torch.zeros(batch_size, 1, dtype=torch.float32, device=td.device)
         curr_node = torch.zeros_like(curr_time, dtype=torch.int64, device=td.device)
@@ -261,17 +269,20 @@ class CVRPTWEnv(CVRPEnv):
                 gather_by_index(td["locs"], next_node).reshape([batch_size, 2]),
             ).reshape([batch_size, 1])
             curr_time = torch.max(
-                curr_time + dist,
+                (curr_time + dist).int(),
                 gather_by_index(td["time_windows"], next_node)[..., 0].reshape(
                     [batch_size, 1]
                 ),
-            ) + gather_by_index(td["durations"], next_node).reshape([batch_size, 1])
+            )
             assert torch.all(
                 curr_time
                 <= gather_by_index(td["time_windows"], next_node)[..., 1].reshape(
                     [batch_size, 1]
                 )
-            ), "vehicle cannot meet deadline"
+            ), "vehicle cannot start service before deadline"
+            curr_time = curr_time + gather_by_index(td["durations"], next_node).reshape(
+                [batch_size, 1]
+            )
             curr_node = next_node
             curr_time[curr_node == 0] = 0.0  # reset time for depot
 
@@ -351,13 +362,14 @@ if __name__ == "__main__":
     import torch
     from rl4co.utils.ops import gather_by_index, get_tour_length
 
+    torch.set_printoptions(precision=10)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    for num in range(1, 11):
-        instance_name = f"R1_10_{num}"
+    def evaluate_instance(instance_name: str):
+        env = CVRPTWEnv(device=device)
         print("Instance:", instance_name)
 
-        env = CVRPTWEnv(device=device)
         instance = CVRPTWEnv.load_data(
             name=instance_name, solomon=True, type="instance", compute_edge_weights=True
         )
@@ -398,8 +410,13 @@ if __name__ == "__main__":
         except AssertionError as e:
             print("!", e)
 
-        if num == 9:
-            input()
+        return instance, solution, td
+
+    ls_eval = range(1, 11)
+    # ls_eval = [1, 2, 3, 6]
+    for num in ls_eval:
+        instance_name = f"R1_10_{num}"
+        instance, solution, td = evaluate_instance(instance_name)
         print()
 
     # torch.all(
