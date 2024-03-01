@@ -395,8 +395,3 @@ class SVRPEnv(RL4COEnvBase):
                 annotation_clip=False,
             )
         plt.show()
-
-    @staticmethod
-    def load_data(fpath, batch_size=...):
-        """Dataset loading from file"""
-        return load_npz_to_tensordict(fpath)
