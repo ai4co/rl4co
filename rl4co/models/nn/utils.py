@@ -75,6 +75,7 @@ def rollout(env, td, policy, max_steps: int = None):
         td = env.step(td)["next"]
         steps += 1
         if steps > max_steps:
+            log.info("Max steps reached")
             break
     return (
         env.get_reward(td, torch.stack(actions, dim=1)),
@@ -84,7 +85,6 @@ def rollout(env, td, policy, max_steps: int = None):
 
 
 class RandomPolicy(nn.Module):
-
     """
     Random Policy Class that randomly select actions from the action space
     This policy can be useful to check the sanity of the environment during development
