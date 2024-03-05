@@ -6,7 +6,12 @@ import torch.nn as nn
 
 from tensordict import TensorDict
 from torch import Tensor
-from torch_geometric.data import Batch
+
+try:
+    from torch_geometric.data import Batch
+except ImportError:
+    # `Batch` is referred to only as type notations in this file
+    pass
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
@@ -14,15 +19,6 @@ from rl4co.utils.ops import batchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
-
-
-@lru_cache(10)  # cache the result to reduce computational redundency
-def _multistart_batched_index(batch_size: int, num_starts: int):
-    arr = torch.arange(batch_size)
-    if num_starts <= 1:
-        return arr
-    else:
-        return batchify(arr, num_starts)
 
 
 class EdgeHeatmapGenerator(nn.Module):
@@ -57,14 +53,14 @@ class EdgeHeatmapGenerator(nn.Module):
 
         self.undirected_graph = undirected_graph
 
-    def forward(self, data: Batch) -> Tensor:
+    def forward(self, graph: Batch) -> Tensor:
         # do not reuse the input value
-        edge_attr = data.edge_attr  # type: ignore
+        edge_attr = graph.edge_attr  # type: ignore
         for layer in self.linears:
             edge_attr = self.act(layer(edge_attr))
-        data.edge_attr = torch.sigmoid(self.output(edge_attr)) * 10  # type: ignore
+        graph.edge_attr = torch.sigmoid(self.output(edge_attr)) * 10  # type: ignore
 
-        heatmaps_logp = self._make_heatmaps(data)
+        heatmaps_logp = self._make_heatmaps(graph)
         return heatmaps_logp
 
     def _make_heatmaps(self, batch_graph: Batch) -> Tensor:
@@ -94,17 +90,17 @@ class NonAutoregressiveDecoder(nn.Module):
     This model utilizes a multi-layer perceptron (MLP) approach to predict edge attributes directly from the input graph features,
     which are then transformed into a heatmap representation to facilitate the decoding of the solution. The decoding process
     is managed by a specified strategy which could vary from simple greedy selection to more complex sampling methods.
-    
+
     Note:
         This decoder's performance heavily relies on the ability of the MLP to capture the dependencies between different
         parts of the solution without the iterative refinement provided by autoregressive models. It is particularly useful
         in scenarios where the solution space can be effectively explored in a parallelized manner or when the solution components
         are largely independent.
-    
+
     Warning:
         The effectiveness of the non-autoregressive approach can vary significantly across different problem types and configurations.
         It may require careful tuning of the model architecture and decoding strategy to achieve competitive results.
-    
+
     Args:
         env_name: environment name to solve
         embedding_dim: Dimension of the embeddings
@@ -138,7 +134,7 @@ class NonAutoregressiveDecoder(nn.Module):
     def forward(
         self,
         td: TensorDict,
-        data: Batch,
+        graph: Batch,
         env: Union[str, RL4COEnvBase, None] = None,
         decode_type: str = "multistart_sampling",
         calc_reward: bool = True,
@@ -150,7 +146,7 @@ class NonAutoregressiveDecoder(nn.Module):
             env = get_env(env_name)
 
         # calculate heatmap
-        heatmaps_logp = self.heatmap_generator(data)
+        heatmaps_logp = self.heatmap_generator(graph)
 
         # setup decoding strategy
         self.decode_strategy: DecodingStrategy = get_decoding_strategy(
@@ -180,9 +176,18 @@ class NonAutoregressiveDecoder(nn.Module):
             log_p = heatmaps_logp.mean(-1)
         else:
             batch_size = heatmaps_logp.shape[0]
-            _indexer = _multistart_batched_index(batch_size, num_starts)
+            _indexer = self._multistart_batched_index(batch_size, num_starts)
             log_p = heatmaps_logp[_indexer, current_action, :]
 
         log_p[mask] = -torch.inf
         log_p = nn.functional.log_softmax(log_p, -1)
         return log_p, mask
+
+    @staticmethod
+    @lru_cache(10)
+    def _multistart_batched_index(batch_size: int, num_starts: int):
+        arr = torch.arange(batch_size)
+        if num_starts <= 1:
+            return arr
+        else:
+            return batchify(arr, num_starts)

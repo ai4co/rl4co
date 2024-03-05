@@ -6,10 +6,7 @@ from torch import Tensor
 try:
     from torch_geometric.data import Batch, Data
 except ImportError:
-    raise ImportError(
-        "torch_geometric not found. Please install torch_geometric using instructions from "
-        "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html ."
-    )
+    Batch = Data = None
 
 from rl4co.utils.ops import get_distance_matrix, get_full_graph_edge_index, sparsify_graph
 from rl4co.utils.pylogger import get_pylogger
@@ -63,6 +60,11 @@ class TSPEdgeEmbedding(nn.Module):
         sparsify=True,
         k_sparse: int = None,
     ):
+        assert Batch is not None, (
+            "torch_geometric not found. Please install torch_geometric using instructions from "
+            "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
+        )
+
         super(TSPEdgeEmbedding, self).__init__()
         node_dim = 1
         self.k_sparse = k_sparse
@@ -123,6 +125,11 @@ class NoEdgeEmbedding(nn.Module):
     """
 
     def __init__(self, embedding_dim, self_loop=False, **kwargs):
+        assert Batch is not None, (
+            "torch_geometric not found. Please install torch_geometric using instructions from "
+            "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
+        )
+
         super(NoEdgeEmbedding, self).__init__()
         self.embedding_dim = embedding_dim
         self.self_loop = self_loop

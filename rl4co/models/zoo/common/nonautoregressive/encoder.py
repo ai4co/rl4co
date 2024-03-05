@@ -5,8 +5,7 @@ import torch.nn as nn
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.env_embeddings.edge import env_edge_embedding
+from rl4co.models.nn.env_embeddings import env_edge_embedding, env_init_embedding
 from rl4co.models.nn.graph.gnn import GNNEncoder
 
 
@@ -61,10 +60,10 @@ class NonAutoregressiveEncoder(nn.Module):
         """
         # Transfer to embedding space
         node_embed = self.init_embedding(td)
-        data = self.edge_embedding(td, node_embed)
+        graph = self.edge_embedding(td, node_embed)
 
         # Process embedding
-        data.x, data.edge_attr = self.net(data.x, data.edge_index, data.edge_attr)
+        graph.x, graph.edge_attr = self.net(graph.x, graph.edge_index, graph.edge_attr)
 
         # Return latent representation and initial embeddings
-        return data, node_embed
+        return graph, node_embed

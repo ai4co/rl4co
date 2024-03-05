@@ -109,7 +109,7 @@ class NonAutoregressivePolicy(nn.Module):
         """
 
         # ENCODER: get embeddings from initial state
-        data, init_embeds = self.encoder(td)
+        graph, init_embeds = self.encoder(td)
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -122,7 +122,7 @@ class NonAutoregressivePolicy(nn.Module):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # DECODER: main rollout with autoregressive decoding
-        log_p, actions, td_out = self.decoder(td, data, env, **decoder_kwargs)
+        log_p, actions, td_out = self.decoder(td, graph, env, **decoder_kwargs)
 
         # Log likelihood is calculated within the model
         log_likelihood = get_log_likelihood(

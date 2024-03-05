@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
-import torch_geometric.nn as gnn
+
+try:
+    import torch_geometric.nn as gnn
+except ImportError:
+    gnn = None
 
 from rl4co.utils.pylogger import get_pylogger
 
@@ -17,6 +21,11 @@ class GNNLayer(nn.Module):
     """
 
     def __init__(self, units: int, act_fn: str = "silu", agg_fn: str = "mean"):
+        assert gnn is not None, (
+            "torch_geometric not found. Please install torch_geometric using instructions from "
+            "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
+        )
+
         super(GNNLayer, self).__init__()
         self.units = units
         self.act_fn = getattr(nn.functional, act_fn)

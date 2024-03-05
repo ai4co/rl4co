@@ -47,7 +47,7 @@ class GCNEncoder(nn.Module):
         )
 
         # Generate edge index for a fully connected graph
-        self.edge_index = get_full_graph_edge_index(num_nodes, self.self_loop)
+        self.edge_index = get_full_graph_edge_index(num_nodes, self_loop)
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(

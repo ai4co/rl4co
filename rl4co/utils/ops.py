@@ -166,8 +166,6 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
     m, n = cost_matrix.shape
     k_sparse = max(n // 5, 10) if k_sparse is None else k_sparse
 
-    # diag_value = cost_matrix.diag()
-
     # fill diagonal value with +inf to exclude them from topk results
     if not self_loop and m == n:
         # k_sparse should not exceed n-1 in this occasion
@@ -178,10 +176,6 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
     topk_values, topk_indices = torch.topk(
         cost_matrix, k=k_sparse, dim=-1, largest=False, sorted=False
     )
-
-    # restore diagonal values
-    # if not self_loop and m == n:
-    #     cost_matrix[torch.arange(n), torch.arange(n)] = diag_value
 
     # generate PyG-compatiable edge_index
     edge_index_u = torch.repeat_interleave(
