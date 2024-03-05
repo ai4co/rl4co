@@ -142,11 +142,11 @@ class RL4COLitModule(LightningModule):
 
         log.info("Setting up datasets")
         self.train_dataset = self.wrap_dataset(
-            self.env.dataset(self.data_cfg["train_data_size"], phase="train")
+            self.env.dataset(self.data_cfg["batch_size"], phase="train")
         )
-        self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
+        self.val_dataset = self.env.dataset(self.data_cfg["val_batch_size"], phase="val")
         self.test_dataset = self.env.dataset(
-            self.data_cfg["test_data_size"], phase="test"
+            self.data_cfg["test_batch_size"], phase="test"
         )
         self.dataloader_names = None
         self.setup_loggers()
