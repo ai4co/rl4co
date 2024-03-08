@@ -1,3 +1,4 @@
+import sys
 import pytest
 
 from rl4co.envs import PDPEnv, TSPEnv, ATSPEnv
@@ -8,6 +9,7 @@ from rl4co.models import (
     EASEmb,
     EASLay,
     HeterogeneousAttentionModel,
+    NonAutoregressiveModel,
     MatNet,
     PPOModel,
     SymNCO,
@@ -84,5 +86,16 @@ def test_search_methods(SearchMethod):
     policy = AutoregressivePolicy(env)
     model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
     trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.skipif('torch_geometric' not in sys.modules, reason="PyTorch Geometric not installed")
+def test_nar():
+    env = TSPEnv(num_loc=20)
+    model = NonAutoregressiveModel(
+        env, train_data_size=10, val_data_size=10, test_data_size=10
+    )
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1)
     trainer.fit(model)
     trainer.test(model)

@@ -58,9 +58,8 @@ class DecodingStrategy:
         self.select_start_nodes_fn = select_start_nodes_fn
 
     def _step(
-        self, logp: torch.Tensor, td: TensorDict, **kwargs
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Main decoding operation. This method should be implemented by subclasses."""
+        self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
+    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
         raise NotImplementedError("Must be implemented by subclass")
 
     def pre_decoder_hook(self, td: TensorDict, env: RL4COEnvBase):
@@ -96,8 +95,9 @@ class DecodingStrategy:
 
         return td, env, self.num_starts
 
-    def post_decoder_hook(self, td, env):
-        """Post decoding hook. This method is called after the main decoding operation."""
+    def post_decoder_hook(
+        self, td: TensorDict, env: RL4COEnvBase
+    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict, RL4COEnvBase]:
         assert (
             len(self.logp) > 0
         ), "No outputs were collected because all environments were done. Check your initial state"
@@ -106,8 +106,7 @@ class DecodingStrategy:
 
     def step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
-        """Main decoding operation. This method calls the :meth:`_step` method and collects the outputs."""
+    ) -> TensorDict:
         assert not logp.isinf().all(1).any()
 
         logp, selected_actions, td = self._step(logp, mask, td, **kwargs)
