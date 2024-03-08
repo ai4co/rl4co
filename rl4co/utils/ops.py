@@ -100,8 +100,8 @@ def get_num_starts(td, env_name=None):
         num_starts = (
             num_starts - 1
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
-    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
-        num_starts = num_starts - 1  # depot cannot be a start node
+    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "ffsp"]:
+        num_starts = num_starts - 1  # depot / dummy job cannot be a start node
     return num_starts
 
 
@@ -115,7 +115,7 @@ def select_start_nodes(td, env, num_starts):
         env: Environment may determine the node selection strategy
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    if env.name in ["tsp", "atsp"]:
+    if env.name in ["tsp", "atsp", "ffsp"]:
         selected = torch.arange(num_starts, device=td.device).repeat_interleave(
             td.shape[0]
         )

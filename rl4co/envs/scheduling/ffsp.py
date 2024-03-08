@@ -36,9 +36,8 @@ class FFSPEnv(RL4COEnvBase):
         num_stage: int,
         num_machine: int,
         num_job: int,
-        min_time: float = 0.1,
-        max_time: float = 1.0,
-        batch_size: list = [50],
+        min_time: int = 2,
+        max_time: int = 10,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -48,14 +47,28 @@ class FFSPEnv(RL4COEnvBase):
         self.num_job = num_job
         self.min_time = min_time
         self.max_time = max_time
-        self.batch_size = batch_size
+
+        # Init stage and machine mapping table
+        self.stage_table = torch.arange(
+            self.num_stage, dtype=torch.long, device=self.device
+        ).repeat_interleave(self.num_machine)
+
+        self.machine_table = torch.arange(
+            self.num_machine * self.num_stage, dtype=torch.long, device=self.device
+        )
+
+        self.stage_machine_table = torch.arange(
+            self.num_machine, dtype=torch.long, device=self.device
+        ).repeat(self.num_stage)
 
     def _step(self, td: TensorDict) -> TensorDict:
+        batch_size = td.batch_size
+
         # job_idx is the action from the model
-        job_idx = td["job_idx"]
+        job_idx = td["action"]
         time_idx = td["time_idx"]
         batch_idx = td["batch_idx"]
-        machine_idx = td["machine_idx"][0]
+        machine_idx = td["machine_idx"]
         sub_time_idx = td["sub_time_idx"]
 
         schedule = td["schedule"]
@@ -72,16 +85,29 @@ class FFSPEnv(RL4COEnvBase):
         job_wait_step = td["job_wait_step"]
         job_wait_step[batch_idx, job_idx] = job_length
 
-        finish = (job_location[:, : self.num_job] == self.num_stage).all(dim=-1)
-        done = finish.all()
+        done = (job_location[:, : self.num_job] == self.num_stage).all(dim=-1)
 
-        if done:
+        update_dict = {
+            "time_idx": time_idx,
+            "sub_time_idx": sub_time_idx,
+            "batch_idx": batch_idx,
+            "machine_idx": machine_idx,
+            "schedule": schedule,
+            "machine_wait_step": machine_wait_step,
+            "job_location": job_location,
+            "job_wait_step": job_wait_step,
+            "done": done,
+        }
+
+        if done.all():
             end_schedule = schedule + td["job_duration"].permute(0, 2, 1)
-            end_time_max, _ = end_schedule[:, :, : self.job_cnt].max(dim=-1)
+            end_time_max, _ = end_schedule[:, :, : self.num_job].max(dim=-1)
             end_time_max, _ = end_time_max.max(dim=-1)
-            reward = end_time_max
+            reward = end_time_max.to(torch.float32)
+            update_dict["reward"] = reward
+
         else:
-            ready = torch.flatten(finish)
+            ready = torch.flatten(done)
             idx = torch.flatten(batch_idx)
             idx = idx[~ready]
 
@@ -91,7 +117,7 @@ class FFSPEnv(RL4COEnvBase):
                 time_idx[idx] += step_time_required.long()
                 new_sub_time_idx[step_time_required] = 0
                 sub_time_idx[idx] = new_sub_time_idx
-                new_machine_idx = td["machine_table"][0][new_sub_time_idx]
+                new_machine_idx = self.machine_table[new_sub_time_idx]
                 machine_idx[idx] = new_machine_idx
 
                 machine_wait_steps = machine_wait_step[idx, :]
@@ -106,7 +132,7 @@ class FFSPEnv(RL4COEnvBase):
 
                 machine_ready = machine_wait_step[idx, new_machine_idx] == 0
 
-                new_stage_idx = td["stage_table"][0][new_sub_time_idx]
+                new_stage_idx = self.stage_table[new_sub_time_idx]
                 job_ready_1 = job_location[idx, : self.num_job] == new_stage_idx[:, None]
                 job_ready_2 = job_wait_step[idx, : self.num_job] == 0
                 job_ready = (job_ready_1 & job_ready_2).any(dim=-1)
@@ -114,8 +140,8 @@ class FFSPEnv(RL4COEnvBase):
                 ready = machine_ready & job_ready
                 idx = idx[~ready]
 
-            stage_idx = td["stage_table"][0][sub_time_idx]
-            stage_machine_idx = td["stage_machine_table"][0][sub_time_idx]
+            stage_idx = self.stage_table[sub_time_idx]
+            stage_machine_idx = self.stage_machine_table[sub_time_idx]
 
             job_loc = job_location[:, : self.num_job]
             job_wait_time = job_wait_step[:, : self.num_job]
@@ -126,37 +152,39 @@ class FFSPEnv(RL4COEnvBase):
 
             job_in_previous_stages = (job_loc < stage_idx[:, None]).any(dim=-1)
             job_waiting_in_stage = (job_in_stage & (job_wait_time > 0)).any(dim=-1)
-            wait_allowed = job_in_previous_stages + job_waiting_in_stage + finish
+            wait_allowed = job_in_previous_stages + job_waiting_in_stage + done
 
             job_enable = torch.cat((job_available, wait_allowed[:, None]), dim=-1)
             job_mask = torch.full(
-                size=(*self.batch_size, self.num_job + 1),
-                dtype=torch.float32,
+                size=(*batch_size, self.num_job + 1),
+                dtype=torch.bool,
                 device=self.device,
-                fill_value=float("-inf"),
+                fill_value=0,
             )
-            job_mask[job_enable] = 0
+            job_mask[job_enable] = 1
 
-            reward = td["reward"]
+            cost_matrix = (
+                td["run_time"]
+                .gather(
+                    3,
+                    stage_idx[:, None, None, None].expand(
+                        *batch_size, self.num_job, self.num_machine, 1
+                    ),
+                )
+                .squeeze(-1)
+            )
+
+            update_dict.update(
+                {
+                    "cost_matrix": cost_matrix,
+                    "action_mask": job_mask,
+                    "stage_idx": stage_idx,
+                    "stage_machine_idx": stage_machine_idx,
+                }
+            )
 
         # Updated state
-        td.update(
-            {
-                "time_idx": time_idx,
-                "sub_time_idx": sub_time_idx,
-                "batch_idx": batch_idx,
-                "machine_idx": machine_idx,
-                "schedule": schedule,
-                "machine_wait_step": machine_wait_step,
-                "job_location": job_location,
-                "job_wait_step": job_wait_step,
-                "reward": reward,
-                "finish": finish,
-                "job_mask": job_mask,
-                "stage_idx": stage_idx,
-                "stage_machine_idx": stage_machine_idx,
-            }
-        )
+        td.update(update_dict)
         return td
 
     def _reset(
@@ -180,23 +208,10 @@ class FFSPEnv(RL4COEnvBase):
             - job_duration [batch_size, num_job+1, num_machine * num_stage]
         """
         if batch_size is None:
-            batch_size = self.batch_size if td is None else td["observation"].shape[:-2]
+            batch_size = self.batch_size if td is None else td.batch_size
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
-
-        # Init stage and machine mapping table
-        stage_table = (
-            torch.arange(self.num_stage, dtype=torch.long, device=self.device)
-            .repeat_interleave(self.num_machine)
-            .repeat(*batch_size, 1)
-        )
-        machine_table = torch.arange(
-            self.num_machine * self.num_stage, dtype=torch.long, device=self.device
-        ).repeat(*batch_size, 1)
-        stage_machine_table = torch.arange(
-            self.num_machine, dtype=torch.long, device=self.device
-        ).repeat(*batch_size, self.num_stage)
 
         # Init index record tensor
         time_idx = torch.zeros(size=(batch_size), dtype=torch.long, device=self.device)
@@ -204,7 +219,6 @@ class FFSPEnv(RL4COEnvBase):
             size=(batch_size), dtype=torch.long, device=self.device
         )
         batch_idx = torch.arange(*batch_size)
-        machine_idx = machine_table[..., sub_time_idx]
 
         # Scheduling status information
         schedule = torch.full(
@@ -240,29 +254,45 @@ class FFSPEnv(RL4COEnvBase):
 
         # Finish status information
         reward = torch.full(
-            size=(self.batch_size),
+            size=(batch_size),
             dtype=torch.float32,
             device=self.device,
             fill_value=float("-inf"),
         )
-        finish = torch.full(
-            size=(self.batch_size),
+        done = torch.full(
+            size=(batch_size),
             dtype=torch.bool,
             device=self.device,
             fill_value=False,
         )
 
+        action_mask = torch.ones((*batch_size, self.num_job + 1), dtype=bool)
+        action_mask[..., -1] = 0
+
+        stage_idx = self.stage_table[sub_time_idx]
+        machine_idx = self.machine_table[sub_time_idx]
+        stage_machine_idx = self.stage_machine_table[sub_time_idx]
+
+        cost_matrix = (
+            td["run_time"]
+            .gather(
+                3,
+                stage_idx[:, None, None, None].expand(
+                    *batch_size, self.num_job, self.num_machine, 1
+                ),
+            )
+            .squeeze(-1)
+        )
+
         return TensorDict(
             {
-                # Mapping table information
-                "stage_table": stage_table,
-                "machine_table": machine_table,
-                "stage_machine_table": stage_machine_table,
                 # Index information
+                "stage_idx": stage_idx,
                 "time_idx": time_idx,
                 "sub_time_idx": sub_time_idx,
                 "batch_idx": batch_idx,
                 "machine_idx": machine_idx,
+                "stage_machine_idx": stage_machine_idx,
                 # Scheduling status information
                 "schedule": schedule,
                 "machine_wait_step": machine_wait_step,
@@ -271,7 +301,9 @@ class FFSPEnv(RL4COEnvBase):
                 "job_duration": job_duration,
                 # Finish status information
                 "reward": reward,
-                "finish": finish,
+                "done": done,
+                "cost_matrix": cost_matrix,
+                "action_mask": action_mask,
             },
             batch_size=batch_size,
         )
@@ -333,11 +365,11 @@ class FFSPEnv(RL4COEnvBase):
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
         # Init observation: running time of each job on each machine
-        run_time = (
-            torch.FloatTensor(*batch_size, self.num_job, self.num_machine, self.num_stage)
-            .uniform_(self.min_time, self.max_time)
-            .to(self.device)
-        )
+        run_time = torch.randint(
+            low=self.min_time,
+            high=self.max_time,
+            size=(*batch_size, self.num_job, self.num_machine, self.num_stage),
+        ).to(self.device)
 
         return TensorDict(
             {

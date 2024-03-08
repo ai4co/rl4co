@@ -1,12 +1,15 @@
 import math
+
 from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from einops import rearrange
+
+from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.ops import Normalization
-from tensordict import TensorDict
 
 
 class MatNetCrossMHA(nn.Module):
@@ -224,55 +227,6 @@ class MatNetMHANetwork(nn.Module):
         return row_emb, col_emb
 
 
-class MatNetATSPInitEmbedding(nn.Module):
-    """
-    Preparing the initial row and column embeddings for ATSP.
-
-    Reference:
-    https://github.com/yd-kwon/MatNet/blob/782698b60979effe2e7b61283cca155b7cdb727f/ATSP/ATSP_MatNet/ATSPModel.py#L51
-
-
-    """
-
-    def __init__(self, embedding_dim: int, mode: str = "RandomOneHot") -> None:
-        super().__init__()
-
-        self.embedding_dim = embedding_dim
-        assert mode in {
-            "RandomOneHot",
-            "Random",
-        }, "mode must be one of ['RandomOneHot', 'Random']"
-        self.mode = mode
-
-        self.dmat_proj = nn.Linear(1, 2 * embedding_dim, bias=False)
-        self.row_proj = nn.Linear(embedding_dim * 4, embedding_dim, bias=False)
-        self.col_proj = nn.Linear(embedding_dim * 4, embedding_dim, bias=False)
-
-    def forward(self, td: TensorDict):
-        dmat = td["cost_matrix"]  # [b, n, n]
-        b, n, _ = dmat.shape
-
-        row_emb = torch.zeros(b, n, self.embedding_dim, device=dmat.device)
-
-        if self.mode == "RandomOneHot":
-            # MatNet uses one-hot encoding for column embeddings
-            # https://github.com/yd-kwon/MatNet/blob/782698b60979effe2e7b61283cca155b7cdb727f/ATSP/ATSP_MatNet/ATSPModel.py#L60
-
-            col_emb = torch.zeros(b, n, self.embedding_dim, device=dmat.device)
-            rand = torch.rand(b, n)
-            rand_idx = rand.argsort(dim=1)
-            b_idx = torch.arange(b)[:, None].expand(b, n)
-            n_idx = torch.arange(n)[None, :].expand(b, n)
-            col_emb[b_idx, n_idx, rand_idx] = 1.0
-
-        elif self.mode == "Random":
-            col_emb = torch.rand(b, n, self.embedding_dim, device=dmat.device)
-        else:
-            raise NotImplementedError
-
-        return row_emb, col_emb, dmat
-
-
 class MatNetEncoder(nn.Module):
     def __init__(
         self,
@@ -287,8 +241,11 @@ class MatNetEncoder(nn.Module):
         super().__init__()
 
         if init_embedding is None:
-            init_embedding = MatNetATSPInitEmbedding(
-                embedding_dim, **init_embedding_kwargs
+            # init_embedding = MatNetATSPInitEmbedding(
+            #     embedding_dim, **init_embedding_kwargs
+            # )
+            init_embedding = env_init_embedding(
+                "matnet", {"embedding_dim": embedding_dim, **init_embedding_kwargs}
             )
 
         self.init_embedding = init_embedding
