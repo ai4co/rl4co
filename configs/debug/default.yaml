@@ -1,4 +1,6 @@
 # @package _global_
+defaults:
+  - override /logger: null
 
 # default debugging setup, runs 1 full epoch
 # other debugging configs can inherit from this one
@@ -8,7 +10,7 @@ task_name: "debug"
 
 # disable callbacks and loggers during debugging
 callbacks: null
-logger: null
+
 
 extras:
   ignore_warnings: False
@@ -20,7 +22,6 @@ hydra:
   job_logging:
     root:
       level: DEBUG
-
   # use this to also set hydra loggers to 'DEBUG'
   # verbose: True
 
