@@ -11,7 +11,7 @@ try:
     from torch_geometric.data import Batch
 except ImportError:
     # `Batch` is referred to only as type notations in this file
-    pass
+    Batch = None
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
