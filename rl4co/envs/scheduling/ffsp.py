@@ -319,8 +319,8 @@ class FFSPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_loc,
+            low=0,
+            high=self.num_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
@@ -348,34 +348,3 @@ class FFSPEnv(RL4COEnvBase):
 
     def render(self, td: TensorDict):
         raise NotImplementedError("TODO: render is not implemented yet")
-
-
-if __name__ == "__main__":
-    """
-    num_stage: int,
-    num_machine: int,
-    num_job: int,
-    min_time: float = 0.1,
-    max_time: float = 1.0,
-    pomo_size: int = 1,
-    batch_size: list = [50],
-    seed: int = None,
-    device: str = "cpu",
-    """
-    env = FFSPEnv(
-        num_stage=2,
-        num_machine=3,
-        num_job=4,
-        min_time=2,
-        max_time=10,
-        batch_size=[5],
-        seed=None,
-        device="cpu",
-    )
-    td = env.reset()
-    print(td)
-
-    td["job_idx"] = torch.tensor([1, 1, 1, 1, 1])
-    td = env._step(td)
-    print(td)
-    pass

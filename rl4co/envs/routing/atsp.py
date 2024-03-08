@@ -114,8 +114,8 @@ class ATSPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict = None):
         self.observation_spec = CompositeSpec(
             cost_matrix=BoundedTensorSpec(
-                minimum=self.min_dist,
-                maximum=self.max_dist,
+                low=self.min_dist,
+                high=self.max_dist,
                 shape=(self.num_loc, self.num_loc),
                 dtype=torch.float32,
             ),
@@ -140,8 +140,8 @@ class ATSPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_loc,
+            low=0,
+            high=self.num_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

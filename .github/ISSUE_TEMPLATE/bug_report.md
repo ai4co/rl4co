@@ -3,12 +3,12 @@ name: Bug report
 about: Create a report to help us improve
 title: "[BUG]"
 labels: ["bug"]
-assignees: fedebotu
+assignees: fedebotu, cbhua
 ---
 
 ## Describe the bug
 
-A clear and concise description of what the bug is.
+A clear and concise description of what the bug is. 
 
 ## To Reproduce
 
@@ -27,29 +27,25 @@ Traceback (most recent call last):
   File ... 
 ```
 
-## Expected behavior
-
-A clear and concise description of what you expected to happen.
-
-## Screenshots
-
-If applicable, add screenshots to help explain your problem.
-
 ## System info
 
-Describe the characteristic of your environment:
- * Describe how the library was installed (pip, source, ...)
- * Python version
- * Versions of any other relevant libraries
+Report the characteristics of your environment such as how the library was installed (pip or source), Python version, and version of other relevant libraries.
 
-```python
-import src, numpy, sys
-print(numpy.__version__, sys.version, sys.platform)
+> [!TIP] 
+> You can use the script below to report relevant versions. Just make sure you are using the same Python environment where the bug occurred!
+
+```bash
+python -c "import rl4co, torch, lightning, torchrl, tensordict, numpy, sys; print('RL4CO:', \
+ rl4co.__version__, '\nPyTorch:', torch.__version__, '\nPyTorch Lightning:', \
+lightning.__version__, '\nTorchRL:',  torchrl.__version__, '\nTensorDict:',\
+ tensordict.__version__, '\nNumpy:', numpy.__version__, '\nPython:', \
+sys.version, '\nPlatform:', sys.platform)"
 ```
 
 ## Additional context
 
 Add any other context about the problem here.
+
 
 ## Reason and Possible fixes
 

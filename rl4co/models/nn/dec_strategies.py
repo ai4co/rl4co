@@ -32,13 +32,30 @@ def get_decoding_strategy(decoding_strategy, **config):
 
 
 class DecodingStrategy:
+    """Base class for decoding strategies. Subclasses should implement the :meth:`_step` method.
+    Includes hooks for pre and post main decoding operations.
+
+    Args:
+        multistart (bool, optional): Whether to use multistart decoding. Defaults to False.
+        num_starts (int, optional): Number of starts for multistart decoding. Defaults to None.
+        select_start_nodes_fn (Callable, optional): Function to select start nodes. Defaults to select_start_nodes.
+    """
+
     name = "base"
 
-    def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
+    def __init__(
+        self,
+        multistart=False,
+        num_starts=None,
+        select_start_nodes_fn=select_start_nodes,
+        **kwargs,
+    ) -> None:
+
         self.actions = []
         self.logp = []
         self.multistart = multistart
         self.num_starts = num_starts
+        self.select_start_nodes_fn = select_start_nodes_fn
 
     def _step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
@@ -46,6 +63,7 @@ class DecodingStrategy:
         raise NotImplementedError("Must be implemented by subclass")
 
     def pre_decoder_hook(self, td: TensorDict, env: RL4COEnvBase):
+        """Pre decoding hook. This method is called before the main decoding operation."""
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if self.multistart:
             if self.num_starts is None:
@@ -61,7 +79,7 @@ class DecodingStrategy:
 
         # Multi-start decoding: first action is chosen by ad-hoc node selection
         if self.num_starts > 1:
-            action = select_start_nodes(td, env, self.num_starts)
+            action = self.select_start_nodes_fn(td, env, self.num_starts)
 
             # Expand td to batch_size * num_starts
             td = batchify(td, self.num_starts)
@@ -105,11 +123,12 @@ class Greedy(DecodingStrategy):
     name = "greedy"
 
     def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
-        super().__init__(multistart=multistart, num_starts=num_starts)
+        super().__init__(multistart=multistart, num_starts=num_starts, **kwargs)
 
     def _step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+        """Select the action with the highest log probability."""
         # [BS], [BS]
         _, selected = logp.max(1)
 
@@ -124,11 +143,12 @@ class Sampling(DecodingStrategy):
     name = "sampling"
 
     def __init__(self, multistart=False, num_starts=None, **kwargs) -> None:
-        super().__init__(multistart=multistart, num_starts=num_starts)
+        super().__init__(multistart=multistart, num_starts=num_starts, **kwargs)
 
     def _step(
         self, logp: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+        """Sample an action with a multinomial distribution given by the log probabilities."""
         probs = logp.exp()
         selected = torch.multinomial(probs, 1).squeeze(1)
 
@@ -173,7 +193,7 @@ class BeamSearch(DecodingStrategy):
             self.beam_width = get_num_starts(td, env.name)
 
         # select start nodes. TODO: include first step in beam search as well
-        action = select_start_nodes(td, env, self.beam_width)
+        action = self.select_start_nodes_fn(td, env, self.beam_width)
 
         # Expand td to batch_size * beam_width
         td = batchify(td, self.beam_width)

@@ -176,8 +176,8 @@ class SDVRPEnv(CVRPEnv):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                minimum=self.min_loc,
-                maximum=self.max_loc,
+                low=self.min_loc,
+                high=self.max_loc,
                 shape=(self.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
@@ -186,20 +186,20 @@ class SDVRPEnv(CVRPEnv):
                 dtype=torch.int64,
             ),
             demand=BoundedTensorSpec(
-                minimum=self.min_demand,
-                maximum=self.max_demand,
+                low=self.min_demand,
+                high=self.max_demand,
                 shape=(self.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
             ),
             demand_with_depot=BoundedTensorSpec(
-                minimum=self.min_demand,
-                maximum=self.max_demand,
+                low=self.min_demand,
+                high=self.max_demand,
                 shape=(self.num_loc + 1, 1),
                 dtype=torch.float32,
             ),
             used_capacity=BoundedTensorSpec(
-                minimum=0,
-                maximum=self.vehicle_capacity,
+                low=0,
+                high=self.vehicle_capacity,
                 shape=(1,),
                 dtype=torch.float32,
             ),
@@ -212,8 +212,8 @@ class SDVRPEnv(CVRPEnv):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_loc + 1,
+            low=0,
+            high=self.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
