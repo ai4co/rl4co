@@ -1,6 +1,7 @@
 # @package _global_
 defaults:
   - override /logger: null
+  - override /experiment: null
 
 # default debugging setup, runs 1 full epoch
 # other debugging configs can inherit from this one
@@ -30,6 +31,16 @@ trainer:
   accelerator: cpu # debuggers don't like gpus
   devices: 1 # debuggers don't like multiprocessing
   detect_anomaly: true # raise exception if NaN or +/-inf is detected in any tensor
+
+model:  # small batches and datasets for quick debugging
+  batch_size: 8
+  val_batch_size: 32
+  test_batch_size: 32
+  train_data_size: 64
+  val_data_size: 10_00
+  test_data_size: 10_00
+  optimizer_kwargs:
+    lr: 1e-4
 
 data:
   num_workers: 0 # debuggers don't like multiprocessing
