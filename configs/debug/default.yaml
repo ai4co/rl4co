@@ -1,17 +1,15 @@
 # @package _global_
 defaults:
+  # disable callbacks, experiments and loggers during debugging
   - override /logger: null
   - override /experiment: null
+  - override /callbacks: null
 
 # default debugging setup, runs 1 full epoch
 # other debugging configs can inherit from this one
 
 # overwrite task name so debugging logs are stored in separate folder
 task_name: "debug"
-
-# disable callbacks and loggers during debugging
-callbacks: null
-
 
 extras:
   ignore_warnings: False
