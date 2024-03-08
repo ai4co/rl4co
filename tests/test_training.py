@@ -1,3 +1,4 @@
+import sys
 import pytest
 
 from rl4co.envs import PDPEnv, TSPEnv, ATSPEnv
@@ -89,6 +90,7 @@ def test_search_methods(SearchMethod):
     trainer.test(model)
 
 
+@pytest.mark.skipif('torch_geometric' not in sys.modules, reason="PyTorch Geometric not installed")
 def test_nar():
     env = TSPEnv(num_loc=20)
     model = NonAutoregressiveModel(
