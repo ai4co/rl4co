@@ -25,7 +25,6 @@ logger:
 model:
   num_encoder_layers: 6
   normalization: 'instance'
-  use_native_sdpa: true
 
 seed: 12345
 
