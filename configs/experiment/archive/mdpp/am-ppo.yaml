@@ -50,8 +50,6 @@ model:
   entropy_lambda: 0.01
   normalize_adv: False
   max_grad_norm: 0.5
-  use_native_sdpa: True
   critic:
     _target_: rl4co.models.rl.reinforce.critic.CriticNetwork
     env: ${env}
-    use_native_sdpa: ${model.use_native_sdpa}

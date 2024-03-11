@@ -42,7 +42,6 @@ train:
 
 model:
   num_starts: ${env.num_loc} # num_pomo
-  use_native_sdpa: true
 
 data:
   batch_size: 64

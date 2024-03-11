@@ -22,9 +22,6 @@ logger:
 
 seed: 12345
 
-model:
-  use_native_sdpa: true
-
 trainer:
   max_epochs: 100
   gradient_clip_val: 1.0
