@@ -17,12 +17,12 @@ from rl4co.envs.common.base import RL4COEnvBase
 
 
 class IndexTables:
-    def __init__(self, num_stage, num_machine, flatten_stages):
+    def __init__(self, num_stage, num_machine, flatten_stages, device):
         # Init stage and machine mapping table
         self.num_stage = num_stage
         self.num_machine = num_machine
         self.flatten_stages = flatten_stages
-        self._reset()
+        self._reset(device)
 
     def _reset(self, device):
         self.stage_table = torch.arange(
@@ -140,7 +140,7 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        self.tables = IndexTables(num_stage, num_machine, flatten_stages)
+        self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
 
     def get_num_starts(self, td):
         return factorial(self.num_machine)
