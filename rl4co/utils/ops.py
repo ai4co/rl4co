@@ -127,7 +127,7 @@ def select_start_nodes(td, env, num_starts):
         # in ffsp, we generate different trajectories by permuting the machine order in the machine table
         # of the environment. Therefore, we simply select the dummy (waiting) action here.
         env.tables.augment_machine_tables(td, num_starts)
-        selected = torch.full((num_starts * td.size(0),), env.num_job)
+        selected = torch.full((num_starts * td.size(0),), env.num_job, device=td.device)
         # when selecting the wait operation we increment the sub_time_idx. In order to start at 0, decrease by 1 here
         td["sub_time_idx"].subtract_(1)
     else:
