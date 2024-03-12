@@ -241,9 +241,6 @@ class MatNetEncoder(nn.Module):
         super().__init__()
 
         if init_embedding is None:
-            # init_embedding = MatNetATSPInitEmbedding(
-            #     embedding_dim, **init_embedding_kwargs
-            # )
             init_embedding = env_init_embedding(
                 "matnet", {"embedding_dim": embedding_dim, **init_embedding_kwargs}
             )

@@ -13,7 +13,7 @@ from rl4co.utils.ops import select_start_nodes
 
 @dataclass
 class PrecomputedCache:
-    node_embeddings: Tensor
+    node_embeddings: Union[Tensor, TensorDict]
     graph_context: Union[Tensor, float]
     glimpse_key: Tensor
     glimpse_val: Tensor

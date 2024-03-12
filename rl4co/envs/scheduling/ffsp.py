@@ -14,6 +14,9 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class IndexTables:
@@ -142,15 +145,19 @@ class FFSPEnv(RL4COEnvBase):
         self.flatten_stages = flatten_stages
         self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
 
-    def get_num_starts(self, td):
-        return factorial(self.num_machine)
+    # TODO make envs implement get_num_starts and select_start_nodes functions
+    # def get_num_starts(self, td):
+    #     return factorial(self.num_machine)
 
-    def select_start_nodes(self, td, num_starts):
-        self.tables.augment_machine_tables(num_starts)
-        selected = torch.full((num_starts * td.size(0),), self.num_job)
-        return selected
+    # def select_start_nodes(self, td, num_starts):
+    #     self.tables.augment_machine_tables(num_starts)
+    #     selected = torch.full((num_starts * td.size(0),), self.num_job)
+    #     return selected
 
     def _step(self, td: TensorDict) -> TensorDict:
+        log.info(f"Device of tensordict during state STEP is: {td.device}")
+        log.info(f"Device of environment during state STEP is: {self.device}")
+
         batch_size = td.batch_size
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
 
@@ -324,6 +331,9 @@ class FFSPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         self.to(td.device)
+
+        log.info(f"Device of tensordict during state reset is: {td.device}")
+        log.info(f"Device of environment during state reset is: {self.device}")
 
         # reset tables to undo the augmentation
         self.tables._reset(device=self.device)
