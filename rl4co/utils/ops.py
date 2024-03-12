@@ -100,8 +100,12 @@ def get_num_starts(td, env_name=None):
         num_starts = (
             num_starts - 1
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
-    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "ffsp"]:
+    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot / dummy job cannot be a start node
+    elif env_name == "ffsp":
+        from math import factorial
+
+        return factorial(td["run_time"].size(-2))
     return num_starts
 
 
@@ -115,10 +119,17 @@ def select_start_nodes(td, env, num_starts):
         env: Environment may determine the node selection strategy
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    if env.name in ["tsp", "atsp", "ffsp"]:
+    if env.name in ["tsp", "atsp"]:
         selected = torch.arange(num_starts, device=td.device).repeat_interleave(
             td.shape[0]
         )
+    elif env.name == "ffsp":
+        # in ffsp, we generate different trajectories by permuting the machine order in the machine table
+        # of the environment. Therefore, we simply select the dummy (waiting) action here.
+        env.tables.augment_machine_tables(td, num_starts)
+        selected = torch.full((num_starts * td.size(0),), env.num_job)
+        # when selecting the wait operation we increment the sub_time_idx. In order to start at 0, decrease by 1 here
+        td["sub_time_idx"].subtract_(1)
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = torch.arange(1, num_starts + 1, device=td.device).repeat_interleave(

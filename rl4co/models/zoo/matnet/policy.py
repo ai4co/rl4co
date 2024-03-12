@@ -9,43 +9,81 @@ log = get_pylogger(__name__)
 
 
 class MultiStageMatNetPolicy(nn.Module):
-    def __init__(self, **model_params):
-        super().__init__()
-        self.model_params = model_params
+    ...
 
-        stage_cnt = self.model_params["stage_cnt"]
-        self.stage_models = nn.ModuleList(
-            [MatNetPolicy(**model_params) for _ in range(stage_cnt)]
-        )
 
-    def pre_forward(self, reset_state):
-        stage_cnt = self.model_params["stage_cnt"]
-        for stage_idx in range(stage_cnt):
-            problems = reset_state.problems_list[stage_idx]
-            model = self.stage_models[stage_idx]
-            model.pre_forward(problems)
+#     """implements a MatNetPolicy for each stage of the FFSP problem instance as
+#     described by Kwon et al., 2021
+#     WARNING: This does not work. We need to implement the model selection logic within the autoregressive loop of the decoder.
+#     This will be tricky
+#     """
 
-    def forward(
-        self,
-        td,
-        env=None,
-        phase: str = "train",
-        return_actions: bool = False,
-        return_entropy: bool = False,
-        return_init_embeds: bool = False,
-        **decoder_kwargs,
-    ) -> dict:
-        bs, num_jobs, num_ma, _ = td["run_time"].shape
-        stage_idx = td["stage_idx"]
+#     def __init__(
+#             self,
+#             env_name,
+#             stage_cnt,
+#             train_decode_type: str = "sampling",
+#             val_decode_type: str = "greedy",
+#             test_decode_type: str = "greedy",
+#             **model_params):
 
-        td["cost_matrix"] = td["run_time"].gather(
-            3, stage_idx[:, None, None, None].expand(bs, num_jobs, num_ma, 1)
-        )
+#         if env_name != "ffsp":
+#             log.error(f"env_name {env_name} is not implemented for multi-stage MatNet ")
 
-        model = self.stage_models[stage_idx]
-        td_out = model(td, env)
+#         super().__init__()
+#         self.stage_cnt = stage_cnt
 
-        return td_out
+#         self.stage_models = nn.ModuleList(
+#             [MatNetPolicy(env_name, **model_params) for _ in range(self.stage_cnt)]
+#         )
+
+#         self.train_decode_type = train_decode_type
+#         self.val_decode_type = val_decode_type
+#         self.test_decode_type = test_decode_type
+
+#     def forward(
+#         self,
+#         td: TensorDict,
+#         env=None,
+#         return_actions: bool = False,
+#         return_entropy: bool = False,
+#         return_init_embeds: bool = False,
+#         **policy_kwargs,
+#     ) -> dict:
+#         # TODO: actions might have different shapes for different stage
+#         assert not return_actions, "returning actions currently not supported for multi-stage MatNet"
+#         assert not return_entropy, "returning actions currently not supported for multi-stage MatNet"
+#         assert not return_init_embeds, "returning actions currently not supported for multi-stage MatNet"
+
+#         num_starts = policy_kwargs.get("num_starts", 1)
+#         bs = td.size(0)
+
+#         ret_td = TensorDict({
+#             "reward": torch.empty((bs*num_starts,)),
+#             "log_likelihood": torch.empty((bs*num_starts,), dtype=torch.bfloat16),
+#         }, batch_size=bs*num_starts)
+
+
+#         for stage_idx in range(self.stage_cnt):
+
+#             batch_idx = td["stage_idx"] == stage_idx
+#             batch_pomo_idx = batch_idx.repeat(num_starts)
+#             if not batch_idx.any():
+#                 continue
+#             stage_model = self.stage_models[stage_idx]
+#             stage_out = stage_model(td[batch_idx], env, **policy_kwargs)
+#             ret_td.update_at_(stage_out, idx=batch_pomo_idx)
+
+
+#         return ret_td.to_dict()
+
+#     def evaluate_action(
+#         self,
+#         td: TensorDict,
+#         action: Tensor,
+#         env = None,
+#     ) -> Tuple[Tensor, Tensor]:
+#         raise NotImplementedError("Multi-stage MatNet only supports REINFORCE and variants at the moment")
 
 
 class MatNetPolicy(AutoregressivePolicy):

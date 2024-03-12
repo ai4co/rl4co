@@ -73,14 +73,17 @@ class EnvContext(nn.Module):
 
 
 class FFSPContext(EnvContext):
-    def __init__(self, embedding_dim, step_context_dim=None, linear_bias=False):
-        super().__init__(embedding_dim, step_context_dim, linear_bias)
+    def __init__(self, embedding_dim):
+        super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim + 1)
 
-    def forward(self, embeddings: TensorDict, td):
+    def _cur_node_embedding(self, embeddings: TensorDict, td):
         cur_node_embedding = gather_by_index(
             embeddings["machine_embeddings"], td["stage_machine_idx"]
         )
-        return self.project_context(cur_node_embedding)
+        return cur_node_embedding
+
+    def _state_embedding(self, embeddings, td):
+        return td["stage_idx"].unsqueeze(-1)
 
 
 class TSPContext(EnvContext):
