@@ -323,6 +323,8 @@ class FFSPEnv(RL4COEnvBase):
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
 
+        self.to(td.device)
+
         # reset tables to undo the augmentation
         self.tables._reset(device=self.device)
 
