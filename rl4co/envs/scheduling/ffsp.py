@@ -155,9 +155,6 @@ class FFSPEnv(RL4COEnvBase):
     #     return selected
 
     def _step(self, td: TensorDict) -> TensorDict:
-        log.info(f"Device of tensordict during state STEP is: {td.device}")
-        log.info(f"Device of environment during state STEP is: {self.device}")
-
         batch_size = td.batch_size
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
 
@@ -331,9 +328,6 @@ class FFSPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         self.to(td.device)
-
-        log.info(f"Device of tensordict during state reset is: {td.device}")
-        log.info(f"Device of environment during state reset is: {self.device}")
 
         # reset tables to undo the augmentation
         self.tables._reset(device=self.device)
