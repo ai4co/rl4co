@@ -153,7 +153,7 @@ class FFSPEnv(RL4COEnvBase):
 
     def _step(self, td: TensorDict) -> TensorDict:
         batch_size = td.batch_size
-        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=self.device)
+        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
 
         # job_idx is the action from the model
         job_idx = td["action"]
