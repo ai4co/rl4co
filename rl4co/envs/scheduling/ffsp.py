@@ -17,28 +17,27 @@ from rl4co.envs.common.base import RL4COEnvBase
 
 
 class IndexTables:
-    def __init__(self, num_stage, num_machine, flatten_stages, device):
+    def __init__(self, num_stage, num_machine, flatten_stages):
         # Init stage and machine mapping table
         self.num_stage = num_stage
         self.num_machine = num_machine
         self.flatten_stages = flatten_stages
-        self.device = device
         self._reset()
 
-    def _reset(self):
+    def _reset(self, device):
         self.stage_table = torch.arange(
-            self.num_stage, dtype=torch.long, device=self.device
+            self.num_stage, dtype=torch.long, device=device
         ).repeat_interleave(self.num_machine)
 
         self.machine_table = torch.arange(
-            self.num_machine * self.num_stage, dtype=torch.long, device=self.device
+            self.num_machine * self.num_stage, dtype=torch.long, device=device
         )
 
         if self.flatten_stages:
             self.stage_machine_table = self.machine_table
         else:
             self.stage_machine_table = torch.arange(
-                self.num_machine, dtype=torch.long, device=self.device
+                self.num_machine, dtype=torch.long, device=device
             ).repeat(self.num_stage)
 
         self.augmented = False
@@ -61,14 +60,14 @@ class IndexTables:
         start_sub_ids = torch.tensor(
             list(range(0, self.num_machine * self.num_stage, self.num_machine)),
             dtype=torch.long,
-            device=self.device,
+            device=td.device,
         ).repeat_interleave(self.num_machine)
         # generate all possible permutations of the machine ids and add the stage increment to it
         # (num_permutations, total_machines)
         permutations = torch.tensor(
             list(itertools.permutations(list(range(self.num_machine)))),
             dtype=torch.long,
-            device=self.device,
+            device=td.device,
         ).repeat(1, self.num_stage)
         # (bs*POMO, total_machines)
         self.machine_table = (
@@ -141,7 +140,7 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
+        self.tables = IndexTables(num_stage, num_machine, flatten_stages)
 
     def get_num_starts(self, td):
         return factorial(self.num_machine)
@@ -325,7 +324,7 @@ class FFSPEnv(RL4COEnvBase):
             td = self.generate_data(batch_size=batch_size)
 
         # reset tables to undo the augmentation
-        self.tables._reset()
+        self.tables._reset(device=self.device)
 
         # Init index record tensor
         time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=self.device)
