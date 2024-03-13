@@ -74,7 +74,7 @@ class EnvContext(nn.Module):
 
 class FFSPContext(EnvContext):
     def __init__(self, embedding_dim, stage_cnt):
-        super().__init__(embedding_dim=embedding_dim, step_context_dim=2 * embedding_dim)
+        super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim)
         # TODO stage embeddings
         self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
 
@@ -84,13 +84,17 @@ class FFSPContext(EnvContext):
         )
         return cur_node_embedding
 
-    def _state_embedding(self, _, td):
-        cur_stage_emb = gather_by_index(
-            self.stage_emb[None].expand(td.size(0), -1, -1), td["stage_idx"]
-        )
-        cur_stage_emb1 = self.stage_emb[td["stage_idx"]]
-        assert (cur_stage_emb == cur_stage_emb1).all()
-        return cur_stage_emb
+    def forward(self, embeddings, td):
+        cur_node_embedding = self._cur_node_embedding(embeddings, td)
+        return self.project_context(cur_node_embedding)
+
+    # def _state_embedding(self, _, td):
+    #     cur_stage_emb = gather_by_index(
+    #         self.stage_emb[None].expand(td.size(0), -1, -1), td["stage_idx"]
+    #     )
+    #     cur_stage_emb1 = self.stage_emb[td["stage_idx"]]
+    #     assert (cur_stage_emb == cur_stage_emb1).all()
+    #     return cur_stage_emb
 
 
 class TSPContext(EnvContext):
