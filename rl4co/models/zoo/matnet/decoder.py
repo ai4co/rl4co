@@ -43,7 +43,6 @@ class MatNetDecoder(AutoregressiveDecoder):
             graph_context=graph_context,
             glimpse_key=glimpse_key_fixed,
             glimpse_val=glimpse_val_fixed,
-            # logit_key=col_emb,
             logit_key=logit_key,
         )
 
@@ -108,6 +107,5 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
             graph_context=graph_context,
             glimpse_key=glimpse_key_fixed,
             glimpse_val=glimpse_val_fixed,
-            # logit_key=col_emb,
             logit_key=logit_key,
         )

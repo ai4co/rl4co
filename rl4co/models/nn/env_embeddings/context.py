@@ -74,7 +74,9 @@ class EnvContext(nn.Module):
 
 class FFSPContext(EnvContext):
     def __init__(self, embedding_dim):
-        super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim + 1)
+        super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim)
+        # TODO stage embeddings
+        # self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
 
     def _cur_node_embedding(self, embeddings: TensorDict, td):
         cur_node_embedding = gather_by_index(
@@ -82,8 +84,13 @@ class FFSPContext(EnvContext):
         )
         return cur_node_embedding
 
-    def _state_embedding(self, embeddings, td):
-        return td["stage_idx"].unsqueeze(-1)
+    # def _state_embedding(self, embeddings, td):
+    #     return td["stage_idx"].unsqueeze(-1)
+    def forward(self, embeddings, td):
+        cur_node_embedding = self._cur_node_embedding(embeddings, td)
+        # state_embedding = self._state_embedding(embeddings, td)
+        # context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
+        return self.project_context(cur_node_embedding)
 
 
 class TSPContext(EnvContext):
