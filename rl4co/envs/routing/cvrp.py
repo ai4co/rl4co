@@ -153,10 +153,10 @@ class CVRPEnv(RL4COEnvBase):
         return td_reset
 
     @staticmethod
-    def get_action_mask(td: TensorDict, vehicle_capacity: float = 1.0) -> torch.Tensor:
+    def get_action_mask(td: TensorDict) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
         exceeds_cap = (
-            td["demand"][:, None, :] + td["used_capacity"][..., None] > vehicle_capacity
+            td["demand"][:, None, :] + td["used_capacity"][..., None] > td["vehicle_capacity"]
         )
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
