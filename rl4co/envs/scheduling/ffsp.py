@@ -436,7 +436,7 @@ class FFSPEnv(RL4COEnvBase):
                 .squeeze(-1)
             )
 
-        return TensorDict(
+        return td.update(
             {
                 # Index information
                 "stage_idx": stage_idx,
@@ -455,8 +455,7 @@ class FFSPEnv(RL4COEnvBase):
                 "done": done,
                 "cost_matrix": cost_matrix,
                 "action_mask": action_mask,
-            },
-            batch_size=batch_size,
+            }
         )
 
     def _make_spec(self, td_params: TensorDict):
