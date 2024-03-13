@@ -34,6 +34,7 @@ class MatNetPolicy(AutoregressivePolicy):
         normalization: str = "instance",
         init_embedding_kwargs: dict = {"mode": "RandomOneHot"},
         use_graph_context: bool = False,
+        bias: bool = False,
         **kwargs,
     ):
         if env.name not in ["atsp", "ffsp"]:
@@ -63,6 +64,7 @@ class MatNetPolicy(AutoregressivePolicy):
                 num_layers=num_encoder_layers,
                 normalization=normalization,
                 init_embedding_kwargs=init_embedding_kwargs,
+                bias=bias,
             ),
             decoder=decoder,
             embedding_dim=embedding_dim,

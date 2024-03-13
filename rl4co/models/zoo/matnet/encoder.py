@@ -17,7 +17,7 @@ class MatNetCrossMHA(nn.Module):
         self,
         embedding_dim: int,
         num_heads: int,
-        bias: bool = True,
+        bias: bool = False,
         mixer_hidden_dim: int = 16,
         mix1_init: float = (1 / 2) ** (1 / 2),
         mix2_init: float = (1 / 16) ** (1 / 2),
@@ -106,7 +106,7 @@ class MatNetCrossMHA(nn.Module):
 
 
 class MatNetMHA(nn.Module):
-    def __init__(self, embedding_dim: int, num_heads: int, bias: bool = True):
+    def __init__(self, embedding_dim: int, num_heads: int, bias: bool = False):
         super().__init__()
         self.row_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
         self.col_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
@@ -135,7 +135,7 @@ class MatNetMHALayer(nn.Module):
         self,
         embedding_dim: int,
         num_heads: int,
-        bias: bool = True,
+        bias: bool = False,
         feed_forward_hidden: int = 512,
         normalization: Optional[str] = "instance",
     ):
@@ -196,6 +196,7 @@ class MatNetMHANetwork(nn.Module):
         num_layers: int = 3,
         normalization: str = "batch",
         feed_forward_hidden: int = 512,
+        bias: bool = False,
     ):
         super().__init__()
         self.layers = nn.ModuleList(
@@ -205,6 +206,7 @@ class MatNetMHANetwork(nn.Module):
                     embedding_dim=embedding_dim,
                     feed_forward_hidden=feed_forward_hidden,
                     normalization=normalization,
+                    bias=bias,
                 )
                 for _ in range(num_layers)
             ]
@@ -237,6 +239,7 @@ class MatNetEncoder(nn.Module):
         feed_forward_hidden: int = 512,
         init_embedding: nn.Module = None,
         init_embedding_kwargs: dict = None,
+        bias: bool = False,
     ):
         super().__init__()
 
@@ -252,6 +255,7 @@ class MatNetEncoder(nn.Module):
             num_layers=num_layers,
             normalization=normalization,
             feed_forward_hidden=feed_forward_hidden,
+            bias=bias,
         )
 
     def forward(self, td):
