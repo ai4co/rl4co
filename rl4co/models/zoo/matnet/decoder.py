@@ -7,8 +7,8 @@ import torch.nn as nn
 from tensordict import TensorDict
 from torch import Tensor
 
+from rl4co.models.nn.env_embeddings.context import FFSPContext
 from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
-from rl4co.utils.ops import select_start_nodes
 
 
 @dataclass
@@ -50,25 +50,20 @@ class MatNetDecoder(AutoregressiveDecoder):
 class MatNetFFSPDecoder(AutoregressiveDecoder):
     def __init__(
         self,
-        env_name,
+        env,
         embedding_dim: int,
         num_heads: int,
-        use_graph_context: bool = True,
-        select_start_nodes_fn: callable = select_start_nodes,
-        linear_bias: bool = False,
-        context_embedding: nn.Module = None,
-        dynamic_embedding: nn.Module = None,
+        use_graph_context: bool = False,
         **logit_attn_kwargs,
     ):
+        context_embedding = FFSPContext(embedding_dim, stage_cnt=env.num_stage)
+
         super().__init__(
-            env_name,
+            env.name,
             embedding_dim,
             num_heads,
             use_graph_context,
-            select_start_nodes_fn,
-            linear_bias,
-            context_embedding,
-            dynamic_embedding,
+            context_embedding=context_embedding,
             **logit_attn_kwargs,
         )
 

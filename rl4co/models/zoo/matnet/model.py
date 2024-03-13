@@ -20,7 +20,7 @@ class MatNet(POMO):
         **kwargs,
     ):
         if policy is None:
-            policy = MatNetPolicy(env_name=env.name, **policy_params)
+            policy = MatNetPolicy(env=env, **policy_params)
 
         # Check if num_augment is not 0 or if diheral_8 is True
         if kwargs.get("num_augment", 0) != 0:
