@@ -3,7 +3,6 @@ from typing import Union
 import torch.nn as nn
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.matnet.policy import MatNetPolicy
 from rl4co.models.zoo.pomo import POMO
 from rl4co.utils.pylogger import get_pylogger
@@ -11,25 +10,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class MatNet(REINFORCE):
-    def __init__(
-        self,
-        env: RL4COEnvBase,
-        policy: Union[nn.Module, MatNetPolicy] = None,
-        policy_params: dict = {},
-        **kwargs,
-    ):
-        if policy is None:
-            policy = MatNetPolicy(env=env, **policy_params)
-
-        super(MatNet, self).__init__(
-            env=env,
-            policy=policy,
-            **kwargs,
-        )
-
-
-class MatNetPOMO(POMO):
+class MatNet(POMO):
     def __init__(
         self,
         env: RL4COEnvBase,
@@ -53,7 +34,7 @@ class MatNetPOMO(POMO):
             )
         kwargs["use_dihedral_8"] = False
 
-        super(MatNetPOMO, self).__init__(
+        super(MatNet, self).__init__(
             env=env,
             policy=policy,
             num_starts=num_starts,
