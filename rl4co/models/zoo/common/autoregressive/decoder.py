@@ -169,7 +169,9 @@ class AutoregressiveDecoder(nn.Module):
             log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
             td = decode_strategy.step(log_p, mask, td)
             td = env.step(td)["next"]
+        import numpy as np
 
+        print(np.mean(env.cnts))
         # Post-decoding hook: used for the final step(s) of the decoding strategy
         outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
 

@@ -141,6 +141,7 @@ class FFSPEnv(RL4COEnvBase):
         self.max_time = max_time
         self.flatten_stages = flatten_stages
         self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
+        self.cnts = []
 
     # TODO make envs implement get_num_starts and select_start_nodes functions
     # def get_num_starts(self, td):
@@ -167,6 +168,8 @@ class FFSPEnv(RL4COEnvBase):
         idx = torch.flatten(batch_idx)
         # select minibatch instances that need updates (are not done)
         idx = idx[~ready]
+
+        cnt = 0
 
         while ~ready.all():
             # increment the stage-machine counter
@@ -204,6 +207,10 @@ class FFSPEnv(RL4COEnvBase):
             # instance ready if at least one job and the current machine are ready
             ready = machine_ready & job_ready
             idx = idx[~ready]
+
+            cnt += 1
+
+        self.cnts.append(cnt)
 
         return td.update(
             {
@@ -422,21 +429,18 @@ class FFSPEnv(RL4COEnvBase):
         machine_idx = self.tables.get_machine_index(sub_time_idx)
         stage_machine_idx = self.tables.get_stage_machine_index(sub_time_idx)
 
+        run_time = td["run_time"]
         if self.flatten_stages:
-            cost_matrix = td["run_time"].flatten(-2, -1)
+            cost_matrix = run_time.flatten(-2, -1)
         else:
-            cost_matrix = (
-                td["run_time"]
-                .gather(
-                    3,
-                    stage_idx[:, None, None, None].expand(
-                        *batch_size, self.num_job, self.num_machine, 1
-                    ),
-                )
-                .squeeze(-1)
-            )
+            cost_matrix = run_time.gather(
+                3,
+                stage_idx[:, None, None, None].expand(
+                    *batch_size, self.num_job, self.num_machine, 1
+                ),
+            ).squeeze(-1)
 
-        return td.update(
+        return TensorDict(
             {
                 # Index information
                 "stage_idx": stage_idx,
@@ -453,9 +457,11 @@ class FFSPEnv(RL4COEnvBase):
                 # Finish status information
                 "reward": reward,
                 "done": done,
+                "run_time": run_time,
                 "cost_matrix": cost_matrix,
                 "action_mask": action_mask,
-            }
+            },
+            batch_size=batch_size,
         )
 
     def _make_spec(self, td_params: TensorDict):
