@@ -141,7 +141,6 @@ class FFSPEnv(RL4COEnvBase):
         self.max_time = max_time
         self.flatten_stages = flatten_stages
         self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
-        self.cnts = []
 
     # TODO make envs implement get_num_starts and select_start_nodes functions
     # def get_num_starts(self, td):
@@ -168,8 +167,6 @@ class FFSPEnv(RL4COEnvBase):
         idx = torch.flatten(batch_idx)
         # select minibatch instances that need updates (are not done)
         idx = idx[~ready]
-
-        cnt = 0
 
         while ~ready.all():
             # increment the stage-machine counter
@@ -207,10 +204,6 @@ class FFSPEnv(RL4COEnvBase):
             # instance ready if at least one job and the current machine are ready
             ready = machine_ready & job_ready
             idx = idx[~ready]
-
-            cnt += 1
-
-        self.cnts.append(cnt)
 
         return td.update(
             {
@@ -293,41 +286,28 @@ class FFSPEnv(RL4COEnvBase):
         machine_idx = td["machine_idx"]
 
         # insert start time of the selected job in the schedule
-        schedule = td["schedule"]
-        schedule[batch_idx, machine_idx, job_idx] = time_idx
+        td["schedule"][batch_idx, machine_idx, job_idx] = time_idx
         # get the duration of the selected job
         job_length = td["job_duration"][batch_idx, job_idx, machine_idx]
         # set the number of time steps until the selected machine is available again
-        machine_wait_step = td["machine_wait_step"]
-        machine_wait_step[batch_idx, machine_idx] = job_length
+        td["machine_wait_step"][batch_idx, machine_idx] = job_length
         # increment the operation counter of the selected job
-        job_location = td["job_location"]
-        job_location[batch_idx, job_idx] += 1
+        td["job_location"][batch_idx, job_idx] += 1
+        td["job_location"][:, :-1].clip_(0, self.num_stage)
         # set the number of time steps until the next operation of the job can be started
-        job_wait_step = td["job_wait_step"]
-        job_wait_step[batch_idx, job_idx] = job_length
+        td["job_wait_step"][batch_idx, job_idx] = job_length
         # determine whether all jobs are scheduled
-        done = (job_location[:, : self.num_job] == self.num_stage).all(dim=-1)
+        td["done"] = (td["job_location"][:, : self.num_job] == self.num_stage).all(dim=-1)
 
-        td = td.update(
-            {
-                "schedule": schedule,
-                "machine_wait_step": machine_wait_step,
-                "job_location": job_location,
-                "job_wait_step": job_wait_step,
-                "done": done,
-            }
-        )
-
-        if done.all():
+        if td["done"].all():
             pass
         else:
             td = self._move_to_next_machine(td)
             td = self._update_step_state(td)
 
-        if done.all():
+        if td["done"].all():
             # determine end times of ops by adding the durations to their start times
-            end_schedule = schedule + td["job_duration"].permute(0, 2, 1)
+            end_schedule = td["schedule"] + td["job_duration"].permute(0, 2, 1)
             # exclude dummy job and determine the makespan per job
             end_time_max, _ = end_schedule[:, :, : self.num_job].max(dim=-1)
             # determine the max makespan of all jobs
@@ -408,13 +388,13 @@ class FFSPEnv(RL4COEnvBase):
 
         # Finish status information
         reward = torch.full(
-            size=(batch_size),
+            size=(*batch_size,),
             dtype=torch.float32,
             device=self.device,
             fill_value=float("-inf"),
         )
         done = torch.full(
-            size=(batch_size),
+            size=(*batch_size,),
             dtype=torch.bool,
             device=self.device,
             fill_value=False,
