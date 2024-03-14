@@ -518,5 +518,140 @@ class FFSPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def render(self, td: TensorDict):
-        raise NotImplementedError("TODO: render is not implemented yet")
+    def render(self, td: TensorDict, idx: int):
+        import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
+
+        job_durations = td["job_duration"][idx, :, :]
+        # shape: (job, machine)
+        schedule = td["schedule"][idx, :, :]
+        # shape: (machine, job)
+
+        total_machine_cnt = self.num_machine_total
+        makespan = -td["reward"][idx].item()
+
+        # Create figure and axes
+        fig, ax = plt.subplots(figsize=(makespan / 3, 5))
+        cmap = self._get_cmap(self.num_job)
+
+        plt.xlim(0, makespan)
+        plt.ylim(0, total_machine_cnt)
+        ax.invert_yaxis()
+
+        plt.plot([0, makespan], [4, 4], "black")
+        plt.plot([0, makespan], [8, 8], "black")
+
+        for machine_idx in range(total_machine_cnt):
+            duration = job_durations[:, machine_idx]
+            # shape: (job)
+            machine_schedule = schedule[machine_idx, :]
+            # shape: (job)
+
+            for job_idx in range(self.num_job):
+                job_length = duration[job_idx].item()
+                job_start_time = machine_schedule[job_idx].item()
+                if job_start_time >= 0:
+                    # Create a Rectangle patch
+                    rect = patches.Rectangle(
+                        (job_start_time, machine_idx),
+                        job_length,
+                        1,
+                        facecolor=cmap(job_idx),
+                    )
+                    ax.add_patch(rect)
+
+        ax.grid()
+        ax.set_axisbelow(True)
+        plt.show()
+
+    def _get_cmap(self, color_cnt):
+        from matplotlib.colors import ListedColormap
+
+        colors_list = [
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "purple",
+            "aqua",
+            "aquamarine",
+            "black",
+            "blueviolet",
+            "brown",
+            "burlywood",
+            "cadetblue",
+            "chocolate",
+            "coral",
+            "cornflowerblue",
+            "darkblue",
+            "darkgoldenrod",
+            "darkgreen",
+            "darkgrey",
+            "darkkhaki",
+            "darkmagenta",
+            "darkolivegreen",
+            "darkorange",
+            "darkorchid",
+            "darkred",
+            "darkslateblue",
+            "darkslategrey",
+            "darkturquoise",
+            "darkviolet",
+            "deeppink",
+            "deepskyblue",
+            "dimgrey",
+            "dodgerblue",
+            "forestgreen",
+            "gold",
+            "goldenrod",
+            "gray",
+            "greenyellow",
+            "hotpink",
+            "indianred",
+            "khaki",
+            "lawngreen",
+            "magenta",
+            "maroon",
+            "mediumaquamarine",
+            "mediumblue",
+            "mediumorchid",
+            "mediumpurple",
+            "mediumspringgreen",
+            "mediumturquoise",
+            "mediumvioletred",
+            "midnightblue",
+            "navy",
+            "olive",
+            "olivedrab",
+            "orangered",
+            "orchid",
+            "palegreen",
+            "paleturquoise",
+            "palevioletred",
+            "pink",
+            "plum",
+            "powderblue",
+            "rebeccapurple",
+            "rosybrown",
+            "royalblue",
+            "saddlebrown",
+            "sandybrown",
+            "sienna",
+            "silver",
+            "skyblue",
+            "slateblue",
+            "springgreen",
+            "steelblue",
+            "tan",
+            "teal",
+            "thistle",
+            "tomato",
+            "turquoise",
+            "violet",
+            "yellowgreen",
+        ]
+
+        cmap = ListedColormap(colors_list, N=color_cnt)
+
+        return cmap
