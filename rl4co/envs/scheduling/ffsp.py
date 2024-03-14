@@ -157,7 +157,7 @@ class FFSPEnv(RL4COEnvBase):
 
         time_idx = td["time_idx"]
         machine_idx = td["machine_idx"]
-        sub_time_idx = td["sub_time_idx"]
+        sub_time_idx = td["sub_time_idx"].clone()
 
         machine_wait_step = td["machine_wait_step"]
         job_wait_step = td["job_wait_step"]
@@ -183,13 +183,13 @@ class FFSPEnv(RL4COEnvBase):
             machine_idx[idx] = new_machine_idx
 
             # decrease machine wait time by 1 if instance transitioned to new time step
-            machine_wait_steps = machine_wait_step[idx, :]
+            machine_wait_steps = machine_wait_step[idx, :].clone()
             machine_wait_steps[step_time_required, :] -= 1
             machine_wait_steps[machine_wait_steps < 0] = 0
             machine_wait_step[idx, :] = machine_wait_steps
 
             # decrease job wait time by 1 if instance transitioned to new time step
-            job_wait_steps = job_wait_step[idx, :]
+            job_wait_steps = job_wait_step[idx, :].clone()
             job_wait_steps[step_time_required, :] -= 1
             job_wait_steps[job_wait_steps < 0] = 0
             job_wait_step[idx, :] = job_wait_steps
