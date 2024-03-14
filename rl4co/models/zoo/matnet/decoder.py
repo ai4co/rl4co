@@ -62,12 +62,14 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
             env.name,
             embedding_dim,
             num_heads,
-            use_graph_context,
+            use_graph_context=use_graph_context,
             context_embedding=context_embedding,
             **logit_attn_kwargs,
         )
 
-        self.no_job_emb = nn.Parameter(torch.rand(1, 1, embedding_dim))
+        self.no_job_emb = nn.Parameter(
+            torch.rand(1, 1, embedding_dim), requires_grad=True
+        )
 
     def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], td: TensorDict = None):
         job_emb, ma_emb = embeddings
@@ -94,7 +96,7 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
 
         embeddings = TensorDict(
             {"job_embeddings": job_emb_plus_one, "machine_embeddings": ma_emb},
-            batch_size=job_emb.size(0),
+            batch_size=bs,
         )
         # Organize in a dataclass for easy access
         return PrecomputedCache(

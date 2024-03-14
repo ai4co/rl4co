@@ -54,7 +54,7 @@ class MatNetCrossMHA(nn.Module):
         self.mix_W2 = nn.Parameter(mix_W2)
         self.mix_b2 = nn.Parameter(mix_b2)
 
-        self.out_proj = nn.Linear(embedding_dim, embedding_dim, bias=bias)
+        self.out_proj = nn.Linear(embedding_dim, embedding_dim, bias=True)
 
     def forward(self, q_input, kv_input, dmat):
         """

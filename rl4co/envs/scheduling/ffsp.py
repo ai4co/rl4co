@@ -284,16 +284,20 @@ class FFSPEnv(RL4COEnvBase):
         job_idx = td["action"]
         time_idx = td["time_idx"]
         machine_idx = td["machine_idx"]
+        # create new td to avoid incplace ops and gradient problems resulting from this
+        td = td.clone()
 
+        # increment the operation counter of the selected job
+        td["job_location"][batch_idx, job_idx] += 1
+        # td["job_location"][:, :-1].clip_(0, self.num_stage)
+        assert (td["job_location"][:, : self.num_job] <= self.num_stage).all()
         # insert start time of the selected job in the schedule
         td["schedule"][batch_idx, machine_idx, job_idx] = time_idx
         # get the duration of the selected job
         job_length = td["job_duration"][batch_idx, job_idx, machine_idx]
         # set the number of time steps until the selected machine is available again
         td["machine_wait_step"][batch_idx, machine_idx] = job_length
-        # increment the operation counter of the selected job
-        td["job_location"][batch_idx, job_idx] += 1
-        td["job_location"][:, :-1].clip_(0, self.num_stage)
+
         # set the number of time steps until the next operation of the job can be started
         td["job_wait_step"][batch_idx, job_idx] = job_length
         # determine whether all jobs are scheduled

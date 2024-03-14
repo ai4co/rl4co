@@ -46,6 +46,7 @@ class MatNetPolicy(AutoregressivePolicy):
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
+                out_bias=True,
             )
 
         else:
