@@ -26,9 +26,9 @@ class MatNet(POMO):
         if kwargs.get("num_augment", 0) != 0:
             log.error("MatNet does not use symmetric augmentation. Setting num_augment to 0.")
         kwargs["num_augment"] = 0
-        if kwargs.get("use_dihedral_8", True):
+        if kwargs.get("augment_fn") != 'symmetric':
             log.error("MatNet does not use symmetric Dihedral Augmentation. Setting use_dihedral_8 to False.")
-        kwargs["use_dihedral_8"] = False
+        kwargs["augment_fn"] = 'symmetric'
 
         super(MatNet, self).__init__(
             env=env,

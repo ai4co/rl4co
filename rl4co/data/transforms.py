@@ -1,11 +1,15 @@
 import math
-
+from typing import Union
 import torch
 
 from tensordict.tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.utils.ops import batchify
+from rl4co.utils.pylogger import get_pylogger
+
+
+log = get_pylogger(__name__)
 
 
 def dihedral_8_augmentation(xy: Tensor) -> Tensor:
@@ -83,15 +87,18 @@ def symmetric_augmentation(xy: Tensor, num_augment: int = 8, first_augment: bool
     return symmetric_transform(x, y, phi[:, None, None])
 
 
-def env_aug_feats(env_name: str = None):
-    """What features to augment for a given environment
-    Usually, locs already includes depot, so we don't need to augment depot
-    """
-    return ["locs"]
-
-
 def min_max_normalize(x):
     return (x - x.min()) / (x.max() - x.min())
+
+
+def get_augment_function(augment_fn: Union[str, callable]):
+    if callable(augment_fn):
+        return augment_fn
+    if augment_fn == "dihedral8":
+        return dihedral_8_augmentation_wrapper
+    if augment_fn == "symmetric":
+        return symmetric_augmentation
+    raise ValueError(f"Unknown augment_fn: {augment_fn}")
 
 
 class StateAugmentation(object):
@@ -107,30 +114,33 @@ class StateAugmentation(object):
 
     def __init__(
         self,
-        env_name: str = None,
         num_augment: int = 8,
-        use_dihedral_8: bool = False,
+        augment_fn: Union[str, callable] = 'symmetric', 
+        first_aug_identity: bool = True,
         normalize: bool = False,
         feats: list = None,
     ):
+        self.augmentation = get_augment_function(augment_fn)
         assert not (
-            use_dihedral_8 and num_augment != 8
-        ), "If `use_dihedral_8` is True, then num_augment must be 8"
-        if use_dihedral_8:
-            self.augmentation = dihedral_8_augmentation_wrapper
-        else:
-            self.augmentation = symmetric_augmentation
+            self.augmentation == dihedral_8_augmentation_wrapper and num_augment != 8
+        ), "If using the `dihedral8` augmentation function, then num_augment must be 8"
 
-        self.feats = env_aug_feats(env_name) if feats is None else feats
+        if feats is None:
+            log.info("Default augment feature: `locs`")
+        self.feats = ["locs"] if feats is None else feats
         self.num_augment = num_augment
         self.normalize = normalize
+        self.first_aug_identity = first_aug_identity
 
     def __call__(self, td: TensorDict) -> TensorDict:
         td_aug = batchify(td, self.num_augment)
         for feat in self.feats:
+            init_aug_feat = td_aug[feat][*td.size(), 0].clone()
             aug_feat = self.augmentation(td_aug[feat], self.num_augment)
-            td_aug[feat] = aug_feat
             if self.normalize:
-                td_aug[feat] = min_max_normalize(td_aug[feat])
+                aug_feat = min_max_normalize(aug_feat)
+            if self.first_aug_identity:
+                aug_feat[*td.size(), 0] = init_aug_feat
+            td_aug[feat] = aug_feat
 
         return td_aug

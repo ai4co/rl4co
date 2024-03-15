@@ -41,7 +41,8 @@ class POMO(REINFORCE):
         policy_kwargs={},
         baseline: str = "shared",
         num_augment: int = 8,
-        use_dihedral_8: bool = True,
+        augment_fn: Union[str, callable] = "dihedral8",
+        feats: list[str] = None,
         num_starts: int = None,
         select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,
@@ -67,7 +68,7 @@ class POMO(REINFORCE):
         self.num_augment = num_augment
         if self.num_augment > 1:
             self.augment = StateAugmentation(
-                self.env.name, num_augment=self.num_augment, use_dihedral_8=use_dihedral_8
+                num_augment=self.num_augment, augment_fn=augment_fn, feats=feats
             )
         else:
             self.augment = None

@@ -124,7 +124,7 @@ class AugmentationEval(EvalBase):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
         self.augmentation = StateAugmentation(
-            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric'
         )
 
     def _inner(self, policy, td, num_augment=None):
@@ -250,7 +250,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
             num_augment != 8 and force_dihedral_8
         ), "Cannot force dihedral 8 when num_augment != 8"
         self.augmentation = StateAugmentation(
-            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric'
         )
 
     def _inner(self, policy, td, num_augment=None):
