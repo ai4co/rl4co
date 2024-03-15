@@ -108,7 +108,7 @@ class MDPPEnv(DPPEnv):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions):
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """We call the reward function with the final sequence of actions to get the reward
         Calling per-step would be very time consuming due to decap simulation
         """

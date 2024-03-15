@@ -217,7 +217,7 @@ class SVRPEnv(RL4COEnvBase):
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """Calculated the reward, where the reward is the negative total travel cost of the technicians.
         The travel cost depends on the skill-level of the technician."""
         # Check that the solution is valid
@@ -260,7 +260,7 @@ class SVRPEnv(RL4COEnvBase):
         return -(distances * costs).sum(-1)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that solution is valid: nodes are not visited twice except depot and required skill levels are always met."""
         batch_size, graph_size = td["skills"].shape[0], td["skills"].shape[1]
         sorted_pi = actions.data.sort(1).values

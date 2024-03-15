@@ -166,7 +166,7 @@ class CVRPEnv(RL4COEnvBase):
         mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)
         return ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         # Check that the solution is valid
         if self.check_solution:
             self.check_solution_validity(td, actions)
@@ -186,7 +186,7 @@ class CVRPEnv(RL4COEnvBase):
         return -get_tour_length(locs_ordered)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that solution is valid: nodes are not visited twice except depot and capacity is not exceeded"""
         # Check if tour is valid, i.e. contain 0 to n-1
         batch_size, graph_size = td["demand"].size()

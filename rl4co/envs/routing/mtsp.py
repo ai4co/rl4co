@@ -218,7 +218,7 @@ class MTSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec()
         self.done_spec = UnboundedDiscreteTensorSpec(dtype=torch.bool)
 
-    def get_reward(self, td, actions=None) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor = None) -> torch.Tensor:
         # With minmax, get the maximum distance among subtours, calculated in the model
         if self.cost_type == "minmax":
             return td["reward"].squeeze(-1)

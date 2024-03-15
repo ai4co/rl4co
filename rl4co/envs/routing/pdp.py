@@ -177,7 +177,7 @@ class PDPEnv(RL4COEnvBase):
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def get_reward(td, actions) -> TensorDict:
+    def get_reward(td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         # assert (actions[:, 0] == 0).all(), "Not starting at depot"
         assert (
             torch.arange(actions.size(1), out=actions.data.new())

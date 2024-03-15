@@ -146,7 +146,7 @@ class ATSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         distance_matrix = td["cost_matrix"]
         assert (
             torch.arange(actions.size(1), out=actions.data.new())

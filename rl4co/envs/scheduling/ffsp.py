@@ -413,7 +413,7 @@ class FFSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict) -> torch.Tensor:
         return td["reward"]
 
     def generate_data(self, batch_size) -> TensorDict:
