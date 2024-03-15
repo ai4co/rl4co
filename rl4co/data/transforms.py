@@ -105,9 +105,9 @@ class StateAugmentation(object):
     """Augment state by N times via symmetric rotation/reflection transform
 
     Args:
-        env_name: environment name
         num_augment: number of augmentations
-        use_dihedral_8: whether to use dihedral_8_augmentation.  If True, then num_augment must be 8
+        augment_fn: augmentation function to use, e.g. 'symmetric' (default) or 'dihedral8', if callable, 
+            then use the function directly. If 'dihedral8', then num_augment must be 8
         normalize: whether to normalize the augmented data
         feats: list of features to augment
     """

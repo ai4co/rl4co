@@ -26,6 +26,8 @@ class SymNCO(REINFORCE):
         policy: Policy to use for the algorithm
         policy_kwargs: Keyword arguments for policy
         num_augment: Number of augmentations
+        augment_fn: Function to use for augmentation, defaulting to dihedral_8_augmentation
+        feats: List of features to augment
         alpha: weight for invariance loss
         beta: weight for solution symmetricity loss
         num_starts: Number of starts for multi-start. If None, use the number of available actions

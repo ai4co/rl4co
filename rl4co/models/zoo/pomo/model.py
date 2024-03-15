@@ -28,7 +28,8 @@ class POMO(REINFORCE):
         baseline: Baseline to use for the algorithm. Note that POMO only supports shared baseline,
             so we will throw an error if anything else is passed.
         num_augment: Number of augmentations (used only for validation and test)
-        use_dihedral_8: Whether to use dihedral 8 augmentation
+        augment_fn: Function to use for augmentation, defaulting to dihedral_8_augmentation
+        feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
         select_start_nodes_fn: Function to select the start nodes for the environment defaulting to :func:`select_start_nodes`
         **kwargs: Keyword arguments passed to the superclass
