@@ -43,7 +43,7 @@ class POMO(REINFORCE):
         baseline: str = "shared",
         num_augment: int = 8,
         augment_fn: Union[str, callable] = "dihedral8",
-        feats: list[str] = None,
+        feats: list = None,
         num_starts: int = None,
         select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,

@@ -42,7 +42,7 @@ class SymNCO(REINFORCE):
         baseline: str = "symnco",
         num_augment: int = 4,
         augment_fn: Union[str, callable] = "symmetric",
-        feats: list[str] = None,
+        feats: list = None,
         alpha: float = 0.2,
         beta: float = 1,
         num_starts: int = 0,
