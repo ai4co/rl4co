@@ -125,22 +125,29 @@ class OneStageModel(nn.Module):
 
     def pre_forward(self, cost_mat: torch.Tensor, num_starts=1):
         # problems.shape: (batch, job_cnt, machine_cnt)
+        device = cost_mat.device
         batch_size = cost_mat.size(0)
         job_cnt = cost_mat.size(1)
         machine_cnt = cost_mat.size(2)
         embedding_dim = self.embedding_dim
 
-        row_emb = torch.zeros(size=(batch_size, job_cnt, embedding_dim))
+        row_emb = torch.zeros(size=(batch_size, job_cnt, embedding_dim), device=device)
         # shape: (batch, job_cnt, embedding)
-        col_emb = torch.zeros(size=(batch_size, machine_cnt, embedding_dim))
+        col_emb = torch.zeros(
+            size=(batch_size, machine_cnt, embedding_dim), device=device
+        )
         # shape: (batch, machine_cnt, embedding)
 
-        rand = torch.rand(batch_size, machine_cnt)
+        rand = torch.rand(batch_size, machine_cnt, device=device)
         batch_rand_perm = rand.argsort(dim=1)
         rand_idx = batch_rand_perm[:, :machine_cnt]
 
-        b_idx = torch.arange(batch_size)[:, None].expand(batch_size, machine_cnt)
-        m_idx = torch.arange(machine_cnt)[None, :].expand(batch_size, machine_cnt)
+        b_idx = torch.arange(batch_size, device=device)[:, None].expand(
+            batch_size, machine_cnt
+        )
+        m_idx = torch.arange(machine_cnt, device=device)[None, :].expand(
+            batch_size, machine_cnt
+        )
         col_emb[b_idx, m_idx, rand_idx] = 1
         # shape: (batch, machine_cnt, embedding)
 
