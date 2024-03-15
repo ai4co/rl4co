@@ -104,13 +104,17 @@ class FFSPModel(nn.Module):
 
 
 class OneStageModel(nn.Module):
-    def __init__(self, embedding_dim=256, num_heads=16, num_layers=3, eval_type="greedy"):
+    def __init__(
+        self, embedding_dim=256, num_heads=16, num_encoder_layers=3, eval_type="greedy"
+    ):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.eval_type = eval_type
 
         self.encoder = FFSP_Encoder(
-            embedding_dim=embedding_dim, num_heads=num_heads, num_layers=num_layers
+            embedding_dim=embedding_dim,
+            num_heads=num_heads,
+            num_layers=num_encoder_layers,
         )
         self.decoder = FFSP_Decoder()
 
@@ -189,9 +193,8 @@ class OneStageModel(nn.Module):
 class FFSP_Encoder(nn.Module):
     def __init__(self, num_layers=3, **encoder_kwargs):
         super().__init__()
-        encoder_layer_num = num_layers
         self.layers = nn.ModuleList(
-            [EncoderLayer(**encoder_kwargs) for _ in range(encoder_layer_num)]
+            [EncoderLayer(**encoder_kwargs) for _ in range(num_layers)]
         )
 
     def forward(self, row_emb, col_emb, cost_mat):
