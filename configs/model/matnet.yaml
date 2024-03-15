@@ -1,1 +1,1 @@
-_target_: rl4co.models.MatNet
+_target_: rl4co.models.MatNet4FFSP

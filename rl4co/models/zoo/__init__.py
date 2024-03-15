@@ -7,7 +7,7 @@ from rl4co.models.zoo.ham import (
     HeterogeneousAttentionModel,
     HeterogeneousAttentionModelPolicy,
 )
-from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
+from rl4co.models.zoo.matnet import MatNet, MatNet4FFSP, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
 from rl4co.models.zoo.pomo import POMO, POMOPolicy
 from rl4co.models.zoo.ppo import PPOModel, PPOPolicy

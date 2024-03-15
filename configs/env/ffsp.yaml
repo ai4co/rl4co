@@ -4,6 +4,6 @@ name: ffsp
 num_stage: 3
 num_machine: 4
 num_job: 20
-flatten_stages: True
+flatten_stages: False
 
 data_dir: ${paths.root_dir}/data/ffsp
