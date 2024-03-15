@@ -185,6 +185,12 @@ class RL4COEnvBase(EnvBase):
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
         raise NotImplementedError
+    
+    def improve_solution(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        """Function to improve the solution. Can be called by the agent to improve the current state
+        This is called with the full solution (i.e. all actions) at the end of the episode
+        """
+        raise NotImplementedError
 
     def dataset(self, batch_size=[], phase="train", filename=None):
         """Return a dataset of observations
