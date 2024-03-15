@@ -65,21 +65,22 @@ class FFSPModel(nn.Module):
         # Nothing to reset
         pass
 
-    def forward(self, td, env: FFSPEnv, phase="train", num_starts=1):
+    def forward(self, td: TensorDict, env: FFSPEnv, phase="train", num_starts=1):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"
+        device = td.device
         self.pre_forward(td, env, num_starts)
 
         if num_starts > 1:
             td = batchify(td, num_starts)
 
         batch_size = td.size(0)
-        prob_list = torch.zeros(size=(batch_size, 0))
+        prob_list = torch.zeros(size=(batch_size, 0), device=device)
 
         while not td["done"].all():
             action_stack = torch.empty(
-                size=(batch_size, self.stage_cnt), dtype=torch.long
+                size=(batch_size, self.stage_cnt), dtype=torch.long, device=device
             )
-            prob_stack = torch.empty(size=(batch_size, self.stage_cnt))
+            prob_stack = torch.empty(size=(batch_size, self.stage_cnt), device=device)
 
             for stage_idx in range(self.stage_cnt):
                 model = self.stage_models[stage_idx]
@@ -158,7 +159,8 @@ class OneStageModel(nn.Module):
 
         self.decoder.set_kv(self.encoded_row)
 
-    def forward(self, td, phase="train"):
+    def forward(self, td: TensorDict, phase="train"):
+        device = td.device
         batch_size = td.size(0)
         encoded_current_machine = self.encoded_col.gather(
             1,
@@ -166,9 +168,9 @@ class OneStageModel(nn.Module):
                 batch_size, 1, self.embedding_dim
             ),
         )
-        ninf_mask = torch.zeros_like(td["action_mask"], dtype=torch.float32).masked_fill(
-            ~td["action_mask"], -torch.inf
-        )
+        ninf_mask = torch.zeros_like(
+            td["action_mask"], dtype=torch.float32, device=device
+        ).masked_fill(~td["action_mask"], -torch.inf)
 
         # shape: (batch, embedding)
         all_job_probs = self.decoder(encoded_current_machine, ninf_mask=ninf_mask)
@@ -189,7 +191,9 @@ class OneStageModel(nn.Module):
         else:
             job_selected = all_job_probs.argmax(dim=1)
             # shape: (batch)
-            job_prob = torch.zeros(size=(batch_size,))  # any number is okay
+            job_prob = torch.zeros(
+                size=(batch_size,), device=device
+            )  # any number is okay
 
         return job_selected, job_prob
 
