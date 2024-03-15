@@ -135,12 +135,12 @@ class StateAugmentation(object):
     def __call__(self, td: TensorDict) -> TensorDict:
         td_aug = batchify(td, self.num_augment)
         for feat in self.feats:
-            init_aug_feat = td_aug[feat][*td.size(), 0].clone()
+            init_aug_feat = td_aug[feat][list(td.size()), 0].clone()
             aug_feat = self.augmentation(td_aug[feat], self.num_augment)
             if self.normalize:
                 aug_feat = min_max_normalize(aug_feat)
             if self.first_aug_identity:
-                aug_feat[*td.size(), 0] = init_aug_feat
+                aug_feat[list(td.size()), 0] = init_aug_feat
             td_aug[feat] = aug_feat
 
         return td_aug
