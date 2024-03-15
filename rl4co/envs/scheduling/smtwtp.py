@@ -172,7 +172,7 @@ class SMTWTPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         job_due_time = td["job_due_time"]
         job_weight = td["job_weight"]
         job_process_time = td["job_process_time"]

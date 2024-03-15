@@ -296,7 +296,7 @@ class MPDPEnv(RL4COEnvBase):
         action_mask = mask_loc == 0  # action_mask gets feasible actions
         return action_mask
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         # Check that the solution is valid
         if self.check_solution:
             self.check_solution_validity(td, actions)
@@ -310,7 +310,7 @@ class MPDPEnv(RL4COEnvBase):
             raise ValueError(f"Unknown objective {self.objective}")
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         assert True, "Not implemented"
 
     def generate_data(self, batch_size) -> TensorDict:

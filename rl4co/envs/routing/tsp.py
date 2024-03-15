@@ -143,7 +143,7 @@ class TSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         if self.check_solution:
             self.check_solution_validity(td, actions)
 
@@ -152,7 +152,7 @@ class TSPEnv(RL4COEnvBase):
         return -get_tour_length(locs_ordered)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that solution is valid: nodes are visited exactly once"""
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
