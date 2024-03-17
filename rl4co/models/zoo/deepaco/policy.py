@@ -18,9 +18,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         embedding_dim: int = 64,
         num_encoder_layers: int = 15,
         num_decoder_layers: int = 5,
-        n_ants: int = 20,
-        n_iterations: int = 50,
-        **unused_kw,
+        **decoder_kwargs,
     ):
         env_name_: str = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
 
@@ -29,8 +27,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
             embedding_dim=embedding_dim,
             num_layers=num_decoder_layers,
             heatmap_generator=heatmap_generator,
-            n_ants=n_ants,
-            n_iterations=n_iterations,
+            **decoder_kwargs,
         )
 
         super(DeepACOPolicy, self).__init__(

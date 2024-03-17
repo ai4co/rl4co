@@ -19,7 +19,6 @@ class AntSystem:
         self,
         log_heuristic: torch.Tensor,
         n_ants: int = 20,
-        n_iterations: int = 50,
         alpha: float = 1.0,
         beta: float = 1.0,
         decay: float = 0.95,
@@ -28,7 +27,6 @@ class AntSystem:
     ):
         self.batch_size = log_heuristic.shape[0]
         self.n_ants = n_ants
-        self.n_iterations = n_iterations
         self.alpha = alpha
         self.beta = beta
         self.decay = decay
@@ -48,10 +46,8 @@ class AntSystem:
         self,
         td_initial: TensorDict,
         env: RL4COEnvBase,
-        n_iterations: Optional[int] = None,
+        n_iterations: int,
     ):
-        n_iterations = n_iterations or self.n_iterations
-
         for _ in range(n_iterations):
             # reset environment
             td: TensorDict = env.reset(td_initial.clone(recurse=False))  # type: ignore

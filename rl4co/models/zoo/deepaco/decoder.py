@@ -26,6 +26,8 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         heatmap_generator: Optional[nn.Module] = None,
         linear_bias: bool = True,
         aco_class=AntSystem,
+        n_ants: Union[int, dict, None] = None,
+        n_iterations: Union[int, dict, None] = None,
         **aco_args,
     ) -> None:
         super(DeepACODecoder, self).__init__(
@@ -37,6 +39,8 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         )
         self.aco_class = aco_class
         self.aco_args = aco_args
+        self.n_ants = self._conv_params(n_ants, train=20, val=20, test=20)
+        self.n_iterations = self._conv_params(n_iterations, train=5, val=20, test=50)
 
     def forward(
         self,
@@ -44,8 +48,6 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         graph: Batch,  # type: ignore
         env: Union[str, RL4COEnvBase, None] = None,
         calc_reward: bool = True,
-        n_ants: Optional[int] = None,
-        n_iterations: Optional[int] = None,
         phase: str = "train",
         **unused_kwargs,
     ):
@@ -59,6 +61,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
                 decode_type="multistart_sampling",
                 calc_reward=calc_reward,
                 phase=phase,
+                num_starts=self.n_ants[phase],
             )
 
         # Instantiate environment if needed
@@ -69,12 +72,19 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         # calculate heatmap
         heuristic_logp = self.heatmap_generator(graph)
 
-        aco_args = self.aco_args.copy()
-        if n_ants is not None:
-            aco_args["n_ants"] = n_ants
+        aco = self.aco_class(heuristic_logp, n_ants=self.n_ants[phase], **self.aco_args)
+        td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
 
-        aco = self.aco_class(heuristic_logp, **aco_args)
-        td, actions, reward = aco.run(td_initial, env, n_iterations)
-        td.set("reward", reward)
+        if calc_reward:
+            td.set("reward", reward)
 
         return None, actions, td
+
+    def _conv_params(self, value: Union[int, dict, None], **defaults):
+        if value is None:
+            return defaults
+        elif isinstance(value, int):
+            return {key: value for key in defaults.keys()}
+        else:
+            defaults.update(dict(**value))  # convert DictConfigs
+            return defaults
