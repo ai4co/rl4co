@@ -138,6 +138,7 @@ class NonAutoregressiveDecoder(nn.Module):
         env: Union[str, RL4COEnvBase, None] = None,
         decode_type: str = "multistart_sampling",
         calc_reward: bool = True,
+        phase="train",
         **strategy_kwargs,
     ):
         # Instantiate environment if needed
