@@ -46,7 +46,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         calc_reward: bool = True,
         n_ants: Optional[int] = None,
         n_iterations: Optional[int] = None,
-        phase="train",
+        phase: str = "train",
         **unused_kwargs,
     ):
         """TODO"""
@@ -73,7 +73,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         if n_ants is not None:
             aco_args["n_ants"] = n_ants
 
-        aco = self.aco_class(heuristic_logp, **self.aco_args)
+        aco = self.aco_class(heuristic_logp, **aco_args)
         td, actions, reward = aco.run(td_initial, env, n_iterations)
         td.set("reward", reward)
 

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 import torch
@@ -25,7 +26,7 @@ class AntSystem:
         pheromone: Optional[torch.Tensor] = None,
         require_logp: bool = False,
     ):
-        self.batch_size, self.n_nodes, _ = log_heuristic.shape
+        self.batch_size = log_heuristic.shape[0]
         self.n_ants = n_ants
         self.n_iterations = n_iterations
         self.alpha = alpha
@@ -42,9 +43,6 @@ class AntSystem:
         self.all_records = []
 
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
-        self._batch_n_indices = (
-            self._batchindex.unsqueeze(1).repeat(1, self.n_nodes).view(-1)
-        )
 
     def run(
         self,
@@ -57,9 +55,10 @@ class AntSystem:
         for _ in range(n_iterations):
             # reset environment
             td: TensorDict = env.reset(td_initial.clone(recurse=False))  # type: ignore
-            reward, actions = self.one_step(td, env)
+            self.one_step(td, env)
 
-        return td, actions, reward
+        td, env = self._recreate_final_routes(td_initial, env)
+        return td, self.final_actions, self.final_reward
 
     def one_step(self, td: TensorDict, env: RL4COEnvBase):
         # sampling
@@ -93,7 +92,7 @@ class AntSystem:
         reward = env.get_reward(td, actions)
 
         if self.require_logp:
-            self.all_records.append((outputs, actions, reward))
+            self.all_records.append((outputs, actions, reward, td.get("mask", None)))
 
         # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
         reward = reward.view(self.batch_size, self.n_ants)
@@ -126,13 +125,16 @@ class AntSystem:
         from_node = actions
         to_node = torch.roll(from_node, 1, -1)
         mapped_reward = self._reward_map(reward).detach()
+        batch_action_indices = self._batch_action_indices(
+            self.batch_size, actions.shape[-1], reward.device
+        )
 
         for ant_index in range(self.n_ants):
             delta_pheromone[
-                self._batch_n_indices,
+                batch_action_indices,
                 from_node[:, ant_index].flatten(),
                 to_node[:, ant_index].flatten(),
-            ] += mapped_reward[self._batch_n_indices, ant_index]
+            ] += mapped_reward[batch_action_indices, ant_index]
 
         # decay & update
         self.pheromone *= self.decay
@@ -141,3 +143,43 @@ class AntSystem:
     def _reward_map(self, x):
         # map reward from $\mathbb{R}$ to $\mathbb{R}^+$
         return torch.where(x >= -2, 0.25 * x + 1, -1 / x)
+
+    def _recreate_final_routes(self, td, env):
+        assert self.final_actions is not None
+
+        for action_index in range(self.final_actions.shape[-1]):
+            actions = self.final_actions[:, action_index]
+            td.set("action", actions)
+            td = env.step(td)["next"]
+
+        assert td["done"].all()
+        return td, env
+
+    def get_logp(self):
+        assert self.require_logp, "Please enable `require_logp` to record logp values"
+
+        logp_list, actions_list, reward_list, mask_list = [], [], [], []
+
+        for outputs, actions, reward, mask in self.all_records:
+            logp_list.append(outputs)
+            actions_list.append(actions)
+            reward_list.append(reward)
+            mask_list.append(mask)
+
+        if mask_list[0] is None:
+            mask_list = None
+        else:
+            mask_list = torch.stack(mask_list, 0)
+
+        return (
+            torch.stack(logp_list, 0),
+            torch.stack(actions_list, 0),
+            torch.stack(reward_list, 0),
+            mask_list,
+        )
+
+    @staticmethod
+    @lru_cache(5)
+    def _batch_action_indices(batch_size: int, n_actions: int, device: torch.device):
+        batchindex = torch.arange(batch_size, device=device)
+        return batchindex.unsqueeze(1).repeat(1, n_actions).view(-1)
