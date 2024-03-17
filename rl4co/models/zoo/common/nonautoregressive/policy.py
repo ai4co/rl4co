@@ -126,15 +126,14 @@ class NonAutoregressivePolicy(nn.Module):
             td, graph, env, phase=phase, **decoder_kwargs
         )
 
-        # Log likelihood is calculated within the model
-        log_likelihood = get_log_likelihood(
-            log_p, actions, td_out.get("mask", None)
-        )  # , return_sum=False).mean(-1)
+        out = {"reward": td_out["reward"]}
 
-        out = {
-            "reward": td_out["reward"],
-            "log_likelihood": log_likelihood,
-        }
+        if phase == "train":
+            # Log likelihood is calculated within the model
+            log_likelihood = get_log_likelihood(
+                log_p, actions, td_out.get("mask", None)
+            )  # , return_sum=False).mean(-1)
+            out["log_likelihood"] = log_likelihood
 
         if return_actions:
             out["actions"] = actions

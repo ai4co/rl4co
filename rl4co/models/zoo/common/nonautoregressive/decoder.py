@@ -168,7 +168,8 @@ class NonAutoregressiveDecoder(nn.Module):
 
         return outputs, actions, td
 
-    def _get_log_p(self, td: TensorDict, heatmaps_logp: Tensor, num_starts: int):
+    @classmethod
+    def _get_log_p(cls, td: TensorDict, heatmaps_logp: Tensor, num_starts: int):
         # Get the mask
         mask = ~td["action_mask"]
 
@@ -177,7 +178,7 @@ class NonAutoregressiveDecoder(nn.Module):
             log_p = heatmaps_logp.mean(-1)
         else:
             batch_size = heatmaps_logp.shape[0]
-            _indexer = self._multistart_batched_index(batch_size, num_starts)
+            _indexer = cls._multistart_batched_index(batch_size, num_starts)
             log_p = heatmaps_logp[_indexer, current_action, :]
 
         log_p[mask] = -torch.inf

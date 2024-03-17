@@ -19,7 +19,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         num_encoder_layers: int = 15,
         num_decoder_layers: int = 5,
         n_ants: int = 20,
-        n_iterations: int = 10,
+        n_iterations: int = 50,
         **unused_kw,
     ):
         env_name_: str = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
@@ -34,7 +34,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         )
 
         super(DeepACOPolicy, self).__init__(
-            env_name_,
+            env_name,
             encoder,
             decoder,
             init_embedding,
