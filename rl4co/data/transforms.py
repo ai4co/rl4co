@@ -98,7 +98,7 @@ def get_augment_function(augment_fn: Union[str, callable]):
         return dihedral_8_augmentation_wrapper
     if augment_fn == "symmetric":
         return symmetric_augmentation
-    raise ValueError(f"Unknown augment_fn: {augment_fn}")
+    raise ValueError(f"Unknown augment_fn: {augment_fn}. Available options: 'symmetric', 'dihedral8' or a custom callable")
 
 
 class StateAugmentation(object):
@@ -108,7 +108,7 @@ class StateAugmentation(object):
         num_augment: number of augmentations
         augment_fn: augmentation function to use, e.g. 'symmetric' (default) or 'dihedral8', if callable, 
             then use the function directly. If 'dihedral8', then num_augment must be 8
-        first_aug_identity: whether to augment the first data point
+        first_aug_identity: whether to augment the first data point too
         normalize: whether to normalize the augmented data
         feats: list of features to augment
     """
@@ -124,11 +124,13 @@ class StateAugmentation(object):
         self.augmentation = get_augment_function(augment_fn)
         assert not (
             self.augmentation == dihedral_8_augmentation_wrapper and num_augment != 8
-        ), "If using the `dihedral8` augmentation function, then num_augment must be 8"
+        ), "When using the `dihedral8` augmentation function, then num_augment must be 8"
 
         if feats is None:
-            log.info("Default augment feature: `locs`")
-        self.feats = ["locs"] if feats is None else feats
+            log.info("Features not passed, defaulting to 'locs'")
+            self.feats = ["locs"]
+        else:
+            self.feats = feats
         self.num_augment = num_augment
         self.normalize = normalize
         self.first_aug_identity = first_aug_identity
