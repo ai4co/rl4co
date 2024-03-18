@@ -8,6 +8,21 @@ from rl4co.models.zoo.deepaco.decoder import DeepACODecoder
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
+    """Implememts DeepACO policy based on :class:`NonAutoregressivePolicy`.
+
+    Args:
+        env_name: Name of the environment used to initialize embeddings
+        encoder: Encoder module. Can be passed by sub-classes
+        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
+        edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
+        heatmap_generator: Model to use for converting the edge embeddings to the heuristic information.
+            If None, use the default MLP defined in :class:`~rl4co.models.zoo.common.nonautoregressive.decoder.EdgeHeatmapGenerator`.
+        embedding_dim: Dimension of the embeddings
+        num_encoder_layers: Number of layers in the encoder
+        num_decoder_layers: Number of layers in the decoder
+        **decoder_kwargs: Additional arguments to be passed to the DeepACO decoder.
+    """
+
     def __init__(
         self,
         env_name: Union[str, RL4COEnvBase] = "tsp",

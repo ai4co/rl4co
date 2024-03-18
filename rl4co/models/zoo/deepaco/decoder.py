@@ -16,7 +16,20 @@ from rl4co.models.zoo.deepaco.antsystem import AntSystem
 
 
 class DeepACODecoder(NonAutoregressiveDecoder):
-    """TODO"""
+    """Decoder utilizing Ant Colony Optimization (ACO) for constructing solutions for combinatorial optimization problems.
+    This decoder extends the functionality of NonAutoregressiveDecoder by incorporating ACO algorithms.
+
+    Args:
+        env_name: Environment name to solve.
+        embedding_dim: Dimension of the embeddings.
+        num_layers: Number of linear layers to use in the MLP.
+        heatmap_generator: Module to generate heatmaps from node embeddings. Defaults to :class:`~rl4co.models.zoo.common.nonautoregressive.decoder.EdgeHeatmapGenerator`.
+        linear_bias: Whether to use a bias term in the linear layers. Defaults to True.
+        aco_class: Class representing the ACO algorithm to be used. Defaults to :class:`AntSystem`.
+        n_ants: Number of ants to be used in the ACO algorithm. Can be an integer or dictionary. Defaults to 20.
+        n_iterations: Number of iterations to run the ACO algorithm. Can be an integer or dictionary. Defaults to `dict(train=1, val=20, test=100)`.
+        **aco_args: Additional arguments to be passed to the ACO algorithm.
+    """
 
     def __init__(
         self,
@@ -26,10 +39,10 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         heatmap_generator: Optional[nn.Module] = None,
         linear_bias: bool = True,
         aco_class=AntSystem,
-        n_ants: Union[int, dict, None] = None,
-        n_iterations: Union[int, dict, None] = None,
+        n_ants: Optional[Union[int, dict]] = None,
+        n_iterations: Optional[Union[int, dict]] = None,
         **aco_args,
-    ) -> None:
+    ):
         super(DeepACODecoder, self).__init__(
             env_name=env_name,
             embedding_dim=embedding_dim,
@@ -40,7 +53,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         self.aco_class = aco_class
         self.aco_args = aco_args
         self.n_ants = self._conv_params(n_ants, train=20, val=20, test=20)
-        self.n_iterations = self._conv_params(n_iterations, train=5, val=20, test=50)
+        self.n_iterations = self._conv_params(n_iterations, train=1, val=20, test=100)
 
     def forward(
         self,
@@ -51,7 +64,6 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         phase: str = "train",
         **unused_kwargs,
     ):
-        """TODO"""
         if phase == "train":
             # use the procedure inherited from NonAutoregressiveDecoder for training
             return super().forward(
@@ -80,7 +92,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
 
         return None, actions, td
 
-    def _conv_params(self, value: Union[int, dict, None], **defaults):
+    def _conv_params(self, value: Union[int, dict, None] = None, **defaults):
         if value is None:
             return defaults
         elif isinstance(value, int):

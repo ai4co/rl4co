@@ -1,9 +1,10 @@
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 
 from tensordict import TensorDict
+from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.dec_strategies import Sampling
@@ -13,16 +14,26 @@ from rl4co.models.zoo.common.nonautoregressive.decoder import (
 
 
 class AntSystem:
-    """TODO"""
+    """Implements the Ant System algorithm: https://doi.org/10.1109/3477.484436.
+
+    Args:
+        log_heuristic: Logarithm of the heuristic matrix.
+        n_ants: Number of ants to be used in the algorithm. Defaults to 20.
+        alpha: Importance of pheromone in the decision-making process. Defaults to 1.0.
+        beta: Importance of heuristic information in the decision-making process. Defaults to 1.0.
+        decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
+        pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
+        require_logp: Whether to require the log probability of actions. Defaults to False.
+    """
 
     def __init__(
         self,
-        log_heuristic: torch.Tensor,
+        log_heuristic: Tensor,
         n_ants: int = 20,
         alpha: float = 1.0,
         beta: float = 1.0,
         decay: float = 0.95,
-        pheromone: Optional[torch.Tensor] = None,
+        pheromone: Optional[Tensor] = None,
         require_logp: bool = False,
     ):
         self.batch_size = log_heuristic.shape[0]
@@ -47,16 +58,40 @@ class AntSystem:
         td_initial: TensorDict,
         env: RL4COEnvBase,
         n_iterations: int,
-    ):
+    ) -> Tuple[TensorDict, Tensor, Tensor]:
+        """Run the Ant System algorithm for a specified number of iterations.
+
+        Args:
+            td_initial: Initial state of the problem.
+            env: Environment representing the problem.
+            n_iterations: Number of iterations to run the algorithm.
+
+        Returns:
+            td: The final state of the problem.
+            actions: The final actions chosen by the algorithm.
+            reward: The final reward achieved by the algorithm.
+        """
         for _ in range(n_iterations):
             # reset environment
             td: TensorDict = env.reset(td_initial.clone(recurse=False))  # type: ignore
             self.one_step(td, env)
 
         td, env = self._recreate_final_routes(td_initial, env)
+
+        assert self.final_actions is not None and self.final_reward is not None
         return td, self.final_actions, self.final_reward
 
     def one_step(self, td: TensorDict, env: RL4COEnvBase):
+        """Run one step of the Ant System algorithm.
+
+        Args:
+            td: Current state of the problem.
+            env: Environment representing the problem.
+
+        Returns:
+            actions: The actions chosen by the algorithm.
+            reward: The reward achieved by the algorithm.
+        """
         # sampling
         actions, reward = self._sampling(td, env)
         # local search, reserved for extensions
@@ -66,13 +101,14 @@ class AntSystem:
         # update pheromone matrix
         self._update_pheromone(actions, reward)
 
-        return reward, actions
+        return actions, reward
 
     def _sampling(
         self,
         td: TensorDict,
         env: RL4COEnvBase,
     ):
+        # Sample from heatmaps
         # p = phe**alpha * heu**beta <==> log(p) = alpha*log(phe) + beta*log(heu)
         heatmaps_logp = (
             self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
@@ -96,11 +132,26 @@ class AntSystem:
 
         return actions, reward
 
-    def _local_search(self, actions, reward):
-        # Override this method in childclass to perform local search.
+    def _local_search(self, actions: Tensor, reward: Tensor) -> Tuple[Tensor, Tensor]:
+        """Perform local search on the actions and reward obtained.
+
+        This method is reserved for extensions and can be overridden in child classes to implement
+        specific local search strategies. By default, it returns the original actions and reward
+        without any modifications.
+
+        Args:
+            actions: Actions chosen by the algorithm.
+            reward: Reward obtained after the sampling step.
+
+        Returns:
+            actions: The modified actions
+            reward: The modified reward
+
+        """
         return actions, reward
 
     def _update_results(self, actions, reward):
+        # update the best-trails recorded in self.final_actions
         best_index = reward.argmax(-1)
         best_reward = reward[self._batchindex, best_index]
         best_actions = actions[self._batchindex, best_index]
@@ -152,6 +203,16 @@ class AntSystem:
         return td, env
 
     def get_logp(self):
+        """Get the log probability (logp) values recorded during the execution of the algorithm.
+
+        Returns:
+            results: Tuple containing the log probability values,
+                actions chosen, rewards obtained, and mask values (if available).
+
+        Raises:
+            AssertionError: If `require_logp` is not enabled.
+        """
+
         assert self.require_logp, "Please enable `require_logp` to record logp values"
 
         logp_list, actions_list, reward_list, mask_list = [], [], [], []
@@ -166,6 +227,9 @@ class AntSystem:
             mask_list = None
         else:
             mask_list = torch.stack(mask_list, 0)
+
+        # reset records
+        self.all_records = []
 
         return (
             torch.stack(logp_list, 0),

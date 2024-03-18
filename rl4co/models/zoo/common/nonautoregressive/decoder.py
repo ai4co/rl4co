@@ -53,7 +53,7 @@ class EdgeHeatmapGenerator(nn.Module):
 
         self.undirected_graph = undirected_graph
 
-    def forward(self, graph: Batch) -> Tensor:
+    def forward(self, graph: Batch) -> Tensor:  # type: ignore
         # do not reuse the input value
         edge_attr = graph.edge_attr  # type: ignore
         for layer in self.linears:
@@ -63,7 +63,7 @@ class EdgeHeatmapGenerator(nn.Module):
         heatmaps_logp = self._make_heatmaps(graph)
         return heatmaps_logp
 
-    def _make_heatmaps(self, batch_graph: Batch) -> Tensor:
+    def _make_heatmaps(self, batch_graph: Batch) -> Tensor:  # type: ignore
         graphs = batch_graph.to_data_list()
         device = graphs[0].edge_attr.device
         batch_size = len(graphs)
@@ -134,7 +134,7 @@ class NonAutoregressiveDecoder(nn.Module):
     def forward(
         self,
         td: TensorDict,
-        graph: Batch,
+        graph: Batch,  # type: ignore
         env: Union[str, RL4COEnvBase, None] = None,
         decode_type: str = "multistart_sampling",
         calc_reward: bool = True,

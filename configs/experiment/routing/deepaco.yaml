@@ -39,7 +39,7 @@ model:
       val: 20
       test: 20
     n_iterations:
-      train: 5
+      train: 1 # unused value
       val: 30
       test: 100
     alpha: 1.0
