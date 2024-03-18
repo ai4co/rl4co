@@ -35,6 +35,7 @@ class AntSystem:
         decay: float = 0.95,
         pheromone: Optional[Tensor] = None,
         require_logp: bool = False,
+        local_search_params: dict = {},
     ):
         self.batch_size = log_heuristic.shape[0]
         self.n_ants = n_ants
@@ -51,6 +52,7 @@ class AntSystem:
         self.require_logp = require_logp
         self.all_records = []
 
+        self.local_search_params = local_search_params
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
 
     def run(
@@ -96,7 +98,7 @@ class AntSystem:
         # sampling
         td, env, actions, reward = self._sampling(td, env)
         # local search, reserved for extensions
-        actions, reward = self._local_search(actions, reward)
+        actions, reward = self._local_search(td, env, actions, reward)
         # update final actions and rewards
         self._update_results(actions, reward)
         # update pheromone matrix
@@ -133,12 +135,13 @@ class AntSystem:
 
         return td, env, actions, reward
 
-    def _local_search(self, actions: Tensor, reward: Tensor) -> Tuple[Tensor, Tensor]:
+    def _local_search(
+        self, td: TensorDict, env: RL4COEnvBase, actions: Tensor, reward: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         """Perform local search on the actions and reward obtained.
 
         This method is reserved for extensions and can be overridden in child classes to implement
-        specific local search strategies. By default, it returns the original actions and reward
-        without any modifications.
+        specific local search strategies.
 
         Args:
             actions: Actions chosen by the algorithm.
@@ -147,9 +150,15 @@ class AntSystem:
         Returns:
             actions: The modified actions
             reward: The modified reward
-
         """
-        return actions, reward
+        if hasattr(env, "local_search"):
+            actions_ = env.local_search(
+                td=td, actions=actions, **self.local_search_params
+            )
+            reward_: Tensor = env.get_reward(td, actions)  # type: ignore
+            return actions_, reward_
+        else:
+            return actions, reward
 
     def _update_results(self, actions, reward):
         # update the best-trails recorded in self.final_actions
@@ -190,7 +199,7 @@ class AntSystem:
         self.pheromone += delta_pheromone
 
     def _reward_map(self, x):
-        # map reward from $\mathbb{R}$ to $\mathbb{R}^+$
+        """Map reward :math:`f: \\mathbb{R} \\rightarrow \\mathbb{R}^+`"""
         return torch.where(x >= -2, 0.25 * x + 1, -1 / x)
 
     def _recreate_final_routes(self, td, env, action_matrix):

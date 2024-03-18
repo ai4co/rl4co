@@ -13,6 +13,7 @@ except ImportError:
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.zoo.common.nonautoregressive.decoder import NonAutoregressiveDecoder
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
+from rl4co.utils.utils import merge_with_defaults
 
 
 class DeepACODecoder(NonAutoregressiveDecoder):
@@ -52,8 +53,8 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         )
         self.aco_class = aco_class
         self.aco_args = aco_args
-        self.n_ants = self._conv_params(n_ants, train=20, val=20, test=20)
-        self.n_iterations = self._conv_params(n_iterations, train=1, val=20, test=100)
+        self.n_ants = merge_with_defaults(n_ants, train=20, val=20, test=20)
+        self.n_iterations = merge_with_defaults(n_iterations, train=1, val=20, test=100)
 
     def forward(
         self,
@@ -91,12 +92,3 @@ class DeepACODecoder(NonAutoregressiveDecoder):
             td.set("reward", reward)
 
         return None, actions, td
-
-    def _conv_params(self, value: Union[int, dict, None] = None, **defaults):
-        if value is None:
-            return defaults
-        elif isinstance(value, int):
-            return {key: value for key in defaults.keys()}
-        else:
-            defaults.update(dict(**value))  # convert DictConfigs
-            return defaults
