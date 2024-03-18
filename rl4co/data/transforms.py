@@ -108,6 +108,7 @@ class StateAugmentation(object):
         num_augment: number of augmentations
         augment_fn: augmentation function to use, e.g. 'symmetric' (default) or 'dihedral8', if callable, 
             then use the function directly. If 'dihedral8', then num_augment must be 8
+        first_aug_identity: whether to augment the first data point
         normalize: whether to normalize the augmented data
         feats: list of features to augment
     """
@@ -135,11 +136,12 @@ class StateAugmentation(object):
     def __call__(self, td: TensorDict) -> TensorDict:
         td_aug = batchify(td, self.num_augment)
         for feat in self.feats:
-            init_aug_feat = td_aug[feat][list(td.size()), 0].clone()
+            if not self.first_aug_identity:
+                init_aug_feat = td_aug[feat][list(td.size()), 0].clone()
             aug_feat = self.augmentation(td_aug[feat], self.num_augment)
             if self.normalize:
                 aug_feat = min_max_normalize(aug_feat)
-            if self.first_aug_identity:
+            if not self.first_aug_identity:
                 aug_feat[list(td.size()), 0] = init_aug_feat
             td_aug[feat] = aug_feat
 
