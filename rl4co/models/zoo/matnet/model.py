@@ -22,13 +22,14 @@ class MatNet(POMO):
         if policy is None:
             policy = MatNetPolicy(env_name=env.name, **policy_params)
 
-        # Check if num_augment is not 0 or if diheral_8 is True
+        # Check if using augmentation and the validation of augmentation function
         if kwargs.get("num_augment", 0) != 0:
-            log.error("MatNet does not use symmetric augmentation. Setting num_augment to 0.")
-        kwargs["num_augment"] = 0
-        if kwargs.get("use_dihedral_8", True):
-            log.error("MatNet does not use symmetric Dihedral Augmentation. Setting use_dihedral_8 to False.")
-        kwargs["use_dihedral_8"] = False
+            log.warning("MatNet is using augmentation.")
+            if kwargs.get("augment_fn") in ['symmetric', 'dihedral8'] or kwargs.get("augment_fn") is None:
+                log.error("MatNet does not use symmetric or dihedral augmentation. Seeting no augmentation function.")
+                kwargs["num_augment"] = 0
+        else:
+            kwargs["num_augment"] = 0
 
         super(MatNet, self).__init__(
             env=env,

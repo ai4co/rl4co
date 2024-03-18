@@ -28,7 +28,9 @@ class POMO(REINFORCE):
         baseline: Baseline to use for the algorithm. Note that POMO only supports shared baseline,
             so we will throw an error if anything else is passed.
         num_augment: Number of augmentations (used only for validation and test)
-        use_dihedral_8: Whether to use dihedral 8 augmentation
+        augment_fn: Function to use for augmentation, defaulting to dihedral8
+        first_aug_identity: Whether to include the identity augmentation in the first position
+        feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
         select_start_nodes_fn: Function to select the start nodes for the environment defaulting to :func:`select_start_nodes`
         **kwargs: Keyword arguments passed to the superclass
@@ -41,7 +43,9 @@ class POMO(REINFORCE):
         policy_kwargs={},
         baseline: str = "shared",
         num_augment: int = 8,
-        use_dihedral_8: bool = True,
+        augment_fn: Union[str, callable] = "dihedral8",
+        first_aug_identity: bool = True,
+        feats: list = None,
         num_starts: int = None,
         select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,
@@ -67,7 +71,7 @@ class POMO(REINFORCE):
         self.num_augment = num_augment
         if self.num_augment > 1:
             self.augment = StateAugmentation(
-                self.env.name, num_augment=self.num_augment, use_dihedral_8=use_dihedral_8
+                num_augment=self.num_augment, augment_fn=augment_fn, first_aug_identity=first_aug_identity, feats=feats
             )
         else:
             self.augment = None
