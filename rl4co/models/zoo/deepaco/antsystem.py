@@ -73,13 +73,14 @@ class AntSystem:
         """
         for _ in range(n_iterations):
             # reset environment
-            td: TensorDict = env.reset(td_initial.clone(recurse=False))  # type: ignore
+            td = td_initial.clone()
             self.one_step(td, env)
 
-        td, env = self._recreate_final_routes(td_initial, env)
+        action_matrix = self._convert_final_action_to_matrix()
+        assert action_matrix is not None and self.final_reward is not None
+        td, env = self._recreate_final_routes(td_initial, env, action_matrix)
 
-        assert self.final_actions is not None and self.final_reward is not None
-        return td, self.final_actions, self.final_reward
+        return td, action_matrix, self.final_reward
 
     def one_step(self, td: TensorDict, env: RL4COEnvBase):
         """Run one step of the Ant System algorithm.
@@ -93,7 +94,7 @@ class AntSystem:
             reward: The reward achieved by the algorithm.
         """
         # sampling
-        actions, reward = self._sampling(td, env)
+        td, env, actions, reward = self._sampling(td, env)
         # local search, reserved for extensions
         actions, reward = self._local_search(actions, reward)
         # update final actions and rewards
@@ -127,10 +128,10 @@ class AntSystem:
             self.all_records.append((outputs, actions, reward, td.get("mask", None)))
 
         # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
-        reward = reward.view(self.batch_size, self.n_ants)
-        actions = actions.view(self.batch_size, self.n_ants, -1)
+        reward = reward.view(self.n_ants, self.batch_size).T
+        actions = actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
 
-        return actions, reward
+        return td, env, actions, reward
 
     def _local_search(self, actions: Tensor, reward: Tensor) -> Tuple[Tensor, Tensor]:
         """Perform local search on the actions and reward obtained.
@@ -157,11 +158,12 @@ class AntSystem:
         best_actions = actions[self._batchindex, best_index]
 
         if self.final_actions is None or self.final_reward is None:
-            self.final_actions = best_actions.clone()
+            self.final_actions = list(iter(best_actions.clone()))
             self.final_reward = best_reward.clone()
         else:
             require_update = self._batchindex[self.final_reward <= best_reward]
-            self.final_actions[require_update, :] = best_actions[require_update]
+            for index in require_update:
+                self.final_actions[index] = best_actions[index]
             self.final_reward[require_update] = best_reward[require_update]
 
         return best_index
@@ -191,11 +193,9 @@ class AntSystem:
         # map reward from $\mathbb{R}$ to $\mathbb{R}^+$
         return torch.where(x >= -2, 0.25 * x + 1, -1 / x)
 
-    def _recreate_final_routes(self, td, env):
-        assert self.final_actions is not None
-
-        for action_index in range(self.final_actions.shape[-1]):
-            actions = self.final_actions[:, action_index]
+    def _recreate_final_routes(self, td, env, action_matrix):
+        for action_index in range(action_matrix.shape[-1]):
+            actions = action_matrix[:, action_index]
             td.set("action", actions)
             td = env.step(td)["next"]
 
@@ -243,3 +243,17 @@ class AntSystem:
     def _batch_action_indices(batch_size: int, n_actions: int, device: torch.device):
         batchindex = torch.arange(batch_size, device=device)
         return batchindex.unsqueeze(1).repeat(1, n_actions).view(-1)
+
+    def _convert_final_action_to_matrix(self) -> Optional[Tensor]:
+        if self.final_actions is None:
+            return None
+        action_count = max(len(actions) for actions in self.final_actions)
+        mat_actions = torch.zeros(
+            (self.batch_size, action_count),
+            device=self.final_actions[0].device,
+            dtype=self.final_actions[0].dtype,
+        )
+        for index, action in enumerate(self.final_actions):
+            mat_actions[index, : len(action)] = action
+
+        return mat_actions
