@@ -24,6 +24,8 @@ class AntSystem:
         decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
         require_logp: Whether to require the log probability of actions. Defaults to False.
+        use_local_search: Whether to use local_search provided by the env. Default to False.
+        local_search_params: Arguments to be passed to the local_search function.
     """
 
     def __init__(
@@ -35,6 +37,7 @@ class AntSystem:
         decay: float = 0.95,
         pheromone: Optional[Tensor] = None,
         require_logp: bool = False,
+        use_local_search: bool = False,
         local_search_params: dict = {},
     ):
         self.batch_size = log_heuristic.shape[0]
@@ -52,6 +55,7 @@ class AntSystem:
         self.require_logp = require_logp
         self.all_records = []
 
+        self.use_local_search = use_local_search
         self.local_search_params = local_search_params
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
 
@@ -98,7 +102,8 @@ class AntSystem:
         # sampling
         td, env, actions, reward = self._sampling(td, env)
         # local search, reserved for extensions
-        actions, reward = self._local_search(td, env, actions, reward)
+        if self.use_local_search:
+            actions, reward = self._local_search(td, env, actions)
         # update final actions and rewards
         self._update_results(actions, reward)
         # update pheromone matrix
@@ -136,29 +141,22 @@ class AntSystem:
         return td, env, actions, reward
 
     def _local_search(
-        self, td: TensorDict, env: RL4COEnvBase, actions: Tensor, reward: Tensor
+        self, td: TensorDict, env: RL4COEnvBase, og_actions: Tensor
     ) -> Tuple[Tensor, Tensor]:
         """Perform local search on the actions and reward obtained.
 
-        This method is reserved for extensions and can be overridden in child classes to implement
-        specific local search strategies.
-
         Args:
+            td: Current state of the problem.
+            env: Environment representing the problem.
             actions: Actions chosen by the algorithm.
-            reward: Reward obtained after the sampling step.
 
         Returns:
             actions: The modified actions
             reward: The modified reward
         """
-        if hasattr(env, "local_search"):
-            actions_ = env.local_search(
-                td=td, actions=actions, **self.local_search_params
-            )
-            reward_: Tensor = env.get_reward(td, actions)  # type: ignore
-            return actions_, reward_
-        else:
-            return actions, reward
+        actions = env.local_search(td=td, actions=og_actions, **self.local_search_params)
+        reward = env.get_reward(td, actions)
+        return actions, reward  # type: ignore
 
     def _update_results(self, actions, reward):
         # update the best-trails recorded in self.final_actions
