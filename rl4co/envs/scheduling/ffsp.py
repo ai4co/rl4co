@@ -141,8 +141,8 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        self.tables = (
-            _Stage_N_Machine_Index_Converter()
+        self.tables = _Stage_N_Machine_Index_Converter(
+            self.device
         )  # IndexTables(num_stage, num_machine, flatten_stages, self.device)#
         self.step_cnt = None
 
@@ -663,10 +663,16 @@ class FFSPEnv(RL4COEnvBase):
 
 
 class _Stage_N_Machine_Index_Converter:
-    def __init__(self, flatten=False):
-        machine_SUBindex_0 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
-        machine_SUBindex_1 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
-        machine_SUBindex_2 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
+    def __init__(self, device, flatten=False):
+        machine_SUBindex_0 = torch.tensor(
+            list(itertools.permutations([0, 1, 2, 3])), device=device
+        )
+        machine_SUBindex_1 = torch.tensor(
+            list(itertools.permutations([0, 1, 2, 3])), device=device
+        )
+        machine_SUBindex_2 = torch.tensor(
+            list(itertools.permutations([0, 1, 2, 3])), device=device
+        )
 
         starting_SUBindex = [0, 4, 8]
         machine_order_0 = machine_SUBindex_0 + starting_SUBindex[0]
@@ -687,7 +693,7 @@ class _Stage_N_Machine_Index_Converter:
         # self.machine_table = torch.tensor([[0,1,2,3,4,5,6,7,8,9,10,11]])
 
         self.stage_table = torch.tensor(
-            [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], dtype=torch.long
+            [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], dtype=torch.long, device=device
         )
 
     def set_bs(self, bs):
