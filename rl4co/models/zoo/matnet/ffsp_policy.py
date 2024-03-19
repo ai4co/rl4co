@@ -63,7 +63,7 @@ class FFSPModel(nn.Module):
             # repeat num_start times
             td = batchify(td, num_starts)
             # update machine idx and action mask
-            td = env._update_step_state(td)
+            td = env.pre_step(td)
 
         return td
 
@@ -168,18 +168,9 @@ class OneStageModel(nn.Module):
 
         self.encoded_row, self.encoded_col = self.encoder(row_emb, col_emb, cost_mat)
         if num_starts > 1:
-            self.encoded_row = (
-                self.encoded_row[:, None]
-                .expand(batch_size, num_starts, -1, -1)
-                .contiguous()
-                .view(batch_size * num_starts, job_cnt, embedding_dim)
-            )
-            self.encoded_col = (
-                self.encoded_col[:, None]
-                .expand(batch_size, num_starts, -1, -1)
-                .contiguous()
-                .view(batch_size * num_starts, machine_cnt, embedding_dim)
-            )
+            self.encoded_row = self.encoded_row.repeat(num_starts, 1, 1)
+            self.encoded_col = self.encoded_col.repeat(num_starts, 1, 1)
+
         self.decoder.set_kv(self.encoded_row)
 
     def forward(self, td: TensorDict, phase="train"):

@@ -218,6 +218,23 @@ class FFSPEnv(RL4COEnvBase):
             }
         )
 
+    def pre_step(self, td: TensorDict) -> TensorDict:
+        batch_size = td.batch_size
+        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
+        sub_time_idx = td["sub_time_idx"]
+        # update machine index
+        machine_idx = self.tables.get_machine_index(batch_idx, sub_time_idx)
+        # update action mask and stage machine indx
+        td = self._update_step_state(td)
+        # perform some checks
+        stage_machine_idx = td["stage_machine_idx"]
+        stage_idx = td["stage_idx"]
+        is_stage_one = stage_idx == 0
+        assert torch.all(stage_machine_idx[is_stage_one] == machine_idx[is_stage_one])
+        assert is_stage_one.all(), "call pre_step only at beginning of env"
+        # return updated td
+        return td
+
     def _update_step_state(self, td):
         batch_size = td.batch_size
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
@@ -233,7 +250,6 @@ class FFSPEnv(RL4COEnvBase):
         # update stage
         stage_idx = self.tables.get_stage_index(sub_time_idx)
         stage_machine_idx = self.tables.get_stage_machine_index(batch_idx, sub_time_idx)
-        machine_idx = self.tables.get_machine_index(batch_idx, sub_time_idx)
 
         job_loc = job_location[:, : self.num_job]
         job_wait_time = job_wait_step[:, : self.num_job]
@@ -259,7 +275,6 @@ class FFSPEnv(RL4COEnvBase):
                 "action_mask": job_mask,
                 "stage_idx": stage_idx,
                 "stage_machine_idx": stage_machine_idx,
-                "machine_idx": machine_idx,
             }
         )
 
@@ -272,10 +287,7 @@ class FFSPEnv(RL4COEnvBase):
         job_idx = td["action"]
         time_idx = td["time_idx"]
         machine_idx = td["machine_idx"]
-        # stage_machine_idx = td["stage_machine_idx"]
-        # stage_idx = td["stage_idx"]
-        # is_stage_one = stage_idx == 0
-        # assert torch.all(stage_machine_idx[is_stage_one] == machine_idx[is_stage_one])
+
         # create new td to avoid incplace ops and gradient problems resulting from this
         # td = td.clone()
 
