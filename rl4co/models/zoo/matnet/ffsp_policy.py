@@ -31,6 +31,7 @@ import torch.nn.functional as F
 from tensordict import TensorDict
 
 from rl4co.envs.scheduling.ffsp import FFSPEnv
+from rl4co.models.zoo.matnet.encoder import MatNetMHANetwork
 from rl4co.utils.ops import batchify
 
 
@@ -125,8 +126,8 @@ class OneStageModel(nn.Module):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.eval_type = eval_type
-
-        self.encoder = FFSP_Encoder(
+        # self.encoder = FFSP_Encoder(
+        self.encoder = MatNetMHANetwork(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
             num_layers=num_encoder_layers,
