@@ -1,6 +1,5 @@
 import itertools
 
-from math import factorial
 from typing import Optional
 
 import torch
@@ -14,95 +13,6 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase
-
-
-class IndexTables:
-    def __init__(self, num_stage, num_machine, flatten_stages, device):
-        # Init stage and machine mapping table
-        self.num_stage = num_stage
-        self.num_machine = num_machine
-        self.flatten_stages = flatten_stages
-        self._reset(device)
-
-    def _reset(self, device):
-        self.stage_table = torch.arange(
-            self.num_stage, dtype=torch.long, device=device
-        ).repeat_interleave(self.num_machine)
-
-        self.machine_table = torch.arange(
-            self.num_machine * self.num_stage, dtype=torch.long, device=device
-        )
-
-        if self.flatten_stages:
-            self.stage_machine_table = self.machine_table
-        else:
-            self.stage_machine_table = torch.arange(
-                self.num_machine, dtype=torch.long, device=device
-            ).repeat(self.num_stage)
-
-        self.augmented = False
-
-    def augment_machine_tables(self, td, num_starts):
-        assert num_starts <= factorial(
-            self.num_machine
-        ), f"at most {factorial(self.num_machine)} starts possible"
-        assert num_starts > 1, "augmentation makes only sense for multistart"
-        bs = td.size(0)
-
-        if self.augmented:
-            # NOTE this should be failsafe through _reset() fn called in env._reset()
-            assert bs == self.machine_table.size(
-                0
-            ), "data and machine table not compatible"
-            return
-
-        # determine the increment of machine ids between stages, i.e. [0,4,8]
-        # for instances with 4 machines and three stages
-        start_sub_ids = torch.tensor(
-            list(range(0, self.num_machine * self.num_stage, self.num_machine)),
-            dtype=torch.long,
-            device=td.device,
-        ).repeat_interleave(self.num_machine)
-        # generate all possible permutations of the machine ids and add the stage increment to it
-        # (num_permutations, total_machines)
-        permutations = torch.tensor(
-            list(itertools.permutations(list(range(self.num_machine)))),
-            dtype=torch.long,
-            device=td.device,
-        ).repeat(1, self.num_stage)
-        # (bs*POMO, total_machines)
-        self.machine_table = (
-            permutations[:num_starts].repeat_interleave(bs, dim=0) + start_sub_ids[None]
-        )
-        if self.flatten_stages:
-            # when flatting stages, every machine in each stage is treated as a distinct entity (no shared embeddings)
-            # Therefore, all machine need a unique index which is the same as the machine table
-            self.stage_machine_table = self.machine_table
-        else:
-            # when we do not flatten the stages, machines of different stages with the same subtime index
-            # share an embedding. In this case, they need the same index (i.e. leave out the stage increment)
-            self.stage_machine_table = permutations[:num_starts].repeat_interleave(
-                bs, dim=0
-            )
-
-        self.augmented = True
-
-    def get_stage_index(self, sub_time_idx):
-        return self.stage_table[sub_time_idx]
-
-    def get_machine_index(self, sub_time_idx, idx=None):
-        if self.augmented:
-            assert idx is not None
-            return self.machine_table[idx, sub_time_idx]
-        else:
-            return self.machine_table[sub_time_idx]
-
-    def get_stage_machine_index(self, sub_time_idx, idx=None):
-        if self.augmented:
-            assert idx is not None
-            return self.stage_machine_table[idx, sub_time_idx]
-        else:
-            return self.stage_machine_table[sub_time_idx]
 
 
 class FFSPEnv(RL4COEnvBase):
@@ -141,7 +51,7 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        # self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)#
+        self.tables = None
         self.step_cnt = None
 
     # TODO make envs implement get_num_starts and select_start_nodes functions
@@ -356,7 +266,7 @@ class FFSPEnv(RL4COEnvBase):
 
         self.step_cnt = 0
         self.to(td.device)
-        self.tables = _Stage_N_Machine_Index_Converter(td.device)
+        self.tables = IndexTables(self)
         # reset tables to undo the augmentation
         # self.tables._reset(device=self.device)
         self.tables.set_bs(batch_size[0])
@@ -673,39 +583,36 @@ class FFSPEnv(RL4COEnvBase):
         return cmap
 
 
-class _Stage_N_Machine_Index_Converter:
-    def __init__(self, device, flatten=False):
-        machine_SUBindex_0 = torch.tensor(
-            list(itertools.permutations([0, 1, 2, 3])), device=device
-        )
-        machine_SUBindex_1 = torch.tensor(
-            list(itertools.permutations([0, 1, 2, 3])), device=device
-        )
-        machine_SUBindex_2 = torch.tensor(
-            list(itertools.permutations([0, 1, 2, 3])), device=device
-        )
+class IndexTables:
+    def __init__(self, env: FFSPEnv):
+        self.stage_table = torch.arange(
+            env.num_stage, dtype=torch.long, device=env.device
+        ).repeat_interleave(env.num_machine)
 
-        starting_SUBindex = [0, 4, 8]
-        machine_order_0 = machine_SUBindex_0 + starting_SUBindex[0]
-        machine_order_1 = machine_SUBindex_1 + starting_SUBindex[1]
-        machine_order_2 = machine_SUBindex_2 + starting_SUBindex[2]
-        self.machine_table = torch.cat(
-            (machine_order_0, machine_order_1, machine_order_2), dim=1
-        )
-        # machine_table.shape: (pomo, total_machine)
-        if not flatten:
-            self.machine_SUBindex_table = torch.cat(
-                (machine_SUBindex_0, machine_SUBindex_1, machine_SUBindex_2), dim=1
-            )
+        # determine the increment of machine ids between stages, i.e. [0,4,8]
+        # for instances with 4 machines and three stages
+        start_sub_ids = torch.tensor(
+            list(range(0, env.num_machine * env.num_stage, env.num_machine)),
+            dtype=torch.long,
+            device=env.device,
+        ).repeat_interleave(env.num_machine)
+        # generate all possible permutations of the machine ids and add the stage increment to it
+        # (num_permutations, total_machines)
+        permutations = torch.tensor(
+            list(itertools.permutations(list(range(env.num_machine)))),
+            dtype=torch.long,
+            device=env.device,
+        ).repeat(1, env.num_stage)
+        self.machine_table = permutations + start_sub_ids[None]
+
+        if env.flatten_stages:
+            # when flatting stages, every machine in each stage is treated as a distinct entity (no shared embeddings)
+            # Therefore, all machine need a unique index which is the same as the machine table
+            self.stage_machine_table = self.machine_table
         else:
-            self.machine_SUBindex_table = self.machine_table.clone()
-        # assert env.pomo_size == 1
-        # self.machine_SUBindex_table = torch.tensor([[0,1,2,3,0,1,2,3,0,1,2,3]])
-        # self.machine_table = torch.tensor([[0,1,2,3,4,5,6,7,8,9,10,11]])
-
-        self.stage_table = torch.tensor(
-            [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], dtype=torch.long, device=device
-        )
+            # when we do not flatten the stages, machines of different stages with the same subtime index
+            # share an embedding. In this case, they need the same index (i.e. leave out the stage increment)
+            self.stage_machine_table = permutations
 
     def set_bs(self, bs):
         self.bs = bs
@@ -720,4 +627,4 @@ class _Stage_N_Machine_Index_Converter:
 
     def get_stage_machine_index(self, idx, sub_time_idx):
         pomo_idx = idx // self.bs
-        return self.machine_SUBindex_table[pomo_idx, sub_time_idx]
+        return self.stage_machine_table[pomo_idx, sub_time_idx]
