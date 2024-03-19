@@ -90,7 +90,9 @@ class POMO(REINFORCE):
             td = self.augment(td)
 
         # Evaluate policy
-        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+        out = self.policy(
+            td, self.env, phase=phase, num_starts=n_start, return_actions=True
+        )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (n_aug, n_start))
@@ -100,7 +102,9 @@ class POMO(REINFORCE):
             assert n_start > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
-
+            # TODO remove
+            max_reward, max_idxs = reward.max(dim=-1)
+            print(max_reward.float().mean())
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:

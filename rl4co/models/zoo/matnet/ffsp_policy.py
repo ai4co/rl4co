@@ -54,27 +54,38 @@ class FFSPModel(nn.Module):
         self.test_decode_type = test_decode_type
 
     def pre_forward(self, td: TensorDict, env: FFSPEnv, num_starts: int):
-        if num_starts > 1:
-            env.tables.augment_machine_tables(td, num_starts)
         for stage_idx in range(self.stage_cnt):
-            cost_mat = td["run_time"][:, :, :, stage_idx]
+            cost_mat = td["cost_matrix"][:, :, :, stage_idx]
             model = self.stage_models[stage_idx]
             model.pre_forward(cost_mat, num_starts)
+
+        if num_starts > 1:
+            # repeat num_start times
+            td = batchify(td, num_starts)
+            # update machine idx and action mask
+            td = env._update_step_state(td)
+
+        return td
 
     def soft_reset(self):
         # Nothing to reset
         pass
 
-    def forward(self, td: TensorDict, env: FFSPEnv, phase="train", num_starts=1):
+    def forward(
+        self,
+        td: TensorDict,
+        env: FFSPEnv,
+        phase="train",
+        num_starts=1,
+        return_actions: bool = False,
+    ):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"
         device = td.device
-        self.pre_forward(td, env, num_starts)
-
-        if num_starts > 1:
-            td = batchify(td, num_starts)
+        td = self.pre_forward(td, env, num_starts)
 
         batch_size = td.size(0)
         prob_list = torch.zeros(size=(batch_size, 0), device=device)
+        action_list = []
 
         while not td["done"].all():
             action_stack = torch.empty(
@@ -94,14 +105,17 @@ class FFSPModel(nn.Module):
             action = action_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
             prob = prob_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
             # shape: (batch)
-
+            action_list.append(action)
             # transition
             td.set("action", action)
-            td = env._step(td)
+            td = env.step(td)["next"]
 
             prob_list = torch.cat((prob_list, prob[:, None]), dim=1)
 
-        return {"reward": td["reward"], "log_likelihood": prob_list.sum(1)}
+        out = {"reward": td["reward"], "log_likelihood": prob_list.log().sum(1)}
+        if return_actions:
+            out["actions"] = torch.stack(action_list, 1)
+        return out
 
 
 class OneStageModel(nn.Module):
@@ -154,9 +168,18 @@ class OneStageModel(nn.Module):
 
         self.encoded_row, self.encoded_col = self.encoder(row_emb, col_emb, cost_mat)
         if num_starts > 1:
-            self.encoded_row = batchify(self.encoded_row, num_starts)
-            self.encoded_col = batchify(self.encoded_col, num_starts)
-
+            self.encoded_row = (
+                self.encoded_row[:, None]
+                .expand(batch_size, num_starts, -1, -1)
+                .contiguous()
+                .view(batch_size * num_starts, job_cnt, embedding_dim)
+            )
+            self.encoded_col = (
+                self.encoded_col[:, None]
+                .expand(batch_size, num_starts, -1, -1)
+                .contiguous()
+                .view(batch_size * num_starts, machine_cnt, embedding_dim)
+            )
         self.decoder.set_kv(self.encoded_row)
 
     def forward(self, td: TensorDict, phase="train"):
@@ -177,14 +200,13 @@ class OneStageModel(nn.Module):
         # shape: (batch, job)
 
         if "train" in phase or self.eval_type == "softmax":
-            while (
-                True
-            ):  # to fix pytorch.multinomial bug on selecting 0 probability elements
+            # to fix pytorch.multinomial bug on selecting 0 probability elements
+            while True:
                 job_selected = all_job_probs.multinomial(1).squeeze(dim=1)
                 # shape: (batch)
                 job_prob = all_job_probs.gather(1, job_selected[:, None]).squeeze(dim=1)
                 # shape: (batch)
-                job_prob[td["done"].squeeze()] = 1  # do not backprob finished episodes
+                assert (job_prob[td["done"].squeeze()] == 1).all()
 
                 if (job_prob != 0).all():
                     break
@@ -292,7 +314,7 @@ class FFSP_Decoder(nn.Module):
         self.logit_clipping = logit_clipping
         self.qkv_dim = embedding_dim // head_num
 
-        self.encoded_NO_JOB = nn.Parameter(torch.rand(1, 1, embedding_dim))
+        self.encoded_NO_JOB = nn.Parameter(torch.rand((1, 1, embedding_dim)))
 
         self.Wq = nn.Linear(embedding_dim, embedding_dim, bias=False)
         self.Wk = nn.Linear(embedding_dim, embedding_dim, bias=False)
