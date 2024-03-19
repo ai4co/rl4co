@@ -102,9 +102,8 @@ class POMO(REINFORCE):
             assert n_start > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
-            # TODO remove
             max_reward, max_idxs = reward.max(dim=-1)
-            print(max_reward.float().mean())
+            out.update({"max_reward": max_reward})
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:
