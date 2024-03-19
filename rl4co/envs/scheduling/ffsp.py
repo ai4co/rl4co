@@ -141,9 +141,7 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        self.tables = _Stage_N_Machine_Index_Converter(
-            self.device
-        )  # IndexTables(num_stage, num_machine, flatten_stages, self.device)#
+        # self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)#
         self.step_cnt = None
 
     # TODO make envs implement get_num_starts and select_start_nodes functions
@@ -343,9 +341,10 @@ class FFSPEnv(RL4COEnvBase):
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
+
         self.step_cnt = 0
         self.to(td.device)
-
+        self.tables = _Stage_N_Machine_Index_Converter(td.device)
         # reset tables to undo the augmentation
         # self.tables._reset(device=self.device)
         self.tables.set_bs(batch_size[0])
