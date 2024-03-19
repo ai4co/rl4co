@@ -103,9 +103,10 @@ def get_num_starts(td, env_name=None):
     elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot / dummy job cannot be a start node
     elif env_name == "ffsp":
-        from math import factorial
+        # from math import factorial
 
-        return factorial(td["run_time"].size(-2))
+        # return factorial(td["num_stages"].size(-2))
+        num_starts = 24
     return num_starts
 
 
@@ -126,10 +127,12 @@ def select_start_nodes(td, env, num_starts):
     elif env.name == "ffsp":
         # in ffsp, we generate different trajectories by permuting the machine order in the machine table
         # of the environment. Therefore, we simply select the dummy (waiting) action here.
-        env.tables.augment_machine_tables(td, num_starts)
-        selected = torch.full((num_starts * td.size(0),), env.num_job, device=td.device)
-        # when selecting the wait operation we increment the sub_time_idx. In order to start at 0, decrease by 1 here
-        td["sub_time_idx"].subtract_(1)
+        with torch.no_grad():
+            selected = torch.full(
+                (num_starts * td.size(0),), env.num_job, device=td.device
+            )
+            # when selecting the wait operation we increment the sub_time_idx. In order to start at 0, decrease by 1 here
+            td["sub_time_idx"].subtract_(1)
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = torch.arange(1, num_starts + 1, device=td.device).repeat_interleave(

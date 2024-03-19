@@ -141,7 +141,10 @@ class FFSPEnv(RL4COEnvBase):
         self.min_time = min_time
         self.max_time = max_time
         self.flatten_stages = flatten_stages
-        self.tables = IndexTables(num_stage, num_machine, flatten_stages, self.device)
+        self.tables = (
+            _Stage_N_Machine_Index_Converter()
+        )  # IndexTables(num_stage, num_machine, flatten_stages, self.device)#
+        self.step_cnt = None
 
     # TODO make envs implement get_num_starts and select_start_nodes functions
     # def get_num_starts(self, td):
@@ -180,7 +183,7 @@ class FFSPEnv(RL4COEnvBase):
             # update machine-stage counter
             sub_time_idx[idx] = new_sub_time_idx
             # determine current machine candidate
-            new_machine_idx = self.tables.get_machine_index(new_sub_time_idx, idx)
+            new_machine_idx = self.tables.get_machine_index(idx, new_sub_time_idx)
             machine_idx[idx] = new_machine_idx
 
             # decrease machine wait time by 1 if instance transitioned to new time step
@@ -204,6 +207,7 @@ class FFSPEnv(RL4COEnvBase):
             job_ready = (job_ready_1 & job_ready_2).any(dim=-1)
             # instance ready if at least one job and the current machine are ready
             ready = machine_ready & job_ready
+            assert ready.shape == idx.shape
             idx = idx[~ready]
 
         return td.update(
@@ -223,11 +227,15 @@ class FFSPEnv(RL4COEnvBase):
         sub_time_idx = td["sub_time_idx"]
         job_location = td["job_location"]
         job_wait_step = td["job_wait_step"]
-        done = td["done"]
+        if len(td["done"].shape) == 2:
+            done = td["done"].squeeze(1)
+        else:
+            done = td["done"]
 
         # update stage
         stage_idx = self.tables.get_stage_index(sub_time_idx)
-        stage_machine_idx = self.tables.get_stage_machine_index(sub_time_idx, batch_idx)
+        stage_machine_idx = self.tables.get_stage_machine_index(batch_idx, sub_time_idx)
+        machine_idx = self.tables.get_machine_index(batch_idx, sub_time_idx)
 
         job_loc = job_location[:, : self.num_job]
         job_wait_time = job_wait_step[:, : self.num_job]
@@ -246,38 +254,19 @@ class FFSPEnv(RL4COEnvBase):
         wait_allowed = job_in_previous_stages + job_waiting_in_stage + done
 
         job_enable = torch.cat((job_available, wait_allowed[:, None]), dim=-1)
-        job_mask = torch.full(
-            size=(*batch_size, self.num_job + 1),
-            dtype=torch.bool,
-            device=self.device,
-            fill_value=0,
-        )
-        job_mask[job_enable] = 1
-
-        if self.flatten_stages:
-            cost_matrix = td["run_time"].flatten(-2, -1)
-        else:
-            cost_matrix = (
-                td["run_time"]
-                .gather(
-                    3,
-                    stage_idx[:, None, None, None].expand(
-                        *batch_size, self.num_job, self.num_machine, 1
-                    ),
-                )
-                .squeeze(-1)
-            )
-
+        job_mask = torch.full_like(td["action_mask"], 0).masked_fill(job_enable, 1)
+        assert torch.logical_or((job_mask[:, :-1].sum(1) > 0), done).all()
         return td.update(
             {
-                "cost_matrix": cost_matrix,
                 "action_mask": job_mask,
                 "stage_idx": stage_idx,
                 "stage_machine_idx": stage_machine_idx,
+                "machine_idx": machine_idx,
             }
         )
 
     def _step(self, td: TensorDict) -> TensorDict:
+        self.step_cnt += 1
         batch_size = td.batch_size
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
 
@@ -285,17 +274,24 @@ class FFSPEnv(RL4COEnvBase):
         job_idx = td["action"]
         time_idx = td["time_idx"]
         machine_idx = td["machine_idx"]
+        # stage_machine_idx = td["stage_machine_idx"]
+        # stage_idx = td["stage_idx"]
+        # is_stage_one = stage_idx == 0
+        # assert torch.all(stage_machine_idx[is_stage_one] == machine_idx[is_stage_one])
         # create new td to avoid incplace ops and gradient problems resulting from this
-        td = td.clone()
+        # td = td.clone()
 
         # increment the operation counter of the selected job
         td["job_location"][batch_idx, job_idx] += 1
         # td["job_location"][:, :-1].clip_(0, self.num_stage)
-        assert (td["job_location"][:, : self.num_job] <= self.num_stage).all()
+        # assert (td["job_location"][:, : self.num_job] <= self.num_stage).all()
         # insert start time of the selected job in the schedule
         td["schedule"][batch_idx, machine_idx, job_idx] = time_idx
         # get the duration of the selected job
         job_length = td["job_duration"][batch_idx, job_idx, machine_idx]
+        # TODO remove
+        # test_job_length = torch.cat((td["cost_matrix"], torch.zeros_like(td["cost_matrix"][:, :1, :, :])), dim=1)[batch_idx, job_idx, stage_machine_idx, stage_idx]
+        # assert torch.all(test_job_length == job_length)
         # set the number of time steps until the selected machine is available again
         td["machine_wait_step"][batch_idx, machine_idx] = job_length
 
@@ -347,11 +343,12 @@ class FFSPEnv(RL4COEnvBase):
 
         if td is None or td.is_empty():
             td = self.generate_data(batch_size=batch_size)
-
+        self.step_cnt = 0
         self.to(td.device)
 
         # reset tables to undo the augmentation
-        self.tables._reset(device=self.device)
+        # self.tables._reset(device=self.device)
+        self.tables.set_bs(batch_size[0])
 
         # Init index record tensor
         time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=self.device)
@@ -386,9 +383,21 @@ class FFSPEnv(RL4COEnvBase):
             dtype=torch.long,
             device=self.device,
         )
-        job_duration[..., : self.num_job, :] = td["run_time"].view(
-            *batch_size, self.num_job, -1
-        )
+        if self.flatten_stages:
+            assert (
+                len(td["cost_matrix"].shape) == 3
+            ), "cost matrix has shape other than (bs, jobs, ma_total)"
+            job_duration[..., : self.num_job, :] = td["cost_matrix"]
+        else:
+            assert (
+                len(td["cost_matrix"].shape) == 4
+            ), "cost matrix has shape other than (bs, jobs, ma, stages)"
+            job_duration[..., : self.num_job, :] = (
+                td["cost_matrix"]
+                .transpose(-2, -1)
+                .contiguous()
+                .view(*batch_size, self.num_job, self.num_machine_total)
+            )
         job_duration[..., self.num_job, :] = 0
 
         # Finish status information
@@ -410,20 +419,10 @@ class FFSPEnv(RL4COEnvBase):
         )
         action_mask[..., -1] = 0
 
+        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
         stage_idx = self.tables.get_stage_index(sub_time_idx)
-        machine_idx = self.tables.get_machine_index(sub_time_idx)
-        stage_machine_idx = self.tables.get_stage_machine_index(sub_time_idx)
-
-        run_time = td["run_time"]
-        if self.flatten_stages:
-            cost_matrix = run_time.flatten(-2, -1)
-        else:
-            cost_matrix = run_time.gather(
-                3,
-                stage_idx[:, None, None, None].expand(
-                    *batch_size, self.num_job, self.num_machine, 1
-                ),
-            ).squeeze(-1)
+        machine_idx = self.tables.get_machine_index(batch_idx, sub_time_idx)
+        stage_machine_idx = self.tables.get_stage_machine_index(batch_idx, sub_time_idx)
 
         return TensorDict(
             {
@@ -442,8 +441,6 @@ class FFSPEnv(RL4COEnvBase):
                 # Finish status information
                 "reward": reward,
                 "done": done,
-                "run_time": run_time,
-                "cost_matrix": cost_matrix,
                 "action_mask": action_mask,
             },
             batch_size=batch_size,
@@ -512,9 +509,16 @@ class FFSPEnv(RL4COEnvBase):
             size=(*batch_size, self.num_job, self.num_machine, self.num_stage),
         ).to(self.device)
 
+        if self.flatten_stages:
+            run_time = (
+                run_time.transpose(-2, -1)
+                .contiguous()
+                .view(*batch_size, self.num_job, self.num_machine_total)
+            )
+
         return TensorDict(
             {
-                "run_time": run_time,
+                "cost_matrix": run_time,
             },
             batch_size=batch_size,
         )
@@ -656,3 +660,47 @@ class FFSPEnv(RL4COEnvBase):
         cmap = ListedColormap(colors_list, N=color_cnt)
 
         return cmap
+
+
+class _Stage_N_Machine_Index_Converter:
+    def __init__(self, flatten=False):
+        machine_SUBindex_0 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
+        machine_SUBindex_1 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
+        machine_SUBindex_2 = torch.tensor(list(itertools.permutations([0, 1, 2, 3])))
+
+        starting_SUBindex = [0, 4, 8]
+        machine_order_0 = machine_SUBindex_0 + starting_SUBindex[0]
+        machine_order_1 = machine_SUBindex_1 + starting_SUBindex[1]
+        machine_order_2 = machine_SUBindex_2 + starting_SUBindex[2]
+        self.machine_table = torch.cat(
+            (machine_order_0, machine_order_1, machine_order_2), dim=1
+        )
+        # machine_table.shape: (pomo, total_machine)
+        if not flatten:
+            self.machine_SUBindex_table = torch.cat(
+                (machine_SUBindex_0, machine_SUBindex_1, machine_SUBindex_2), dim=1
+            )
+        else:
+            self.machine_SUBindex_table = self.machine_table.clone()
+        # assert env.pomo_size == 1
+        # self.machine_SUBindex_table = torch.tensor([[0,1,2,3,0,1,2,3,0,1,2,3]])
+        # self.machine_table = torch.tensor([[0,1,2,3,4,5,6,7,8,9,10,11]])
+
+        self.stage_table = torch.tensor(
+            [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], dtype=torch.long
+        )
+
+    def set_bs(self, bs):
+        self.bs = bs
+
+    def get_stage_index(self, sub_time_idx):
+        return self.stage_table[sub_time_idx]
+
+    def get_machine_index(self, idx, sub_time_idx):
+        pomo_idx = idx // self.bs
+
+        return self.machine_table[pomo_idx, sub_time_idx]
+
+    def get_stage_machine_index(self, idx, sub_time_idx):
+        pomo_idx = idx // self.bs
+        return self.machine_SUBindex_table[pomo_idx, sub_time_idx]
