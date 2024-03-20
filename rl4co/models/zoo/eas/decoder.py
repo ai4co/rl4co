@@ -87,7 +87,7 @@ def forward_eas(
     decode_step = 0
     # Multi-start decoding: first action is chosen by ad-hoc node selection
     if num_starts > 1 or "multistart" in decode_type:
-        action = env.select_start_nodes(td, num_starts)
+        action = env.select_start_nodes(td, num_starts + 1) % num_starts
         # Append incumbent solutions
         if iter_count > 0:
             action = unbatchify(action, num_starts + 1)
