@@ -161,7 +161,7 @@ class RL4COEnvBase(EnvBase):
         """Make the specifications of the environment (observation, action, reward, done)"""
         raise NotImplementedError
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
@@ -173,8 +173,14 @@ class RL4COEnvBase(EnvBase):
         """
         raise NotImplementedError
 
-    def check_solution_validity(self, td, actions) -> TensorDict:
+    def check_solution_validity(self, td: TensorDict, actions: torch.Tensor) -> None:
         """Function to check whether the solution is valid. Can be called by the agent to check the validity of the current state
+        This is called with the full solution (i.e. all actions) at the end of the episode
+        """
+        raise NotImplementedError
+    
+    def improve_solution(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        """Function to improve the solution. Can be called by the agent to improve the current state
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
         raise NotImplementedError

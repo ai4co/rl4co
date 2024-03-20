@@ -246,13 +246,13 @@ class CVRPTWEnv(CVRPEnv):
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """The reward is the negative tour length. Time windows
         are not considered for the calculation of the reward."""
         return super().get_reward(td, actions)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         CVRPEnv.check_solution_validity(td, actions)
         batch_size = td["locs"].shape[0]
         # distances to depot

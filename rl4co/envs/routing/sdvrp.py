@@ -149,7 +149,7 @@ class SDVRPEnv(CVRPEnv):
         return ~torch.cat((mask_depot[..., None], mask_loc), -1)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that the solution is valid (all demand is satisfied)"""
 
         batch_size, graph_size = td["demand"].size()
