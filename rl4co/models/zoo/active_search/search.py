@@ -81,9 +81,8 @@ class ActiveSearch(SearchBase):
 
         # Instantiate augmentation
         self.augmentation = StateAugmentation(
-            self.env.name,
             num_augment=self.hparams.augment_size,
-            use_dihedral_8=self.hparams.augment_dihedral,
+            augment_fn='dihedral8' if self.hparams.augment_dihedral else 'symmetric',
         )
 
         # Store original policy state dict

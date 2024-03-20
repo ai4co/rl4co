@@ -1,5 +1,6 @@
 import pyrootutils
 import pytest
+import sys
 
 from hydra import compose, initialize
 from hydra.core.global_hydra import GlobalHydra
@@ -47,6 +48,9 @@ def cfg_train(cfg_train_global, tmp_path) -> DictConfig:
     GlobalHydra.instance().clear()
 
 
+# Skip if Python < 3.9 due to following error:
+# AttributeError: 'OrphanPath' object has no attribute 'exists'
+@pytest.mark.skipif(sys.version_info[1] < 9, reason="Python<3.9 raises error: 'OrphanPath' object has no attribute 'exists'")
 def test_train_fast_dev_run(cfg_train):
     """Run for 1 train, val and test step."""
     HydraConfig().set_config(cfg_train)

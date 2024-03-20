@@ -29,7 +29,7 @@ class PointerNetwork(REINFORCE):
         baseline_kwargs={},
         **kwargs,
     ):
-        self.policy = (
-            PointerNetworkPolicy(self.env, **policy_kwargs) if policy is None else policy
+        policy = (
+            PointerNetworkPolicy(env, **policy_kwargs) if policy is None else policy
         )
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)

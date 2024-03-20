@@ -47,7 +47,6 @@ data:
 model:
   num_starts: 0 # 0 for no augmentation for multi-starts
   num_augment: 10
-  use_native_sdpa: true
 
 metrics:
   train: ["loss", "loss_ss", "loss_inv", "reward", "max_aug_reward"]

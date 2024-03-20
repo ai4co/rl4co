@@ -210,3 +210,27 @@ def save_file(path: str, content: str) -> None:
     """Save file in rank zero mode (only on one process in multi-GPU setup)."""
     with open(path, "w+") as file:
         file.write(content)
+
+
+def merge_with_defaults(_config=None, **defaults) -> dict:
+    """Merge configuration with default values.
+
+    This function merges a provided configuration dictionary with default values.
+    If no configuration is provided (`_config` is None), it returns the default values.
+    If a dictionary is provided, it updates the defaults dictionary with the values from the provided dictionary.
+    Otherwise, it sets all keys in the defaults dictionary to `_config`.
+
+    Args:
+        _config: Configuration to merge. Defaults to None.
+        **defaults: Default values to merge with the configuration.
+
+    Returns:
+        dict: Merged configuration with default values.
+    """
+    if _config is None:
+        return defaults
+    elif isinstance(_config, (DictConfig, dict)):
+        defaults.update(dict(**_config))  # type: ignore
+        return defaults
+    else:
+        return {key: _config for key in defaults.keys()}
