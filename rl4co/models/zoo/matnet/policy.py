@@ -1,3 +1,4 @@
+from math import factorial
 from typing import List
 
 import torch
@@ -162,6 +163,7 @@ class MultiStageFFSPPolicy(nn.Module):
         **decoder_kwargs,
     ):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"
+        assert num_starts <= factorial(env.num_machine)
 
         # Get decode type depending on phase
         decode_type = getattr(self, f"{phase}_decode_type")

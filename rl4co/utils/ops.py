@@ -114,11 +114,10 @@ def get_num_starts(td, env_name=None):
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
     elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot / dummy job cannot be a start node
-    elif env_name == "ffsp":
-        # from math import factorial
-
-        # return factorial(td["num_stages"].size(-2))
-        num_starts = 24
+    else:
+        raise ValueError(
+            f"get_num_starts function not defined for environment {env_name}"
+        )
     return num_starts
 
 
@@ -138,15 +137,6 @@ def select_start_nodes(td, env, num_starts):
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
             % num_loc
         )
-    elif env.name == "ffsp":
-        # in ffsp, we generate different trajectories by permuting the machine order in the machine table
-        # of the environment. Therefore, we simply select the dummy (waiting) action here.
-        with torch.no_grad():
-            selected = torch.full(
-                (num_starts * td.size(0),), env.num_job, device=td.device
-            )
-            # when selecting the wait operation we increment the sub_time_idx. In order to start at 0, decrease by 1 here
-            td["sub_time_idx"].subtract_(1)
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (

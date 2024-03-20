@@ -1,5 +1,6 @@
 import itertools
 
+from math import factorial
 from typing import Optional
 
 import torch
@@ -54,14 +55,13 @@ class FFSPEnv(RL4COEnvBase):
         self.tables = None
         self.step_cnt = None
 
-    # TODO make envs implement get_num_starts and select_start_nodes functions
-    # def get_num_starts(self, td):
-    #     return factorial(self.num_machine)
+    def get_num_starts(self, td):
+        return factorial(self.num_machine)
 
-    # def select_start_nodes(self, td, num_starts):
-    #     self.tables.augment_machine_tables(num_starts)
-    #     selected = torch.full((num_starts * td.size(0),), self.num_job)
-    #     return selected
+    def select_start_nodes(self, td, num_starts):
+        self.tables.augment_machine_tables(num_starts)
+        selected = torch.full((num_starts * td.size(0),), self.num_job)
+        return selected
 
     def _move_to_next_machine(self, td):
         batch_size = td.batch_size
@@ -209,9 +209,6 @@ class FFSPEnv(RL4COEnvBase):
         td["schedule"][batch_idx, machine_idx, job_idx] = time_idx
         # get the duration of the selected job
         job_length = td["job_duration"][batch_idx, job_idx, machine_idx]
-        # TODO remove
-        # test_job_length = torch.cat((td["cost_matrix"], torch.zeros_like(td["cost_matrix"][:, :1, :, :])), dim=1)[batch_idx, job_idx, stage_machine_idx, stage_idx]
-        # assert torch.all(test_job_length == job_length)
         # set the number of time steps until the selected machine is available again
         td["machine_wait_step"][batch_idx, machine_idx] = job_length
 

@@ -74,9 +74,10 @@ class EnvContext(nn.Module):
 
 class FFSPContext(EnvContext):
     def __init__(self, embedding_dim, stage_cnt=None):
-        super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim)
-        # TODO stage embeddings
-        if stage_cnt is not None:
+        self.has_stage_emb = stage_cnt is not None
+        step_context_dim = (1 + int(self.has_stage_emb)) * embedding_dim
+        super().__init__(embedding_dim=embedding_dim, step_context_dim=step_context_dim)
+        if self.has_stage_emb:
             self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
 
     def _cur_node_embedding(self, embeddings: TensorDict, td):
@@ -87,15 +88,16 @@ class FFSPContext(EnvContext):
 
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td)
-        return self.project_context(cur_node_embedding)
+        if self.has_stage_emb:
+            state_embedding = self._state_embedding(embeddings, td)
+            context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
+            return self.project_context(context_embedding)
+        else:
+            return self.project_context(cur_node_embedding)
 
-    # def _state_embedding(self, _, td):
-    #     cur_stage_emb = gather_by_index(
-    #         self.stage_emb[None].expand(td.size(0), -1, -1), td["stage_idx"]
-    #     )
-    #     cur_stage_emb1 = self.stage_emb[td["stage_idx"]]
-    #     assert (cur_stage_emb == cur_stage_emb1).all()
-    #     return cur_stage_emb
+    def _state_embedding(self, _, td):
+        cur_stage_emb = self.stage_emb[td["stage_idx"]]
+        return cur_stage_emb
 
 
 class TSPContext(EnvContext):
