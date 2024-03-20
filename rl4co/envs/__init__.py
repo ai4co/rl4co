@@ -20,7 +20,7 @@ from rl4co.envs.routing import (
 )
 
 # Scheduling
-from rl4co.envs.scheduling import FFSPEnv, SMTWTPEnv
+from rl4co.envs.scheduling import FFSPEnv, JSSPEnv, SMTWTPEnv
 
 # Register environments
 ENV_REGISTRY = {
@@ -39,6 +39,7 @@ ENV_REGISTRY = {
     "spctsp": SPCTSPEnv,
     "tsp": TSPEnv,
     "smtwtp": SMTWTPEnv,
+    "jssp": JSSPEnv,
 }
 
 
