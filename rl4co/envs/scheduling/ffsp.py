@@ -306,15 +306,15 @@ class FFSPEnv(RL4COEnvBase):
         )
         if self.flatten_stages:
             assert (
-                len(td["cost_matrix"].shape) == 3
+                len(td["run_time"].shape) == 3
             ), "cost matrix has shape other than (bs, jobs, ma_total)"
-            job_duration[..., : self.num_job, :] = td["cost_matrix"]
+            job_duration[..., : self.num_job, :] = td["run_time"]
         else:
             assert (
-                len(td["cost_matrix"].shape) == 4
+                len(td["run_time"].shape) == 4
             ), "cost matrix has shape other than (bs, jobs, ma, stages)"
             job_duration[..., : self.num_job, :] = (
-                td["cost_matrix"]
+                td["run_time"]
                 .transpose(-2, -1)
                 .contiguous()
                 .view(*batch_size, self.num_job, self.num_machine_total)
@@ -439,7 +439,7 @@ class FFSPEnv(RL4COEnvBase):
 
         return TensorDict(
             {
-                "cost_matrix": run_time,
+                "run_time": run_time,
             },
             batch_size=batch_size,
         )

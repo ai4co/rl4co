@@ -1,2 +1,2 @@
-from .model import MatNet, MatNet4FFSP
+from .model import MatNet
 from .policy import MatNetPolicy

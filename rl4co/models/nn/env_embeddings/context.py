@@ -73,10 +73,11 @@ class EnvContext(nn.Module):
 
 
 class FFSPContext(EnvContext):
-    def __init__(self, embedding_dim, stage_cnt):
+    def __init__(self, embedding_dim, stage_cnt=None):
         super().__init__(embedding_dim=embedding_dim, step_context_dim=embedding_dim)
         # TODO stage embeddings
-        self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
+        if stage_cnt is not None:
+            self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
 
     def _cur_node_embedding(self, embeddings: TensorDict, td):
         cur_node_embedding = gather_by_index(
