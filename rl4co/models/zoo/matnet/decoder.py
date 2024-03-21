@@ -58,9 +58,9 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
         context_embedding = FFSPContext(embedding_dim)
 
         super().__init__(
-            "ffsp",
-            embedding_dim,
-            num_heads,
+            env_name="ffsp",
+            embedding_dim=embedding_dim,
+            num_heads=num_heads,
             use_graph_context=use_graph_context,
             context_embedding=context_embedding,
             **logit_attn_kwargs,
