@@ -14,7 +14,7 @@ from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strate
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.models.nn.utils import get_log_likelihood
-from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
+from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -52,7 +52,6 @@ class AutoregressiveDecoder(nn.Module):
         embedding_dim: Dimension of the embeddings
         num_heads: Number of heads for the attention
         use_graph_context: Whether to use the initial graph context to modify the query
-        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
         linear_bias: Whether to use a bias in the linear projection of the embeddings
         context_embedding: Module to compute the context embedding. If None, the default is used
         dynamic_embedding: Module to compute the dynamic embedding. If None, the default is used
@@ -64,7 +63,6 @@ class AutoregressiveDecoder(nn.Module):
         embedding_dim: int,
         num_heads: int,
         use_graph_context: bool = True,
-        select_start_nodes_fn: callable = select_start_nodes,
         linear_bias: bool = False,
         context_embedding: nn.Module = None,
         dynamic_embedding: nn.Module = None,
@@ -109,8 +107,6 @@ class AutoregressiveDecoder(nn.Module):
             embedding_dim, num_heads, **logit_attn_kwargs
         )
 
-        self.select_start_nodes_fn = select_start_nodes_fn
-
     def forward(
         self,
         td: TensorDict,
@@ -151,10 +147,6 @@ class AutoregressiveDecoder(nn.Module):
 
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute_cache(embeddings, td=td)
-
-        # If `select_start_nodes_fn` is not being passed, we use the class attribute
-        if "select_start_nodes_fn" not in strategy_kwargs:
-            strategy_kwargs["select_start_nodes_fn"] = self.select_start_nodes_fn
 
         # Setup decoding strategy
         decode_strategy: DecodingStrategy = get_decoding_strategy(

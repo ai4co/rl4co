@@ -162,7 +162,7 @@ class LogitAttention(nn.Module):
         mask_logits: bool = True,
         normalize: bool = True,
         softmax_temp: float = 1.0,
-        linear_bias: bool = False,
+        out_bias: bool = False,
         sdp_fn=scaled_dot_product_attention,
     ):
         super(LogitAttention, self).__init__()
@@ -174,7 +174,7 @@ class LogitAttention(nn.Module):
         self.softmax_temp = softmax_temp
 
         # Projection - query, key, value already include projections
-        self.project_out = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
+        self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
         self.sdp_fn = sdp_fn
 
     def forward(self, query, key, value, logit_key, mask, softmax_temp=None):

@@ -14,7 +14,7 @@ from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.search import SearchBase
 from rl4co.models.zoo.eas.decoder import forward_eas, forward_logit_attn_eas_lay
 from rl4co.models.zoo.eas.nn import EASLayerNet
-from rl4co.utils.ops import batchify, gather_by_index, get_num_starts, unbatchify
+from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -110,7 +110,7 @@ class EAS(SearchBase):
         # Instantiate augmentation
         self.augmentation = StateAugmentation(
             num_augment=self.hparams.augment_size,
-            augment_fn='dihedral8' if self.hparams.augment_dihedral else 'symmetric',
+            augment_fn="dihedral8" if self.hparams.augment_dihedral else "symmetric",
         )
 
         # Store original policy state dict
@@ -141,7 +141,7 @@ class EAS(SearchBase):
         td_init = self.env.reset(batch)
         n_aug, n_start, n_runs = (
             self.augmentation.num_augment,
-            get_num_starts(td_init, self.env.name),
+            self.env.get_num_starts(td_init),
             self.hparams.num_parallel_runs,
         )
         td_init = self.augmentation(td_init)

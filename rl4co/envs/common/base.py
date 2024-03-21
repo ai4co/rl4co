@@ -8,6 +8,7 @@ from torchrl.envs import EnvBase
 
 from rl4co.data.dataset import TensorDictDataset
 from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.utils.ops import get_num_starts, select_start_nodes
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -172,6 +173,12 @@ class RL4COEnvBase(EnvBase):
         Action mask is 1 if the action is feasible, 0 otherwise
         """
         raise NotImplementedError
+
+    def get_num_starts(self, td):
+        return get_num_starts(td, self.name)
+
+    def select_start_nodes(self, td, num_starts):
+        return select_start_nodes(td, self, num_starts)
 
     def check_solution_validity(self, td, actions) -> TensorDict:
         """Function to check whether the solution is valid. Can be called by the agent to check the validity of the current state

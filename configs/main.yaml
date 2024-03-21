@@ -54,13 +54,12 @@ seed: null
 #https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 matmul_precision: "medium"
 
-# metrics to be logged
-metrics:
-  train: ["loss", "reward"]
-  val: ["reward"]
-  test: ["reward"]
-  log_on_step: True
-
 # Set to True to generate data automatically on the first run
 model:
   generate_default_data: True
+  # metrics to be logged
+  metrics:
+    train: ["loss", "reward"]
+    val: ["reward"]
+    test: ["reward"]
+    log_on_step: True
