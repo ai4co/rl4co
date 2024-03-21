@@ -13,11 +13,11 @@ log = get_pylogger(__name__)
 def select_matnet_policy(env, **policy_params):
     if env.name == "ffsp":
         if env.flatten_stages:
-            return MatNetPolicy(env=env, **policy_params)
+            return MatNetPolicy(env_name=env.name, **policy_params)
         else:
             return MultiStageFFSPPolicy(stage_cnt=env.num_stage, **policy_params)
     else:
-        return MatNetPolicy(env=env, **policy_params)
+        return MatNetPolicy(env_name=env.name, **policy_params)
 
 
 class MatNet(POMO):

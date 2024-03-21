@@ -1,5 +1,5 @@
 from math import factorial
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.nn as nn
@@ -41,7 +41,7 @@ class MatNetPolicy(AutoregressivePolicy):
 
     def __init__(
         self,
-        env: RL4COEnvBase,
+        env_name: Union[str, RL4COEnvBase],
         embedding_dim: int = 256,
         num_encoder_layers: int = 5,
         num_heads: int = 16,
@@ -51,12 +51,14 @@ class MatNetPolicy(AutoregressivePolicy):
         bias: bool = False,
         **kwargs,
     ):
-        if env.name not in ["atsp", "ffsp"]:
-            log.error(f"env_name {env.name} is not originally implemented in MatNet")
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
 
-        if env.name == "ffsp":
+        if env_name not in ["atsp", "ffsp"]:
+            log.error(f"env_name {env_name} is not originally implemented in MatNet")
+
+        if env_name == "ffsp":
             decoder = MatNetFFSPDecoder(
-                env=env,
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
@@ -65,14 +67,14 @@ class MatNetPolicy(AutoregressivePolicy):
 
         else:
             decoder = MatNetDecoder(
-                env_name=env.name,
+                env_name=env_name,
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
             )
 
         super(MatNetPolicy, self).__init__(
-            env_name=env.name,
+            env_name=env_name,
             encoder=MatNetEncoder(
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
