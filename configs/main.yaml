@@ -5,11 +5,11 @@
 defaults:
   - _self_
   - callbacks: default.yaml
+  - hydra: default.yaml # having hydra before logger in precedence order, so that logger can override run.dir
   - logger: null # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
   - trainer: default.yaml
   - paths: default.yaml
   - extras: default.yaml
-  - hydra: default.yaml
   - model: default.yaml
   - env: default.yaml
 

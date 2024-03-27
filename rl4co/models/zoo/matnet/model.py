@@ -5,6 +5,9 @@ import torch.nn as nn
 
 from rl4co.models.zoo.pomo.model import POMO
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class MatNet(POMO):
@@ -12,28 +15,25 @@ class MatNet(POMO):
         self,
         env: RL4COEnvBase,
         policy: Union[nn.Module, MatNetPolicy] = None,
-        optimizer_kwargs: dict = {"lr": 4 * 1e-4, "weight_decay": 1e-6},
-        lr_scheduler: str = "MultiStepLR",
-        lr_scheduler_kwargs: dict = {"milestones": [2001, 2101], "gamma": 0.1},
-        use_dihedral_8: bool = False,
         num_starts: int = None,
-        train_data_size: int = 10_000,
-        batch_size: int = 200,
         policy_params: dict = {},
-        model_params: dict = {},
+        **kwargs,
     ):
         if policy is None:
             policy = MatNetPolicy(env_name=env.name, **policy_params)
 
+        # Check if using augmentation and the validation of augmentation function
+        if kwargs.get("num_augment", 0) != 0:
+            log.warning("MatNet is using augmentation.")
+            if kwargs.get("augment_fn") in ['symmetric', 'dihedral8'] or kwargs.get("augment_fn") is None:
+                log.error("MatNet does not use symmetric or dihedral augmentation. Seeting no augmentation function.")
+                kwargs["num_augment"] = 0
+        else:
+            kwargs["num_augment"] = 0
+
         super(MatNet, self).__init__(
             env=env,
             policy=policy,
-            optimizer_kwargs=optimizer_kwargs,
-            lr_scheduler=lr_scheduler,
-            lr_scheduler_kwargs=lr_scheduler_kwargs,
-            use_dihedral_8=use_dihedral_8,
             num_starts=num_starts,
-            train_data_size=train_data_size,
-            batch_size=batch_size,
-            **model_params,
+            **kwargs,
         )

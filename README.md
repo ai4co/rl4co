@@ -77,6 +77,8 @@ Train model with default configuration (AM on TSP environment):
 python run.py
 ```
 
+> [!TIP]
+> You may check out [this notebook](notebooks/tutorials/advanced/2-hydra-config.ipynb) to get started with Hydra!
 
 <details>
     <summary>Change experiment</summary>

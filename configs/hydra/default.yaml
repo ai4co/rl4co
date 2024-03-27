@@ -7,16 +7,8 @@ defaults:
 
 ## NOTE: uncomment below for default logging
 # output directory, generated dynamically on each run
-# run:
-#   dir: ${paths.log_dir}/${mode}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
-# sweep:
-#   dir: ${paths.log_dir}/${mode}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
-#   subdir: ${hydra.job.num}
-
-# NOTE: comment below and use above if you don't want to use wandb
-# modify the log directory to separate between models and envs
 run:
-  dir: ${paths.log_dir}/${mode}/runs/${logger.wandb.group}/${logger.wandb.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  dir: ${paths.log_dir}/${mode}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
 sweep:
-  dir: ${paths.log_dir}/${mode}/multiruns/${logger.wandb.group}/${logger.wandb.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  dir: ${paths.log_dir}/${mode}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
   subdir: ${hydra.job.num}

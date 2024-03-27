@@ -13,9 +13,6 @@ tags: ["am", "mdpp"]
 env:
   reward_type: "minmax"
 
-model:
-  use_native_sdpa: true
-
 logger:
   wandb:
     project: "rl4co-mdpp"

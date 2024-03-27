@@ -26,6 +26,8 @@ class SymNCO(REINFORCE):
         policy: Policy to use for the algorithm
         policy_kwargs: Keyword arguments for policy
         num_augment: Number of augmentations
+        augment_fn: Function to use for augmentation, defaulting to dihedral_8_augmentation
+        feats: List of features to augment
         alpha: weight for invariance loss
         beta: weight for solution symmetricity loss
         num_starts: Number of starts for multi-start. If None, use the number of available actions
@@ -39,6 +41,8 @@ class SymNCO(REINFORCE):
         policy_kwargs: dict = {},
         baseline: str = "symnco",
         num_augment: int = 4,
+        augment_fn: Union[str, callable] = "symmetric",
+        feats: list = None,
         alpha: float = 0.2,
         beta: float = 1,
         num_starts: int = 0,
@@ -57,7 +61,7 @@ class SymNCO(REINFORCE):
 
         self.num_starts = num_starts
         self.num_augment = num_augment
-        self.augment = StateAugmentation(self.env.name, num_augment=self.num_augment)
+        self.augment = StateAugmentation(num_augment=self.num_augment, augment_fn=augment_fn, feats=feats)
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
 

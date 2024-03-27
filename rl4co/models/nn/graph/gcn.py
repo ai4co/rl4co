@@ -1,6 +1,5 @@
 from typing import Tuple, Union
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -10,6 +9,7 @@ from torch_geometric.data import Batch, Data
 from torch_geometric.nn import GCNConv
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
+from rl4co.utils.ops import get_full_graph_edge_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -47,10 +47,7 @@ class GCNEncoder(nn.Module):
         )
 
         # Generate edge index for a fully connected graph
-        adj_matrix = torch.ones(num_nodes, num_nodes)
-        if self_loop:
-            adj_matrix.fill_diagonal_(0)  # No self-loops
-        self.edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+        self.edge_index = get_full_graph_edge_index(num_nodes, self_loop)
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(
@@ -82,11 +79,9 @@ class GCNEncoder(nn.Module):
 
         # Check to update the edge index with different number of node
         if num_node != self.edge_index.max().item() + 1:
-            adj_matrix = torch.ones(num_node, num_node)
-            if self.self_loop:
-                adj_matrix.fill_diagonal_(0)
-            edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-            edge_index = edge_index.to(init_h.device)
+            edge_index = get_full_graph_edge_index(num_node, self.self_loop).to(
+                init_h.device
+            )
         else:
             edge_index = self.edge_index.to(init_h.device)
 

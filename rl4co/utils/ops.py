@@ -1,4 +1,5 @@
-from typing import Union
+from functools import lru_cache
+from typing import Optional, Union
 
 import torch
 
@@ -93,6 +94,17 @@ def get_tour_length(ordered_locs):
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
+@torch.jit.script
+def get_distance_matrix(locs: Tensor):
+    """Compute the euclidean distance matrix for the given coordinates.
+
+    Args:
+        locs: Tensor of shape [..., n, dim]
+    """
+    distance = (locs[..., :, None, :] - locs[..., None, :, :]).norm(p=2, dim=-1)
+    return distance
+
+
 def get_num_starts(td, env_name=None):
     """Returns the number of possible start nodes for the environment based on the action mask"""
     num_starts = td["action_mask"].shape[-1]
@@ -115,14 +127,18 @@ def select_start_nodes(td, env, num_starts):
         env: Environment may determine the node selection strategy
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    if env.name in ["tsp"]:
-        selected = torch.arange(num_starts, device=td.device).repeat_interleave(
-            td.shape[0]
+    num_loc = env.num_loc if hasattr(env, "num_loc") else 0xFFFFFFFF
+    if env.name in ["tsp", "atsp"]:
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc
         )
     else:
         # Environments with depot: we do not select the depot as a start node
-        selected = torch.arange(1, num_starts + 1, device=td.device).repeat_interleave(
-            td.shape[0]
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc
+            + 1
         )
         if env.name == "op":
             if (td["action_mask"][..., 1:].float().sum(-1) < num_starts).any():
@@ -141,3 +157,45 @@ def select_start_nodes(td, env, num_starts):
 def get_best_actions(actions, max_idxs):
     actions = unbatchify(actions, max_idxs.shape[0])
     return actions.gather(0, max_idxs[..., None, None])
+
+
+def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loop=False):
+    """Generate a sparsified graph for the cost_matrix by selecting k edges with the lowest cost for each node.
+
+    Args:
+        cost_matrix: Tensor of shape [m, n]
+        k_sparse: Number of edges to keep for each node. Defaults to max(n//5, 10) if not provided.
+        self_loop: Include self-loop edges in the generated graph when m==n. Defaults to False.
+    """
+    m, n = cost_matrix.shape
+    k_sparse = max(n // 5, 10) if k_sparse is None else k_sparse
+
+    # fill diagonal value with +inf to exclude them from topk results
+    if not self_loop and m == n:
+        # k_sparse should not exceed n-1 in this occasion
+        k_sparse = min(k_sparse, n - 1)
+        cost_matrix.fill_diagonal_(torch.inf)
+
+    # select top-k edges with least cost
+    topk_values, topk_indices = torch.topk(
+        cost_matrix, k=k_sparse, dim=-1, largest=False, sorted=False
+    )
+
+    # generate PyG-compatiable edge_index
+    edge_index_u = torch.repeat_interleave(
+        torch.arange(m, device=cost_matrix.device), topk_indices.shape[1]
+    )
+    edge_index_v = topk_indices.flatten()
+    edge_index = torch.stack([edge_index_u, edge_index_v])
+
+    edge_attr = topk_values.flatten().unsqueeze(-1)
+    return edge_index, edge_attr
+
+
+@lru_cache(5)
+def get_full_graph_edge_index(num_node: int, self_loop=False) -> Tensor:
+    adj_matrix = torch.ones(num_node, num_node)
+    if not self_loop:
+        adj_matrix.fill_diagonal_(0)
+    edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
+    return edge_index

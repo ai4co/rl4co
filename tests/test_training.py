@@ -1,13 +1,18 @@
+import sys
+
 import pytest
 
-from rl4co.envs import PDPEnv, TSPEnv
+from rl4co.envs import ATSPEnv, PDPEnv, TSPEnv
 from rl4co.models import (
     ActiveSearch,
     AttentionModel,
     AutoregressivePolicy,
+    DeepACO,
     EASEmb,
     EASLay,
     HeterogeneousAttentionModel,
+    MatNet,
+    NonAutoregressiveModel,
     PPOModel,
     SymNCO,
 )
@@ -61,6 +66,20 @@ def test_ham():
     trainer.test(model)
 
 
+def test_matnet():
+    env = ATSPEnv(num_loc=20)
+    model = MatNet(
+        env,
+        baseline="shared",
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+    )
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
 @pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
 def test_search_methods(SearchMethod):
     env = TSPEnv(num_loc=20)
@@ -69,5 +88,29 @@ def test_search_methods(SearchMethod):
     policy = AutoregressivePolicy(env)
     model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
     trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.skipif(
+    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
+)
+def test_nar():
+    env = TSPEnv(num_loc=20)
+    model = NonAutoregressiveModel(
+        env, train_data_size=10, val_data_size=10, test_data_size=10
+    )
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.skipif(
+    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
+)
+def test_deepaco():
+    env = TSPEnv(num_loc=20)
+    model = DeepACO(env, train_data_size=10, val_data_size=10, test_data_size=10)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1)
     trainer.fit(model)
     trainer.test(model)

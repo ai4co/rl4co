@@ -51,7 +51,7 @@ class AutoregressivePolicy(nn.Module):
 
     def __init__(
         self,
-        env_name: [str, RL4COEnvBase] = "tsp",
+        env_name: Union[str, RL4COEnvBase] = "tsp",
         encoder: nn.Module = None,
         decoder: nn.Module = None,
         init_embedding: nn.Module = None,

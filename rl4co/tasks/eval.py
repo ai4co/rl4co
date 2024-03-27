@@ -39,7 +39,7 @@ class EvalBase:
         end_event = torch.cuda.Event(enable_timing=True)
         start_event.record()
 
-        with torch.no_grad():
+        with torch.inference_mode():
             rewards_list = []
             actions_list = []
 
@@ -120,11 +120,11 @@ class AugmentationEval(EvalBase):
 
     name = "augmentation"
 
-    def __init__(self, env, num_augment=8, force_dihedral_8=False, **kwargs):
+    def __init__(self, env, num_augment=8, force_dihedral_8=False, feats=None, **kwargs):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
         self.augmentation = StateAugmentation(
-            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric', feats=feats
         )
 
     def _inner(self, policy, td, num_augment=None):
@@ -194,7 +194,7 @@ class GreedyMultiStartEval(EvalBase):
         num_starts (int): Number of greedy multistarts to use
     """
 
-    name = "greedy_multistart"
+    name = "multistart_greedy"
 
     def __init__(self, env, num_starts=None, **kwargs):
         check_unused_kwargs(self, kwargs)
@@ -207,7 +207,7 @@ class GreedyMultiStartEval(EvalBase):
         td_init = td.clone()
         out = policy(
             td.clone(),
-            decode_type="greedy_multistart",
+            decode_type="multistart_greedy",
             num_starts=self.num_starts,
             return_actions=True,
         )
@@ -236,10 +236,10 @@ class GreedyMultiStartAugmentEval(EvalBase):
         force_dihedral_8: If True, force the use of 8 augmentations (rotations and flips) as in POMO
     """
 
-    name = "greedy_multistart_augment"
+    name = "multistart_greedy_augment"
 
     def __init__(
-        self, env, num_starts=None, num_augment=8, force_dihedral_8=False, **kwargs
+        self, env, num_starts=None, num_augment=8, force_dihedral_8=False, feats=None, **kwargs
     ):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
@@ -250,7 +250,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
             num_augment != 8 and force_dihedral_8
         ), "Cannot force dihedral 8 when num_augment != 8"
         self.augmentation = StateAugmentation(
-            env.name, num_augment=num_augment, use_dihedral_8=force_dihedral_8
+            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric', feats=feats
         )
 
     def _inner(self, policy, td, num_augment=None):
@@ -262,7 +262,7 @@ class GreedyMultiStartAugmentEval(EvalBase):
         td = self.augmentation(td)
         out = policy(
             td.clone(),
-            decode_type="greedy_multistart",
+            decode_type="multistart_greedy",
             num_starts=self.num_starts,
             return_actions=True,
         )
@@ -335,7 +335,7 @@ def evaluate_policy(
             "func": SamplingEval,
             "kwargs": {"samples": 100, "softmax_temp": 1.0},
         },
-        "greedy_multistart": {
+        "multistart_greedy": {
             "func": GreedyMultiStartEval,
             "kwargs": {"num_starts": num_loc},
         },
@@ -344,7 +344,7 @@ def evaluate_policy(
             "kwargs": {"num_augment": 8, "force_dihedral_8": True},
         },
         "augment": {"func": AugmentationEval, "kwargs": {"num_augment": 8}},
-        "greedy_multistart_augment_dihedral_8": {
+        "multistart_greedy_augment_dihedral_8": {
             "func": GreedyMultiStartAugmentEval,
             "kwargs": {
                 "num_augment": 8,
@@ -352,7 +352,7 @@ def evaluate_policy(
                 "num_starts": num_loc,
             },
         },
-        "greedy_multistart_augment": {
+        "multistart_greedy_augment": {
             "func": GreedyMultiStartAugmentEval,
             "kwargs": {"num_augment": 8, "num_starts": num_loc},
         },

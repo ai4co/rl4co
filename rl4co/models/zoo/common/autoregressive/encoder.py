@@ -26,7 +26,7 @@ class GraphAttentionEncoder(nn.Module):
 
     def __init__(
         self,
-        env_name: [str, RL4COEnvBase],
+        env_name: Union[str, RL4COEnvBase],
         num_heads: int,
         embedding_dim: int,
         num_layers: int,

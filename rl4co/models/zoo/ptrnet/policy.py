@@ -1,8 +1,11 @@
+from typing import Union
+
 import math
 
 import torch
 import torch.nn as nn
 
+from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.ptrnet.decoder import Decoder
 from rl4co.models.zoo.ptrnet.encoder import Encoder
@@ -14,7 +17,7 @@ log = get_pylogger(__name__)
 class PointerNetworkPolicy(nn.Module):
     def __init__(
         self,
-        env_name,
+        env_name: Union[str, RL4COEnvBase] = "tsp",
         embedding_dim: int = 128,
         hidden_dim: int = 128,
         tanh_clipping=10.0,
@@ -24,10 +27,10 @@ class PointerNetworkPolicy(nn.Module):
     ):
         super(PointerNetworkPolicy, self).__init__()
 
-        # torch.backends.cudnn.enabled=False
-        assert env_name == "tsp", "Only the Euclidean TSP env supported"
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
+        assert env_name == "tsp", "Only the Euclidean TSP env is implemented"
         self.env_name = env_name
-
         self.input_dim = 2
 
         self.encoder = Encoder(embedding_dim, hidden_dim)

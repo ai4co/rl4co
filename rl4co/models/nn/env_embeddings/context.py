@@ -17,6 +17,8 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "tsp": TSPContext,
         "atsp": TSPContext,
         "cvrp": VRPContext,
+        "cvrptw": VRPTWContext,
+        "svrp": SVRPContext,
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
         "spctsp": PCTSPContext,
@@ -108,11 +110,52 @@ class VRPContext(EnvContext):
     """
 
     def __init__(self, embedding_dim):
-        super(VRPContext, self).__init__(embedding_dim, embedding_dim + 1)
+        super(VRPContext, self).__init__(
+            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 1
+        )
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["vehicle_capacity"] - td["used_capacity"]
         return state_embedding
+
+
+class VRPTWContext(VRPContext):
+    """Context embedding for the Capacitated Vehicle Routing Problem (CVRP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining capacity (vehicle_capacity - used_capacity)
+        - current time
+    """
+
+    def __init__(self, embedding_dim):
+        super(VRPContext, self).__init__(
+            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 2
+        )
+
+    def _cur_node_embedding(self, embeddings, td):
+        return super()._cur_node_embedding(embeddings, td).reshape(embeddings.size(0), -1)
+
+    def _state_embedding(self, embeddings, td):
+        capacity = super()._state_embedding(embeddings, td)
+        current_time = td["current_time"]
+        return torch.cat([capacity, current_time], -1)
+
+
+class SVRPContext(EnvContext):
+    """Context embedding for the Skill Vehicle Routing Problem (SVRP).
+    Project the following to the embedding space:
+        - current node embedding
+        - current technician
+    """
+
+    def __init__(self, embedding_dim):
+        super(SVRPContext, self).__init__(
+            embedding_dim=embedding_dim, step_context_dim=embedding_dim
+        )
+
+    def forward(self, embeddings, td):
+        cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
+        return self.project_context(cur_node_embedding)
 
 
 class PCTSPContext(EnvContext):

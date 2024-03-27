@@ -40,25 +40,26 @@ classifiers = [
 ]
 
 dependencies = [
-    "torchrl>=0.2.0",
-    "tensordict>=0.2.0",
-    "lightning>=2.1.0",
+    "einops",
     "hydra-core",
     "hydra-colorlog",
+    "lightning>=2.1.0",
+    "matplotlib",
     "omegaconf",
     "pyrootutils",
     "rich",
-    "einops",
-    "wandb",
-    "matplotlib",
+    "robust-downloader",
     "scipy",
-    "robust-downloader"
+    "tensordict>=0.2.0",
+    "torchrl>=0.2.0",
+    "wandb"
 ]
 
 [project.optional-dependencies]
 graph = ["torch_geometric"]
 testing = ["pytest", "pytest-cov"]
 dev = ["black", "ruff", "pre-commit>=3.3.3"]
+routing = ["vrplib>=1.3.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/ai4co/rl4co"

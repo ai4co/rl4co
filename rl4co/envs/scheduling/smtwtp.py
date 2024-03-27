@@ -132,20 +132,20 @@ class SMTWTPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict = None):
         self.observation_spec = CompositeSpec(
             job_due_time=BoundedTensorSpec(
-                minimum=self.min_time_span,
-                maximum=self.max_time_span,
+                low=self.min_time_span,
+                high=self.max_time_span,
                 shape=(self.num_job + 1,),
                 dtype=torch.float32,
             ),
             job_weight=BoundedTensorSpec(
-                minimum=self.min_job_weight,
-                maximum=self.max_job_weight,
+                low=self.min_job_weight,
+                high=self.max_job_weight,
                 shape=(self.num_job + 1,),
                 dtype=torch.float32,
             ),
             job_process_time=BoundedTensorSpec(
-                minimum=self.min_process_time,
-                maximum=self.max_process_time,
+                low=self.min_process_time,
+                high=self.max_process_time,
                 shape=(self.num_job + 1,),
                 dtype=torch.float32,
             ),
@@ -166,8 +166,8 @@ class SMTWTPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=self.num_job + 1,
+            low=0,
+            high=self.num_job + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

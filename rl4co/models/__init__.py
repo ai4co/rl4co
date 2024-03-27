@@ -5,12 +5,20 @@ from rl4co.models.zoo.common.autoregressive import (
     AutoregressivePolicy,
     GraphAttentionEncoder,
 )
+from rl4co.models.zoo.common.nonautoregressive import (
+    NonAutoregressiveDecoder,
+    NonAutoregressiveEncoder,
+    NonAutoregressiveModel,
+    NonAutoregressivePolicy,
+)
 from rl4co.models.zoo.common.search import SearchBase
+from rl4co.models.zoo.deepaco import DeepACO, DeepACOPolicy
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay
 from rl4co.models.zoo.ham import (
     HeterogeneousAttentionModel,
     HeterogeneousAttentionModelPolicy,
 )
+from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
 from rl4co.models.zoo.pomo import POMO, POMOPolicy
 from rl4co.models.zoo.ppo import PPOModel, PPOPolicy
