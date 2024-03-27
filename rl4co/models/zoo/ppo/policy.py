@@ -25,7 +25,7 @@ class PPOPolicy(AutoregressivePolicy):
         normalization: str = "batch",
         **kwargs,
     ):
-        super(PPOPolicy, self).__init__(
+        super().__init__(
             env_name=env_name,
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,
