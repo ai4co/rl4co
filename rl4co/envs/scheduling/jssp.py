@@ -7,7 +7,6 @@ from torchrl.data import CompositeSpec, DiscreteTensorSpec, UnboundedContinuousT
 
 from rl4co.envs.common.base import RL4COEnvBase
 
-
 class JSSPEnv(RL4COEnvBase):
     """Job Shop Scheduling Problem (JSSP) environment.
     As per the definition given in https://arxiv.org/pdf/2010.12367.pdf.
@@ -39,33 +38,34 @@ class JSSPEnv(RL4COEnvBase):
         et_normalize_coef=1000,
         rewardscale=0.0,
         init_quality_flag=False,
+        stepwise_reward=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.batch_size = torch.Size([1])
         self._low = low
         self._high = high
         self._et_normalize_coef = et_normalize_coef
         self._rewardscale = rewardscale
         self._init_quality_flag = init_quality_flag
+        self.stepwise_reward = stepwise_reward
 
         self.num_jobs = num_jobs
         self.num_machines = num_machines
         self.num_tasks = self.num_jobs * self.num_machines
 
         # create specs for observation and action
-        self._make_spec()
+        #self._make_spec()
 
-        # the task id for first column
-        self.first_col = torch.arange(
+        # the task id for first operation in precedence relation; shape=(num_jobs,)
+        self.first_task = torch.arange(
             start=0,
             end=self.num_tasks,
             step=num_machines,
             dtype=torch.int64,
             device=self.device,
         )
-        # the task id for last column
-        self.last_col = torch.arange(
+        # the task id for last column; shape=(num_jobs,)
+        self.last_task = torch.arange(
             start=num_machines - 1,
             end=self.num_tasks,
             step=num_machines,
@@ -73,625 +73,316 @@ class JSSPEnv(RL4COEnvBase):
             device=self.device,
         )
 
-        # initialize zero matrices for memory allocation
-        self.machines = torch.zeros(
-            (self.num_jobs, self.num_machines),
-            dtype=torch.float32,
-            device=self.device,
-        )
-        self.durations = torch.zeros(
-            (self.num_jobs, self.num_machines),
-            dtype=torch.float32,
-            device=self.device,
-        )
-        self.durations_cp = torch.zeros(
-            (self.num_jobs, self.num_machines),
-            dtype=torch.float32,
-            device=self.device,
-        )
-
-    def done(self):
-        if len(self.partial_sol_sequence) == self.num_tasks:
-            return torch.tensor(True, device=self.device)
-        return torch.tensor(False, device=self.device)
 
     def _step(self, td: TensorDict) -> TensorDict:
-        job_idx = td["action"].squeeze()
+        batch_size = td.batch_size
+        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
+        # (bs,)
+        job_idx = td["action"]
         # action is an int 0 - num_jobs
-        # the actual action is the operation id of the selected job
-        # taken from the feasible actions:
-        action = self.feasible_actions[job_idx].clone()  # range 0 - num_tasks
+        # the actual action is the operation id of the selected job; shape=(bs,)
+        task_idx = td["next_op"][batch_idx, job_idx]
+        col = task_idx % self.num_machines
+        ma_idx = torch.where(td["machines"][batch_idx, job_idx] == col[:, None])[1]
 
-        if action not in self.partial_sol_sequence:
-            # UPDATE BASIC INFO:
-            row = action // self.num_machines
-            col = action % self.num_machines
-            self.finished_mark[row, col] = 1
-            op_duration = self.durations[row, col]
-            self.partial_sol_sequence.append(action)
+        # mark scheduled operations
+        td["finished_mark"][batch_idx, job_idx, col] = 1
+        op_duration = td["durations"][batch_idx, job_idx, col]
 
-            # UPDATE STATE:
-            # permissible left shift
-            start_time, flag = permissible_left_shift(
-                action=action,
-                durations=self.durations,
-                machines=self.machines,
-                machines_start_times=self.machines_start_times,
-                operations_on_machines=self.operations_on_machines,
-                high_value=self._high,
-            )
-            self.flags.append(flag)
-            # update omega or mask
-            if action not in self.last_col:
-                self.feasible_actions[action // self.num_machines] += 1
-            else:
-                self.mask[action // self.num_machines] = 1
-
-            self.ending_times[row, col] = start_time + op_duration
-
-            self.LBs = end_time_lb(self.ending_times, self.durations_cp)
-
-            # adj matrix
-            precd, succd = get_action_nbghs(action, self.operations_on_machines)
-            self.adjacency[action] = 0
-            self.adjacency[action, action] = 1
-            if action not in self.first_col:
-                self.adjacency[action, action - 1] = 1
-            self.adjacency[action, precd] = 1
-            self.adjacency[succd, action] = 1
-            if (
-                flag and precd != action and succd != action
-            ):  # Remove the old arc when a new operation inserts between two operations
-                self.adjacency[succd, precd] = 0
-
-        # prepare for return
-        features = torch.concatenate(
-            (
-                self.LBs.reshape(-1, 1) / self._et_normalize_coef,
-                self.finished_mark.reshape(-1, 1),
-            ),
-            dim=1,
+        # (bs,) first operation of job has no predecessor
+        previous_op_in_job = ~torch.isin(task_idx, self.first_task)
+        # gather ending times of previous operation if exists 
+        # (NOTE clipping only effects first operation which has no predecessor)
+        previous_op_end_time = td["end_times"][batch_idx, job_idx, torch.clip(col-1, 0)]
+        previous_op_end_time1 = td["end_times"].reshape(*batch_size, -1)[batch_idx, torch.clip(task_idx-1, 0)]
+        assert torch.all(previous_op_end_time[previous_op_in_job] == previous_op_end_time1[previous_op_in_job])
+        # (bs,)
+        op_ready_time = torch.where(
+            previous_op_in_job,
+            previous_op_end_time,
+            # if no preceeding operation exists, op can start directly,
+            torch.zeros((*batch_size,), dtype=torch.float32, device=self.device)
         )
-        reward = -(self.LBs.max() - self.max_end_time)
-        if reward == 0:
-            reward = torch.tensor(self._rewardscale, device=self.device)
-            self.positive_reward += reward
-        self.max_end_time = self.LBs.max()
+        # sort the schedule in accordance to the machine indices; shape=(bs, jobs, ma) 
+        ma_start_times = td["start_times"].gather(2, td["machines"])
+        ma_end_times = td["end_times"].gather(2, td["machines"])
+        # get start and end times of selected machine; shape=(bs, num_jobs)
+        start_chosen_ma = ma_start_times[batch_idx, :, ma_idx]
+        end_chosen_ma = ma_end_times[batch_idx, :, ma_idx]
+        # get the time the machine is idle again; shape=(bs,)
+        ma_ready_time = end_chosen_ma.max(1).values.clip(0)
+        # we may put an op before another op, if it is ready before the other one starts
+        possible_positions = op_ready_time[:, None] < start_chosen_ma
+        eligible4ls = possible_positions.any(1)
 
-        tensordict = TensorDict(
-            {
-                "adjacency": self.adjacency.unsqueeze(0),
-                "features": features.unsqueeze(0),
-                "feasible_actions": self.feasible_actions.unsqueeze(0),
-                "action_mask": ~self.mask.unsqueeze(0),
-                "done": self.done().unsqueeze(0),
-                "reward": reward.unsqueeze(0),
-            },
-            batch_size=1,
+        # (bs, jobs)
+        lag1_end_times_ma = torch.cat(
+            (torch.zeros_like(end_chosen_ma[:, :1]), end_chosen_ma), dim=1
+        )[batch_idx, :-1]
+        # determine idle gaps on selected machine
+        gaps = start_chosen_ma - lag1_end_times_ma
+        gaps[~possible_positions] = -torch.inf
+        sufficient_gaps = gaps > op_duration[:, None]
+        # get the first index of the gap; shape=(bs,)
+        min_pos = sufficient_gaps.to(torch.int32).max(1).indices
+        min_pos_start = lag1_end_times_ma.gather(1, min_pos[:, None]).squeeze(1)
+        # (bs, )
+        left_shift_possible = torch.logical_and(eligible4ls, sufficient_gaps.any(1))
+        start_times = torch.where(
+            left_shift_possible,
+            min_pos_start,
+            # if no gap is big enough, we have to put the op at the end of schedule
+            torch.max(op_ready_time, ma_ready_time) 
+        )
+        # update schedule
+        td["start_times"][batch_idx, job_idx, col] = start_times
+        td["end_times"][batch_idx, job_idx, col] = start_times + op_duration
+
+        # (bs, 1)
+        job_done = torch.isin(task_idx, self.last_task)
+        
+        # mask jobs that are completed; shape=(bs, jobs)
+        td["action_mask"][job_done, job_idx[job_done]] = 0
+        # increment operation counter on all other jobs; shape=(bs, jobs)
+        td["next_op"][~job_done, job_idx[~job_done]] += 1
+
+        adjacency = self.update_adjacency(
+            td, job_idx, task_idx, ma_idx, previous_op_in_job, left_shift_possible
         )
 
-        return tensordict
+        old_lbs = td["lower_bounds"].clone()
+        LBs = torch.where(td["finished_mark"].to(torch.bool), td["end_times"], td["durations"]).cumsum(2)
 
-    def _reset(self, td: Optional[TensorDict] = None, **kwargs) -> TensorDict:
+        done = torch.all(td["action_mask"]==0, 1)
+        if self.stepwise_reward:
+            reward = -(LBs.amax(dim=(1,2)) - old_lbs.amax(dim=(1,2)))
+        elif done.all():
+            # get makespan
+            reward = td["end_times"].amax(dim=(1,2))
+
+        return td.update({
+            "adjacency": adjacency,
+            "lower_bounds": LBs,
+            "reward": reward,
+            "done": done
+        })
+
+    def _reset(self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None) -> TensorDict:
         """Reset the environment."""
-        if td is None:
-            td = uniform_instance_gen(
-                self.num_jobs,
-                self.num_machines,
-                self._low,
-                self._high,
-                device=self.device,
-            )
+        if batch_size is None:
+            batch_size = self.batch_size if td is None else td.batch_size
+        else:
+            batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
 
-        self.machines = td["machines"].squeeze(0)
-        self.durations = td["durations"].squeeze(0)
-        self.durations_cp = self.durations.clone()
-        # record action history
-        self.partial_sol_sequence = []
-        self.flags = []
-        self.positive_reward = torch.tensor([0.0], device=self.device)
+        if td is None or td.is_empty():
+            td = self.generate_data(batch_size=batch_size)
 
-        # initialize adj matrix
-        conj_nei_up_stream = torch.diag_embed(
+        self.to(td.device)
+        # (bs, jobs, ma)
+        durations = td["durations"]
+        # initialize adj matrix of predecessors. We leave an offset of -1, since the first
+        # operation has no predecessor: shape=(num_tasks, num_tasks)
+        predecessors_adj = torch.diag_embed(
             torch.ones(self.num_tasks - 1, device=self.device), offset=-1
         )
-        # first column does not have upper stream conj_nei
-        conj_nei_up_stream[self.first_col] = 0
-        self_as_nei = torch.eye(self.num_tasks, dtype=torch.float32, device=self.device)
-        self.adjacency = self_as_nei + conj_nei_up_stream
+        # first operation of jobs do not have predecessors
+        predecessors_adj[self.first_task] = 0
 
-        # initialize features
-        self.LBs = torch.cumsum(self.durations, dim=1)
-        self.initial_quality = self.LBs.max() if not self._init_quality_flag else 0
-        self.max_end_time = self.initial_quality.clone()
-        self.finished_mark = torch.zeros_like(self.machines)
-
-        features = torch.concatenate(
-            [
-                self.LBs.reshape(self.num_tasks, 1) / self._et_normalize_coef,
-                self.finished_mark.reshape(self.num_tasks, 1),
-            ],
-            dim=1,
+        # ---------------
+        # NOTE in original implementation authors dont use succeesors
+        # initialize adj matrix of successors. We leave an offset of -1, since the first
+        # operation has no successors: shape=(num_tasks, num_tasks)
+        successor_adj = torch.diag_embed(
+            torch.ones(self.num_tasks - 1, device=self.device), offset=1
         )
+        # first operation of jobs do not have successors
+        successor_adj[self.last_task] = 0
+        # ---------------
 
-        # initialize feasible actions
-        self.feasible_actions = self.first_col.to(dtype=torch.int64).clone()
+        # self loops and adding all neighbors in final adjacency matrix
+        self_loop = torch.eye(self.num_tasks, dtype=torch.float32, device=self.device)
+        adjacency = torch.unsqueeze(self_loop + predecessors_adj, 0).repeat(*batch_size, 1, 1)
+        # initialize features
+        # (bs, jobs, ma)
+        LBs = torch.cumsum(durations, dim=-1)
+        # (bs, jobs, ma)
+        finished_mark = torch.zeros_like(durations)
+        # (bs, num_tasks, 2)
 
-        # initialize mask
-        self.mask = torch.zeros(
-            size=(self.num_jobs,),
+        # TODO move feature logic into init_embed part
+        # features = torch.concatenate(
+        #     [
+        #         # (bs, num_tasks, 1)
+        #         LBs.reshape(batch_size, self.num_tasks, 1) / self._et_normalize_coef,
+        #         # (bs, num_tasks, 1)
+        #         finished_mark.reshape(batch_size, self.num_tasks, 1),
+        #     ],
+        #     dim=1,
+        # )
+        
+        machines = td["machines"]
+        # ops = torch.arange(self.num_machines)[None, None, :].repeat(batch_size, self.num_jobs, 1)
+        # task_ma_map=(ops[:, :, None] == machines[..., None]).reshape(batch_size, self.num_tasks, -1)
+
+        # initialize next_op; shape=(bs, num_jobs)
+        next_op = self.first_task[None].repeat(*batch_size, 1).to(dtype=torch.int64)
+
+        # initialize mask (mask specifies feasible actions)
+        mask = torch.ones(
+            size=(*batch_size, self.num_jobs),
             dtype=torch.bool,
             device=self.device,
         )
 
-        # start time of operations on machines
-        self.machines_start_times = (
-            torch.ones_like(self.durations.T, dtype=torch.int32) * -self._high
-        )
-        # Ops ID on machines
-        self.operations_on_machines = -self.num_jobs * torch.ones_like(
-            self.durations.T, dtype=torch.int32
-        )
+        # start time of operations on machines; (bs, jobs, ma)
+        start_times = torch.full_like(durations, fill_value=-self._high)
+        # ending times of ops on machines; (bs, jobs, ma)
+        ending_times = torch.zeros_like(durations, dtype=torch.float32)
 
-        self.ending_times = torch.zeros_like(self.durations, dtype=torch.float32)
+        # matrices with the indexes of the operations executed on each machine.
+        # For example, if operations_on_machines[1, 2] = 3, it means that
+        # the machine of index 1 executes the operation 3 at position 2.
+        # shape (num_machines, num_jobs)
+        ops_on_ma = (
+            torch.full_like(durations.transpose(-2,-1), fill_value=-self.num_jobs, dtype=torch.int32)
+        )
 
         tensordict = TensorDict(
             {
-                "adjacency": self.adjacency.unsqueeze(0),
-                "features": features.unsqueeze(0),
-                "feasible_actions": self.feasible_actions.unsqueeze(0),
-                "action_mask": ~self.mask.unsqueeze(0),
+                "adjacency": adjacency,
+                "machines": machines,
+                "start_times": start_times,
+                "end_times": ending_times,
+                "ops_on_ma": ops_on_ma,
+                "lower_bounds": LBs,
+                "finished_mark": finished_mark,
+                "next_op": next_op,
+                "durations": durations,
+                "action_mask": mask,
+                "done": torch.full((*batch_size,), False),
+                "reward": torch.empty((*batch_size,), dtype=torch.float32, device=self.device)
             },
-            batch_size=1,
+            batch_size=batch_size,
         )
         return tensordict
-
-    def _make_spec(self) -> None:
-        adjacency_spec = DiscreteTensorSpec(
-            n=2,
-            shape=torch.Size(
-                (1, self.num_jobs * self.num_machines, self.num_jobs * self.num_machines)
-            ),
-            device=self.device,
-            dtype=torch.int64,
+    
+    def generate_data(self, batch_size):
+        # randomly generate processing times for each operation (job-machine combination)
+        # (bs, jobs, ma)
+        proc_times = torch.randint(
+            low=self._low, 
+            high=self._high, 
+            size=(*batch_size, self.num_jobs, self.num_machines), 
+            dtype=torch.float32,
+            device=self.device
         )
-        features_spec = UnboundedContinuousTensorSpec(
-            shape=torch.Size((1, self.num_jobs * self.num_machines, 2)),
-            device=self.device,
-        )
-        feasible_actions_spec = DiscreteTensorSpec(
-            n=self.num_jobs * self.num_machines,
-            shape=torch.Size(
-                (
-                    1,
-                    self.num_jobs,
-                )
-            ),
-            device=self.device,
-            dtype=torch.int64,
-        )
-        action_mask_spec = DiscreteTensorSpec(
-            n=2,
-            shape=torch.Size(
-                (
-                    1,
-                    self.num_jobs,
-                )
-            ),
-            device=self.device,
-            dtype=torch.bool,
+        # the machines tensor of shape=(bs, jobs, ma) specifies which operation is executed on
+        # which machine, e.g. machines[:, 0, 1] = 2 means that operation=2 of job=0 is executed
+        # on machine=1
+        machines = torch.rand((*batch_size, self.num_jobs, self.num_machines)).argsort(dim=-1)
+        # machines += self.first_task[None, :, None]
+        return TensorDict(
+            {"durations": proc_times, "machines": machines}, batch_size=batch_size
         )
 
-        self.observation_spec = CompositeSpec(
-            adjacency=adjacency_spec,
-            features=features_spec,
-            feasible_actions=feasible_actions_spec,
-            action_mask=action_mask_spec,
-            shape=self.batch_size,
-        )
-
-        self.action_spec = DiscreteTensorSpec(
-            n=self.num_jobs,
-            shape=self.batch_size,
-            device=self.device,
-            dtype=torch.int64,
-        )
 
     def get_reward(self, td, actions):
-        return self.positive_reward.unsqueeze(0)
+        reward = td["reward"]
+        if reward.isclose(torch.zeros_like(reward)).all():
+            raise AttributeError("Use stepwise_reward=True in JSSPEnv if you require the reward after every step")
+        return reward
 
-    def render(self, *args, **kwargs):
-        """Display a gantt chart of the solution."""
-        import matplotlib.pyplot as plt
+    def update_adjacency(self, td: TensorDict, job_idx, task_idx, ma_idx, previous_op_in_job, left_shift_possible):
+        # define batch_idx
+        batch_size = td.batch_size
+        batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
+        # get machine predecessor and successor nodes of operation, i.e. ops
+        # that are processed directly before and after the selected operation
+        pred_of_op, succ_of_op = self.get_machine_precedence(td, batch_idx, job_idx, task_idx, ma_idx)
 
-        plt.figure(figsize=(50, 25))
-        plt.title("Gantt Chart")
-        plt.xlabel("Time")
-        plt.ylabel("Machine")
-        plt.yticks(
-            range(self.num_machines), [str(x) for x in range(1, self.num_machines + 1)]
+        # adj matrix NOTE i dont get this ########
+        adjacency = td["adjacency"]
+        adjacency[batch_idx, task_idx] = 0  # reset
+        adjacency[batch_idx, task_idx, task_idx] = 1  # self-loop
+        # preceeding op in job
+        task_masked = task_idx[previous_op_in_job]
+        adjacency[previous_op_in_job, task_masked, task_masked - 1] = 1  
+
+        adjacency[batch_idx, task_idx, pred_of_op] = 1  # preceeding op on machine
+        adjacency[batch_idx, succ_of_op, task_idx] = 1  # succeeding op on machine
+
+        # remove arc between pred and succ of of, if op has been placed between them
+        s_masked = succ_of_op[left_shift_possible]
+        p_masked = pred_of_op[left_shift_possible]
+        # assert torch.all(adjacency[left_shift_possible, s_masked, p_masked] == 1)
+        adjacency[left_shift_possible, s_masked, p_masked] = 0  
+
+        return adjacency
+    
+
+    def get_machine_precedence(self, td: TensorDict, batch_idx, job_idx, task_idx, ma_idx):
+        """This function determines the precedence relationships of operations on the same
+        machine given the current schedule. Given a partial schedule of start times, we 
+        first align these start_times per machine type. Then, we determine, given these start_times, 
+        which job is executed first, second and so on and after that determine the task_id that
+        corresponds to the job-machine combo. 
+        ------------
+        NOTE
+        In the original implementation the authors track the machine schedule in a numpy array,
+        where schedule[1,2]=3 specifies that machine=1 processes task 3 in position=2. This does not
+        work in torch, since we cannot simply insert tasks at different positions along the batches 
+        (without using a for loop). This solution is imo cleaner.
+        ------------
+        """
+
+        # transform the 'operations schedule' into a 'machine schedule', i.e. sort
+        # the last dimension according to the machine the respective op is executed on
+        ma_end_times = td["end_times"].gather(2, td["machines"])
+        # mask not scheduled ops
+        ma_end_times[ma_end_times==0] = torch.inf
+        # (bs, jobs, ma) --> sort jobs in accordence to their position in current schedule
+        ma_precedence_order = ma_end_times.argsort(1)
+        # get position of the selected operation in current schedule
+        op_pos_on_ma = torch.where(ma_precedence_order[batch_idx, :, ma_idx] == job_idx[:, None])[1]
+        # get the id of the job, directly preceeding the selected job. Select the job itself
+        # if it has no predecessor (i.e. scheduled on first position in machine schedule)
+        pred_job = torch.where(
+            op_pos_on_ma == 0,
+            job_idx,
+            ma_precedence_order[batch_idx, torch.clip(op_pos_on_ma-1, 0), ma_idx]
         )
-        plt.grid(True)
-
-        dur_along_machines = torch.take(
-            self.durations, self.operations_on_machines.to(dtype=torch.long)
+        # get the id of the job, directly succeeding the selected job. Select the job itself
+        # if it has no successor (i.e. scheduled on last position in machine schedule)
+        succ_job = torch.where(
+            op_pos_on_ma == self.num_jobs-1,
+            job_idx,
+            ma_precedence_order[batch_idx, torch.clip(op_pos_on_ma+1, max=self.num_jobs-1), ma_idx]
         )
-
-        for machine in range(self.num_machines):
-            for job in range(self.num_jobs):
-                task = self.operations_on_machines[machine, job]
-                job_num = task // self.num_machines
-                plt.barh(
-                    y=machine,
-                    left=self.machines_start_times[machine, job],
-                    width=dur_along_machines[machine, job],
-                    color="C{}".format(job_num),
-                    label="Job {}".format(job_num),
-                )
-                # add the duration on the bar
-                text_to_add = [
-                    f"Task {task}:",
-                    f"{self.machines_start_times[machine, job].item()}",
-                    f"{(self.machines_start_times[machine, job] + dur_along_machines[machine, job]).item()}",
-                ]
-                for idx, line in enumerate(text_to_add):
-                    plt.text(
-                        self.machines_start_times[machine, job],
-                        machine - idx * 0.2,
-                        line,
-                        ha="left",
-                        va="bottom",
-                    )
-
-        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-        plt.tight_layout()
-        plt.show()
-
-
-def last_nonzero_indices(
-    ending_times: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Return the last non-zero indices of the given 2D tensor along the columns (dim=2).
-
-    Args:
-        ending_times (torch.Tensor): 2D array with jobs starting times to find the last non-zero indices of.
-            shape: (num_jobs, num_machines)
-    Returns:
-        Tuple of tensors containing the last non-zero indices of the given array along the given axis.
-    """
-    invalid_val = -1
-    dim = 1
-    mask = (ending_times != 0).to(dtype=torch.int32)
-    val = ending_times.shape[dim] - torch.flip(mask, dims=[dim]).argmax(dim=dim) - 1
-    y_axis = torch.where(mask.any(dim=dim), val, invalid_val)
-    x_axis = torch.arange(
-        ending_times.shape[0], dtype=torch.int64, device=ending_times.device
-    )
-    return x_axis[y_axis >= 0], y_axis[y_axis >= 0]
-
-
-def end_time_lb(ending_times: torch.Tensor, durations: torch.Tensor) -> torch.Tensor:
-    """
-    Calculate the lower bound of the end time of each job.
-    It is equal to the duration for operations that have not yet started,
-    otherwise it is the start time plus the cumulative sum of the durations of the operations on the same machine.
-
-    Args:
-        ending_times (torch.Tensor): batched 2D array containing the start time of each job.
-            shape: (batch_size, num_jobs, num_machines)
-        durations (torch.Tensor): batched 2D array containing the duration of each job.
-            shape: (batch_size, num_jobs, num_machines)
-    Returns:
-        Tensor containing the lower bound of the end time of each job.
-    """
-    x, y = last_nonzero_indices(ending_times)  # get the last operation of each job
-    durations[
-        torch.where(ending_times != 0)
-    ] = 0  # set the duration of already started operations to 0
-    durations[x, y] = ending_times[
-        x, y
-    ]  # set the duration of the last operation of each job to its start time
-    temp2 = torch.cumsum(
-        durations, dim=1
-    )  # calculate the cumulative sum of the durations of the operations on the same machine
-    temp2[
-        torch.where(ending_times != 0)
-    ] = 0  # set the cumulative sum of the durations of already started operations to 0
-    ret = ending_times + temp2
-    return ret
-
-
-def permissible_left_shift(
-    action, durations, machines, machines_start_times, operations_on_machines, high_value
-):
-    """
-    Calculate the permissible left shift of the given action.
-    It is equal to the duration for operations that have not yet started,
-    otherwise it is the start time plus the cumulative sum of the durations of the operations on the same machine.
-
-    Args:
-        action (torch.Tensor): action taken by the agent
-        durations (torch.Tensor): matrices with the duration of each task.
-            For example, if durations[1, 2] = 3, it means that
-            the task 2 of the job 1 takes 3 time units.
-            shape (num_jobs, num_machines)
-        machines (torch.Tensor): matrices with the indexes of the machines for each task.
-            For example, if machines[1, 2] = 3, it means that
-            the task 2 of the job 1 is executed on the machine 3.
-            shape (num_jobs, num_machines)
-        machines_start_times (torch.Tensor): matrices with the starting time of each task.
-            For example, if machines_start_times[1, 2] = 3, it means that
-            the task 2 of the job 1 starts at time 3.
-            shape (num_jobs, num_machines)
-        operations_on_machines (torch.Tensor): matrices with the indexes of the operations executed on each machine.
-            For example, if operations_on_machines[1, 2] = 3, it means that
-            the machine of index 1 executes the operation 3 at position 2.
-            shape (num_machines, num_jobs)
-    """
-    op_ready_time, machine_ready_time = job_machines_ready_time(
-        action, machines, durations, machines_start_times, operations_on_machines
-    )
-    op_duration = torch.take(durations, action)
-    selected_machine = torch.take(machines, action) - 1
-    start_times_for_selected_machine = machines_start_times[selected_machine]
-    op_for_selected_machine = operations_on_machines[selected_machine]
-    flag = False
-
-    possible_pos = torch.where(op_ready_time < start_times_for_selected_machine)[0]
-    # print('possible_pos:', possible_pos)
-    if len(possible_pos) == 0:
-        start_time = put_in_the_end(
-            action,
-            op_ready_time,
-            machine_ready_time,
-            start_times_for_selected_machine,
-            op_for_selected_machine,
-            high_value=high_value,
+        # to uniquely identify the tasks, add the first_task increment to the task indices in machines tensor
+        tasks_on_ma = td["machines"] + self.first_task[None, :, None]
+        # mask operations that are not scheduled yet
+        tasks_on_ma[~td["finished_mark"].gather(2, td["machines"]).to(torch.bool)] = -1
+        # get the operation that corresponds to the job-machine combo
+        pred_of_op = tasks_on_ma[batch_idx, pred_job, ma_idx]
+        succ_of_op = tasks_on_ma[batch_idx, succ_job, ma_idx]
+        # mask successors that have not been scheduled yet
+        succ_of_op = torch.where(
+            succ_of_op < 0,
+            task_idx, 
+            succ_of_op
         )
-    else:
-        index_legal_pos, legal_pos, end_time_possible_pos = extract_legal_pos(
-            op_duration,
-            op_ready_time,
-            durations,
-            possible_pos,
-            start_times_for_selected_machine,
-            op_for_selected_machine,
-        )
-        # print('legal_pos:', legal_pos)
-        if len(legal_pos) == 0:
-            start_time = put_in_the_end(
-                action,
-                op_ready_time,
-                machine_ready_time,
-                start_times_for_selected_machine,
-                op_for_selected_machine,
-                high_value=high_value,
-            )
-        else:
-            flag = True
-            start_time = put_inbetween(
-                action,
-                index_legal_pos,
-                legal_pos,
-                end_time_possible_pos,
-                start_times_for_selected_machine,
-                op_for_selected_machine,
-            )
-    return start_time, flag
+        return pred_of_op, succ_of_op
 
 
-def put_in_the_end(
-    action,
-    op_ready_time,
-    machine_ready_time,
-    start_times_for_selected_machine,
-    op_for_selected_machine,
-    high_value,
-):
-    index = torch.where(start_times_for_selected_machine == -high_value)[0][0]
-    start_time = max(op_ready_time, machine_ready_time)
-    start_times_for_selected_machine[index] = start_time
-    op_for_selected_machine[index] = action
-    return start_time
+if __name__ == "__main__":
+    torch.manual_seed(123) 
+    env = JSSPEnv(num_jobs=4, num_machines=3)
+    td = env._reset(batch_size=20)
+    while not td["done"].all():
+        logit = torch.zeros(*td["action_mask"].shape)
+        logit[~td["action_mask"]]= -torch.inf
+        actions = torch.multinomial(torch.softmax(logit, 1), 1).squeeze(1)
+        td.set("action", actions)
+        td = env.step(td)["next"]
 
-
-def extract_legal_pos(
-    op_duration: torch.Tensor,
-    op_ready_time: torch.Tensor,
-    durations: torch.Tensor,
-    possible_pos: torch.Tensor,
-    start_times_for_selected_machine: torch.Tensor,
-    op_for_selected_machine: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Extract legal positions for the given action.
-
-    Args:
-        op_duration (torch.Tensor): duration of the given action
-        op_ready_time (torch.Tensor): ready time of the given action
-        durations (torch.Tensor): matrices with the duration of each task.
-            For example, if durations[1, 2] = 3, it means that
-            the task 2 of the job 1 takes 3 time units.
-            shape (num_jobs, num_machines)
-        possible_pos (torch.Tensor): possible positions for the given action
-        start_times_for_selected_machine (torch.Tensor): matrices with the starting time of each task.
-            For example, if start_times_for_selected_machine[1, 2] = 3, it means that
-            the task 2 of the job 1 starts at time 3.
-            shape (num_jobs, num_machines)
-        op_for_selected_machine (torch.Tensor): matrices with the indexes of the operations executed on each machine.
-            For example, if op_for_selected_machine[1, 2] = 3, it means that
-            the machine of index 1 executes the operation 3 at position 2.
-            shape (num_machines, num_jobs)
-    Returns:
-        Tuple of tensors containing the index of the legal positions, the legal positions and the end time of the possible positions.
-    """
-    start_times_of_possible_pos = start_times_for_selected_machine[possible_pos]
-    duration_possible_pos = torch.take(
-        durations, op_for_selected_machine[possible_pos].to(torch.long)
-    )
-    earliest_start_time = torch.maximum(
-        op_ready_time,
-        start_times_for_selected_machine[possible_pos[0] - 1]
-        + torch.take(
-            durations, op_for_selected_machine[possible_pos[0] - 1].to(torch.long)
-        ),
-    )
-    end_time_possible_pos = torch.cat(
-        [earliest_start_time, start_times_of_possible_pos + duration_possible_pos]
-    )[
-        :-1
-    ]  # end time for last ops don't care
-    possible_gaps = start_times_of_possible_pos - end_time_possible_pos
-    index_legal_pos = torch.where(op_duration <= possible_gaps)[0]
-    legal_pos = torch.take(possible_pos, index_legal_pos)
-    # op_for_selected_machine[
-    return index_legal_pos, legal_pos, end_time_possible_pos
-
-
-def put_inbetween(
-    action: torch.Tensor,
-    index_legal_pos: torch.Tensor,
-    legal_pos: torch.Tensor,
-    end_time_possible_pos: torch.Tensor,
-    start_times_for_selected_machine: torch.Tensor,
-    op_for_selected_machine: torch.Tensor,
-):
-    earliest_idx = index_legal_pos[0]
-    earliest_pos = legal_pos[0]
-    start_time = end_time_possible_pos[earliest_idx]
-    start_times_for_selected_machine[:] = torch.cat(
-        [
-            start_times_for_selected_machine[:earliest_pos],
-            start_time.unsqueeze(0),
-            start_times_for_selected_machine[earliest_pos:],
-        ]
-    )[:-1]
-    op_for_selected_machine[:] = torch.cat(
-        [
-            op_for_selected_machine[:earliest_pos],
-            action.unsqueeze(0),
-            op_for_selected_machine[earliest_pos:],
-        ]
-    )[:-1]
-    return start_time
-
-
-def job_machines_ready_time(
-    action: torch.Tensor,
-    machines: torch.Tensor,
-    durations: torch.Tensor,
-    machine_start_times: torch.Tensor,
-    operations_on_machines: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Compute the ready time on the job and machine for the selected operations (=actions).
-
-    Args:
-        action (torch.Tensor): action taken by the agent
-            shape (1, )
-        machines (torch.Tensor): matrices with the indexes of the machines for each task.
-            For example, if machines[1, 2] = 3, it means that
-            the task 2 of the job 1 is executed on the machine 3.
-            shape (num_jobs, num_machines)
-        durations (torch.Tensor): matrices with the duration of each task.
-            For example, if durations[1, 2] = 3, it means that
-            the task 2 of the job 1 takes 3 time units.
-            shape (num_jobs, num_machines)
-        machine_start_times (torch.Tensor): matrices with the starting time of each task.
-            For example, if machines_start_times[1, 2] = 3, it means that
-            the task 2 of the job 1 starts at time 3.
-            shape (num_jobs, num_machines)
-        operations_on_machines (torch.Tensor): matrices with the indexes of the operations executed on each machine.
-            For example, if operations_on_machines[1, 2] = 3, it means that
-            the machine of index 1 executes the operation 3 at position 2.
-            shape (num_machines, num_jobs)
-
-    Returns:
-        ops_ready_time (torch.Tensor): ready time of the selected operations
-            shape (1, )
-        machines_ready_time (torch.Tensor): ready time of the machines
-            shape (1, )
-    """
-    selected_machine = torch.take(machines, action) - 1
-    previous_op_in_job = action - 1 if action % machines.shape[1] != 0 else None
-
-    if previous_op_in_job is not None:
-        duration_previous_op_in_job = torch.take(durations, previous_op_in_job)
-        machine_previous_op_in_job = torch.take(machines, previous_op_in_job) - 1
-        op_ready_time = (
-            machine_start_times[machine_previous_op_in_job][
-                torch.where(
-                    operations_on_machines[machine_previous_op_in_job]
-                    == previous_op_in_job
-                )
-            ]
-            + duration_previous_op_in_job
-        )
-    else:
-        op_ready_time = torch.tensor([0], device=action.device)
-    # cal machine_ready_time
-    previous_op_in_machine = (
-        operations_on_machines[selected_machine][
-            torch.where(operations_on_machines[selected_machine] >= 0)
-        ][-1]
-        if len(torch.where(operations_on_machines[selected_machine] >= 0)[0]) != 0
-        else None
-    )
-    if previous_op_in_machine is not None:
-        duration_previous_op_in_machine = torch.take(
-            durations, previous_op_in_machine.to(torch.long)
-        )
-        machine_ready_time = (
-            machine_start_times[selected_machine][
-                torch.where(machine_start_times[selected_machine] >= 0)
-            ][-1]
-            + duration_previous_op_in_machine
-        ).item()
-    else:
-        machine_ready_time = 0
-
-    return op_ready_time, machine_ready_time
-
-
-def get_action_nbghs(
-    action: torch.Tensor, op_id_on_mchs: torch.Tensor
-) -> Tuple[int, int]:
-    """Get the predecessor and successor of the given action in the given schedule.
-
-    Args:
-        action (torch.Tensor): The action to get the predecessor and successor of.
-        op_id_on_mchs (torch.Tensor): 2D array containing the operation IDs on each machine.
-    Returns:
-        Tuple of ints containing the predecessor and successor of the given action.
-    """
-    action_coordinates = torch.nonzero(op_id_on_mchs == action, as_tuple=True)
-    precd = op_id_on_mchs[
-        action_coordinates[0],
-        action_coordinates[1] - 1
-        if action_coordinates[1].item() > 0
-        else action_coordinates[1],
-    ].item()
-    succ_temp = op_id_on_mchs[
-        action_coordinates[0],
-        action_coordinates[1] + 1
-        if action_coordinates[1].item() + 1 < op_id_on_mchs.shape[-1]
-        else action_coordinates[1],
-    ].item()
-    succd = action.item() if succ_temp < 0 else succ_temp
-    return int(precd), int(succd)
-
-
-def permute_rows(x: torch.Tensor) -> torch.Tensor:
-    ix_i = torch.tile(torch.arange(x.shape[0], device=x.device), (x.shape[1], 1)).T
-    ix_j = torch.rand(x.shape).argsort(dim=1)
-    return x[ix_i, ix_j]
-
-
-def uniform_instance_gen(n_j, n_m, low, high, device):
-    times = torch.randint(low=low, high=high, size=(n_j, n_m), dtype=torch.float32)
-    machines = torch.arange(1, n_m + 1, device=device).unsqueeze(0).repeat(n_j, 1)
-    machines = permute_rows(machines)
-    return TensorDict(
-        {"durations": times.unsqueeze(0), "machines": machines.unsqueeze(0)}, batch_size=1
-    )
+    
