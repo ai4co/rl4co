@@ -288,7 +288,7 @@ class JSSPEnv(RL4COEnvBase):
 
     def get_reward(self, td, actions):
         reward = td["reward"]
-        if reward.isclose(torch.zeros_like(reward)).all():
+        if not td["done"].all() and not self.stepwise_reward:
             raise AttributeError("Use stepwise_reward=True in JSSPEnv if you require the reward after every step")
         return reward
 
