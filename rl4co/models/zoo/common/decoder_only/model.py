@@ -1,15 +1,12 @@
-from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.models.rl import PPO
-from rl4co.models.zoo.common.decoder_only.policy import L2DPolicy
 from typing import Union
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.models.rl import REINFORCE
+from rl4co.models.rl import PPO, REINFORCE
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline
+from rl4co.models.zoo.common.decoder_only.policy import L2DPolicy
+
 
 class L2DModel(PPO):
-
-
     def __init__(
         self,
         env: RL4COEnvBase,

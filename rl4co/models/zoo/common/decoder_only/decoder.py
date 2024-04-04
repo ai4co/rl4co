@@ -1,14 +1,12 @@
+from typing import Union
+
 import torch
 import torch.nn as nn
-from typing import Union
+
+from rl4co.envs import RL4COEnvBase, get_env
+from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
 from rl4co.models.nn.graph.graphCNN import GraphCNN
 from rl4co.models.nn.mlp import MLP
-from rl4co.models.nn.utils import decode_probs
-from rl4co.models.nn.mlp import MLP
-from rl4co.models.nn.graph.gcn import GCNEncoder
-from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.nn.utils import get_log_likelihood
-from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
 
 
 class Decoder(nn.Module):
@@ -35,7 +33,7 @@ class Decoder(nn.Module):
         self.actor = MLP(
             input_dim=embedding_dim,
             output_dim=1,
-            num_neurons=[embedding_dim]*num_decoder_layers,
+            num_neurons=[embedding_dim] * num_decoder_layers,
             hidden_act="Tanh",
             out_act="Identity",
             input_norm="None",
@@ -43,12 +41,7 @@ class Decoder(nn.Module):
         )
 
     def forward(
-        self,
-        td,
-        env,
-        decode_type="sampling",
-        calc_reward: bool = True,
-        **strategy_kwargs
+        self, td, env, decode_type="sampling", calc_reward: bool = True, **strategy_kwargs
     ):
         """
         Args:
@@ -70,9 +63,10 @@ class Decoder(nn.Module):
         )
 
         while not td["done"].all():
-
             embeddings, _ = self.graph_cnn(td)
-            cand_emb = embeddings.gather(1, td["next_op"][...,None].expand(-1,-1,embeddings.size(-1)))
+            cand_emb = embeddings.gather(
+                1, td["next_op"][..., None].expand(-1, -1, embeddings.size(-1))
+            )
             logits = self.actor(cand_emb).squeeze(2)
             mask = ~td["action_mask"]
             logits[mask] = -torch.inf
@@ -93,3 +87,4 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
         logits[mask] = -torch.inf
         log_p = torch.log_softmax(logits, dim=1)
+        return log_p

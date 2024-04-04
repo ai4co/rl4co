@@ -1,12 +1,92 @@
-import math
 from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from einops import rearrange
-from rl4co.models.nn.ops import Normalization
 from tensordict import TensorDict
+
+from rl4co.models.nn.ops import Normalization
+
+
+class MixedScoresSDPA(nn.Module):
+    def __init__(
+        self,
+        num_heads: int,
+        mixer_hidden_dim: int = 16,
+        mix1_init: float = (1 / 2) ** (1 / 2),
+        mix2_init: float = (1 / 16) ** (1 / 2),
+    ):
+        super().__init__()
+        mix_W1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
+            (num_heads, 2, mixer_hidden_dim)
+        )
+        mix_b1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
+            (num_heads, mixer_hidden_dim)
+        )
+        self.mix_W1 = nn.Parameter(mix_W1)
+        self.mix_b1 = nn.Parameter(mix_b1)
+
+        mix_W2 = torch.torch.distributions.Uniform(low=-mix2_init, high=mix2_init).sample(
+            (num_heads, mixer_hidden_dim, 1)
+        )
+        mix_b2 = torch.torch.distributions.Uniform(low=-mix2_init, high=mix2_init).sample(
+            (num_heads, 1)
+        )
+        self.mix_W2 = nn.Parameter(mix_W2)
+        self.mix_b2 = nn.Parameter(mix_b2)
+
+    def forward(self, q, k, v, dmat, attn_mask=None, dropout_p=0.0, is_causal=False):
+        """Scaled Dot-Product Attention with MatNet Scores Mixer"""
+        b, m, n = dmat.shape
+        # Check for causal and attn_mask conflict
+        if is_causal and attn_mask is not None:
+            raise ValueError("Cannot set both is_causal and attn_mask")
+
+        # Calculate scaled dot product
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
+        mix_attn_scores = torch.stack(
+            [attn_scores, dmat[:, None, :, :].expand(b, self.num_heads, m, n)], dim=-1
+        )  # [b, h, m, n, 2]
+
+        attn_scores = (
+            (
+                torch.matmul(
+                    F.relu(
+                        torch.matmul(mix_attn_scores.transpose(1, 2), self.mix_W1)
+                        + self.mix_b1[None, None, :, None, :]
+                    ),
+                    self.mix_W2,
+                )
+                + self.mix_b2[None, None, :, None, :]
+            )
+            .transpose(1, 2)
+            .squeeze(-1)
+        )  # [b, h, m, n]
+
+        # Apply the provided attention mask
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_scores.masked_fill_(~attn_mask, float("-inf"))
+            else:
+                attn_scores += attn_mask
+
+        # Apply causal mask
+        if is_causal:
+            s, l_ = attn_scores.size(-2), attn_scores.size(-1)
+            mask = torch.triu(torch.ones((s, l_), device=attn_scores.device), diagonal=1)
+            attn_scores.masked_fill_(mask.bool(), float("-inf"))
+
+        # Softmax to get attention weights
+        attn_weights = F.softmax(attn_scores, dim=-1)
+
+        # Apply dropout
+        if dropout_p > 0.0:
+            attn_weights = F.dropout(attn_weights, p=dropout_p)
+
+        # Compute the weighted sum of values
+        return torch.matmul(attn_weights, v)
 
 
 class MatNetCrossMHA(nn.Module):
@@ -30,26 +110,12 @@ class MatNetCrossMHA(nn.Module):
         self.Wq = nn.Linear(embedding_dim, embedding_dim, bias=bias)
         self.Wkv = nn.Linear(embedding_dim, 2 * embedding_dim, bias=bias)
 
-        # Score mixer
-        # Taken from the official MatNet implementation
-        # https://github.com/yd-kwon/MatNet/blob/main/ATSP/ATSP_MatNet/ATSPModel_LIB.py#L72
-        mix_W1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
-            (num_heads, 2, mixer_hidden_dim)
+        self.sdpa = MixedScoresSDPA(
+            num_heads=num_heads,
+            mixer_hidden_dim=mixer_hidden_dim,
+            mix1_init=mix1_init,
+            mix2_init=mix2_init,
         )
-        mix_b1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
-            (num_heads, mixer_hidden_dim)
-        )
-        self.mix_W1 = nn.Parameter(mix_W1)
-        self.mix_b1 = nn.Parameter(mix_b1)
-
-        mix_W2 = torch.torch.distributions.Uniform(low=-mix2_init, high=mix2_init).sample(
-            (num_heads, mixer_hidden_dim, 1)
-        )
-        mix_b2 = torch.torch.distributions.Uniform(low=-mix2_init, high=mix2_init).sample(
-            (num_heads, 1)
-        )
-        self.mix_W2 = nn.Parameter(mix_W2)
-        self.mix_b2 = nn.Parameter(mix_b2)
 
         self.out_proj = nn.Linear(embedding_dim, embedding_dim, bias=bias)
 
@@ -65,8 +131,6 @@ class MatNetCrossMHA(nn.Module):
             Tensor: [b, m, d]
         """
 
-        b, m, n = dmat.shape
-
         q = rearrange(
             self.Wq(q_input), "b m (h d) -> b h m d", h=self.num_heads
         )  # [b, h, m, d]
@@ -76,29 +140,7 @@ class MatNetCrossMHA(nn.Module):
             dim=0
         )  # [b, h, n, d]
 
-        scale = math.sqrt(q.size(-1))  # scale factor
-        attn_scores = torch.matmul(q, k.transpose(2, 3)) / scale  # [b, h, m, n]
-        mix_attn_scores = torch.stack(
-            [attn_scores, dmat[:, None, :, :].expand(b, self.num_heads, m, n)], dim=-1
-        )  # [b, h, m, n, 2]
-
-        mix_attn_scores = (
-            (
-                torch.matmul(
-                    F.relu(
-                        torch.matmul(mix_attn_scores.transpose(1, 2), self.mix_W1)
-                        + self.mix_b1[None, None, :, None, :]
-                    ),
-                    self.mix_W2,
-                )
-                + self.mix_b2[None, None, :, None, :]
-            )
-            .transpose(1, 2)
-            .squeeze(-1)
-        )  # [b, h, m, n]
-
-        attn_probs = F.softmax(mix_attn_scores, dim=-1)
-        out = torch.matmul(attn_probs, v)
+        out = self.sdpa(q, k, v, dmat)
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
 
 

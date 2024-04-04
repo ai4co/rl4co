@@ -1,6 +1,6 @@
 import math
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -86,7 +86,7 @@ class MultiHeadAttention(nn.Module):
         causal: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
-        sdpa_fn: Optional[Callable] = None,
+        sdpa_fn: Optional[Union[Callable, nn.Module]] = None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -117,6 +117,82 @@ class MultiHeadAttention(nn.Module):
         q, k, v = rearrange(
             self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads
         ).unbind(dim=0)
+
+        # Scaled dot product attention
+        out = self.sdpa_fn(
+            q,
+            k,
+            v,
+            attn_mask=key_padding_mask,
+            dropout_p=self.attention_dropout,
+        )
+        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
+
+
+class MultiHeadCrossAttention(nn.Module):
+    """PyTorch native implementation of Flash Multi-Head Cross Attention with automatic mixed precision support.
+    Uses PyTorch's native `scaled_dot_product_attention` implementation, available from 2.0
+
+    Note:
+        If `scaled_dot_product_attention` is not available, use custom implementation of `scaled_dot_product_attention` without Flash Attention.
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        bias: whether to use bias
+        attention_dropout: dropout rate for attention weights
+        causal: whether to apply causal mask to attention scores
+        device: torch device
+        dtype: torch dtype
+        sdpa_fn: scaled dot product attention function (SDPA)
+    """
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        bias: bool = True,
+        attention_dropout: float = 0.0,
+        causal: bool = False,
+        device: str = None,
+        dtype: torch.dtype = None,
+        sdpa_fn: Optional[Union[Callable, nn.Module]] = None,
+    ) -> None:
+        factory_kwargs = {"device": device, "dtype": dtype}
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.causal = causal
+        self.attention_dropout = attention_dropout
+
+        # Default to `scaled_dot_product_attention` if `sdpa_fn` is not provided
+        if sdpa_fn is None:
+            sdpa_fn = scaled_dot_product_attention
+        self.sdpa_fn = sdpa_fn
+
+        self.num_heads = num_heads
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
+        self.head_dim = self.embed_dim // num_heads
+        assert (
+            self.head_dim % 8 == 0 and self.head_dim <= 128
+        ), "Only support head_dim <= 128 and divisible by 8"
+
+        self.Wq = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
+        self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias, **factory_kwargs)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
+
+    def forward(self, q_input, kv_input, key_padding_mask=None):
+        """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
+        key_padding_mask: bool tensor of shape (batch, seqlen)
+        """
+        # Project query, key, value
+        q = rearrange(
+            self.Wq(q_input), "b m (h d) -> b h m d", h=self.num_heads
+        )  # [b, h, m, d]
+        k, v = rearrange(
+            self.Wkv(kv_input), "b n (two h d) -> two b h n d", two=2, h=self.num_heads
+        ).unbind(
+            dim=0
+        )  # [b, h, n, d]
 
         # Scaled dot product attention
         out = self.sdpa_fn(

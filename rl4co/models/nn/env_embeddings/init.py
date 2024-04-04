@@ -26,6 +26,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": PDPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
+        "jssp": JSSPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -308,5 +309,28 @@ class SMTWTPInitEmbedding(nn.Module):
         job_weight = td["job_weight"]
         job_process_time = td["job_process_time"]
         feat = torch.stack((job_due_time, job_weight, job_process_time), dim=-1)
+        out = self.init_embed(feat)
+        return out
+
+
+class JSSPInitEmbedding(nn.Module):
+    """Initial embedding for the Job Shop Scheduling Problem (JSSP).
+    Embed the following node features to the embedding space:
+        - lower_bounds: lower bounds of job finishing times
+        - job_weight: weights of the jobs
+        - job_process_time: the processing time of jobs
+    """
+
+    def __init__(self, embedding_dim, linear_bias=False):
+        super(JSSPInitEmbedding, self).__init__()
+        node_dim = 2  # job_due_time, job_weight, job_process_time
+        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+
+    def forward(self, td):
+        # TODO norm coefficient is missing
+        bs = td.batch_size
+        lower_bounds = td["lower_bounds"].reshape(*bs, -1)
+        finished_mark = td["finished_mark"].reshape(*bs, -1)
+        feat = torch.stack((lower_bounds, finished_mark), dim=-1)
         out = self.init_embed(feat)
         return out

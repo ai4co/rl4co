@@ -7,15 +7,13 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.utils import get_log_likelihood
-from rl4co.utils.pylogger import get_pylogger
 from rl4co.models.zoo.common.decoder_only.decoder import Decoder
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
 class L2DPolicy(nn.Module):
-
-
     def __init__(
         self,
         env_name: Union[str, RL4COEnvBase],
@@ -30,11 +28,7 @@ class L2DPolicy(nn.Module):
             env_name = env_name.name
         self.env_name = env_name
 
-
-        self.decoder = Decoder(
-            env_name=self.env_name,
-            embedding_dim=embedding_dim
-        )
+        self.decoder = Decoder(env_name=self.env_name, embedding_dim=embedding_dim)
 
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
