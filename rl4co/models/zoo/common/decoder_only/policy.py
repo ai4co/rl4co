@@ -13,7 +13,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class L2DPolicy(nn.Module):
+class DecoderOnlyPolicy(nn.Module):
     def __init__(
         self,
         env_name: Union[str, RL4COEnvBase],

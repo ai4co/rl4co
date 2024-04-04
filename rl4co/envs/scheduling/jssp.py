@@ -35,7 +35,6 @@ class JSSPEnv(RL4COEnvBase):
         num_machines: int,
         low: int = 1,
         high: int = 99,
-        et_normalize_coef: int = 1000,
         stepwise_reward: bool = False,
         normalize_reward: bool = False,
         **kwargs,
@@ -43,7 +42,6 @@ class JSSPEnv(RL4COEnvBase):
         super().__init__(**kwargs)
         self._low = low
         self._high = high
-        self._et_normalize_coef = et_normalize_coef
 
         self.stepwise_reward = stepwise_reward
 
@@ -108,7 +106,6 @@ class JSSPEnv(RL4COEnvBase):
         ma_starts = td["start_times"].gather(2, td["machines"])
         ma_ends = td["end_times"].gather(2, td["machines"])
         # get start and end times of selected machine; shape=(bs, num_jobs)
-        # TODO this needs to be sorted right??!?
         start_chosen_ma = ma_starts.gather(
             2, ma_idx[:, None, None].expand(-1, self.num_jobs, 1)
         ).squeeze(2)
@@ -176,7 +173,7 @@ class JSSPEnv(RL4COEnvBase):
         return td.update(
             {
                 "adjacency": adjacency,
-                "lower_bounds": LBs / self._et_normalize_coef,
+                "lower_bounds": LBs,
                 "reward": reward,
                 "done": done,
             }
@@ -252,7 +249,7 @@ class JSSPEnv(RL4COEnvBase):
                 "machines": machines,
                 "start_times": start_times,
                 "end_times": ending_times,
-                "lower_bounds": LBs / self._et_normalize_coef,
+                "lower_bounds": LBs,
                 "finished_mark": finished_mark,
                 "next_op": next_op,
                 "durations": durations,

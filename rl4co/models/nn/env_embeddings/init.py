@@ -368,16 +368,18 @@ class JSSPInitEmbedding(nn.Module):
         - job_process_time: the processing time of jobs
     """
 
-    def __init__(self, embedding_dim, linear_bias=False):
+    def __init__(self, embedding_dim, linear_bias=False, et_normalize_coef: int = 1000):
         super(JSSPInitEmbedding, self).__init__()
-        node_dim = 2  # job_due_time, job_weight, job_process_time
+        node_dim = 3  # durations, lower_bounds, finished_mark
         self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.et_normalize_coef = et_normalize_coef
 
     def forward(self, td):
         # TODO norm coefficient is missing
         bs = td.batch_size
-        lower_bounds = td["lower_bounds"].reshape(*bs, -1)
+        durations = td["durations"].reshape(*bs, -1) / self.et_normalize_coef
+        lower_bounds = td["lower_bounds"].reshape(*bs, -1) / self.et_normalize_coef
         finished_mark = td["finished_mark"].reshape(*bs, -1)
-        feat = torch.stack((lower_bounds, finished_mark), dim=-1)
+        feat = torch.stack((durations, lower_bounds, finished_mark), dim=-1)
         out = self.init_embed(feat)
         return out

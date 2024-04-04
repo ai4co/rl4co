@@ -129,6 +129,16 @@ class MultiHeadAttention(nn.Module):
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
 
 
+def sdpa_fn_wrapper(q, k, v, attn_mask=None, dmat=None, dropout_p=0.0, is_causal=False):
+    if dmat is not None:
+        log.warning(
+            "Edge weights passed to simple attention-fn, which is not supported. Weights will be ignored..."
+        )
+    return scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal
+    )
+
+
 class MultiHeadCrossAttention(nn.Module):
     """PyTorch native implementation of Flash Multi-Head Cross Attention with automatic mixed precision support.
     Uses PyTorch's native `scaled_dot_product_attention` implementation, available from 2.0
@@ -166,7 +176,7 @@ class MultiHeadCrossAttention(nn.Module):
 
         # Default to `scaled_dot_product_attention` if `sdpa_fn` is not provided
         if sdpa_fn is None:
-            sdpa_fn = scaled_dot_product_attention
+            sdpa_fn = sdpa_fn_wrapper
         self.sdpa_fn = sdpa_fn
 
         self.num_heads = num_heads
@@ -180,7 +190,7 @@ class MultiHeadCrossAttention(nn.Module):
         self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias, **factory_kwargs)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
 
-    def forward(self, q_input, kv_input, key_padding_mask=None):
+    def forward(self, q_input, kv_input, cross_attn_mask=None, dmat=None):
         """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
         key_padding_mask: bool tensor of shape (batch, seqlen)
         """
@@ -199,7 +209,8 @@ class MultiHeadCrossAttention(nn.Module):
             q,
             k,
             v,
-            attn_mask=key_padding_mask,
+            attn_mask=cross_attn_mask,
+            dmat=dmat,
             dropout_p=self.attention_dropout,
         )
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))

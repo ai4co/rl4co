@@ -10,10 +10,12 @@ from rl4co.models.nn.mlp import MLP
 
 
 class Decoder(nn.Module):
-    # TODO GraphCNN + actor
+    # feature extractor + actor
     def __init__(
         self,
         env_name: Union[str, RL4COEnvBase],
+        feature_extractor: nn.Module = None,
+        actor: nn.Module = None,
         embedding_dim: int = 128,
         num_encoder_layers: int = 2,
         num_decoder_layers: int = 2,
@@ -24,21 +26,25 @@ class Decoder(nn.Module):
             env_name = env_name.name
         self.env_name = env_name
 
-        self.graph_cnn = GraphCNN(
-            env_name=env_name,
-            embedding_dim=embedding_dim,
-            num_layers=num_encoder_layers,
-        )
+        if feature_extractor is None:
+            feature_extractor = GraphCNN(
+                env_name=env_name,
+                embedding_dim=embedding_dim,
+                num_layers=num_encoder_layers,
+            )
+        self.feature_extractor = feature_extractor
 
-        self.actor = MLP(
-            input_dim=embedding_dim,
-            output_dim=1,
-            num_neurons=[embedding_dim] * num_decoder_layers,
-            hidden_act="Tanh",
-            out_act="Identity",
-            input_norm="None",
-            output_norm="None",
-        )
+        if actor is None:
+            self.actor = MLP(
+                input_dim=embedding_dim,
+                output_dim=1,
+                num_neurons=[embedding_dim] * num_decoder_layers,
+                hidden_act="Tanh",
+                out_act="Identity",
+                input_norm="None",
+                output_norm="None",
+            )
+        self.actor = actor
 
     def forward(
         self, td, env, decode_type="sampling", calc_reward: bool = True, **strategy_kwargs
@@ -63,7 +69,7 @@ class Decoder(nn.Module):
         )
 
         while not td["done"].all():
-            embeddings, _ = self.graph_cnn(td)
+            embeddings, _ = self.feature_extractor(td)
             cand_emb = embeddings.gather(
                 1, td["next_op"][..., None].expand(-1, -1, embeddings.size(-1))
             )
@@ -82,7 +88,7 @@ class Decoder(nn.Module):
         return outputs, actions, td
 
     def evaluate_action(self, td, action, env):
-        embeddings, _ = self.graph_cnn(td)
+        embeddings, _ = self.feature_extractor(td)
         logits = self.actor(embeddings)
         mask = ~td["action_mask"]
         logits[mask] = -torch.inf

@@ -1,12 +1,10 @@
 from rl4co.models.zoo.active_search import ActiveSearch
 from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
+from rl4co.models.zoo.common.decoder_only import DecoderOnlyPolicy, L2DModel, L2DReinforce
 from rl4co.models.zoo.common.nonautoregressive import (
     NonAutoregressiveModel,
     NonAutoregressivePolicy,
-)
-from rl4co.models.zoo.common.decoder_only import (
-    L2DModel, L2DPolicy, L2DReinforce
 )
 from rl4co.models.zoo.common.search import SearchBase
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay

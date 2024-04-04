@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+from rl4co.models.nn.attention import MultiHeadCrossAttention
 from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.ops import Normalization
 
@@ -14,13 +15,16 @@ class MixedScoresSDPA(nn.Module):
     def __init__(
         self,
         num_heads: int,
+        num_scores: int = 1,
         mixer_hidden_dim: int = 16,
         mix1_init: float = (1 / 2) ** (1 / 2),
         mix2_init: float = (1 / 16) ** (1 / 2),
     ):
         super().__init__()
+        self.num_heads = num_heads
+        self.num_scores = num_scores
         mix_W1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
-            (num_heads, 2, mixer_hidden_dim)
+            (num_heads, self.num_scores + 1, mixer_hidden_dim)
         )
         mix_b1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
             (num_heads, mixer_hidden_dim)
@@ -37,18 +41,24 @@ class MixedScoresSDPA(nn.Module):
         self.mix_W2 = nn.Parameter(mix_W2)
         self.mix_b2 = nn.Parameter(mix_b2)
 
-    def forward(self, q, k, v, dmat, attn_mask=None, dropout_p=0.0, is_causal=False):
+    def forward(self, q, k, v, attn_mask=None, dmat=None, dropout_p=0.0, is_causal=False):
         """Scaled Dot-Product Attention with MatNet Scores Mixer"""
-        b, m, n = dmat.shape
+        assert dmat is not None
+        b, m, n = dmat.shape[:3]
+        dmat = dmat.reshape(b, m, n, self.num_scores)
         # Check for causal and attn_mask conflict
         if is_causal and attn_mask is not None:
             raise ValueError("Cannot set both is_causal and attn_mask")
 
         # Calculate scaled dot product
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
-        mix_attn_scores = torch.stack(
-            [attn_scores, dmat[:, None, :, :].expand(b, self.num_heads, m, n)], dim=-1
-        )  # [b, h, m, n, 2]
+        mix_attn_scores = torch.cat(
+            [
+                attn_scores.unsqueeze(-1),
+                dmat[:, None, ...].expand(b, self.num_heads, m, n, self.num_scores),
+            ],
+            dim=-1,
+        )  # [b, h, m, n, num_scores+1]
 
         attn_scores = (
             (
@@ -147,8 +157,16 @@ class MatNetCrossMHA(nn.Module):
 class MatNetMHA(nn.Module):
     def __init__(self, embedding_dim: int, num_heads: int, bias: bool = False):
         super().__init__()
-        self.row_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
-        self.col_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
+        # row encoder
+        row_sdpa = MixedScoresSDPA(num_heads=num_heads)
+        self.row_encoding_block = MultiHeadCrossAttention(
+            embedding_dim, num_heads, bias=bias, sdpa_fn=row_sdpa
+        )
+        # col encoder
+        col_sdpa = MixedScoresSDPA(num_heads=num_heads)
+        self.col_encoding_block = MultiHeadCrossAttention(
+            embedding_dim, num_heads, bias=bias, sdpa_fn=col_sdpa
+        )
 
     def forward(self, row_emb, col_emb, dmat):
         """
@@ -162,9 +180,9 @@ class MatNetMHA(nn.Module):
             Updated col_emb (Tensor): [b, n, d]
         """
 
-        updated_row_emb = self.row_encoding_block(row_emb, col_emb, dmat)
+        updated_row_emb = self.row_encoding_block(row_emb, col_emb, dmat=dmat)
         updated_col_emb = self.col_encoding_block(
-            col_emb, row_emb, dmat.transpose(-2, -1)
+            col_emb, row_emb, dmat=dmat.transpose(-2, -1)
         )
         return updated_row_emb, updated_col_emb
 
