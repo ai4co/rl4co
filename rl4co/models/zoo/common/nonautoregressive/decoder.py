@@ -105,7 +105,6 @@ class NonAutoregressiveDecoder(nn.Module):
         env_name: environment name to solve
         embedding_dim: Dimension of the embeddings
         num_layers: Number of linear layers to use in the MLP
-        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
         act_fn: Activation function to use between linear layers. Can be a string name or a direct callable
         linear_bias: Whether to use a bias term in the linear layers
     """

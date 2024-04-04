@@ -90,12 +90,8 @@ class MTSPEnv(RL4COEnvBase):
         # If done is True, then we make the depot available again, so that it will be selected as the next node with prob 1
         available[..., 0] = torch.logical_or(done, available[..., 0])
 
-        # If current agent is different from previous agent, then we have a new subtour and reset the length, otherwise we add the new distance
-        current_length = torch.where(
-            cur_agent_idx != td["agent_idx"],
-            torch.zeros_like(td["current_length"]),
-            td["current_length"] + get_distance(cur_loc, prev_loc),
-        )
+        # Update the current length
+        current_length = td["current_length"] + get_distance(cur_loc, prev_loc)
 
         # If done, we add the distance from the current_node to the depot as well
         current_length = torch.where(
@@ -108,6 +104,9 @@ class MTSPEnv(RL4COEnvBase):
             current_length,
             td["max_subtour_length"],
         )
+
+        # If current agent is different from previous agent, then we have a new subtour and reset the length
+        current_length *= (cur_agent_idx == td["agent_idx"]).float()
 
         # The reward is the negative of the max_subtour_length (minmax objective)
         reward = -max_subtour_length
@@ -225,7 +224,7 @@ class MTSPEnv(RL4COEnvBase):
             return td["reward"].squeeze(-1)
 
         # With distance, same as TSP
-        elif self.cost_type == "distance":
+        elif self.cost_type == "sum":
             locs = td["locs"]
             locs_ordered = locs.gather(1, actions.unsqueeze(-1).expand_as(locs))
             return -get_tour_length(locs_ordered)

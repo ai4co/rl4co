@@ -6,12 +6,7 @@ from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.pomo.policy import POMOPolicy
-from rl4co.utils.ops import (
-    gather_by_index,
-    get_num_starts,
-    select_start_nodes,
-    unbatchify,
-)
+from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -32,7 +27,6 @@ class POMO(REINFORCE):
         first_aug_identity: Whether to include the identity augmentation in the first position
         feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
-        select_start_nodes_fn: Function to select the start nodes for the environment defaulting to :func:`select_start_nodes`
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -47,17 +41,9 @@ class POMO(REINFORCE):
         first_aug_identity: bool = True,
         feats: list = None,
         num_starts: int = None,
-        select_start_nodes_fn: callable = select_start_nodes,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
-
-        # If select_start_nodes_fn is provided in policy_kwargs, we use that instead
-        if "select_start_nodes_fn" in policy_kwargs:
-            log.info(
-                "Overriding select_start_nodes_fn in POMO with the one provided in policy_kwargs"
-            )
-        policy_kwargs["select_start_nodes_fn"] = select_start_nodes_fn
 
         if policy is None:
             policy = POMOPolicy(env.name, **policy_kwargs)
@@ -71,7 +57,10 @@ class POMO(REINFORCE):
         self.num_augment = num_augment
         if self.num_augment > 1:
             self.augment = StateAugmentation(
-                num_augment=self.num_augment, augment_fn=augment_fn, first_aug_identity=first_aug_identity, feats=feats
+                num_augment=self.num_augment,
+                augment_fn=augment_fn,
+                first_aug_identity=first_aug_identity,
+                feats=feats,
             )
         else:
             self.augment = None
@@ -85,7 +74,7 @@ class POMO(REINFORCE):
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
-        n_start = get_num_starts(td, self.env.name) if n_start is None else n_start
+        n_start = self.env.get_num_starts(td) if n_start is None else n_start
 
         # During training, we do not augment the data
         if phase == "train":
@@ -94,7 +83,9 @@ class POMO(REINFORCE):
             td = self.augment(td)
 
         # Evaluate policy
-        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+        out = self.policy(
+            td, self.env, phase=phase, num_starts=n_start, return_actions=True
+        )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (n_aug, n_start))
@@ -104,7 +95,8 @@ class POMO(REINFORCE):
             assert n_start > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
-
+            max_reward, max_idxs = reward.max(dim=-1)
+            out.update({"max_reward": max_reward})
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:

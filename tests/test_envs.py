@@ -72,7 +72,7 @@ def test_scheduling(env_cls, batch_size=2):
         batch_size=[batch_size],
     )
     td = env.reset()
-    td["job_idx"] = torch.tensor([1, 1])
+    td["action"] = torch.tensor([1, 1])
     td = env._step(td)
 
 
