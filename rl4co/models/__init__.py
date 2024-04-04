@@ -24,3 +24,5 @@ from rl4co.models.zoo.pomo import POMO, POMOPolicy
 from rl4co.models.zoo.ppo import PPOModel, PPOPolicy
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
 from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy
+
+from rl4co.models.zoo import L2DModel, L2DPolicy, L2DReinforce
