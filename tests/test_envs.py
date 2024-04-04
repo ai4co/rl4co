@@ -16,9 +16,9 @@ from rl4co.envs import (
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
-    SVRPEnv,
     SMTWTPEnv,
     SPCTSPEnv,
+    SVRPEnv,
     TSPEnv,
 )
 from rl4co.models.nn.utils import random_policy, rollout
@@ -69,7 +69,7 @@ def test_scheduling(env_cls, batch_size=2):
         batch_size=[batch_size],
     )
     td = env.reset()
-    td["job_idx"] = torch.tensor([1, 1])
+    td["action"] = torch.tensor([1, 1])
     td = env._step(td)
 
 

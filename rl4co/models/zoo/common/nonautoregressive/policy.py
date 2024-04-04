@@ -25,7 +25,6 @@ class NonAutoregressivePolicy(nn.Module):
         decoder: Decoder module. Can be passed by sub-classes
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
         edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
-        select_start_nodes_fn: Function to select the start nodes for multi-start decoding
         embedding_dim: Dimension of the embeddings
         num_encoder_layers: Number of layers in the encoder
         num_decoder_layers: Number of layers in the decoder
