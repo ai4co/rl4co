@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import pytest
 import torch
 
+from tensordict import TensorDict
+
 from rl4co.envs import (
     ATSPEnv,
     CVRPEnv,
@@ -17,9 +19,9 @@ from rl4co.envs import (
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
-    SVRPEnv,
     SMTWTPEnv,
     SPCTSPEnv,
+    SVRPEnv,
     TSPEnv,
 )
 from rl4co.models.nn.utils import random_policy, rollout
@@ -82,11 +84,33 @@ def test_smtwtp(env_cls, batch_size=2):
 
 
 @pytest.mark.parametrize("env_cls", [JSSPEnv])
-def test_jssp(env_cls):
-    env = env_cls(
-        num_jobs=4,
-        num_machines=5,
-        batch_size=[2]
-    )
+def test_jssp(env_cls, batch_size=2):
+    env = env_cls(num_jobs=4, num_machines=5, batch_size=[batch_size])
     reward, td, actions = rollout(env, env.reset(), random_policy)
-    assert reward.shape == (2,)
+    assert reward.shape == (batch_size,)
+
+
+@pytest.mark.parametrize("env_cls", [JSSPEnv])
+def test_jssp_lb(env_cls):
+    env = env_cls(num_jobs=2, num_machines=2, batch_size=[1])
+    td = TensorDict(
+        {
+            "durations": torch.tensor([[[1, 2], [3, 4]]], dtype=torch.float32),
+            "machines": torch.tensor([[[0, 1], [1, 0]]], dtype=torch.long),
+        },
+        batch_size=[1],
+    )
+
+    td = env._reset(td)
+
+    actions = [0, 1, 1]
+    for action in actions:
+        td.set("action", torch.tensor([action], dtype=torch.long))
+        td = env._step(td)
+
+    lb_expected = torch.tensor([[1, 3], [3, 7]], dtype=torch.float32)
+    adj_expected = torch.tensor(
+        [[1, 0, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0], [1, 0, 1, 1]], dtype=torch.float32
+    ).unsqueeze(0)
+    assert torch.allclose(td["lower_bounds"], lb_expected)
+    assert torch.allclose(td["adjacency"], adj_expected)
