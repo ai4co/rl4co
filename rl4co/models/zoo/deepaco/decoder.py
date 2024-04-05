@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 import torch.nn as nn
 
@@ -39,7 +39,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
         num_layers: int,
         heatmap_generator: Optional[nn.Module] = None,
         linear_bias: bool = True,
-        aco_class=AntSystem,
+        aco_class: Optional[Type[AntSystem]] = None,
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
         **aco_args,
@@ -51,7 +51,7 @@ class DeepACODecoder(NonAutoregressiveDecoder):
             heatmap_generator=heatmap_generator,
             linear_bias=linear_bias,
         )
-        self.aco_class = aco_class
+        self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_args = aco_args
         self.n_ants = merge_with_defaults(n_ants, train=20, val=20, test=20)
         self.n_iterations = merge_with_defaults(n_iterations, train=1, val=20, test=100)

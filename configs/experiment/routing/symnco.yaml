@@ -14,7 +14,7 @@ logger:
   wandb:
     project: "rl4co"
     tags: ["symnco", "${env.name}"]
-    group: ${env.name}${env.num_loc}"
+    group: "${env.name}${env.num_loc}"
     name: "symnco-${env.name}${env.num_loc}"
 
 model:

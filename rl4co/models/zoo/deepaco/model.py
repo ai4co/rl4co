@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
@@ -11,6 +11,7 @@ class DeepACO(REINFORCE):
 
     Args:
         env: Environment to use for the algorithm
+        policy: Policy to use for the algorithm
         baseline: REINFORCE baseline. Defaults to exponential
         policy_kwargs: Keyword arguments for policy
         baseline_kwargs: Keyword arguments for baseline
@@ -20,11 +21,13 @@ class DeepACO(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
+        policy: Optional[DeepACOPolicy] = None,
         baseline: Union[REINFORCEBaseline, str] = "exponential",
         policy_kwargs: dict = {},
         baseline_kwargs: dict = {},
         **kwargs,
     ):
-        policy = DeepACOPolicy(env.name, **policy_kwargs)
+        if policy is None:
+            policy = DeepACOPolicy(env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
