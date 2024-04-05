@@ -62,6 +62,8 @@ class EdgeHeatmapGenerator(nn.Module):
 
         heatmaps_logits = self._make_heatmaps(graph)
         return heatmaps_logits
+        heatmaps_logits = self._make_heatmaps(graph)
+        return heatmaps_logits
 
     def _make_heatmaps(self, batch_graph: Batch) -> Tensor:  # type: ignore
         graphs = batch_graph.to_data_list()
@@ -156,8 +158,8 @@ class NonAutoregressiveDecoder(nn.Module):
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
-            logits, mask = self._get_logits(td, heatmaps_logits, num_starts)
-            td = self.decode_strategy.step(logits, mask, td)
+            log_p, mask = self._get_log_p(td, heatmaps_logits, num_starts)
+            td = decode_strategy.step(log_p, mask, td)
             td = env.step(td)["next"]
 
         outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
