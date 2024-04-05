@@ -29,6 +29,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": PDPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
+        "mdcpdp": MDCPDPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -357,3 +358,32 @@ class SMTWTPInitEmbedding(nn.Module):
         feat = torch.stack((job_due_time, job_weight, job_process_time), dim=-1)
         out = self.init_embed(feat)
         return out
+
+
+class MDCPDPInitEmbedding(nn.Module):
+    """Initial embedding for the MDCPDP environment
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot, pickups and deliveries separately)
+           Note that pickups and deliveries are interleaved in the input.
+    """
+
+    def __init__(self, embedding_dim, linear_bias=True):
+        super(MDCPDPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed_depot = nn.Linear(2, embedding_dim, linear_bias)
+        self.init_embed_pick = nn.Linear(node_dim * 2, embedding_dim, linear_bias)
+        self.init_embed_delivery = nn.Linear(node_dim, embedding_dim, linear_bias)
+
+    def forward(self, td):
+        num_depots = td["capacity"].size(-1)
+        depot, locs = td["locs"][..., 0:num_depots, :], td["locs"][..., num_depots:, :]
+        num_locs = locs.size(-2)
+        pick_feats = torch.cat(
+            [locs[:, : num_locs // 2, :], locs[:, num_locs // 2 :, :]], -1
+        )  # [batch_size, graph_size//2, 4]
+        delivery_feats = locs[:, num_locs // 2 :, :]  # [batch_size, graph_size//2, 2]
+        depot_embeddings = self.init_embed_depot(depot)
+        pick_embeddings = self.init_embed_pick(pick_feats)
+        delivery_embeddings = self.init_embed_delivery(delivery_feats)
+        # concatenate on graph size dimension
+        return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)
