@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.attention import LogitAttention
+from rl4co.models.nn.attention import PointerAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.utils import decode_probs, get_log_likelihood
 
@@ -88,7 +88,7 @@ class Decoder(nn.Module):
 
         # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
         self.pointer = [
-            LogitAttention(
+            PointerAttention(
                 embedding_dim,
                 num_heads,
                 mask_inner=mask_inner,

@@ -7,14 +7,13 @@ import torch
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
+from rl4co.models.nn.dec_strategies import logits_to_probs
 from rl4co.models.nn.utils import decode_probs
 from rl4co.utils.ops import batchify, unbatchify
 
 
-def forward_logit_attn_eas_lay(
-    self, query, key, value, logit_key, mask, softmax_temp=None
-):
-    """Add layer to the forward pass of logit attention, i.e.
+def forward_pointer_attn_eas_lay(self, query, key, value, logit_key, mask):
+    """Add layer to the forward pass of pointer attention, i.e.
     Single-head attention.
     """
     # Compute inner multi-head attention with no projections.
@@ -33,20 +32,6 @@ def forward_logit_attn_eas_lay(
         / math.sqrt(glimpse.size(-1))
     ).squeeze(1)
 
-    # From the logits compute the probabilities by clipping, masking and softmax
-    if self.tanh_clipping > 0:
-        logits = torch.tanh(logits) * self.tanh_clipping
-
-    if self.mask_logits:
-        logits[mask] = float("-inf")
-
-    # Normalize with softmax and apply temperature
-    if self.normalize:
-        softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
-        logits = torch.log_softmax(logits / softmax_temp, dim=-1)
-
-    assert not torch.isnan(logits).any(), "Logits contain NaNs"
-
     return logits
 
 
@@ -59,7 +44,7 @@ def forward_eas(
     env: Union[str, RL4COEnvBase] = None,
     decode_type: str = "multistart_sampling",
     num_starts: int = None,
-    softmax_temp: float = None,
+    temperature: float = None,
     **unused_kwargs,
 ):
     """Forward pass of the decoder
@@ -76,7 +61,7 @@ def forward_eas(
             - "multistart_sampling": sample as sampling, but with multi-start decoding
             - "multistart_greedy": sample as greedy, but with multi-start decoding
         num_starts: Number of multi-starts to use. If None, will be calculated from the action mask
-        softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
+        temperature: Temperature for the softmax. If None, default softmax is used from the `PointerAttention` module
         calc_reward: Whether to calculate the reward for the decoded sequence
     """
 
@@ -99,20 +84,26 @@ def forward_eas(
 
         td.set("action", action)
         td = env.step(td)["next"]
-        log_p = torch.zeros_like(
-            td["action_mask"], device=td.device
-        )  # first log_p is 0, so p = log_p.exp() = 1
+        probs = torch.ones_like(td["action_mask"], device=td.device)
 
-        outputs.append(log_p)
+        outputs.append(probs)
         actions.append(action)
 
     # Main decoding: loop until all sequences are done
     while not td["done"].all():
         decode_step += 1
-        log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts + 1)
+        logits, _ = self._get_logits(cached_embeds, td, num_starts + 1)
+        temperature = temperature if temperature is not None else self.temperature
+        probs = logits_to_probs(
+            logits,
+            mask=td["action_mask"],
+            temperature=temperature,
+            tanh_clipping=self.tanh_clipping,
+            mask_logits=self.mask_logits,
+        )
 
         # Select the indices of the next nodes in the sequences, result (batch_size) long
-        action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
+        action = decode_probs(probs, td["action_mask"], decode_type=decode_type)
 
         if iter_count > 0:  # append incumbent solutions
             init_shp = action.shape
@@ -124,9 +115,10 @@ def forward_eas(
         td = env.step(td)["next"]
 
         # Collect output of step
-        outputs.append(log_p)
+        outputs.append(probs)
         actions.append(action)
 
-    outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
+    # Note: we convert outputs (probs) to log-probs here
+    outputs, actions = torch.stack(outputs, 1).log(), torch.stack(actions, 1)
     rewards = env.get_reward(td, actions)
     return outputs, actions, td, rewards

@@ -44,6 +44,9 @@ class AutoregressivePolicy(nn.Module):
         train_decode_type: Type of decoding during training
         val_decode_type: Type of decoding during validation
         test_decode_type: Type of decoding during testing
+        temperature: Temperature for the softmax in the decoder
+        tanh_clipping: Clipping value for the tanh in the decoder
+        mask_logits: Whether to mask the logits in the decoder
         **unused_kw: Unused keyword arguments
     """
 
@@ -65,6 +68,9 @@ class AutoregressivePolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        temperature: float = 1.0,
+        tanh_clipping: float = 10.0,
+        mask_logits: bool = True,
         **unused_kw,
     ):
         super(AutoregressivePolicy, self).__init__()
@@ -100,6 +106,9 @@ class AutoregressivePolicy(nn.Module):
                 mask_inner=mask_inner,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
+                temperature=temperature,
+                tanh_clipping=tanh_clipping,
+                mask_logits=mask_logits,
             )
         else:
             self.decoder = decoder

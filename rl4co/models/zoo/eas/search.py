@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 from rl4co.data.transforms import StateAugmentation
 from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.search import SearchBase
-from rl4co.models.zoo.eas.decoder import forward_eas, forward_logit_attn_eas_lay
+from rl4co.models.zoo.eas.decoder import forward_eas, forward_pointer_attn_eas_lay
 from rl4co.models.zoo.eas.nn import EASLayerNet
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -166,7 +166,9 @@ class EAS(SearchBase):
             # EASLay: replace forward of logit attention computation. EASLayer
             eas_layer = EASLayerNet(num_instances, decoder.embedding_dim).to(batch.device)
             decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
-            decoder.pointer.forward = partial(forward_logit_attn_eas_lay, decoder.pointer)
+            decoder.pointer.forward = partial(
+                forward_pointer_attn_eas_lay, decoder.pointer
+            )
             for param in eas_layer.parameters():
                 opt_params.append(param)
         if self.hparams.use_eas_embedding:

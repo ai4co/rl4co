@@ -157,7 +157,8 @@ class Decoder(nn.Module):
             )
             # select the next inputs for the decoder [batch_size x hidden_dim]
             idxs = (
-                decode_probs(probs, mask, decode_type=decode_type)
+                # note: mask here is the inverse of usual action mask
+                decode_probs(probs, ~mask, decode_type=decode_type)
                 if eval_tours is None
                 else eval_tours[:, i]
             )

@@ -118,14 +118,15 @@ class AntSystem:
     ):
         # Sample from heatmaps
         # p = phe**alpha * heu**beta <==> log(p) = alpha*log(phe) + beta*log(heu)
-        heatmaps_logp = (
+        heatmaps_logits = (
             self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
         )
         self.decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
         td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
-            log_p, mask = NARDecoder._get_log_p(td, heatmaps_logp, num_starts)
-            td = self.decode_strategy.step(log_p, mask, td)
+            logits, mask = NARDecoder._get_logits(td, heatmaps_logits, num_starts)
+            td = self.decode_strategy.step(logits, mask, td)
+            # TODO: check, do we need to run the logits normalization via step here?
             td = env.step(td)["next"]
 
         outputs, actions, td, env = self.decode_strategy.post_decoder_hook(td, env)

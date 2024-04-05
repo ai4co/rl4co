@@ -7,6 +7,7 @@ import torch.nn as nn
 from tensordict import TensorDict
 from torch import Tensor
 
+from rl4co.models.nn.dec_strategies import logits_to_probs
 from rl4co.models.nn.env_embeddings.context import FFSPContext
 from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
 
@@ -53,7 +54,7 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
         embedding_dim: int,
         num_heads: int,
         use_graph_context: bool = False,
-        **logit_attn_kwargs,
+        **kwargs,
     ):
         context_embedding = FFSPContext(embedding_dim)
 
@@ -63,7 +64,7 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
             num_heads=num_heads,
             use_graph_context=use_graph_context,
             context_embedding=context_embedding,
-            **logit_attn_kwargs,
+            **kwargs,
         )
 
         self.no_job_emb = nn.Parameter(
@@ -117,13 +118,13 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         embedding_dim: int,
         num_heads: int,
         use_graph_context: bool = True,
-        **logit_attn_kwargs,
+        **kwargs,
     ):
         super().__init__(
             embedding_dim=embedding_dim,
             num_heads=num_heads,
             use_graph_context=use_graph_context,
-            **logit_attn_kwargs,
+            **kwargs,
         )
         self.cached_embs: PrecomputedCache = None
         # self.encoded_wait_op = nn.Parameter(torch.rand((1, 1, embedding_dim)))
@@ -136,13 +137,21 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         td: TensorDict,
         decode_type="sampling",
         num_starts: int = 1,
-        softmax_temp: float = None,
+        temperature: float = None,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
         device = td.device
         batch_size = td.size(0)
 
-        log_p, _ = self._get_log_p(self.cached_embs, td, softmax_temp, num_starts)
-        all_job_probs = log_p.exp()
+        # Get logits for each job and probabilities
+        logits, _ = self._get_logits(self.cached_embs, td, num_starts)
+        temperature = temperature if temperature is not None else self.temperature
+        all_job_probs = logits_to_probs(
+            logits,
+            mask=td["action_mask"],
+            temperature=temperature,
+            tanh_clipping=self.tanh_clipping,
+            mask_logits=self.mask_logits,
+        )
 
         if "sampling" in decode_type:
             # to fix pytorch.multinomial bug on selecting 0 probability elements
