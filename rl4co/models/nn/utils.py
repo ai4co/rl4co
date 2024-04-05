@@ -2,22 +2,27 @@ from typing import Union
 
 import torch
 import torch.nn as nn
+
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
+from rl4co.models.nn.dec_strategies import DecodingStrategy
 from rl4co.utils import get_pylogger
 
 log = get_pylogger(__name__)
 
 
 def get_log_likelihood(log_p, actions, mask, return_sum: bool = True):
-    """Get log likelihood of selected actions"""
+    """Get log likelihood of selected actions.
+    Note that mask is a boolean tensor where True means the value should be kept.
+    """
 
     log_p = log_p.gather(2, actions.unsqueeze(-1)).squeeze(-1)
 
     # Optional: mask out actions irrelevant to objective so they do not get reinforced
     if mask is not None:
-        log_p[~mask] = 0
+        log_p[mask] = 0
+    # TODO: check if this is correct
 
     assert (
         log_p > -1000
@@ -31,23 +36,16 @@ def get_log_likelihood(log_p, actions, mask, return_sum: bool = True):
 
 
 def decode_probs(probs, mask, decode_type="sampling"):
-    """Decode probabilities to select actions with mask"""
+    """Decode probabilities to select actions with mask.
+    Note that mask is a boolean tensor where True means the value should be kept.
+    """
 
     assert (probs == probs).all(), "Probs should not contain any nans"
 
     if "greedy" in decode_type:
-        _, selected = probs.max(1)
-        assert not mask.gather(
-            1, selected.unsqueeze(-1)
-        ).data.any(), "Decode greedy: infeasible action has maximum probability"
-
+        selected = DecodingStrategy.greedy(probs, mask)
     elif "sampling" in decode_type:
-        selected = torch.multinomial(probs, 1).squeeze(1)
-
-        while mask.gather(1, selected.unsqueeze(-1)).data.any():
-            log.info("Sampled bad values, resampling!")
-            selected = probs.multinomial(1).squeeze(1)
-
+        selected = DecodingStrategy.sampling(probs, mask)
     else:
         assert False, "Unknown decode type: {}".format(decode_type)
     return selected
