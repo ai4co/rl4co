@@ -6,6 +6,7 @@ from typing import Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
@@ -85,7 +86,8 @@ class Decoder(nn.Module):
             env_name, {"embedding_dim": embedding_dim}
         )
 
-        self.logit_attention = [
+        # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
+        self.pointer = [
             LogitAttention(
                 embedding_dim,
                 num_heads,
@@ -276,7 +278,6 @@ class Decoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute logits (unnormalized log_p)
-        # log_p, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
         log_p, _ = self._one_to_many_logits(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index
         )

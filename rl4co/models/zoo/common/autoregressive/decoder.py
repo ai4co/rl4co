@@ -102,10 +102,8 @@ class AutoregressiveDecoder(nn.Module):
             embedding_dim, embedding_dim, bias=linear_bias
         )
 
-        # MHA
-        self.logit_attention = LogitAttention(
-            embedding_dim, num_heads, **logit_attn_kwargs
-        )
+        # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
+        self.pointer = LogitAttention(embedding_dim, num_heads, **logit_attn_kwargs)
 
     def forward(
         self,
@@ -270,9 +268,7 @@ class AutoregressiveDecoder(nn.Module):
         mask = ~td["action_mask"]
 
         # Compute logits
-        log_p = self.logit_attention(
-            glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
-        )
+        log_p = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp)
 
         # Now we need to reshape the logits and log_p to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

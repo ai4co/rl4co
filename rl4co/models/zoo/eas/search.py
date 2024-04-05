@@ -165,12 +165,8 @@ class EAS(SearchBase):
         if self.hparams.use_eas_layer:
             # EASLay: replace forward of logit attention computation. EASLayer
             eas_layer = EASLayerNet(num_instances, decoder.embedding_dim).to(batch.device)
-            decoder.logit_attention.eas_layer = partial(
-                eas_layer, decoder.logit_attention
-            )
-            decoder.logit_attention.forward = partial(
-                forward_logit_attn_eas_lay, decoder.logit_attention
-            )
+            decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
+            decoder.pointer.forward = partial(forward_logit_attn_eas_lay, decoder.pointer)
             for param in eas_layer.parameters():
                 opt_params.append(param)
         if self.hparams.use_eas_embedding:
