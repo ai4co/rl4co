@@ -121,14 +121,14 @@ class AntSystem:
         heatmaps_logp = (
             self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
         )
-        self.decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
-        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env)
+        decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
+        td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
             log_p, mask = NARDecoder._get_log_p(td, heatmaps_logp, num_starts)
-            td = self.decode_strategy.step(log_p, mask, td)
+            td = decode_strategy.step(log_p, mask, td)
             td = env.step(td)["next"]
 
-        outputs, actions, td, env = self.decode_strategy.post_decoder_hook(td, env)
+        outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
         reward = env.get_reward(td, actions)
 
         if self.require_logp:
