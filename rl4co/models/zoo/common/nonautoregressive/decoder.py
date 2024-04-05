@@ -149,10 +149,10 @@ class NonAutoregressiveDecoder(nn.Module):
         heatmaps_logits = self.heatmap_generator(graph)
 
         # setup decoding strategy
-        self.decode_strategy: DecodingStrategy = get_decoding_strategy(
+        decode_strategy: DecodingStrategy = get_decoding_strategy(
             decode_type, **strategy_kwargs
         )
-        td, env, num_starts = self.decode_strategy.pre_decoder_hook(td, env)
+        td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
@@ -160,7 +160,7 @@ class NonAutoregressiveDecoder(nn.Module):
             td = self.decode_strategy.step(logits, mask, td)
             td = env.step(td)["next"]
 
-        outputs, actions, td, env = self.decode_strategy.post_decoder_hook(td, env)
+        outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
 
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))

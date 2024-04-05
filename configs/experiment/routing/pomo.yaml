@@ -14,7 +14,7 @@ logger:
   wandb:
     project: "rl4co"
     tags: ["pomo", "${env.name}"]
-    group: ${env.name}${env.num_loc}"
+    group: "${env.name}${env.num_loc}"
     name: "pomo-${env.name}${env.num_loc}"
 
 model:
