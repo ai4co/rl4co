@@ -15,7 +15,9 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 
 
 class MDCPDPEnv(RL4COEnvBase):
-    """Multi Depot Capacity Pickup and Delivery Problem (MDCPDP) environment.
+    """Multi Depot Capacitated Pickup and Delivery Problem (MDCPDP) environment.
+    One reference to understand the problem could be: Solving the multi-compartment capacitated location routing 
+    problem with pickup–delivery routes and stochastic demands (https://doi.org/10.1016/j.cie.2015.05.008).
     The environment is made of num_loc + num_depots locations (cities):
         - num_depot depot
         - num_loc / 2 pickup locations
@@ -24,19 +26,19 @@ class MDCPDPEnv(RL4COEnvBase):
     The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
     The capacity is the maximum number of pickups that the vehicle can carry at the same time
     Args:
-        num_loc <int>: number of locations (cities) in the TSP
-        num_depot <int>: number of depots, each depot has one vehicle
-        min_loc <float>: minimum value of the location
-        max_loc <float>: maximum value of the location
-        min_capacity <int>: minimum value of the capacity
-        max_capacity <int>: maximum value of the capacity
-        min_lateness_weight <float>: minimum value of the lateness weight
-        max_lateness_weight <float>: maximum value of the lateness weight
-        dist_mode <str>: distance mode. One of ["L1", "L2"]
-        reward_mode <str>: objective of the problem. One of ["lateness", "lateness_square", "minmax", "minsum"]
-        problem_mode <str>: type of the problem. One of ["close", "open"]
-        start_mode <str>: type of the start. One of ["order", "random"]
-        depot_mode <str>: type of the depot. One of ["single", "multiple"], are all depots the same place
+        num_loc: number of locations (cities) in the TSP
+        num_depot: number of depots, each depot has one vehicle
+        min_loc: minimum value of the location
+        max_loc: maximum value of the location
+        min_capacity: minimum value of the capacity
+        max_capacity: maximum value of the capacity
+        min_lateness_weight: minimum value of the lateness weight
+        max_lateness_weight: maximum value of the lateness weight
+        dist_mode: distance mode. One of ["L1", "L2"]
+        reward_mode: objective of the problem. One of ["lateness", "lateness_square", "minmax", "minsum"]
+        problem_mode: type of the problem. One of ["close", "open"]
+        start_mode: type of the start. One of ["order", "random"]
+        depot_mode: type of the depot. One of ["single", "multiple"], are all depots the same place
         td_params: parameters of the environment
         seed: seed for the environment
         device: device to use.  Generally, no need to set as tensors are updated on the fly
@@ -320,7 +322,7 @@ class MDCPDPEnv(RL4COEnvBase):
             - minsum: the reward is the sum of all agents' length
             - lateness: the reward is the sum of all agents' length plus the lateness with a weight
         Args:
-            - actions <torch.Tensor> [batch_size, num_depot+num_locs-1]: the actions taken by the agents
+            - actions [batch_size, num_depot+num_locs-1]: the actions taken by the agents
                 note that the last city back to depot is not included here
         """
         # Check the validity of the actions
