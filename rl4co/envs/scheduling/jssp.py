@@ -201,7 +201,6 @@ class JSSPEnv(RL4COEnvBase):
         )
         # first operation of jobs do not have predecessors
         predecessors_adj[self.first_task] = 0
-
         # ---------------
         # NOTE in original implementation authors dont use successors.
         # initialize adj matrix of successors. We leave an offset of +1, since the last
@@ -212,12 +211,16 @@ class JSSPEnv(RL4COEnvBase):
         # first operation of jobs do not have successors
         successor_adj[self.last_task] = 0
         # ---------------
-
         # self loops and adding all neighbors in final adjacency matrix
         self_loop = torch.eye(self.num_tasks, dtype=torch.float32, device=self.device)
         adjacency = torch.unsqueeze(self_loop + predecessors_adj, 0).repeat(
             *batch_size, 1, 1
         )
+        # the following adjacency matrix indicates which ops are executed on the same machine
+        ops_on_same_ma_adj = (
+            td["ops"].reshape(*td.batch_size, -1, 1)
+            == td["ops"].reshape(*td.batch_size, 1, -1)
+        ).to(torch.float32)
 
         # (bs, jobs, ma)
         LBs = torch.cumsum(durations, dim=-1)
@@ -246,6 +249,7 @@ class JSSPEnv(RL4COEnvBase):
         tensordict = TensorDict(
             {
                 "adjacency": adjacency,
+                "ops_on_same_ma_adj": ops_on_same_ma_adj,
                 "machines": machines,
                 "start_times": start_times,
                 "end_times": ending_times,
