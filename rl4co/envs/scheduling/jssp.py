@@ -218,8 +218,7 @@ class JSSPEnv(RL4COEnvBase):
         )
         # the following adjacency matrix indicates which ops are executed on the same machine
         ops_on_same_ma_adj = (
-            td["ops"].reshape(*td.batch_size, -1, 1)
-            == td["ops"].reshape(*td.batch_size, 1, -1)
+            td["ops"].reshape(*batch_size, -1, 1) == td["ops"].reshape(*batch_size, 1, -1)
         ).to(torch.float32)
 
         # (bs, jobs, ma)

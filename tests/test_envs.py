@@ -100,6 +100,7 @@ def test_jssp_lb(env_cls):
         },
         batch_size=[1],
     )
+    td.set("ops", td["machines"].argsort(2))
 
     td = env._reset(td)
 
