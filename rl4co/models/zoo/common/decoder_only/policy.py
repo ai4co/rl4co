@@ -14,6 +14,17 @@ log = get_pylogger(__name__)
 
 
 class DecoderOnlyPolicy(nn.Module):
+    """The DecoderOnly policy refers to a policy which updates the state embedding in every iteration
+    of the autoregressive solution construction process through a full forward pass of the feature
+    extractor (encoder). This was originally proposed in the Learning2Dispatch paper (Zhang et al. 2020).
+    ---------------- Use with caution -----------------
+    However, this can be computationally very expensive and even lead to memory overflow issues, since gradients
+    of every forward pass of the feature extractor need to be stored until the backward pass (which usually
+    happens when all instances of the batch are solved).
+    One way to mitigate this is to use light-weight feature extractors with few parameters, like GraphCNNs or
+    stepwise reward functions, which allow to compute gradients after every environment step.
+    """
+
     def __init__(
         self,
         env_name: Union[str, RL4COEnvBase],
@@ -23,6 +34,7 @@ class DecoderOnlyPolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        **kwargs,
     ):
         super().__init__()
 
@@ -35,6 +47,7 @@ class DecoderOnlyPolicy(nn.Module):
             embedding_dim=embedding_dim,
             feature_extractor=feature_extractor,
             actor=actor,
+            **kwargs,
         )
 
         self.train_decode_type = train_decode_type

@@ -5,8 +5,8 @@ import torch.nn as nn
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
-from rl4co.models.nn.graph.gcn import GCNEncoder
 from rl4co.models.nn.mlp import MLP
+from rl4co.models.zoo.common.autoregressive.encoder import GraphAttentionEncoder
 
 
 class Decoder(nn.Module):
@@ -16,7 +16,11 @@ class Decoder(nn.Module):
         env_name: Union[str, RL4COEnvBase],
         feature_extractor: nn.Module = None,
         actor: nn.Module = None,
+        init_embedding: nn.Module = None,
         embedding_dim: int = 128,
+        num_encoder_layers: int = 3,
+        num_heads: int = 8,
+        normalization: str = "batch",
     ):
         super(Decoder, self).__init__()
 
@@ -25,11 +29,15 @@ class Decoder(nn.Module):
         self.env_name = env_name
 
         if feature_extractor is None:
-            feature_extractor = GCNEncoder(
-                env_name=env_name,
+            feature_extractor = GraphAttentionEncoder(
+                env_name=self.env_name,
+                num_heads=num_heads,
                 embedding_dim=embedding_dim,
-                num_layers=2,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
+                init_embedding=init_embedding,
             )
+
         self.feature_extractor = feature_extractor
 
         if actor is None:
