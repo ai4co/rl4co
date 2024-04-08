@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Callable, Tuple, Union
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +13,9 @@ from rl4co.utils.ops import get_full_graph_edge_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
+
+
+EdgeIndexFnSignature = Callable[[TensorDict, int, bool], Tensor]
 
 
 class GCNEncoder(nn.Module):
@@ -30,15 +33,16 @@ class GCNEncoder(nn.Module):
         self,
         env_name: str,
         embedding_dim: int,
-        num_nodes: int,
         num_layers: int,
         init_embedding: nn.Module = None,
-        self_loop: bool = False,
+        self_loop: bool = True,
         residual: bool = True,
+        edge_idx_fn: EdgeIndexFnSignature = None,
     ):
         super(GCNEncoder, self).__init__()
 
         self.env_name = env_name
+        self.embedding_dim = embedding_dim
 
         self.init_embedding = (
             env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
@@ -46,8 +50,10 @@ class GCNEncoder(nn.Module):
             else init_embedding
         )
 
-        # Generate edge index for a fully connected graph
-        self.edge_index = get_full_graph_edge_index(num_nodes, self_loop)
+        if edge_idx_fn is None:
+            log.warning("No edge indices passed. Assume a fully connected graph")
+            edge_idx_fn = get_full_graph_edge_index
+        self.edge_idx_fn = edge_idx_fn
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(
@@ -58,7 +64,6 @@ class GCNEncoder(nn.Module):
         self.residual = residual
         self.self_loop = self_loop
 
-    # def forward(self, x, node_feature, mask=None):
     def forward(
         self, td: TensorDict, mask: Union[Tensor, None] = None
     ) -> Tuple[Tensor, Tensor]:
@@ -77,16 +82,11 @@ class GCNEncoder(nn.Module):
         init_h = self.init_embedding(td)
         num_node = init_h.size(-2)
 
-        # Check to update the edge index with different number of node
-        if num_node != self.edge_index.max().item() + 1:
-            edge_index = get_full_graph_edge_index(num_node, self.self_loop).to(
-                init_h.device
-            )
-        else:
-            edge_index = self.edge_index.to(init_h.device)
-
         # Create the batched graph
-        data_list = [Data(x=x, edge_index=edge_index) for x in init_h]
+        data_list = [
+            Data(x=x, edge_index=self.edge_idx_fn(td[i], num_node, self.self_loop))
+            for i, x in enumerate(init_h)
+        ]
         data_batch = Batch.from_data_list(data_list)
 
         # GCN process
