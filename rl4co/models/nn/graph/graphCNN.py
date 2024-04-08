@@ -67,7 +67,7 @@ class GraphCNN(nn.Module):
         init_h = self.init_embedding(td)
         x = init_h.clone()
         for layer in range(self.num_layers):
-            x = self.next_layer(x, layer, adj_block=td["adjacency"])
+            x = self.next_layer(x, layer, adj_block=td["ops_on_same_ma_adj"])
 
         # x_nodes = x.clone()
         # # print(graph_pool.shape, h.shape)

@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
-from rl4co.models.nn.graph.graphCNN import GraphCNN
+from rl4co.models.nn.graph.gcn import GCNEncoder
 from rl4co.models.nn.mlp import MLP
 
 
@@ -17,8 +17,6 @@ class Decoder(nn.Module):
         feature_extractor: nn.Module = None,
         actor: nn.Module = None,
         embedding_dim: int = 128,
-        num_encoder_layers: int = 2,
-        num_decoder_layers: int = 2,
     ):
         super(Decoder, self).__init__()
 
@@ -27,18 +25,18 @@ class Decoder(nn.Module):
         self.env_name = env_name
 
         if feature_extractor is None:
-            feature_extractor = GraphCNN(
+            feature_extractor = GCNEncoder(
                 env_name=env_name,
                 embedding_dim=embedding_dim,
-                num_layers=num_encoder_layers,
+                num_layers=2,
             )
         self.feature_extractor = feature_extractor
 
         if actor is None:
-            self.actor = MLP(
+            actor = MLP(
                 input_dim=embedding_dim,
                 output_dim=1,
-                num_neurons=[embedding_dim] * num_decoder_layers,
+                num_neurons=[embedding_dim] * 2,
                 hidden_act="Tanh",
                 out_act="Identity",
                 input_norm="None",
@@ -70,10 +68,7 @@ class Decoder(nn.Module):
 
         while not td["done"].all():
             embeddings, _ = self.feature_extractor(td)
-            cand_emb = embeddings.gather(
-                1, td["next_op"][..., None].expand(-1, -1, embeddings.size(-1))
-            )
-            logits = self.actor(cand_emb).squeeze(2)
+            logits = self.actor(embeddings).squeeze(2)
             mask = ~td["action_mask"]
             logits[mask] = -torch.inf
             log_p = torch.log_softmax(logits, dim=1)
@@ -86,11 +81,3 @@ class Decoder(nn.Module):
             td.set("reward", env.get_reward(td, actions))
 
         return outputs, actions, td
-
-    def evaluate_action(self, td, action, env):
-        embeddings, _ = self.feature_extractor(td)
-        logits = self.actor(embeddings)
-        mask = ~td["action_mask"]
-        logits[mask] = -torch.inf
-        log_p = torch.log_softmax(logits, dim=1)
-        return log_p

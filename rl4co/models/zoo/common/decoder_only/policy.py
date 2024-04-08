@@ -18,6 +18,8 @@ class DecoderOnlyPolicy(nn.Module):
         self,
         env_name: Union[str, RL4COEnvBase],
         embedding_dim: int = 256,
+        feature_extractor: nn.Module = None,
+        actor: nn.Module = None,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
@@ -28,7 +30,12 @@ class DecoderOnlyPolicy(nn.Module):
             env_name = env_name.name
         self.env_name = env_name
 
-        self.decoder = Decoder(env_name=self.env_name, embedding_dim=embedding_dim)
+        self.decoder = Decoder(
+            env_name=self.env_name,
+            embedding_dim=embedding_dim,
+            feature_extractor=feature_extractor,
+            actor=actor,
+        )
 
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
