@@ -20,6 +20,7 @@ from rl4co.envs import (
     SPCTSPEnv,
     SVRPEnv,
     TSPEnv,
+    MDCPDPEnv,
 )
 from rl4co.models.nn.utils import random_policy, rollout
 
@@ -42,6 +43,7 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
         PDPEnv,
         MTSPEnv,
         ATSPEnv,
+        MDCPDPEnv,
     ],
 )
 def test_routing(env_cls, batch_size=2, size=20):

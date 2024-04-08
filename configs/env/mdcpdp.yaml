@@ -1,0 +1,10 @@
+_target_: rl4co.envs.MDCPDPEnv
+name: mdcpdp
+
+num_loc: 20
+num_depot: 4
+min_loc: 0
+max_loc: 1
+min_capacity: 1
+max_capacity: 2
+depot_mode: multiple

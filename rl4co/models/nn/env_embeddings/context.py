@@ -31,6 +31,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": PDPContext,
         "mtsp": MTSPContext,
         "smtwtp": SMTWTPContext,
+        "mdcpdp": MDCPDPContext,
     }
 
     if env_name not in embedding_registry:
@@ -307,3 +308,17 @@ class SMTWTPContext(EnvContext):
     def _state_embedding(self, embeddings, td):
         state_embedding = td["current_time"]
         return state_embedding
+
+
+class MDCPDPContext(EnvContext):
+    """Context embedding for the MDCPDP.
+    Project the following to the embedding space:
+        - current node embedding
+    """
+
+    def __init__(self, embedding_dim):
+        super(MDCPDPContext, self).__init__(embedding_dim, embedding_dim)
+
+    def forward(self, embeddings, td):
+        cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
+        return self.project_context(cur_node_embedding)
