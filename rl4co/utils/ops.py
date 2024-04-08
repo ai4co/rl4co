@@ -194,9 +194,9 @@ def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loo
 
 
 @lru_cache(5)
-def get_full_graph_edge_index(num_node: int, self_loop=False) -> Tensor:
+def get_full_graph_edge_index(td, num_node: int, self_loop=False) -> Tensor:
     adj_matrix = torch.ones(num_node, num_node)
     if not self_loop:
         adj_matrix.fill_diagonal_(0)
     edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
-    return edge_index
+    return edge_index.to(td.device)
