@@ -26,7 +26,7 @@ class GraphAttentionEncoder(nn.Module):
         super(GraphAttentionEncoder, self).__init__()
 
         # To map input to embedding space
-        self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None                
+        self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
         
         self.layers = MultiHeadAttentionLayer(
             num_heads,
