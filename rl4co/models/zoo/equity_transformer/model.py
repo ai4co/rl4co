@@ -17,7 +17,7 @@ class EquityTransformer(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: Optional(AttentionModelPolicy) = None,
+        policy: Optional[AttentionModelPolicy] = None,
         baseline: Union[REINFORCEBaseline, str] = "rollout",
         policy_kwargs={},
         baseline_kwargs={},
