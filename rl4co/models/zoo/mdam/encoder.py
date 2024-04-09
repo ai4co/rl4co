@@ -26,18 +26,20 @@ class GraphAttentionEncoder(nn.Module):
         super(GraphAttentionEncoder, self).__init__()
 
         # To map input to embedding space
-        self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
-
+        self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None                
+        
         self.layers = MultiHeadAttentionLayer(
             num_heads,
             embed_dim,
-            num_layers - 1,
+            # num_layers - 1, # fix: redudant parameter
             feed_forward_hidden,
             normalization,
             sdpa_fn=sdpa_fn,
         )
+        
         self.attention_layer = MultiHeadAttention(
-            num_heads, input_dim=embed_dim, embed_dim=embed_dim, sdpa_fn=sdpa_fn
+            # num_heads, input_dim=embed_dim, embed_dim=embed_dim, sdpa_fn=sdpa_fn  # fix: redudant parameter
+            embed_dim=embed_dim, num_heads=num_heads, sdpa_fn=sdpa_fn
         )
         self.BN1 = Normalization(embed_dim, normalization)
         self.projection = SkipConnection(
@@ -63,6 +65,7 @@ class GraphAttentionEncoder(nn.Module):
 
         h_embeded = x
         h_old = self.layers(h_embeded)
+        # ValueError: too many values to unpack (expected 3); here self.attention_layer(h_old) is a single tensor
         h_new, attn, V = self.attention_layer(h_old)
         h = h_new + h_old
         h = self.BN1(h)
