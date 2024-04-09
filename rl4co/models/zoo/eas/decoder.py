@@ -7,13 +7,11 @@ import torch
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.utils import decode_probs
+from rl4co.utils.decoding import decode_logprobs, process_logits
 from rl4co.utils.ops import batchify, unbatchify
 
 
-def forward_logit_attn_eas_lay(
-    self, query, key, value, logit_key, mask, softmax_temp=None
-):
+def forward_pointer_attn_eas_lay(self, query, key, value, logit_key, mask):
     """Add layer to the forward pass of logit attention, i.e.
     Single-head attention.
     """
@@ -33,20 +31,6 @@ def forward_logit_attn_eas_lay(
         / math.sqrt(glimpse.size(-1))
     ).squeeze(1)
 
-    # From the logits compute the probabilities by clipping, masking and softmax
-    if self.tanh_clipping > 0:
-        logits = torch.tanh(logits) * self.tanh_clipping
-
-    if self.mask_logits:
-        logits[mask] = float("-inf")
-
-    # Normalize with softmax and apply temperature
-    if self.normalize:
-        softmax_temp = softmax_temp if softmax_temp is not None else self.softmax_temp
-        logits = torch.log_softmax(logits / softmax_temp, dim=-1)
-
-    assert not torch.isnan(logits).any(), "Logits contain NaNs"
-
     return logits
 
 
@@ -59,8 +43,10 @@ def forward_eas(
     env: Union[str, RL4COEnvBase] = None,
     decode_type: str = "multistart_sampling",
     num_starts: int = None,
-    softmax_temp: float = None,
-    **unused_kwargs,
+    mask_logits: bool = True,
+    temperature: float = 1.0,
+    tanh_clipping: float = 0,
+    **decode_kwargs,
 ):
     """Forward pass of the decoder
     Given the environment state and the pre-computed embeddings, compute the logits and sample actions
@@ -76,12 +62,12 @@ def forward_eas(
             - "multistart_sampling": sample as sampling, but with multi-start decoding
             - "multistart_greedy": sample as greedy, but with multi-start decoding
         num_starts: Number of multi-starts to use. If None, will be calculated from the action mask
-        softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
         calc_reward: Whether to calculate the reward for the decoded sequence
     """
+    # TODO: this could be refactored by decoding strategies
 
-    # Collect outputs
-    outputs = []
+    # Collect logprobs
+    logprobs = []
     actions = []
 
     decode_step = 0
@@ -99,20 +85,30 @@ def forward_eas(
 
         td.set("action", action)
         td = env.step(td)["next"]
-        log_p = torch.zeros_like(
+        logp = torch.zeros_like(
             td["action_mask"], device=td.device
-        )  # first log_p is 0, so p = log_p.exp() = 1
+        )  # first logprobs is 0, so p = logprobs.exp() = 1
 
-        outputs.append(log_p)
+        logprobs.append(logp)
         actions.append(action)
 
     # Main decoding: loop until all sequences are done
     while not td["done"].all():
         decode_step += 1
-        log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts + 1)
+        logits, mask = self._get_logits(cached_embeds, td, num_starts + 1)
+
+        logp = process_logits(
+            logits,
+            mask,
+            temperature=self.temperature if self.temperature is not None else temperature,
+            tanh_clipping=self.tanh_clipping
+            if self.tanh_clipping is not None
+            else tanh_clipping,
+            mask_logits=self.mask_logits if self.mask_logits is not None else mask_logits,
+        )
 
         # Select the indices of the next nodes in the sequences, result (batch_size) long
-        action = decode_probs(log_p.exp(), mask, decode_type=decode_type)
+        action = decode_logprobs(logp, mask, decode_type=decode_type)
 
         if iter_count > 0:  # append incumbent solutions
             init_shp = action.shape
@@ -124,9 +120,9 @@ def forward_eas(
         td = env.step(td)["next"]
 
         # Collect output of step
-        outputs.append(log_p)
+        logprobs.append(logp)
         actions.append(action)
 
-    outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
+    logprobs, actions = torch.stack(logprobs, 1), torch.stack(actions, 1)
     rewards = env.get_reward(td, actions)
-    return outputs, actions, td, rewards
+    return logprobs, actions, td, rewards
