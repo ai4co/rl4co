@@ -1,6 +1,6 @@
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
-
+import torch.nn as nn
 
 class HeterogeneousAttentionModelPolicy(AutoregressivePolicy):
     """Heterogeneous Attention Model Policy based on Kool et al. (2019): https://arxiv.org/abs/1803.08475.
@@ -20,21 +20,29 @@ class HeterogeneousAttentionModelPolicy(AutoregressivePolicy):
     def __init__(
         self,
         env_name: str,
+        encoder: nn.Module = None,
+        init_embedding: nn.Module = None,
         embedding_dim: int = 128,
         num_encoder_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
         **kwargs,
     ):
-        super(HeterogeneousAttentionModelPolicy, self).__init__(
-            env_name=env_name,
-            encoder=GraphHeterogeneousAttentionEncoder(
+        if encoder is None:
+            encoder = GraphHeterogeneousAttentionEncoder(
+                init_embedding=init_embedding,
                 num_heads=num_heads,
                 embedding_dim=embedding_dim,
-                num_encoder_layers=num_encoder_layers,
+                num_encoder_layers=num_encoder_layers,                
                 env_name=env_name,
                 normalization=normalization,
-            ),
+            )
+        else:
+            encoder = encoder
+                
+        super(HeterogeneousAttentionModelPolicy, self).__init__(
+            env_name=env_name,
+            encoder=encoder,
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,
             num_heads=num_heads,
