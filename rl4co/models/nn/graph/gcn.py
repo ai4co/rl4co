@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from tensordict import TensorDict
 from torch import Tensor
 from torch.nn.modules.module import Module
-from torch.nn.parameter import Parameter
 from torch_geometric.data import Batch, Data
 from torch_geometric.nn import GCNConv as PygGCNConv
 
@@ -31,15 +30,16 @@ class GraphConvolution(Module):
     """
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907.
     Taken from https://github.com/tkipf/pygcn/blob/master/pygcn/layers.py
+    but refactored to work for batches of data
     """
 
     def __init__(self, in_features, out_features, bias=True):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(torch.FloatTensor(in_features, out_features))
+        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
         if bias:
-            self.bias = Parameter(torch.FloatTensor(out_features))
+            self.bias = nn.Parameter(torch.FloatTensor(out_features))
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
@@ -51,8 +51,8 @@ class GraphConvolution(Module):
             self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, input, adj):
-        support = torch.mm(input, self.weight)
-        output = torch.spmm(adj, support)
+        support = torch.matmul(input, self.weight)
+        output = torch.matmul(adj, support)
         if self.bias is not None:
             return output + self.bias
         else:
@@ -79,6 +79,7 @@ class GCNEncoder(nn.Module):
         dropout: float = 0.5,
         residual: bool = True,
         adj_key: str = "adjacency",
+        self_loop: bool = True,
     ):
         super(GCNEncoder, self).__init__()
 
@@ -87,6 +88,7 @@ class GCNEncoder(nn.Module):
         self.adj_key = adj_key
         self.dropout = dropout
         self.residual = residual
+        self.self_loop = self_loop
 
         self.init_embedding = (
             env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
@@ -99,9 +101,7 @@ class GCNEncoder(nn.Module):
             [GraphConvolution(embedding_dim, embedding_dim) for _ in range(num_layers)]
         )
 
-    def forward(
-        self, td: TensorDict, mask: Union[Tensor, None] = None
-    ) -> Tuple[Tensor, Tensor]:
+    def forward(self, td: TensorDict) -> Tuple[Tensor, Tensor]:
         """Forward pass of the encoder.
         Transform the input TensorDict into a latent representation.
 
@@ -113,21 +113,27 @@ class GCNEncoder(nn.Module):
             h: Latent representation of the input
             init_h: Initial embedding of the input
         """
-        # Transfer to embedding space
+        # Transfer to embedding space; shape=(bs, num_nodes, emb_dim)
         init_h = self.init_embedding(td)
+
         # prepare data for gcn
         update_node_feature = init_h.clone()
         adj = td[self.adj_key]
-        if mask is not None:
-            adj = adj.masked_fill(mask, 0)
+
+        # Symmetric normalization of the adjacency matrix; shape=(bs, num_nodes)
+        row_sum = torch.sum(adj, dim=-1)
+        # shape=(bs, num_nodes, num_nodes)
+        D_inv_sqrt = torch.diag_embed(torch.pow(row_sum, -0.5))
+        # shape=(bs, num_nodes, num_nodes)
+        adj_norm = torch.matmul(torch.matmul(D_inv_sqrt, adj), D_inv_sqrt)
 
         # GCN process
         for layer in self.gcn_layers[:-1]:
-            update_node_feature = layer(update_node_feature, adj)
+            update_node_feature = layer(update_node_feature, adj_norm)
             update_node_feature = F.relu(update_node_feature)
             update_node_feature = F.dropout(update_node_feature, training=self.training)
         # last layer without relu activation and dropout
-        update_node_feature = self.gcn_layers[-1](update_node_feature, adj)
+        update_node_feature = self.gcn_layers[-1](update_node_feature, adj_norm)
 
         # Residual
         if self.residual:
@@ -203,7 +209,7 @@ class PygGCNEncoder(nn.Module):
         num_node = init_h.size(-2)
 
         # Create the batched graph
-        # TODO this is extremely inefficient
+        # TODO this is extremely inefficient and should probably be moved outside the forward pass
         data_list = [
             Data(x=x, edge_index=self.edge_idx_fn(td[i], num_node, self.self_loop))
             for i, x in enumerate(init_h)
