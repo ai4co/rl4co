@@ -1,5 +1,6 @@
 from typing import Union
 
+import torch.nn as nn
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
@@ -8,6 +9,8 @@ from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.mdam.decoder import Decoder
 from rl4co.models.zoo.mdam.encoder import GraphAttentionEncoder
 from rl4co.utils.pylogger import get_pylogger
+import inspect
+
 
 log = get_pylogger(__name__)
 
@@ -21,27 +24,46 @@ class MDAMPolicy(AutoregressivePolicy):
     def __init__(
         self,
         env_name: str,
+        encoder: nn.Module = None,
+        decoder: nn.Module = None,
+        init_embedding: nn.Module = None,        
         embedding_dim: int = 128,
         num_encoder_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
         **kwargs,
     ):
-        super(MDAMPolicy, self).__init__(
-            env_name=env_name,
-            encoder=GraphAttentionEncoder(
+        # get feed_forward_hidden and sdpa_fn from kwargs, if exist, otherwise, use default values        
+        sig = inspect.signature(GraphAttentionEncoder)
+        feed_forward_hidden_default = sig.parameters['feed_forward_hidden'].default
+        sdpa_fn_default = sig.parameters['sdpa_fn'].default
+        
+        if encoder is None:
+            encoder = GraphAttentionEncoder(
                 num_heads=num_heads,
                 embed_dim=embedding_dim,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
-                **kwargs,
-            ),
-            decoder=Decoder(
+                feed_forward_hidden=kwargs.get("feed_forward_hidden", feed_forward_hidden_default),
+                sdpa_fn=kwargs.get("sdpa_fn", sdpa_fn_default),
+            )
+        else:
+            encoder = encoder
+        
+        if decoder is None:
+            decoder = Decoder(
                 env_name=env_name,
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 **kwargs,
-            ),
+            )
+        else:
+            decoder = decoder        
+        
+        super(MDAMPolicy, self).__init__(
+            env_name=env_name,            
+            encoder=encoder,
+            decoder=decoder,
             embedding_dim=embedding_dim,
             num_encoder_layers=num_encoder_layers,
             num_heads=num_heads,
@@ -49,9 +71,14 @@ class MDAMPolicy(AutoregressivePolicy):
             **kwargs,
         )
 
-        self.init_embedding = env_init_embedding(
-            env_name, {"embedding_dim": embedding_dim}
-        )
+        if init_embedding is None:
+            init_embedding = env_init_embedding(
+                env_name, {"embedding_dim": embedding_dim}
+            )
+        else:
+            init_embedding = init_embedding
+            
+        self.init_embedding = init_embedding
 
     def forward(
         self,
@@ -61,7 +88,7 @@ class MDAMPolicy(AutoregressivePolicy):
         return_actions: bool = False,
         **decoder_kwargs,
     ) -> TensorDict:
-        embedding = self.init_embedding(td)
+        embedding = self.init_embedding(td)        
         encoded_inputs, _, attn, V, h_old = self.encoder(embedding)
 
         # Instantiate environment if needed
