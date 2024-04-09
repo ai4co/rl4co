@@ -1,7 +1,7 @@
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
-from rl4co.utils.pylogger import get_logger
+from rl4co.utils.pylogger import get_pylogger
 
-log = get_logger(__name__)
+log = get_pylogger(__name__)
 
 
 class EquityTransformerPolicy(AutoregressivePolicy):
