@@ -35,9 +35,11 @@ class GraphConvolution(Module):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
+        self.lin = nn.Linear(
+            in_features, out_features, bias=False, weight_initializer="glorot"
+        )
         if bias:
-            self.bias = nn.Parameter(torch.FloatTensor(out_features))
+            self.bias = nn.Parameter(torch.empty(out_features))
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
@@ -47,13 +49,13 @@ class GraphConvolution(Module):
         # self.weight.data.uniform_(-stdv, stdv)
         # if self.bias is not None:
         #     self.bias.data.uniform_(-stdv, stdv)
-        nn.init.xavier_uniform_(self.weight)
+        self.lin.reset_parameters()
         if self.bias is not None:
             nn.init.zeros_(self.bias)
 
-    def forward(self, input, adj):
-        support = torch.matmul(input, self.weight)
-        output = torch.matmul(adj, support)
+    def forward(self, x, adj):
+        x = self.lin(x)
+        output = torch.matmul(adj, x)
         if self.bias is not None:
             return output + self.bias
         else:
