@@ -10,6 +10,7 @@ from rl4co.envs import (
     CVRPTWEnv,
     DPPEnv,
     FFSPEnv,
+    MDCPDPEnv,
     MDPPEnv,
     MTSPEnv,
     OPEnv,
@@ -20,7 +21,6 @@ from rl4co.envs import (
     SPCTSPEnv,
     SVRPEnv,
     TSPEnv,
-    MDCPDPEnv,
 )
 from rl4co.utils.decoding import random_policy, rollout
 
