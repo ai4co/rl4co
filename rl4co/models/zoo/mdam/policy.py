@@ -33,7 +33,7 @@ class MDAMPolicy(AutoregressivePolicy):
         normalization: str = "batch",
         **kwargs,
     ):
-        # get feed_forward_hidden and sdpa_fn from kwargs, if exist, otherwise, use default values        
+        # get feed_forward_hidden and sdpa_fn from kwargs, if exist, otherwise, use default values
         sig = inspect.signature(GraphAttentionEncoder)
         feed_forward_hidden_default = sig.parameters['feed_forward_hidden'].default
         sdpa_fn_default = sig.parameters['sdpa_fn'].default
@@ -61,7 +61,7 @@ class MDAMPolicy(AutoregressivePolicy):
             decoder = decoder        
         
         super(MDAMPolicy, self).__init__(
-            env_name=env_name,            
+            env_name=env_name,
             encoder=encoder,
             decoder=decoder,
             embedding_dim=embedding_dim,
@@ -88,7 +88,7 @@ class MDAMPolicy(AutoregressivePolicy):
         return_actions: bool = False,
         **decoder_kwargs,
     ) -> TensorDict:
-        embedding = self.init_embedding(td)        
+        embedding = self.init_embedding(td)
         encoded_inputs, _, attn, V, h_old = self.encoder(embedding)
 
         # Instantiate environment if needed
