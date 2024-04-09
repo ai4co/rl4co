@@ -66,11 +66,7 @@ class Decoder(nn.Module):
         else:
             context_embedding = context_embedding
         
-        self.context = [
-            # env_context_embedding(env_name, {"embedding_dim": embedding_dim})
-            context_embedding
-            for _ in range(num_paths)
-        ]
+        self.context = [context_embedding for _ in range(num_paths)]
 
         self.project_node_embeddings = [
             nn.Linear(embedding_dim, 3 * embedding_dim, bias=False)
