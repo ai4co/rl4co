@@ -281,7 +281,7 @@ class JSSPEnv(RL4COEnvBase):
         # the machines2ops tensor of shape=(bs, jobs, ma) specifies which machine executes which op,
         # e.g. ops[:, 0, 1] = 2 means that machine=1 executes operation=2 of job=0
         machines2ops = torch.rand(
-            (*batch_size, self.num_jobs, self.num_machines)
+            (*batch_size, self.num_jobs, self.num_machines), device=self.device
         ).argsort(dim=-1)
         # the ops2machines tensor of shape=(bs, jobs, ma) specifies which operation is executed on
         # which machine, e.g. machines[:, 0, 1] = 2 means that operation=1 of job=0 is executed
