@@ -139,12 +139,13 @@ class NoEdgeEmbedding(nn.Module):
         n = init_embeddings.shape[1]
         device = init_embeddings.device
         edge_index = get_full_graph_edge_index(n, self_loop=self.self_loop).to(device)
+        m = edge_index.shape[1]
 
         for node_embed in init_embeddings:
             data = Data(
                 x=node_embed,
                 edge_index=edge_index,
-                edge_attr=torch.zeros((n, self.embedding_dim), device=device),
+                edge_attr=torch.zeros((m, self.embedding_dim), device=device),
             )
             data_list.append(data)
 
