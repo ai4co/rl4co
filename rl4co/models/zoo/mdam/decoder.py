@@ -50,7 +50,7 @@ class Decoder(nn.Module):
                 env_name, {"embedding_dim": embedding_dim}
             )
         else:
-            dynamic_embedding = dynamic_embedding
+            self.dynamic_embedding = dynamic_embedding
 
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
@@ -92,9 +92,7 @@ class Decoder(nn.Module):
         self.project_out = [
             nn.Linear(embedding_dim, embedding_dim, bias=False) for _ in range(num_paths)
         ]
-        self.project_out = nn.ModuleList(self.project_out)
-
-        self.dynamic_embedding = dynamic_embedding
+        self.project_out = nn.ModuleList(self.project_out)       
 
         self.logit_attention = [
             LogitAttention(
