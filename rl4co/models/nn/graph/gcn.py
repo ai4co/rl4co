@@ -1,5 +1,3 @@
-import math
-
 from typing import Callable, Tuple, Union
 
 import torch
@@ -45,10 +43,13 @@ class GraphConvolution(Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1.0 / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
+        # stdv = 1.0 / math.sqrt(self.weight.size(1))
+        # self.weight.data.uniform_(-stdv, stdv)
+        # if self.bias is not None:
+        #     self.bias.data.uniform_(-stdv, stdv)
+        nn.init.xavier_uniform_(self.weight)
         if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
+            nn.init.zeros_(self.bias)
 
     def forward(self, input, adj):
         support = torch.matmul(input, self.weight)
@@ -115,10 +116,14 @@ class GCNEncoder(nn.Module):
         """
         # Transfer to embedding space; shape=(bs, num_nodes, emb_dim)
         init_h = self.init_embedding(td)
-
+        num_nodes = init_h.size(1)
         # prepare data for gcn
         update_node_feature = init_h.clone()
         adj = td[self.adj_key]
+
+        if self.self_loop:
+            self_loop = torch.eye(num_nodes, device=td.device, dtype=torch.bool)
+            adj = adj.masked_fill(self_loop, 1)
 
         # Symmetric normalization of the adjacency matrix; shape=(bs, num_nodes)
         row_sum = torch.sum(adj, dim=-1)
@@ -132,6 +137,7 @@ class GCNEncoder(nn.Module):
             update_node_feature = layer(update_node_feature, adj_norm)
             update_node_feature = F.relu(update_node_feature)
             update_node_feature = F.dropout(update_node_feature, training=self.training)
+
         # last layer without relu activation and dropout
         update_node_feature = self.gcn_layers[-1](update_node_feature, adj_norm)
 
