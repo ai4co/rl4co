@@ -31,7 +31,7 @@ class GraphConvolution(Module):
     but refactored to work for batches of data
     """
 
-    def __init__(self, in_features, out_features, bias=True):
+    def __init__(self, in_features, out_features, bias=False):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -81,6 +81,7 @@ class GCNEncoder(nn.Module):
         residual: bool = True,
         adj_key: str = "adjacency",
         self_loop: bool = True,
+        bias=False,
     ):
         super(GCNEncoder, self).__init__()
 
@@ -99,7 +100,10 @@ class GCNEncoder(nn.Module):
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(
-            [GraphConvolution(embedding_dim, embedding_dim) for _ in range(num_layers)]
+            [
+                GraphConvolution(embedding_dim, embedding_dim, bias=bias)
+                for _ in range(num_layers)
+            ]
         )
 
     def forward(self, td: TensorDict) -> Tuple[Tensor, Tensor]:
