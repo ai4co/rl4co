@@ -144,7 +144,7 @@ class NoEdgeEmbedding(nn.Module):
             data = Data(
                 x=node_embed,
                 edge_index=edge_index,
-                edge_attr=torch.zeros((n, self.embedding_dim), device=device),
+                edge_attr=torch.zeros((edge_index.shape[1], self.embedding_dim), device=device),
             )
             data_list.append(data)
 
