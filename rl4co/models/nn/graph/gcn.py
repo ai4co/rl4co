@@ -122,7 +122,11 @@ class GCNEncoder(nn.Module):
         adj = td[self.adj_key]
 
         if self.self_loop:
-            self_loop = torch.eye(num_nodes, device=td.device, dtype=torch.bool)
+            self_loop = (
+                torch.eye(num_nodes, device=adj.device, dtype=torch.bool)
+                .unsqueeze(0)
+                .expand_as(adj)
+            )
             adj = adj.masked_fill(self_loop, 1)
 
         # Symmetric normalization of the adjacency matrix; shape=(bs, num_nodes)
