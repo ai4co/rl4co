@@ -39,11 +39,18 @@ class Decoder(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        context_embedding: nn.Module = None,
+        dynamic_embedding: nn.Module = None,
+        **kwargs,
     ):
         super(Decoder, self).__init__()
-        self.dynamic_embedding = env_dynamic_embedding(
-            env_name, {"embedding_dim": embedding_dim}
-        )
+        
+        if dynamic_embedding is None:
+            self.dynamic_embedding = env_dynamic_embedding(
+                env_name, {"embedding_dim": embedding_dim}
+            )
+        else:
+            dynamic_embedding = dynamic_embedding
 
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
@@ -54,8 +61,14 @@ class Decoder(nn.Module):
             -1, 1
         )  # Placeholder should be in range of activations
 
+        if context_embedding is None:
+            context_embedding = env_context_embedding(env_name, {"embedding_dim": embedding_dim})
+        else:
+            context_embedding = context_embedding
+        
         self.context = [
-            env_context_embedding(env_name, {"embedding_dim": embedding_dim})
+            # env_context_embedding(env_name, {"embedding_dim": embedding_dim})
+            context_embedding
             for _ in range(num_paths)
         ]
 
@@ -81,16 +94,14 @@ class Decoder(nn.Module):
         ]
         self.project_out = nn.ModuleList(self.project_out)
 
-        self.dynamic_embedding = env_dynamic_embedding(
-            env_name, {"embedding_dim": embedding_dim}
-        )
+        self.dynamic_embedding = dynamic_embedding
 
         self.logit_attention = [
             LogitAttention(
                 embedding_dim,
                 num_heads,
                 mask_inner=mask_inner,
-                force_flash_attn=force_flash_attn,
+                # force_flash_attn=force_flash_attn,  # fix: not used
             )
             for _ in range(num_paths)
         ]
