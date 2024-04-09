@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from tensordict import TensorDict
-
 from rl4co.utils.ops import gather_by_index
 
 
@@ -19,8 +17,11 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "tsp": TSPContext,
         "atsp": TSPContext,
         "cvrp": VRPContext,
+        "vrpb": VRPContext,
+        "ovrp": VRPContext,
+        "vrpl": VRPContext,
         "cvrptw": VRPTWContext,
-        "ffsp": FFSPContext,
+        "vrptw": VRPTWContext,
         "svrp": SVRPContext,
         "sdvrp": VRPContext,
         "pctsp": PCTSPContext,
@@ -31,7 +32,6 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": PDPContext,
         "mtsp": MTSPContext,
         "smtwtp": SMTWTPContext,
-        "mdcpdp": MDCPDPContext,
     }
 
     if env_name not in embedding_registry:
@@ -71,34 +71,6 @@ class EnvContext(nn.Module):
         state_embedding = self._state_embedding(embeddings, td)
         context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
         return self.project_context(context_embedding)
-
-
-class FFSPContext(EnvContext):
-    def __init__(self, embedding_dim, stage_cnt=None):
-        self.has_stage_emb = stage_cnt is not None
-        step_context_dim = (1 + int(self.has_stage_emb)) * embedding_dim
-        super().__init__(embedding_dim=embedding_dim, step_context_dim=step_context_dim)
-        if self.has_stage_emb:
-            self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
-
-    def _cur_node_embedding(self, embeddings: TensorDict, td):
-        cur_node_embedding = gather_by_index(
-            embeddings["machine_embeddings"], td["stage_machine_idx"]
-        )
-        return cur_node_embedding
-
-    def forward(self, embeddings, td):
-        cur_node_embedding = self._cur_node_embedding(embeddings, td)
-        if self.has_stage_emb:
-            state_embedding = self._state_embedding(embeddings, td)
-            context_embedding = torch.cat([cur_node_embedding, state_embedding], -1)
-            return self.project_context(context_embedding)
-        else:
-            return self.project_context(cur_node_embedding)
-
-    def _state_embedding(self, _, td):
-        cur_stage_emb = self.stage_emb[td["stage_idx"]]
-        return cur_stage_emb
 
 
 class TSPContext(EnvContext):
@@ -150,6 +122,27 @@ class VRPContext(EnvContext):
         state_embedding = td["vehicle_capacity"] - td["used_capacity"]
         return state_embedding
 
+class VRPLContext(VRPContext):
+    """Context embedding for the Capacitated Vehicle Routing Problem (CVRP).
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining capacity (vehicle_capacity - used_capacity)
+        - current time
+    """
+
+    def __init__(self, embedding_dim):
+        super(VRPContext, self).__init__(
+            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 2
+        )
+
+    def _cur_node_embedding(self, embeddings, td):
+        return super()._cur_node_embedding(embeddings, td).reshape(embeddings.size(0), -1)
+
+    def _state_embedding(self, embeddings, td):
+        capacity = super()._state_embedding(embeddings, td)
+        duration_limit = td["duration_limit"]
+        return torch.cat([capacity, duration_limit], -1)
+    
 
 class VRPTWContext(VRPContext):
     """Context embedding for the Capacitated Vehicle Routing Problem (CVRP).
@@ -308,17 +301,3 @@ class SMTWTPContext(EnvContext):
     def _state_embedding(self, embeddings, td):
         state_embedding = td["current_time"]
         return state_embedding
-
-
-class MDCPDPContext(EnvContext):
-    """Context embedding for the MDCPDP.
-    Project the following to the embedding space:
-        - current node embedding
-    """
-
-    def __init__(self, embedding_dim):
-        super(MDCPDPContext, self).__init__(embedding_dim, embedding_dim)
-
-    def forward(self, embeddings, td):
-        cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
-        return self.project_context(cur_node_embedding)

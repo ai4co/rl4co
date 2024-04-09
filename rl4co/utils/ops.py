@@ -93,6 +93,31 @@ def get_tour_length(ordered_locs):
     ordered_locs_next = torch.roll(ordered_locs, 1, dims=-2)
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
+@torch.jit.script
+def get_open_tour_length(ordered_locs):
+    """Compute the total tour distance for a batch of ordered tours.
+    Computes the L2 norm between each pair of consecutive nodes in the tour and sums them up.
+
+    Args:
+        ordered_locs: Tensor of shape [batch_size, num_nodes, 2] containing the ordered locations of the tour
+    """
+    ordered_locs_next = torch.roll(ordered_locs, 1, dims=-2)
+    
+    segment_lengths = ((ordered_locs_next-ordered_locs)**2).sum(-1).sqrt()
+
+    # Get the first value of ordered_locs
+    first_loc = ordered_locs[:, 0, :][:,None,:].expand(ordered_locs_next.shape)
+
+    # Check the ids where the location is the same as the first value
+    same_loc_ids = torch.all(ordered_locs_next == first_loc, dim=-1)
+
+    # for open VRP, the distance between last customer and the depot is not counted
+    segment_lengths[same_loc_ids] = 0
+
+    travel_distances = segment_lengths.sum(1)
+
+    return travel_distances
+
 
 @torch.jit.script
 def get_distance_matrix(locs: Tensor):
@@ -114,7 +139,6 @@ def get_num_starts(td, env_name=None):
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
     elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot cannot be a start node
-
     return num_starts
 
 
