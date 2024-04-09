@@ -30,15 +30,13 @@ class GraphAttentionEncoder(nn.Module):
         
         self.layers = MultiHeadAttentionLayer(
             num_heads,
-            embed_dim,
-            # num_layers - 1, # fix: redudant parameter
+            embed_dim,            
             feed_forward_hidden,
             normalization,
             sdpa_fn=sdpa_fn,
         )
         
-        self.attention_layer = MultiHeadAttention(
-            # num_heads, input_dim=embed_dim, embed_dim=embed_dim, sdpa_fn=sdpa_fn  # fix: redudant parameter
+        self.attention_layer = MultiHeadAttention(            
             embed_dim=embed_dim, num_heads=num_heads, sdpa_fn=sdpa_fn
         )
         self.BN1 = Normalization(embed_dim, normalization)
