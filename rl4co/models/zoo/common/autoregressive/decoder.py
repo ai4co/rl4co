@@ -10,14 +10,14 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.nn.attention import PointerAttention
+from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
+from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.utils.decoding import (
     DecodingStrategy,
     get_decoding_strategy,
     get_log_likelihood,
     process_logits,
 )
-from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
-from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 

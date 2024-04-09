@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rl4co.models.nn.utils import decode_probs
+from rl4co.utils.decoding import decode_logprobs
 
 
 class SimpleAttention(nn.Module):
@@ -157,7 +157,8 @@ class Decoder(nn.Module):
             )
             # select the next inputs for the decoder [batch_size x hidden_dim]
             idxs = (
-                decode_probs(probs, mask, decode_type=decode_type)
+                # note: mask here is the inverse of usual action mask
+                decode_logprobs(log_p, ~mask, decode_type=decode_type)
                 if eval_tours is None
                 else eval_tours[:, i]
             )
