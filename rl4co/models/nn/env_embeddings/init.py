@@ -386,12 +386,14 @@ class JSSPInitEmbedding(nn.Module):
         lower_bounds = td["lower_bounds"].reshape(bs, -1) / self.scaling_factor
         finished_mark = td["finished_mark"].reshape(bs, -1)
         job_feat = torch.stack(
-            (start_times, durations, lower_bounds, finished_mark), dim=-1
+            (durations, start_times, lower_bounds, finished_mark), dim=-1
         )
         job_emb = self.init_job_embed(job_feat)
 
         if self.use_pos_enc:
-            seq_pos = torch.arange(ops).repeat(jobs)[None].expand(bs, -1)
+            seq_pos = (
+                torch.arange(ops, device=job_emb.device).repeat(jobs)[None].expand(bs, -1)
+            )
             job_emb = self.pos_encoder(job_emb, seq_pos)
 
         # encoding machines
