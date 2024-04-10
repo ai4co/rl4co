@@ -156,7 +156,7 @@ class GCNEncoder(nn.Module):
         return update_node_feature, init_h
 
 
-class PygGCNEncoder(nn.Module):
+class GCNEncoder(nn.Module):
     """Graph Convolutional Network to encode embeddings with a series of GCN layers
     from the pytorch geometric package
 
@@ -178,7 +178,7 @@ class PygGCNEncoder(nn.Module):
         residual: bool = True,
         edge_idx_fn: EdgeIndexFnSignature = None,
     ):
-        super(PygGCNEncoder, self).__init__()
+        super().__init__()
 
         self.env_name = env_name
         self.embedding_dim = embedding_dim
@@ -220,19 +220,23 @@ class PygGCNEncoder(nn.Module):
         """
         # Transfer to embedding space
         init_h = self.init_embedding(td)
-        num_node = init_h.size(-2)
-
+        bs, num_nodes, emb_dim = init_h.shape
+        update_node_feature = init_h.reshape(-1, emb_dim)
+        # edge_index = self.edge_idx_fn(td, num_nodes, self.self_loop)
+        a = td["adjacency"].nonzero()
+        b = a[:,0] * num_nodes
+        edge_index = torch.permute(a[:, 1:] + b[:,None], (1,0))
         # Create the batched graph
         # TODO this is extremely inefficient and should probably be moved outside the forward pass
-        data_list = [
-            Data(x=x, edge_index=self.edge_idx_fn(td[i], num_node, self.self_loop))
-            for i, x in enumerate(init_h)
-        ]
-        data_batch = Batch.from_data_list(data_list)
+        # data_list = [
+        #     Data(x=x, edge_index=self.edge_idx_fn(td[i], num_nodes, self.self_loop))
+        #     for i, x in enumerate(init_h)
+        # ]
+        # data_batch = Batch.from_data_list(data_list)
 
         # GCN process
-        update_node_feature = data_batch.x
-        edge_index = data_batch.edge_index
+        # update_node_feature = data_batch.x
+        # edge_index = data_batch.edge_index
         for layer in self.gcn_layers[:-1]:
             update_node_feature = layer(update_node_feature, edge_index)
             update_node_feature = F.relu(update_node_feature)
@@ -241,8 +245,7 @@ class PygGCNEncoder(nn.Module):
         update_node_feature = self.gcn_layers[-1](update_node_feature, edge_index)
 
         # De-batch the graph
-        input_size = init_h.size()
-        update_node_feature = update_node_feature.view(*input_size)
+        update_node_feature = update_node_feature.view(bs, num_nodes, emb_dim)
 
         # Residual
         if self.residual:
