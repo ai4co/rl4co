@@ -6,9 +6,7 @@ import torch.nn.functional as F
 
 from tensordict import TensorDict
 from torch import Tensor
-from torch.nn.modules.module import Module
-from torch_geometric.data import Batch, Data
-from torch_geometric.nn import GCNConv as PygGCNConv
+from torch_geometric.nn import GCNConv
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.utils.ops import get_full_graph_edge_index
@@ -20,48 +18,14 @@ log = get_pylogger(__name__)
 EdgeIndexFnSignature = Callable[[TensorDict, int, bool], Tensor]
 
 
-def edge_idx_fn_wrapper(td: TensorDict, num_nodes: int, self_loop: bool):
-    return get_full_graph_edge_index(td.device, num_nodes, self_loop)
-
-
-class GraphConvolution(Module):
-    """
-    Simple GCN layer, similar to https://arxiv.org/abs/1609.02907.
-    Taken from https://github.com/tkipf/pygcn/blob/master/pygcn/layers.py
-    but refactored to work for batches of data
-    """
-
-    def __init__(self, in_features, out_features, bias=False):
-        super(GraphConvolution, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.lin = nn.Linear(in_features, out_features, bias=False)
-        if bias:
-            self.bias = nn.Parameter(torch.empty(out_features))
-        else:
-            self.register_parameter("bias", None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        # stdv = 1.0 / math.sqrt(self.weight.size(1))
-        # self.weight.data.uniform_(-stdv, stdv)
-        # if self.bias is not None:
-        #     self.bias.data.uniform_(-stdv, stdv)
-        self.lin.reset_parameters()
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
-
-    def forward(self, x, adj):
-        x = self.lin(x)
-        output = torch.matmul(adj, x)
-        if self.bias is not None:
-            return output + self.bias
-        else:
-            return output
+def edge_idx_fn_wrapper(td: TensorDict, num_nodes: int):
+    # self-loop is added by GCNConv layer
+    return get_full_graph_edge_index(td.device, num_nodes, self_loop=False)
 
 
 class GCNEncoder(nn.Module):
-    """Graph Convolutional Network to encode embeddings with a series of GCN layers
+    """Graph Convolutional Network to encode embeddings with a series of GCN 
+    layers from the pytorch geometric package
 
     Args:
         embedding_dim: dimension of the embeddings
@@ -77,111 +41,17 @@ class GCNEncoder(nn.Module):
         embedding_dim: int,
         num_layers: int,
         init_embedding: nn.Module = None,
-        dropout: float = 0.5,
-        residual: bool = True,
-        adj_key: str = "adjacency",
-        self_loop: bool = True,
-        bias=False,
-    ):
-        super(GCNEncoder, self).__init__()
-
-        self.env_name = env_name
-        self.embedding_dim = embedding_dim
-        self.adj_key = adj_key
-        self.dropout = dropout
-        self.residual = residual
-        self.self_loop = self_loop
-
-        self.init_embedding = (
-            env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
-            if init_embedding is None
-            else init_embedding
-        )
-
-        # Define the GCN layers
-        self.gcn_layers = nn.ModuleList(
-            [
-                GraphConvolution(embedding_dim, embedding_dim, bias=bias)
-                for _ in range(num_layers)
-            ]
-        )
-
-    def forward(self, td: TensorDict) -> Tuple[Tensor, Tensor]:
-        """Forward pass of the encoder.
-        Transform the input TensorDict into a latent representation.
-
-        Args:
-            td: Input TensorDict containing the environment state
-            mask: Mask to apply to the attention
-
-        Returns:
-            h: Latent representation of the input
-            init_h: Initial embedding of the input
-        """
-        # Transfer to embedding space; shape=(bs, num_nodes, emb_dim)
-        init_h = self.init_embedding(td)
-        num_nodes = init_h.size(1)
-        # prepare data for gcn
-        update_node_feature = init_h.clone()
-        adj = td[self.adj_key]
-
-        if self.self_loop:
-            self_loop = (
-                torch.eye(num_nodes, device=adj.device, dtype=torch.bool)
-                .unsqueeze(0)
-                .expand_as(adj)
-            )
-            adj = adj.masked_fill(self_loop, 1)
-
-        # Symmetric normalization of the adjacency matrix; shape=(bs, num_nodes)
-        row_sum = torch.sum(adj, dim=-1)
-        # shape=(bs, num_nodes, num_nodes)
-        D_inv_sqrt = torch.diag_embed(torch.pow(row_sum, -0.5))
-        # shape=(bs, num_nodes, num_nodes)
-        adj_norm = torch.matmul(torch.matmul(D_inv_sqrt, adj), D_inv_sqrt)
-
-        # GCN process
-        for layer in self.gcn_layers[:-1]:
-            update_node_feature = layer(update_node_feature, adj_norm)
-            update_node_feature = F.relu(update_node_feature)
-            update_node_feature = F.dropout(update_node_feature, training=self.training)
-
-        # last layer without relu activation and dropout
-        update_node_feature = self.gcn_layers[-1](update_node_feature, adj_norm)
-
-        # Residual
-        if self.residual:
-            update_node_feature = update_node_feature + init_h
-
-        return update_node_feature, init_h
-
-
-class GCNEncoder(nn.Module):
-    """Graph Convolutional Network to encode embeddings with a series of GCN layers
-    from the pytorch geometric package
-
-    Args:
-        embedding_dim: dimension of the embeddings
-        num_nodes: number of nodes in the graph
-        num_gcn_layer: number of GCN layers
-        self_loop: whether to add self loop in the graph
-        residual: whether to use residual connection
-    """
-
-    def __init__(
-        self,
-        env_name: str,
-        embedding_dim: int,
-        num_layers: int,
-        init_embedding: nn.Module = None,
-        self_loop: bool = True,
         residual: bool = True,
         edge_idx_fn: EdgeIndexFnSignature = None,
+        dropout: float = 0.5,
+        bias: bool = True
     ):
         super().__init__()
 
         self.env_name = env_name
         self.embedding_dim = embedding_dim
+        self.residual = residual
+        self.dropout = dropout
 
         self.init_embedding = (
             env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
@@ -197,12 +67,8 @@ class GCNEncoder(nn.Module):
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(
-            [PygGCNConv(embedding_dim, embedding_dim) for _ in range(num_layers)]
+            [GCNConv(embedding_dim, embedding_dim, bias=bias) for _ in range(num_layers)]
         )
-
-        # Record parameters
-        self.residual = residual
-        self.self_loop = self_loop
 
     def forward(
         self, td: TensorDict, mask: Union[Tensor, None] = None
@@ -221,27 +87,17 @@ class GCNEncoder(nn.Module):
         # Transfer to embedding space
         init_h = self.init_embedding(td)
         bs, num_nodes, emb_dim = init_h.shape
+        # (bs*num_nodes, emb_dim)
         update_node_feature = init_h.reshape(-1, emb_dim)
-        # edge_index = self.edge_idx_fn(td, num_nodes, self.self_loop)
-        a = td["adjacency"].nonzero()
-        b = a[:,0] * num_nodes
-        edge_index = torch.permute(a[:, 1:] + b[:,None], (1,0))
-        # Create the batched graph
-        # TODO this is extremely inefficient and should probably be moved outside the forward pass
-        # data_list = [
-        #     Data(x=x, edge_index=self.edge_idx_fn(td[i], num_nodes, self.self_loop))
-        #     for i, x in enumerate(init_h)
-        # ]
-        # data_batch = Batch.from_data_list(data_list)
+        # shape=(2, num_edges)
+        edge_index = self.edge_idx_fn(td, num_nodes)
 
-        # GCN process
-        # update_node_feature = data_batch.x
-        # edge_index = data_batch.edge_index
         for layer in self.gcn_layers[:-1]:
             update_node_feature = layer(update_node_feature, edge_index)
             update_node_feature = F.relu(update_node_feature)
-            update_node_feature = F.dropout(update_node_feature, training=self.training)
+            update_node_feature = F.dropout(update_node_feature, training=self.training, p=self.dropout)
 
+        # last layer without relu activation and dropout
         update_node_feature = self.gcn_layers[-1](update_node_feature, edge_index)
 
         # De-batch the graph
