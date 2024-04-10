@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from rl4co.utils.pylogger import get_pylogger
@@ -30,6 +31,7 @@ def env_dynamic_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": StaticEmbedding,
         "mtsp": StaticEmbedding,
         "smtwtp": StaticEmbedding,
+        "jssp": JSSPDynamicEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -69,5 +71,31 @@ class SDVRPDynamicEmbedding(nn.Module):
         demands_with_depot[..., 0, :] = 0
         glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
             demands_with_depot
+        ).chunk(3, dim=-1)
+        return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic
+
+
+class JSSPDynamicEmbedding(nn.Module):
+    def __init__(
+        self, embedding_dim, linear_bias=False, scaling_factor: int = 1000
+    ) -> None:
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.projection = nn.Linear(3, 3 * embedding_dim, bias=linear_bias)
+        self.scaling_factor = scaling_factor
+
+    def forward(self, td):
+        bs = td["durations"].size(0)
+
+        start_times = td["start_times"].reshape(bs, -1) / self.scaling_factor
+        lower_bounds = td["lower_bounds"].reshape(bs, -1) / self.scaling_factor
+        finished_mark = td["finished_mark"].reshape(bs, -1)
+
+        dynamic_features = torch.stack((start_times, lower_bounds, finished_mark), dim=-1)
+        next_op_dynamic_features = dynamic_features.gather(
+            1, td["next_op"][..., None].expand(-1, -1, 3)
+        )
+        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = self.projection(
+            next_op_dynamic_features
         ).chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic

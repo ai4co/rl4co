@@ -217,9 +217,17 @@ class JSSPEnv(RL4COEnvBase):
             *batch_size, 1, 1
         )
         # the following adjacency matrix indicates which ops are executed on the same machine
+        # shape=(bs, num_total_ops, num_total_ops)
         ops_on_same_ma_adj = (
             td["ops"].reshape(*batch_size, -1, 1) == td["ops"].reshape(*batch_size, 1, -1)
         ).to(torch.float32)
+        # adjacency matrix specifying ops of the same job
+        ops_job_idx = torch.arange(self.num_jobs).repeat_interleave(self.num_machines)
+        ops_of_same_job = (
+            torch.unsqueeze(ops_job_idx[:, None] == ops_job_idx[None, :], 0)
+            .expand_as(ops_on_same_ma_adj)
+            .to(torch.float32)
+        )
 
         # (bs, jobs, ma)
         LBs = torch.cumsum(durations, dim=-1)
@@ -249,6 +257,7 @@ class JSSPEnv(RL4COEnvBase):
             {
                 "adjacency": adjacency,
                 "ops_on_same_ma_adj": ops_on_same_ma_adj,
+                "ops_of_same_job": ops_of_same_job,
                 "machines": machines,
                 "start_times": start_times,
                 "end_times": ending_times,

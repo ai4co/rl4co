@@ -3,6 +3,8 @@ import torch.nn as nn
 
 from tensordict.tensordict import TensorDict
 
+from rl4co.models.nn.ops import PositionalEncoding
+
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
     """Get environment initial embedding. The init embedding is used to initialize the
@@ -361,25 +363,39 @@ class SMTWTPInitEmbedding(nn.Module):
 
 
 class JSSPInitEmbedding(nn.Module):
-    """Initial embedding for the Job Shop Scheduling Problem (JSSP).
-    Embed the following node features to the embedding space:
-        - lower_bounds: lower bounds of job finishing times
-        - job_weight: weights of the jobs
-        - job_process_time: the processing time of jobs
-    """
-
-    def __init__(self, embedding_dim, linear_bias=False, et_normalize_coef: int = 1000):
+    def __init__(
+        self,
+        embedding_dim,
+        linear_bias: bool = False,
+        scaling_factor: int = 1000,
+        use_pos_enc: bool = True,
+    ):
         super(JSSPInitEmbedding, self).__init__()
-        node_dim = 3  # durations, lower_bounds, finished_mark
-        self.init_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
-        self.et_normalize_coef = et_normalize_coef
 
-    def forward(self, td):
-        # TODO norm coefficient is missing
-        bs = td.batch_size
-        durations = td["durations"].reshape(*bs, -1) / self.et_normalize_coef
-        lower_bounds = td["lower_bounds"].reshape(*bs, -1) / self.et_normalize_coef
-        finished_mark = td["finished_mark"].reshape(*bs, -1)
-        feat = torch.stack((durations, lower_bounds, finished_mark), dim=-1)
-        out = self.init_embed(feat)
-        return out
+        self.init_job_embed = nn.Linear(4, embedding_dim, linear_bias)
+        self.scaling_factor = scaling_factor
+        self.use_pos_enc = use_pos_enc
+        if self.use_pos_enc:
+            self.pos_encoder = PositionalEncoding(embedding_dim, dropout=0.0)
+
+    def forward(self, td: TensorDict):
+        bs, jobs, ops = td["durations"].shape
+
+        durations = td["durations"].reshape(bs, -1) / self.scaling_factor
+        start_times = td["start_times"].reshape(bs, -1) / self.scaling_factor
+        lower_bounds = td["lower_bounds"].reshape(bs, -1) / self.scaling_factor
+        finished_mark = td["finished_mark"].reshape(bs, -1)
+        job_feat = torch.stack(
+            (start_times, durations, lower_bounds, finished_mark), dim=-1
+        )
+        job_emb = self.init_job_embed(job_feat)
+
+        if self.use_pos_enc:
+            seq_pos = torch.arange(ops).repeat(jobs)[None].expand(bs, -1)
+            job_emb = self.pos_encoder(job_emb, seq_pos)
+
+        # encoding machines
+        # op_ma_map = F.one_hot(td["machines"].argsort(-1).reshape(*td.batch_size, -1), env.num_machines).to(torch.float32)
+        # ma_emb = op_ma_map.transpose(-2, -1).bmm(job_emb)
+
+        return job_emb
