@@ -222,7 +222,9 @@ class JSSPEnv(RL4COEnvBase):
             td["ops"].reshape(*batch_size, -1, 1) == td["ops"].reshape(*batch_size, 1, -1)
         ).to(torch.float32)
         # adjacency matrix specifying ops of the same job
-        ops_job_idx = torch.arange(self.num_jobs).repeat_interleave(self.num_machines)
+        ops_job_idx = torch.arange(self.num_jobs, device=self.device).repeat_interleave(
+            self.num_machines
+        )
         ops_of_same_job = (
             torch.unsqueeze(ops_job_idx[:, None] == ops_job_idx[None, :], 0)
             .expand_as(ops_on_same_ma_adj)
