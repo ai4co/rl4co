@@ -1,6 +1,5 @@
 from typing import Callable, Tuple, Union
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -24,7 +23,7 @@ def edge_idx_fn_wrapper(td: TensorDict, num_nodes: int):
 
 
 class GCNEncoder(nn.Module):
-    """Graph Convolutional Network to encode embeddings with a series of GCN 
+    """Graph Convolutional Network to encode embeddings with a series of GCN
     layers from the pytorch geometric package
 
     Args:
@@ -44,7 +43,7 @@ class GCNEncoder(nn.Module):
         residual: bool = True,
         edge_idx_fn: EdgeIndexFnSignature = None,
         dropout: float = 0.5,
-        bias: bool = True
+        bias: bool = True,
     ):
         super().__init__()
 
@@ -95,7 +94,9 @@ class GCNEncoder(nn.Module):
         for layer in self.gcn_layers[:-1]:
             update_node_feature = layer(update_node_feature, edge_index)
             update_node_feature = F.relu(update_node_feature)
-            update_node_feature = F.dropout(update_node_feature, training=self.training, p=self.dropout)
+            update_node_feature = F.dropout(
+                update_node_feature, training=self.training, p=self.dropout
+            )
 
         # last layer without relu activation and dropout
         update_node_feature = self.gcn_layers[-1](update_node_feature, edge_index)
