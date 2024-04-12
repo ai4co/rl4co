@@ -126,9 +126,9 @@ def modify_logits_for_top_p_filtering(logits, top_p):
     # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
     sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
 
-    # scatter sorted tensors to original indexing
+    # Scatter sorted tensors to original indexing
     indices_to_remove = sorted_indices_to_remove.scatter(
-        1, sorted_indices, sorted_indices_to_remove
+        -1, sorted_indices, sorted_indices_to_remove
     )
     return logits.masked_fill(indices_to_remove, float("-inf"))
 
@@ -246,7 +246,7 @@ class DecodingStrategy:
                 self.num_starts = env.get_num_starts(td)
         else:
             if self.num_starts is not None:
-                if self.num_starts > 1:
+                if self.num_starts >= 1:
                     log.warn(
                         f"num_starts={self.num_starts} is ignored for decode_type={self.name}"
                     )
@@ -254,7 +254,7 @@ class DecodingStrategy:
             self.num_starts = 0
 
         # Multi-start decoding: first action is chosen by ad-hoc node selection
-        if self.num_starts > 1:
+        if self.num_starts >= 1:
             if self.select_start_nodes_fn is not None:
                 action = self.select_start_nodes_fn(td, env, self.num_starts)
             else:
