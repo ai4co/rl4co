@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -134,13 +134,13 @@ def modify_logits_for_top_p_filtering(logits, top_p):
 
 
 def process_logits(
-    logits,
-    mask=None,
-    temperature=1.0,
-    top_p=0.0,
-    top_k=0,
-    tanh_clipping=0,
-    mask_logits=True,
+    logits: torch.Tensor,
+    mask: torch.Tensor = None,
+    temperature: float = 1.0,
+    top_p: float = 0.0,
+    top_k: int = 0,
+    tanh_clipping: float = 0,
+    mask_logits: bool = True,
 ):
     """Convert logits to log probabilities with additional features like temperature scaling, top-k and top-p sampling.
 
@@ -191,28 +191,28 @@ class DecodingStrategy:
     Includes hooks for pre and post main decoding operations.
 
     Args:
-        temperature (float, optional): Temperature scaling. Higher values make the distribution more uniform (exploration),
+        temperature: Temperature scaling. Higher values make the distribution more uniform (exploration),
             lower values make it more peaky (exploitation). Defaults to 1.0.
-        top_p (float, optional): Top-p sampling, a.k.a. Nucleus Sampling (https://arxiv.org/abs/1904.09751). Defaults to 0.0.
-        top_k (int, optional): Top-k sampling, i.e. restrict sampling to the top k logits. If 0, do not perform. Defaults to 0.
-        mask_logits (bool, optional): Whether to mask logits of infeasible actions. Defaults to True.
-        tanh_clipping (float, optional): Tanh clipping (https://arxiv.org/abs/1611.09940). Defaults to 0.
-        multistart (bool, optional): Whether to use multistart decoding. Defaults to False.
-        num_starts (int, optional): Number of starts for multistart decoding. Defaults to None.
+        top_p: Top-p sampling, a.k.a. Nucleus Sampling (https://arxiv.org/abs/1904.09751). Defaults to 0.0.
+        top_k: Top-k sampling, i.e. restrict sampling to the top k logits. If 0, do not perform. Defaults to 0.
+        mask_logits: Whether to mask logits of infeasible actions. Defaults to True.
+        tanh_clipping: Tanh clipping (https://arxiv.org/abs/1611.09940). Defaults to 0.
+        multistart: Whether to use multistart decoding. Defaults to False.
+        num_starts: Number of starts for multistart decoding. Defaults to None.
     """
 
     name = "base"
 
     def __init__(
         self,
-        temperature=1.0,
-        top_p=0.0,
-        top_k=0,
-        mask_logits=True,
-        tanh_clipping=0,
-        multistart=False,
-        num_starts=None,
-        select_start_nodes_fn: callable = None,
+        temperature: float = 1.0,
+        top_p: float = 0.0,
+        top_k: int = 0,
+        mask_logits: bool = True,
+        tanh_clipping: float = 0,
+        multistart: bool = False,
+        num_starts: Optional[int] = None,
+        select_start_nodes_fn: Optional[callable] = None,
         **kwargs,
     ) -> None:
         self.temperature = temperature
