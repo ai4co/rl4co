@@ -28,13 +28,11 @@ RL4CO is built upon:
 
 <img class="full-img" alt="image" src="https://github.com/ai4co/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee">
 
-   <!-- .. include:: _content/start/1-quickstart.ipynb -->
-   <!-- .. include:: ../notebooks/1-quickstart.ipynb -->
 
 ```{eval-rst}
 .. toctree::
    :maxdepth: 2
-   :caption: Getting started:
+   :caption: Getting started
 
    _content/start/installation
    _collections/1-quickstart
@@ -43,17 +41,17 @@ RL4CO is built upon:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Tutorials:
+   :caption: Tutorials
 
-   _collections/tutorials/1-training-loop-advanced
-   _collections/tutorials/2-creating-new-env-model
-   _collections/tutorials/3-change-encoder
-   _collections/tutorials/4-search-methods
-
+   _collections/2-full-training
+   _collections/3-creating-new-env-model
+   _collections/modeling/1-decoding-strategies
+   _collections/modeling/2-change-encoder
+   _collections/advanced/1-hydra-config
 
 .. toctree::
    :maxdepth: 2
-   :caption: Algorithms:
+   :caption: RL Algorithms
 
    _content/api/algos/base
    _content/api/algos/reinforce
@@ -63,32 +61,39 @@ RL4CO is built upon:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Environments:
+   :caption: Environments
 
    _content/api/envs/base
    _content/api/envs/eda
    _content/api/envs/routing
    _content/api/envs/scheduling
 
+
 .. toctree::
    :maxdepth: 2
-   :caption: Models:
+   :caption: Networks
 
-   _content/api/models/base
-   _content/api/models/zoo
    _content/api/models/nn
    _content/api/models/env_embeddings
 
+
 .. toctree::
    :maxdepth: 2
-   :caption: Additional API:
+   :caption: Model Zoo
+
+   _content/api/models/base
+   _content/api/models/zoo
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional API
 
    _content/api/tasks
    _content/api/data
 
 .. toctree::
    :maxdepth: 2
-   :caption: General Information:
+   :caption: Other
 
    _content/general/contribute
    _content/general/faq

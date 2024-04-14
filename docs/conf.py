@@ -8,7 +8,7 @@
 import rl4co
 
 project = "rl4co"
-copyright = "Federico Berto, Chuanbo Hua, Junyoung Park"
+copyright = "RL4CO Contributors"
 author = "Federico Berto, Chuanbo Hua, Junyoung Park, Minsu Kim, Hyeonah Kim, Jiwoo Son, Haeyeon Kim, Joungho Kim, Jinkyoo Park"
 
 
@@ -46,7 +46,7 @@ extensions = [
 collections = {
     "my_files": {
         "driver": "copy_folder",
-        "source": "../notebooks/",
+        "source": "../examples/",
         "target": "",
         "ignore": ["*.ckpt"],
     }

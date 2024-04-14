@@ -1,6 +1,6 @@
 # Data folder. If needed, add files with git add -f <file>
 # only at the project root (leading /)
-/data 
+/data
 *.npz
 *.npy
 *.pkl
@@ -11,6 +11,7 @@
 
 # checkpoints
 *saved_checkpoints*
+*.ckpt
 
 
 # Hydra
@@ -123,7 +124,7 @@ celerybeat.pid
 # Environments # only on root, add /
 .env
 .venv
-/env/ 
+/env/
 venv/
 ENV/
 env.bak/
