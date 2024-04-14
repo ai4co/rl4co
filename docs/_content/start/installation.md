@@ -1,6 +1,6 @@
 # Installation
 
-<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/notebooks/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 
 RL4CO is now available for installation on `pip`!
 ```bash
@@ -19,4 +19,4 @@ pip install -e .
 
 </details>
 
-To get started, we recommend checking out our [quickstart notebook](https://github.com/ai4co/rl4co/blob/main/notebooks/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example).
+To get started, we recommend checking out our [quickstart notebook](https://github.com/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example).

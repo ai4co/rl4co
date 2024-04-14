@@ -182,6 +182,38 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
+---
+
+# NonAutoregressive Models
+
+## DeepACO
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.deepaco.antsystem
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.deepaco.model
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.deepaco.policy
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.deepaco.decoder
+   :members:
+   :undoc-members:
+```
+
+
+---
 
 # Search Methods
 
