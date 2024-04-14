@@ -6,12 +6,13 @@ from typing import Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.attention import LogitAttention
+from rl4co.models.nn.attention import PointerAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
-from rl4co.models.nn.utils import decode_probs, get_log_likelihood
+from rl4co.utils.decoding import decode_logprobs, get_log_likelihood
 
 
 @dataclass
@@ -85,8 +86,9 @@ class Decoder(nn.Module):
             env_name, {"embedding_dim": embedding_dim}
         )
 
-        self.logit_attention = [
-            LogitAttention(
+        # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
+        self.pointer = [
+            PointerAttention(
                 embedding_dim,
                 num_heads,
                 mask_inner=mask_inner,
@@ -124,10 +126,10 @@ class Decoder(nn.Module):
 
             # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
             fixed = self._precompute(_encoded_inputs, path_index=i)
-            log_p, _ = self._get_log_p(fixed, td_list[i], i)
+            logprobs, _ = self._get_logprobs(fixed, td_list[i], i)
 
             # Collect output of step
-            output_list.append(log_p[:, 0, :])
+            output_list.append(logprobs[:, 0, :])
             output_list[-1] = torch.max(
                 output_list[-1],
                 torch.ones(
@@ -180,13 +182,13 @@ class Decoder(nn.Module):
                         _attn, _V, _h_old, mask_attn, self.is_tsp
                     )
                     fixed = self._precompute(_encoded_inputs, path_index=i)
-                log_p, mask = self._get_log_p(fixed, td_list[i], i)
+                logprobs, mask = self._get_logprobs(fixed, td_list[i], i)
                 if j == 0:
                     pass
 
                 # Select the indices of the next nodes in the sequences, result (batch_size) long
-                action = decode_probs(
-                    log_p.exp()[:, 0, :],
+                action = decode_logprobs(
+                    logprobs[:, 0, :],
                     mask,
                     decode_type=decoder_kwargs["decode_type"],
                 )
@@ -195,7 +197,7 @@ class Decoder(nn.Module):
                 td_list[i] = env.step(td_list[i])["next"]
 
                 # Collect output of step
-                outputs.append(log_p[:, 0, :])
+                outputs.append(logprobs[:, 0, :])
                 actions.append(action)
                 j += 1
 
@@ -254,7 +256,7 @@ class Decoder(nn.Module):
             )  # (n_heads, batch_size, num_steps, graph_size, head_dim)
         )
 
-    def _get_log_p(self, fixed, td, path_index, normalize=True):
+    def _get_logprobs(self, fixed, td, path_index, normalize=True):
         step_context = self.context[path_index](
             fixed.node_embeddings, td
         )  # [batch, embed_dim]
@@ -272,15 +274,15 @@ class Decoder(nn.Module):
         glimpse_v = fixed.glimpse_val + glimpse_val_dynamic
         logit_k = fixed.logit_key + logit_key_dynamic
 
-        # Compute the mask
+        # Compute the mask (NOTE: here it is the opposite due to custom attention implementation)
         mask = ~td["action_mask"]
 
-        # Compute logits (unnormalized log_p)
-        # log_p, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
-        log_p, _ = self._one_to_many_logits(
+        # Compute logits (unnormalized logprobs)
+        # logprobs, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
+        logprobs, _ = self._one_to_many_logits(
             glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index
         )
-        return log_p, mask
+        return logprobs, mask
 
     def _one_to_many_logits(self, query, glimpse_K, glimpse_V, logit_K, mask, path_index):
         batch_size, num_steps, embed_dim = query.size()

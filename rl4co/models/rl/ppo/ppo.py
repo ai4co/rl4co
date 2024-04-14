@@ -142,7 +142,7 @@ class PPO(RL4COLitModule):
                 mini_batch_size = batch_size
 
             # Todo: Add support for multi dimensional batches
-            td.set("log_prob", out["log_likelihood"])
+            td.set("logprobs", out["log_likelihood"])
             td.set("reward", out["reward"])
             td.set("action", out["actions"])
 
@@ -157,13 +157,13 @@ class PPO(RL4COLitModule):
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
-                    previous_reward = sub_td["reward"].view(-1, 1)                    
+                    previous_reward = sub_td["reward"].view(-1, 1)
                     ll, entropy = self.policy.evaluate_action(
                         sub_td, action=sub_td["action"], env=self.env
                     )
 
                     # Compute the ratio of probabilities of new and old actions
-                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["log_prob"]).view(
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["logprobs"]).view(
                         -1, 1
                     )  # [batch, 1]
 

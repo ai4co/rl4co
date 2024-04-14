@@ -7,10 +7,10 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.dec_strategies import Sampling
 from rl4co.models.zoo.common.nonautoregressive.decoder import (
     NonAutoregressiveDecoder as NARDecoder,
 )
+from rl4co.utils.decoding import Sampling
 
 
 class AntSystem:
@@ -23,7 +23,7 @@ class AntSystem:
         beta: Importance of heuristic information in the decision-making process. Defaults to 1.0.
         decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
-        require_logp: Whether to require the log probability of actions. Defaults to False.
+        require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
         local_search_params: Arguments to be passed to the local_search function.
     """
@@ -36,7 +36,7 @@ class AntSystem:
         beta: float = 1.0,
         decay: float = 0.95,
         pheromone: Optional[Tensor] = None,
-        require_logp: bool = False,
+        require_logprobs: bool = False,
         use_local_search: bool = False,
         local_search_params: dict = {},
     ):
@@ -52,7 +52,7 @@ class AntSystem:
         )
 
         self.final_actions = self.final_reward = None
-        self.require_logp = require_logp
+        self.require_logprobs = require_logprobs
         self.all_records = []
 
         self.use_local_search = use_local_search
@@ -118,21 +118,21 @@ class AntSystem:
     ):
         # Sample from heatmaps
         # p = phe**alpha * heu**beta <==> log(p) = alpha*log(phe) + beta*log(heu)
-        heatmaps_logp = (
+        heatmaps_logits = (
             self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
         )
         decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
-            log_p, mask = NARDecoder._get_log_p(td, heatmaps_logp, num_starts)
-            td = decode_strategy.step(log_p, mask, td)
+            logits, mask = NARDecoder._get_logits(td, heatmaps_logits, num_starts)
+            td = decode_strategy.step(logits, mask, td)
             td = env.step(td)["next"]
 
-        outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
+        logprobs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
         reward = env.get_reward(td, actions)
 
-        if self.require_logp:
-            self.all_records.append((outputs, actions, reward, td.get("mask", None)))
+        if self.require_logprobs:
+            self.all_records.append((logprobs, actions, reward, td.get("mask", None)))
 
         # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
         reward = reward.view(self.n_ants, self.batch_size).T
@@ -210,7 +210,7 @@ class AntSystem:
         return td, env
 
     def get_logp(self):
-        """Get the log probability (logp) values recorded during the execution of the algorithm.
+        """Get the log probability (logprobs) values recorded during the execution of the algorithm.
 
         Returns:
             results: Tuple containing the log probability values,
@@ -220,12 +220,14 @@ class AntSystem:
             AssertionError: If `require_logp` is not enabled.
         """
 
-        assert self.require_logp, "Please enable `require_logp` to record logp values"
+        assert (
+            self.require_logprobs
+        ), "Please enable `require_logp` to record logprobs values"
 
-        logp_list, actions_list, reward_list, mask_list = [], [], [], []
+        logprobs_list, actions_list, reward_list, mask_list = [], [], [], []
 
-        for outputs, actions, reward, mask in self.all_records:
-            logp_list.append(outputs)
+        for logprobs, actions, reward, mask in self.all_records:
+            logprobs_list.append(logprobs)
             actions_list.append(actions)
             reward_list.append(reward)
             mask_list.append(mask)
@@ -239,7 +241,7 @@ class AntSystem:
         self.all_records = []
 
         return (
-            torch.stack(logp_list, 0),
+            torch.stack(logprobs_list, 0),
             torch.stack(actions_list, 0),
             torch.stack(reward_list, 0),
             mask_list,

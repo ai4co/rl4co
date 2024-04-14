@@ -9,11 +9,15 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.nn.attention import LogitAttention
-from rl4co.models.nn.dec_strategies import DecodingStrategy, get_decoding_strategy
+from rl4co.models.nn.attention import PointerAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-from rl4co.models.nn.utils import get_log_likelihood
+from rl4co.utils.decoding import (
+    DecodingStrategy,
+    get_decoding_strategy,
+    get_log_likelihood,
+    process_logits,
+)
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -55,6 +59,9 @@ class AutoregressiveDecoder(nn.Module):
         linear_bias: Whether to use a bias in the linear projection of the embeddings
         context_embedding: Module to compute the context embedding. If None, the default is used
         dynamic_embedding: Module to compute the dynamic embedding. If None, the default is used
+        temperature: Temperature for the softmax in the decoder
+        tanh_clipping: Clipping value for the tanh in the decoder
+        mask_logits: Whether to mask the logits in the decoder
     """
 
     def __init__(
@@ -66,7 +73,10 @@ class AutoregressiveDecoder(nn.Module):
         linear_bias: bool = False,
         context_embedding: nn.Module = None,
         dynamic_embedding: nn.Module = None,
-        **logit_attn_kwargs,
+        temperature: float = 1.0,
+        tanh_clipping: float = 10.0,
+        mask_logits: bool = True,
+        **pointer_attn_kwargs,
     ):
         super().__init__()
 
@@ -75,6 +85,9 @@ class AutoregressiveDecoder(nn.Module):
         self.env_name = env_name
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
+        self.temperature = temperature
+        self.tanh_clipping = tanh_clipping
+        self.mask_logits = mask_logits
 
         assert embedding_dim % num_heads == 0
 
@@ -102,10 +115,8 @@ class AutoregressiveDecoder(nn.Module):
             embedding_dim, embedding_dim, bias=linear_bias
         )
 
-        # MHA
-        self.logit_attention = LogitAttention(
-            embedding_dim, num_heads, **logit_attn_kwargs
-        )
+        # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
+        self.pointer = PointerAttention(embedding_dim, num_heads, **pointer_attn_kwargs)
 
     def forward(
         self,
@@ -113,8 +124,10 @@ class AutoregressiveDecoder(nn.Module):
         embeddings: Tensor,
         env: Union[str, RL4COEnvBase] = None,
         decode_type: str = "sampling",
-        softmax_temp: float = None,
         calc_reward: bool = True,
+        temperature: float = None,
+        tanh_clipping: float = None,
+        mask_logits: bool = None,
         **strategy_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
         """Forward pass of the decoder
@@ -131,12 +144,14 @@ class AutoregressiveDecoder(nn.Module):
                 - "multistart_sampling": sample as sampling, but with multi-start decoding
                 - "multistart_greedy": sample as greedy, but with multi-start decoding
                 - "beam_search": perform beam search
-            softmax_temp: Temperature for the softmax. If None, default softmax is used from the `LogitAttention` module
             calc_reward: Whether to calculate the reward for the decoded sequence
+            temperature: Temperature for the softmax in logit decoding
+            tanh_clipping: Clipping value for the tanh in the decoder
+            mask_logits: Whether to mask the logits in the decoder
             strategy_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.models.nn.dec_strategies.DecodingStrategy`
 
         Returns:
-            outputs: Tensor of shape (batch_size, seq_len, num_nodes) containing the logits
+            logprobs: Tensor of shape (batch_size, seq_len, num_nodes) containing the logits
             actions: Tensor of shape (batch_size, seq_len) containing the sampled actions
             td: TensorDict containing the environment state after decoding
         """
@@ -148,9 +163,18 @@ class AutoregressiveDecoder(nn.Module):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute_cache(embeddings, td=td)
 
+        # Get default values if not provided
+        temperature = temperature if temperature is not None else self.temperature
+        tanh_clipping = tanh_clipping if tanh_clipping is not None else self.tanh_clipping
+        mask_logits = mask_logits if mask_logits is not None else self.mask_logits
+
         # Setup decoding strategy
         decode_strategy: DecodingStrategy = get_decoding_strategy(
-            decode_type, **strategy_kwargs
+            decode_type,
+            temperature=temperature,
+            tanh_clipping=tanh_clipping,
+            mask_logits=mask_logits,
+            **strategy_kwargs,
         )
 
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
@@ -158,17 +182,17 @@ class AutoregressiveDecoder(nn.Module):
 
         # Main decoding: loop until all sequences are done
         while not td["done"].all():
-            log_p, mask = self._get_log_p(cached_embeds, td, softmax_temp, num_starts)
-            td = decode_strategy.step(log_p, mask, td)
+            logits, mask = self._get_logits(cached_embeds, td, num_starts)
+            td = decode_strategy.step(logits, mask, td)
             td = env.step(td)["next"]
 
         # Post-decoding hook: used for the final step(s) of the decoding strategy
-        outputs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
+        logprobs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
 
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
 
-        return outputs, actions, td
+        return logprobs, actions, td
 
     def _precompute_cache(
         self,
@@ -207,19 +231,17 @@ class AutoregressiveDecoder(nn.Module):
 
         return cached_embeds
 
-    def _get_log_p(
+    def _get_logits(
         self,
         cached: PrecomputedCache,
         td: TensorDict,
-        softmax_temp: float = None,
         num_starts: int = 0,
     ):
-        """Compute the log probabilities of the next actions given the current state
+        """Compute the logits of the next actions given the current state
 
         Args:
             cache: Precomputed embeddings
             td: TensorDict with the current environment state
-            softmax_temp: Temperature for the softmax
             num_starts: Number of starts for the multi-start decoding
         """
 
@@ -266,20 +288,16 @@ class AutoregressiveDecoder(nn.Module):
         glimpse_v = glimpse_v_stat + glimpse_v_dyn
         logit_k = logit_k_stat + logit_k_dyn
 
-        # Get the mask
-        mask = ~td["action_mask"]
-
         # Compute logits
-        log_p = self.logit_attention(
-            glimpse_q, glimpse_k, glimpse_v, logit_k, mask, softmax_temp
-        )
+        mask = td["action_mask"]
+        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
 
-        # Now we need to reshape the logits and log_p to [B*S,N,...] is num_starts > 1 without dynamic embeddings
+        # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here
         if num_starts > 1 and not has_dyn_emb_multi_start:
-            log_p = rearrange(log_p, "b s l -> (s b) l", s=num_starts)
+            logits = rearrange(logits, "b s l -> (s b) l", s=num_starts)
             mask = rearrange(mask, "b s l -> (s b) l", s=num_starts)
-        return log_p, mask
+        return logits, mask
 
     def evaluate_action(
         self,
@@ -297,7 +315,7 @@ class AutoregressiveDecoder(nn.Module):
             env: Environment to use for decoding. If None, the environment is instantiated from `env_name`. Note that
                 it is more efficient to pass an already instantiated environment each time for fine-grained control
         Returns:
-            log_p: Tensor of shape (batch_size, seq_len, num_nodes) containing the log-likehood of the actions
+            logprobs: Tensor of shape (batch_size, seq_len, num_nodes) containing the log-likehood of the actions
             entropy: Tensor of shape (batch_size, seq_len) containing the sampled actions
         """
 
@@ -309,15 +327,21 @@ class AutoregressiveDecoder(nn.Module):
         # Compute keys, values for the glimpse and keys for the logits once as they can be reused in every step
         cached_embeds = self._precompute_cache(embeddings)
 
-        log_p = []
+        logprobs = []
         decode_step = 0
         while not td["done"].all():
-            log_p_, _ = self._get_log_p(cached_embeds, td)
+            logits, mask = self._get_logits(cached_embeds, td)
+            logp = process_logits(
+                logits,
+                mask,
+                tanh_clipping=self.tanh_clipping,
+                mask_logits=self.mask_logits,
+            )
             action_ = action[..., decode_step]
 
             td.set("action", action_)
             td = env.step(td)["next"]
-            log_p.append(log_p_)
+            logprobs.append(logp)
 
             decode_step += 1
 
@@ -325,15 +349,15 @@ class AutoregressiveDecoder(nn.Module):
         # due to the padded zeros in the actions
 
         # Compute log likelihood of the actions
-        log_p = torch.stack(log_p, 1)  # [batch_size, decoding steps, num_nodes]
+        logprobs = torch.stack(logprobs, 1)  # [batch_size, decoding steps, num_nodes]
         ll = get_log_likelihood(
-            log_p, action[..., :decode_step], mask=None, return_sum=False
+            logprobs, action[..., :decode_step], mask=None, return_sum=False
         )  # [batch_size, decoding steps]
         assert ll.isfinite().all(), "Log p is not finite"
 
         # compute entropy
-        log_p = torch.nan_to_num(log_p, nan=0.0)
-        entropy = -(log_p.exp() * log_p).sum(dim=-1)  # [batch, decoder steps]
+        logprobs = torch.nan_to_num(logprobs, nan=0.0)
+        entropy = -(logprobs.exp() * logprobs).sum(dim=-1)  # [batch, decoder steps]
         entropy = entropy.sum(dim=1)  # [batch] -- sum over decoding steps
         assert entropy.isfinite().all(), "Entropy is not finite"
 

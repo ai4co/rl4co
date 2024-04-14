@@ -5,9 +5,9 @@ import torch.nn as nn
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.nonautoregressive.decoder import NonAutoregressiveDecoder
 from rl4co.models.zoo.common.nonautoregressive.encoder import NonAutoregressiveEncoder
+from rl4co.utils.decoding import get_log_likelihood
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -121,7 +121,7 @@ class NonAutoregressivePolicy(nn.Module):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # DECODER: main rollout with autoregressive decoding
-        log_p, actions, td_out = self.decoder(
+        logprobs, actions, td_out = self.decoder(
             td, graph, env, phase=phase, **decoder_kwargs
         )
 
@@ -130,7 +130,7 @@ class NonAutoregressivePolicy(nn.Module):
         if phase == "train":
             # Log likelihood is calculated within the model
             log_likelihood = get_log_likelihood(
-                log_p, actions, td_out.get("mask", None)
+                logprobs, actions, td_out.get("mask", None)
             )  # , return_sum=False).mean(-1)
             out["log_likelihood"] = log_likelihood
 
@@ -138,7 +138,7 @@ class NonAutoregressivePolicy(nn.Module):
             out["actions"] = actions
 
         if return_entropy:
-            entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
+            entropy = -(logprobs.exp() * logprobs).nansum(dim=1)  # [batch, decoder steps]
             entropy = entropy.sum(dim=1)  # [batch]
             out["entropy"] = entropy
 

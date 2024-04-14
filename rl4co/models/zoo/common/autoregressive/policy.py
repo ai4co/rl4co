@@ -6,9 +6,9 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
 from rl4co.models.zoo.common.autoregressive.encoder import GraphAttentionEncoder
+from rl4co.utils.decoding import get_log_likelihood
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -44,6 +44,9 @@ class AutoregressivePolicy(nn.Module):
         train_decode_type: Type of decoding during training
         val_decode_type: Type of decoding during validation
         test_decode_type: Type of decoding during testing
+        temperature: Temperature for the softmax in the decoder
+        tanh_clipping: Clipping value for the tanh in the decoder
+        mask_logits: Whether to mask the logits in the decoder
         **unused_kw: Unused keyword arguments
     """
 
@@ -65,6 +68,9 @@ class AutoregressivePolicy(nn.Module):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        temperature: float = 1.0,
+        tanh_clipping: float = 10.0,
+        mask_logits: bool = True,
         **unused_kw,
     ):
         super(AutoregressivePolicy, self).__init__()
@@ -97,9 +103,12 @@ class AutoregressivePolicy(nn.Module):
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
-                mask_inner=mask_inner,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
+                temperature=temperature,
+                tanh_clipping=tanh_clipping,
+                mask_logits=mask_logits,
+                mask_inner=mask_inner,
             )
         else:
             self.decoder = decoder
@@ -146,10 +155,10 @@ class AutoregressivePolicy(nn.Module):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         # DECODER: main rollout with autoregressive decoding
-        log_p, actions, td_out = self.decoder(td, embeddings, env, **decoder_kwargs)
+        logprobs, actions, td_out = self.decoder(td, embeddings, env, **decoder_kwargs)
 
         # Log likelihood is calculated within the model
-        log_likelihood = get_log_likelihood(log_p, actions, td_out.get("mask", None))
+        log_likelihood = get_log_likelihood(logprobs, actions, td_out.get("mask", None))
 
         out = {
             "reward": td_out["reward"],
@@ -159,7 +168,7 @@ class AutoregressivePolicy(nn.Module):
             out["actions"] = actions
 
         if return_entropy:
-            entropy = -(log_p.exp() * log_p).nansum(dim=1)  # [batch, decoder steps]
+            entropy = -(logprobs.exp() * logprobs).nansum(dim=1)  # [batch, decoder steps]
             entropy = entropy.sum(dim=1)  # [batch]
             out["entropy"] = entropy
 
