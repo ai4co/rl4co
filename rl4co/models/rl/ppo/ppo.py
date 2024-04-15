@@ -157,6 +157,7 @@ class PPO(RL4COLitModule):
 
             for _ in range(self.ppo_cfg["ppo_epochs"]):  # PPO inner epoch, K
                 for sub_td in dataloader:
+                    sub_td = sub_td.to(td.device)
                     previous_reward = sub_td["reward"].view(-1, 1)
                     ll, entropy = self.policy.evaluate_action(
                         sub_td, action=sub_td["action"], env=self.env
