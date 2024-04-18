@@ -10,10 +10,10 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.common.search import SearchBase
-from rl4co.models.zoo.eas.decoder import forward_eas, forward_logit_attn_eas_lay
+from rl4co.models.zoo.eas.decoder import forward_eas, forward_pointer_attn_eas_lay
 from rl4co.models.zoo.eas.nn import EASLayerNet
+from rl4co.utils.decoding import get_log_likelihood
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -165,11 +165,9 @@ class EAS(SearchBase):
         if self.hparams.use_eas_layer:
             # EASLay: replace forward of logit attention computation. EASLayer
             eas_layer = EASLayerNet(num_instances, decoder.embedding_dim).to(batch.device)
-            decoder.logit_attention.eas_layer = partial(
-                eas_layer, decoder.logit_attention
-            )
-            decoder.logit_attention.forward = partial(
-                forward_logit_attn_eas_lay, decoder.logit_attention
+            decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
+            decoder.pointer.forward = partial(
+                forward_pointer_attn_eas_lay, decoder.pointer
             )
             for param in eas_layer.parameters():
                 opt_params.append(param)
@@ -195,7 +193,7 @@ class EAS(SearchBase):
         for iter_count in range(self.hparams.max_iters):
             # Evaluate policy with sampling multistarts passing the cached embeddings
             best_solutions_expanded = best_solutions.repeat(n_aug, 1).repeat(n_runs, 1)
-            log_p, actions, td_out, reward = decoder(
+            logprobs, actions, td_out, reward = decoder(
                 td_init.clone(),
                 cached_embeds=cached_embeds,
                 best_solutions=best_solutions_expanded,
@@ -206,7 +204,7 @@ class EAS(SearchBase):
             )
 
             # Unbatchify to get correct dimensions
-            ll = get_log_likelihood(log_p, actions, td_out.get("mask", None))
+            ll = get_log_likelihood(logprobs, actions, td_out.get("mask", None))
             ll = unbatchify(ll, (n_runs * batch_size, n_aug, group_s)).squeeze()
             reward = unbatchify(reward, (n_runs * batch_size, n_aug, group_s)).squeeze()
             actions = unbatchify(actions, (n_runs * batch_size, n_aug, group_s)).squeeze()

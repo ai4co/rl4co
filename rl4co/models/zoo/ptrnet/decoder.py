@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rl4co.models.nn.utils import decode_probs
+from rl4co.utils.decoding import decode_logprobs
 
 
 class SimpleAttention(nn.Module):
@@ -72,7 +72,7 @@ class Decoder(nn.Module):
         self.glimpse = SimpleAttention(hidden_dim, use_tanh=False)
 
     def update_mask(self, mask, selected):
-        return mask.clone().scatter_(1, selected.unsqueeze(-1), True)
+        return mask.clone().scatter_(1, selected.unsqueeze(-1), False)
 
     def recurrence(self, x, h_in, prev_mask, prev_idxs, step, context):
         logit_mask = (
@@ -85,12 +85,11 @@ class Decoder(nn.Module):
 
         # Calculate log_softmax for better numerical stability
         log_p = torch.log_softmax(logits, dim=1)
-        probs = log_p.exp()
 
         if not self.mask_logits:
-            probs[logit_mask] = 0.0
+            log_p[~logit_mask] = float("-inf")
 
-        return h_out, log_p, probs, logit_mask
+        return h_out, log_p, logit_mask
 
     def calc_logits(
         self, x, h_in, logit_mask, context, mask_glimpses=None, mask_logits=None
@@ -108,7 +107,7 @@ class Decoder(nn.Module):
             ref, logits = self.glimpse(g_l, context)
             # For the glimpses, only mask before softmax so we have always an L1 norm 1 readout vector
             if mask_glimpses:
-                logits[logit_mask] = float("-inf")
+                logits[~logit_mask] = float("-inf")
             # [batch_size x h_dim x sourceL] * [batch_size x sourceL x 1] =
             # [batch_size x h_dim x 1]
             g_l = torch.bmm(ref, F.softmax(logits, dim=1).unsqueeze(2)).squeeze(2)
@@ -116,7 +115,7 @@ class Decoder(nn.Module):
 
         # Masking before softmax makes probs sum to one
         if mask_logits:
-            logits[logit_mask] = float("-inf")
+            logits[~logit_mask] = float("-inf")
 
         return logits, h_out
 
@@ -144,7 +143,7 @@ class Decoder(nn.Module):
         selections = []
         steps = range(embedded_inputs.size(0))
         idxs = None
-        mask = torch.zeros(
+        mask = torch.ones(
             embedded_inputs.size(1),
             embedded_inputs.size(0),
             dtype=torch.bool,
@@ -152,12 +151,12 @@ class Decoder(nn.Module):
         )
 
         for i in steps:
-            hidden, log_p, probs, mask = self.recurrence(
+            hidden, log_p, mask = self.recurrence(
                 decoder_input, hidden, mask, idxs, i, context
             )
             # select the next inputs for the decoder [batch_size x hidden_dim]
             idxs = (
-                decode_probs(probs, mask, decode_type=decode_type)
+                decode_logprobs(log_p, mask, decode_type=decode_type)
                 if eval_tours is None
                 else eval_tours[:, i]
             )

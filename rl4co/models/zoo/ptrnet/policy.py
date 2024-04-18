@@ -1,14 +1,14 @@
-from typing import Union
-
 import math
+
+from typing import Union
 
 import torch
 import torch.nn as nn
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.utils import get_log_likelihood
 from rl4co.models.zoo.ptrnet.decoder import Decoder
 from rl4co.models.zoo.ptrnet.encoder import Encoder
+from rl4co.utils.decoding import get_log_likelihood
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -81,13 +81,13 @@ class PointerNetworkPolicy(nn.Module):
 
         # query the actor net for the input indices
         # making up the output, and the pointer attn
-        _log_p, actions = self._inner(embedded_inputs, decode_type, eval_tours)
+        _logprobs, actions = self._inner(embedded_inputs, decode_type, eval_tours)
 
         reward = env.get_reward(td, actions)
 
         # Log likelyhood is calculated within the model since returning it per action does not work well with
         # DataParallel since sequences can be of different lengths
-        ll = get_log_likelihood(_log_p, actions, td.get("mask", None))
+        ll = get_log_likelihood(_logprobs, actions, td.get("mask", None))
 
         out = {"reward": reward, "log_likelihood": ll, "actions": actions}
         return out

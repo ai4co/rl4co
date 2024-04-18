@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from tensordict.tensordict import TensorDict
+
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
     """Get environment initial embedding. The init embedding is used to initialize the
@@ -14,6 +16,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
     embedding_registry = {
         "tsp": TSPInitEmbedding,
         "atsp": TSPInitEmbedding,
+        "matnet": MatNetInitEmbedding,
         "cvrp": VRPInitEmbedding,
         "vrpb": VRPInitEmbedding,
         "vrpl": VRPInitEmbedding,
@@ -30,6 +33,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": PDPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
+        "mdcpdp": MDCPDPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -54,6 +58,50 @@ class TSPInitEmbedding(nn.Module):
     def forward(self, td):
         out = self.init_embed(td["locs"])
         return out
+
+
+class MatNetInitEmbedding(nn.Module):
+    """
+    Preparing the initial row and column embeddings for FFSP.
+
+    Reference:
+    https://github.com/yd-kwon/MatNet/blob/782698b60979effe2e7b61283cca155b7cdb727f/ATSP/ATSP_MatNet/ATSPModel.py#L51
+
+
+    """
+
+    def __init__(self, embedding_dim: int, mode: str = "RandomOneHot") -> None:
+        super().__init__()
+
+        self.embedding_dim = embedding_dim
+        assert mode in {
+            "RandomOneHot",
+            "Random",
+        }, "mode must be one of ['RandomOneHot', 'Random']"
+        self.mode = mode
+
+    def forward(self, td: TensorDict):
+        dmat = td["cost_matrix"]
+        b, r, c = dmat.shape
+
+        row_emb = torch.zeros(b, r, self.embedding_dim, device=dmat.device)
+
+        if self.mode == "RandomOneHot":
+            # MatNet uses one-hot encoding for column embeddings
+            # https://github.com/yd-kwon/MatNet/blob/782698b60979effe2e7b61283cca155b7cdb727f/ATSP/ATSP_MatNet/ATSPModel.py#L60
+            col_emb = torch.zeros(b, c, self.embedding_dim, device=dmat.device)
+            rand = torch.rand(b, c)
+            rand_idx = rand.argsort(dim=1)
+            b_idx = torch.arange(b)[:, None].expand(b, c)
+            n_idx = torch.arange(c)[None, :].expand(b, c)
+            col_emb[b_idx, n_idx, rand_idx] = 1.0
+
+        elif self.mode == "Random":
+            col_emb = torch.rand(b, r, self.embedding_dim, device=dmat.device)
+        else:
+            raise NotImplementedError
+
+        return row_emb, col_emb, dmat
 
 
 class VRPInitEmbedding(nn.Module):
@@ -314,3 +362,32 @@ class SMTWTPInitEmbedding(nn.Module):
         feat = torch.stack((job_due_time, job_weight, job_process_time), dim=-1)
         out = self.init_embed(feat)
         return out
+
+
+class MDCPDPInitEmbedding(nn.Module):
+    """Initial embedding for the MDCPDP environment
+    Embed the following node features to the embedding space:
+        - locs: x, y coordinates of the nodes (depot, pickups and deliveries separately)
+           Note that pickups and deliveries are interleaved in the input.
+    """
+
+    def __init__(self, embedding_dim, linear_bias=True):
+        super(MDCPDPInitEmbedding, self).__init__()
+        node_dim = 2  # x, y
+        self.init_embed_depot = nn.Linear(2, embedding_dim, linear_bias)
+        self.init_embed_pick = nn.Linear(node_dim * 2, embedding_dim, linear_bias)
+        self.init_embed_delivery = nn.Linear(node_dim, embedding_dim, linear_bias)
+
+    def forward(self, td):
+        num_depots = td["capacity"].size(-1)
+        depot, locs = td["locs"][..., 0:num_depots, :], td["locs"][..., num_depots:, :]
+        num_locs = locs.size(-2)
+        pick_feats = torch.cat(
+            [locs[:, : num_locs // 2, :], locs[:, num_locs // 2 :, :]], -1
+        )  # [batch_size, graph_size//2, 4]
+        delivery_feats = locs[:, num_locs // 2 :, :]  # [batch_size, graph_size//2, 2]
+        depot_embeddings = self.init_embed_depot(depot)
+        pick_embeddings = self.init_embed_pick(pick_feats)
+        delivery_embeddings = self.init_embed_delivery(delivery_feats)
+        # concatenate on graph size dimension
+        return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)

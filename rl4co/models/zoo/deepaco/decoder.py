@@ -83,9 +83,11 @@ class DeepACODecoder(NonAutoregressiveDecoder):
             env = get_env(env_name)
 
         # calculate heatmap
-        heuristic_logp = self.heatmap_generator(graph)
+        heuristic_logprobs = self.heatmap_generator(graph)
 
-        aco = self.aco_class(heuristic_logp, n_ants=self.n_ants[phase], **self.aco_args)
+        aco = self.aco_class(
+            heuristic_logprobs, n_ants=self.n_ants[phase], **self.aco_args
+        )
         td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
 
         if calc_reward:
