@@ -75,7 +75,7 @@ class MultiHeadAttention(nn.Module):
         causal: whether to apply causal mask to attention scores
         device: torch device
         dtype: torch dtype
-        sdpa_fn: scaled dot product attention function (SDPA)
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
     """
 
     def __init__(
@@ -94,11 +94,7 @@ class MultiHeadAttention(nn.Module):
         self.embed_dim = embed_dim
         self.causal = causal
         self.attention_dropout = attention_dropout
-
-        # Default to `scaled_dot_product_attention` if `sdpa_fn` is not provided
-        if sdpa_fn is None:
-            sdpa_fn = scaled_dot_product_attention
-        self.sdpa_fn = sdpa_fn
+        self.sdpa_fn = sdpa_fn if sdpa_fn is not None else scaled_dot_product_attention
 
         self.num_heads = num_heads
         assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
@@ -147,8 +143,8 @@ class PointerAttention(nn.Module):
         num_heads: number of heads
         mask_inner: whether to mask inner attention
         linear_bias: whether to use bias in linear projection
-        sdp_fn: scaled dot product attention function (SDPA)
         check_nan: whether to check for NaNs in logits
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
     """
 
     def __init__(
@@ -157,8 +153,8 @@ class PointerAttention(nn.Module):
         num_heads: int,
         mask_inner: bool = True,
         out_bias: bool = False,
-        sdp_fn=scaled_dot_product_attention,
         check_nan: bool = True,
+        sdpa_fn: Optional[Callable] = None,
         **unused_kwargs,
     ):
         super(PointerAttention, self).__init__()
@@ -167,7 +163,7 @@ class PointerAttention(nn.Module):
 
         # Projection - query, key, value already include projections
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
-        self.sdp_fn = sdp_fn
+        self.sdpa_fn = sdpa_fn if sdpa_fn is not None else scaled_dot_product_attention
         self.check_nan = check_nan
 
         # Check unused kwargs
@@ -213,7 +209,7 @@ class PointerAttention(nn.Module):
             )
         else:
             attn_mask = None
-        heads = self.sdp_fn(q, k, v, attn_mask=attn_mask)
+        heads = self.sdpa_fn(q, k, v, attn_mask=attn_mask)
         return rearrange(heads, "... h n g -> ... n (h g)", h=self.num_heads)
 
     def _make_heads(self, v):
