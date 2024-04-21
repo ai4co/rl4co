@@ -4,6 +4,7 @@ import pytest
 
 from rl4co.envs import ATSPEnv, PDPEnv, TSPEnv
 from rl4co.models import (
+    MDAM,
     ActiveSearch,
     AttentionModel,
     AutoregressivePolicy,
@@ -71,6 +72,19 @@ def test_matnet():
     model = MatNet(
         env,
         baseline="shared",
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+    )
+    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_mdam():
+    env = TSPEnv(num_loc=20)
+    model = MDAM(
+        env,
         train_data_size=10,
         val_data_size=10,
         test_data_size=10,
