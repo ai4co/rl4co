@@ -35,7 +35,6 @@ class Decoder(nn.Module):
         mask_logits: bool = True,
         eg_step_gap: int = 200,
         tanh_clipping: float = 10.0,
-        force_flash_attn: bool = False,
         shrink_size=None,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
@@ -55,10 +54,12 @@ class Decoder(nn.Module):
             -1, 1
         )  # Placeholder should be in range of activations
 
-        self.context = [
-            env_context_embedding(env_name, {"embedding_dim": embedding_dim})
-            for _ in range(num_paths)
-        ]
+        self.context = nn.ModuleList(
+            [
+                env_context_embedding(env_name, {"embedding_dim": embedding_dim})
+                for _ in range(num_paths)
+            ]
+        )
 
         self.project_node_embeddings = [
             nn.Linear(embedding_dim, 3 * embedding_dim, bias=False)
@@ -92,7 +93,6 @@ class Decoder(nn.Module):
                 embedding_dim,
                 num_heads,
                 mask_inner=mask_inner,
-                force_flash_attn=force_flash_attn,
             )
             for _ in range(num_paths)
         ]
@@ -114,12 +114,14 @@ class Decoder(nn.Module):
         attn,
         V,
         h_old,
+        encoder,  # note: used because of different paths, could be better modularized
         **decoder_kwargs,
     ):
         # SECTION: Decoder first step: calculate for the decoder divergence loss
         # Cost list and log likelihood list along with path
         output_list = []
-        td_list = [env.reset(td) for i in range(self.num_paths)]
+        # td_list = [env.reset(td) for i in range(self.num_paths)]
+        td_list = [td.clone() for i in range(self.num_paths)]
         for i in range(self.num_paths):
             # Clone the encoded features for this path
             _encoded_inputs = encoded_inputs.clone()
@@ -159,7 +161,8 @@ class Decoder(nn.Module):
         output_list = []
         action_list = []
         ll_list = []
-        td_list = [env.reset(td) for _ in range(self.num_paths)]
+        # td_list = [env.reset(td) for _ in range(self.num_paths)]
+        td_list = [td.clone() for i in range(self.num_paths)]
         for i in range(self.num_paths):
             # Clone the encoded features for this path
             _encoded_inputs = encoded_inputs.clone()
@@ -175,12 +178,13 @@ class Decoder(nn.Module):
             while not (self.shrink_size is None and td_list[i]["done"].all()):
                 if j > 1 and j % self.eg_step_gap == 0:
                     if not self.is_vrp:
+                        # TODO: modularize
                         mask_attn = mask ^ mask_first
                     else:
                         mask_attn = mask
-                    _encoded_inputs, _ = self.embedder.change(
-                        _attn, _V, _h_old, mask_attn, self.is_tsp
-                    )
+
+                    # TODO: decoder
+                    _encoded_inputs, _ = encoder.change(_attn, _V, _h_old, mask_attn)
                     fixed = self._precompute(_encoded_inputs, path_index=i)
                 logprobs, mask = self._get_logprobs(fixed, td_list[i], i)
                 if j == 0:
@@ -201,17 +205,18 @@ class Decoder(nn.Module):
                 actions.append(action)
                 j += 1
 
+            assert len(outputs) > 0, "No outputs were generated, check if envs were done"
             outputs, actions = torch.stack(outputs, 1), torch.stack(actions, 1)
             reward = env.get_reward(td, actions)
-            ll = get_log_likelihood(outputs, actions, mask)
+            ll = get_log_likelihood(outputs, actions, mask=None)
 
             reward_list.append(reward)
             output_list.append(outputs)
             action_list.append(actions)
             ll_list.append(ll)
 
-        reward = torch.stack(reward_list, 0)
-        log_likelihood = torch.stack(ll_list, 0)
+        reward = torch.stack(reward_list, 1)
+        log_likelihood = torch.stack(ll_list, 1)
         return reward, log_likelihood, loss_kl_divergence, actions
 
     def _precompute(self, embeddings, num_steps=1, path_index=None):
@@ -274,8 +279,8 @@ class Decoder(nn.Module):
         glimpse_v = fixed.glimpse_val + glimpse_val_dynamic
         logit_k = fixed.logit_key + logit_key_dynamic
 
-        # Compute the mask (NOTE: here it is the opposite due to custom attention implementation)
-        mask = ~td["action_mask"]
+        # Compute the action mask
+        mask = td["action_mask"]
 
         # Compute logits (unnormalized logprobs)
         # logprobs, _ = self.logit_attention[path_index](glimpse_q, glimpse_k, glimpse_v, logit_k, mask, path_index)
@@ -300,7 +305,7 @@ class Decoder(nn.Module):
         if self.mask_inner:
             assert self.mask_logits, "Cannot mask inner without masking logits"
             compatibility[
-                mask[None, :, None, None, :].expand_as(compatibility)
+                ~mask[None, :, None, None, :].expand_as(compatibility)
             ] = -math.inf
 
         # Batch matrix multiplication to compute heads (n_heads, batch_size, num_steps, val_size)
@@ -327,6 +332,6 @@ class Decoder(nn.Module):
         if self.tanh_clipping > 0:
             logits = F.tanh(logits) * self.tanh_clipping
         if self.mask_logits:
-            logits[mask[:, None, :]] = -math.inf
+            logits[~mask[:, None, :]] = -math.inf
 
         return logits, glimpse.squeeze(-2)

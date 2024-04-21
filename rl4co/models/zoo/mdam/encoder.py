@@ -1,15 +1,14 @@
 from typing import Callable, Optional
 
 import torch
-
-from torch import nn
+import torch.nn as nn
 
 from rl4co.models.nn.graph.attnnet import (
-    MultiHeadAttention,
     MultiHeadAttentionLayer,
     Normalization,
     SkipConnection,
 )
+from rl4co.models.zoo.mdam.mha import MultiHeadAttentionMDAM
 
 
 class GraphAttentionEncoder(nn.Module):
@@ -28,16 +27,20 @@ class GraphAttentionEncoder(nn.Module):
         # To map input to embedding space
         self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
 
-        self.layers = MultiHeadAttentionLayer(
-            num_heads,
-            embed_dim,
-            num_layers - 1,
-            feed_forward_hidden,
-            normalization,
-            sdpa_fn=sdpa_fn,
+        self.layers = nn.Sequential(
+            *(
+                MultiHeadAttentionLayer(
+                    num_heads,
+                    embed_dim,
+                    feed_forward_hidden,
+                    normalization,
+                    sdpa_fn=sdpa_fn,
+                )
+                for _ in range(num_layers - 1)  # because last layer is different
+            )
         )
-        self.attention_layer = MultiHeadAttention(
-            num_heads, input_dim=embed_dim, embed_dim=embed_dim, sdpa_fn=sdpa_fn
+        self.attention_layer = MultiHeadAttentionMDAM(
+            embed_dim, num_heads, sdpa_fn=sdpa_fn, last_one=True
         )
         self.BN1 = Normalization(embed_dim, normalization)
         self.projection = SkipConnection(
@@ -71,19 +74,17 @@ class GraphAttentionEncoder(nn.Module):
 
         return (h, h.mean(dim=1), attn, V, h_old)
 
-    def change(self, attn, V, h_old, mask, is_tsp=False):
+    def change(self, attn, V, h_old, mask):
         num_heads, batch_size, graph_size, feat_size = V.size()
-        attn = (1 - mask.float()).view(1, batch_size, 1, graph_size).repeat(
-            num_heads, 1, graph_size, 1
-        ) * attn
-        if is_tsp:
-            attn = attn / (
-                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1)
-            )
-        else:
-            attn = attn / (
-                torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9
-            )
+        attn = (
+            mask.float()
+            .view(1, batch_size, 1, graph_size)
+            .repeat(num_heads, 1, graph_size, 1)
+            * attn
+        )
+        attn = attn / (
+            torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9
+        )
         heads = torch.matmul(attn, V)
 
         h_new = torch.mm(

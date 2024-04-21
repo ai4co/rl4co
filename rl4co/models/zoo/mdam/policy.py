@@ -75,7 +75,7 @@ class MDAMPolicy(AutoregressivePolicy):
             decoder_kwargs["decode_type"] = getattr(self, f"{phase}_decode_type")
 
         reward, log_likelihood, kl_divergence, actions = self.decoder(
-            td, encoded_inputs, env, attn, V, h_old, **decoder_kwargs
+            td, encoded_inputs, env, attn, V, h_old, self.encoder, **decoder_kwargs
         )
         out = {
             "reward": reward,
