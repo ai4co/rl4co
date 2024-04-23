@@ -10,7 +10,7 @@ Autoregressive models are models that generate sequences one element at a time, 
 ### Policy
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.autoregressive.policy
+.. automodule:: rl4co.models.common.constructive.autoregressive.policy
    :members:
    :undoc-members:
 ```
@@ -18,7 +18,7 @@ Autoregressive models are models that generate sequences one element at a time, 
 ### Encoder
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.autoregressive.encoder
+.. automodule:: rl4co.models.common.constructive.autoregressive.encoder
    :members:
    :undoc-members:
 ```
@@ -26,7 +26,7 @@ Autoregressive models are models that generate sequences one element at a time, 
 ### Decoder
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.autoregressive.decoder
+.. automodule:: rl4co.models.common.constructive.autoregressive.decoder
    :members:
    :undoc-members:
 ```
@@ -38,7 +38,7 @@ Non-autoregressive models generate a heatmap of probabilities from one node to a
 ### Policy
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.nonautoregressive.policy
+.. automodule:: rl4co.models.common.nonautoregressive.policy
    :members:
    :undoc-members:
 ```
@@ -46,7 +46,7 @@ Non-autoregressive models generate a heatmap of probabilities from one node to a
 ### Encoder
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.nonautoregressive.encoder
+.. automodule:: rl4co.models.common.nonautoregressive.encoder
    :members:
    :undoc-members:
 ```
@@ -57,7 +57,7 @@ Note that we still need a decoding class for the heatmap (for example, to mask o
 
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.nonautoregressive.decoder
+.. automodule:: rl4co.models.common.nonautoregressive.decoder
    :members:
    :undoc-members:
 ```

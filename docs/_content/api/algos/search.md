@@ -1,7 +1,7 @@
 # Search
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.common.search.base
+.. automodule:: rl4co.models.common.search.base
    :members:
    :undoc-members:
 ```
