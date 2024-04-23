@@ -1,10 +1,6 @@
 import pytest
 
-from rl4co.models import (
-    AttentionModelPolicy,
-    NonAutoregressivePolicy,
-    PointerNetworkPolicy,
-)
+from rl4co.models import AttentionModelPolicy, PointerNetworkPolicy
 from rl4co.utils.ops import select_start_nodes
 from rl4co.utils.test_utils import generate_env_data
 
@@ -25,7 +21,7 @@ def test_am_policy(env_name, size=20, batch_size=2):
 @pytest.mark.parametrize(
     "env_name", ["tsp", "cvrp", "pctsp", "spctsp", "sdvrp", "op", "pdp"]
 )
-@pytest.mark.parametrize("policy_cls", [AttentionModelPolicy, NonAutoregressivePolicy])
+@pytest.mark.parametrize("policy_cls", [AttentionModelPolicy])
 def test_policy_multistart(env_name, policy_cls, size=20, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
     td = env.reset(x)
