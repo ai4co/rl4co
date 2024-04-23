@@ -1,17 +1,25 @@
-from rl4co.models.zoo.active_search import ActiveSearch
-from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
-from rl4co.models.zoo.common.autoregressive import (
+from rl4co.models.common.constructive.autoregressive import (
     AutoregressiveDecoder,
+    AutoregressiveEncoder,
     AutoregressivePolicy,
-    GraphAttentionEncoder,
 )
-from rl4co.models.zoo.common.nonautoregressive import (
+from rl4co.models.common.constructive.base import (
+    ConstructiveDecoder,
+    ConstructiveEncoder,
+    ConstructivePolicy,
+)
+from rl4co.models.common.constructive.nonautoregressive import (
     NonAutoregressiveDecoder,
     NonAutoregressiveEncoder,
-    NonAutoregressiveModel,
     NonAutoregressivePolicy,
 )
-from rl4co.models.zoo.common.search import SearchBase
+from rl4co.models.common.search import SearchBase
+from rl4co.models.rl.common.base import RL4COLitModule
+from rl4co.models.rl.ppo.ppo import PPO
+from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
+from rl4co.models.rl.reinforce.reinforce import REINFORCE
+from rl4co.models.zoo.active_search import ActiveSearch
+from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.zoo.deepaco import DeepACO, DeepACOPolicy
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay
 from rl4co.models.zoo.ham import (
@@ -20,7 +28,7 @@ from rl4co.models.zoo.ham import (
 )
 from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
-from rl4co.models.zoo.pomo import POMO, POMOPolicy
-from rl4co.models.zoo.ppo import PPOModel, PPOPolicy
+from rl4co.models.zoo.pomo import POMO
+from rl4co.models.zoo.ppo import PPOModel
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
 from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy

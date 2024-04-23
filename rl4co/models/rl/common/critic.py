@@ -13,13 +13,13 @@ class CriticNetwork(nn.Module):
     Refactored from Kool et al. (2019) which only worked for TSP. In our case, we make it
     compatible with any problem by using the environment init embedding. Note that if no environment
     name and no init embedding are provided, the critic network does not transform the input (i.e.
-    it should be a tensor of shape (batch_size, embedding_dim)).
+    it should be a tensor of shape (batch_size, embed_dim)).
 
     Args:
         env_name: environment name to solve
         encoder: Encoder to use for the critic
         init_embedding: Initial embedding to use for the critic
-        embedding_dim: Dimension of the embeddings
+        embed_dim: Dimension of the embeddings
         hidden_dim: Hidden dimension for the feed-forward network
         num_layers: Number of layers for the encoder
         num_heads: Number of heads for the attention
@@ -29,10 +29,10 @@ class CriticNetwork(nn.Module):
 
     def __init__(
         self,
-        env_name: str = None,
         encoder: nn.Module = None,
+        env_name: str = "tsp",
         init_embedding: nn.Module = None,
-        embedding_dim: int = 128,
+        embed_dim: int = 128,
         hidden_dim: int = 512,
         num_layers: int = 3,
         num_heads: int = 8,
@@ -50,7 +50,7 @@ class CriticNetwork(nn.Module):
             self.init_embedding = nn.Identity()  # No embedding
         else:
             self.init_embedding = (
-                env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+                env_init_embedding(self.env_name, {"embed_dim": embed_dim})
                 if init_embedding is None
                 else init_embedding
             )
@@ -58,10 +58,10 @@ class CriticNetwork(nn.Module):
         self.encoder = (
             GraphAttentionNetwork(
                 num_heads=num_heads,
-                embedding_dim=embedding_dim,
+                embed_dim=embed_dim,
                 num_layers=num_layers,
                 normalization=normalization,
-                feed_forward_hidden=hidden_dim,
+                feedforward_hidden=hidden_dim,
                 sdpa_fn=sdpa_fn,
             )
             if encoder is None
@@ -69,7 +69,7 @@ class CriticNetwork(nn.Module):
         )
 
         self.value_head = nn.Sequential(
-            nn.Linear(embedding_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
+            nn.Linear(embed_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
         )
 
     def forward(self, x: Union[Tensor, TensorDict]) -> Tensor:

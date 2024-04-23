@@ -145,7 +145,7 @@ class CriticBaseline(REINFORCEBaseline):
     def setup(self, model, env, **kwargs):
         if self.critic is None:
             log.info("Creating critic network for {}".format(env.name))
-            self.critic = CriticNetwork(env.name, **kwargs)
+            self.critic = CriticNetwork(env_name=env.name, **kwargs)
 
     def eval(self, x, c, env=None):
         v = self.critic(x).squeeze(-1)
