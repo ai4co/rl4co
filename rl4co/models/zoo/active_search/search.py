@@ -9,7 +9,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch.utils.data import Dataset
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.models.zoo.common.search import SearchBase
+from rl4co.models.common.search import SearchBase
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 

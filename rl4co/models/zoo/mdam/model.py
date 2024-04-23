@@ -63,7 +63,7 @@ class MDAM(REINFORCE):
         **kwargs,
     ):
         if policy is None:
-            policy = MDAMPolicy(env.name, **policy_kwargs)
+            policy = MDAMPolicy(env_name=env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 

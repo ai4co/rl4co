@@ -28,6 +28,6 @@ class AttentionModel(REINFORCE):
         **kwargs,
     ):
         if policy is None:
-            policy = AttentionModelPolicy(env.name, **policy_kwargs)
+            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)

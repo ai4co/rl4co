@@ -10,7 +10,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.models.zoo.common.search import SearchBase
+from rl4co.models.common.search import SearchBase
 from rl4co.models.zoo.eas.decoder import forward_eas, forward_pointer_attn_eas_lay
 from rl4co.models.zoo.eas.nn import EASLayerNet
 from rl4co.utils.decoding import get_log_likelihood
@@ -164,7 +164,7 @@ class EAS(SearchBase):
         opt_params = []
         if self.hparams.use_eas_layer:
             # EASLay: replace forward of logit attention computation. EASLayer
-            eas_layer = EASLayerNet(num_instances, decoder.embedding_dim).to(batch.device)
+            eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(batch.device)
             decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
             decoder.pointer.forward = partial(
                 forward_pointer_attn_eas_lay, decoder.pointer
@@ -179,7 +179,16 @@ class EAS(SearchBase):
                     cached_embeds, key, torch.nn.Parameter(getattr(cached_embeds, key))
                 )
                 opt_params.append(getattr(cached_embeds, key))
-        decoder.forward = partial(forward_eas, decoder)
+        decoder.forward_eas = partial(forward_eas, decoder)
+
+        # We pass attributes saved in policy too
+        def set_attr_if_exists(attr):
+            if hasattr(self.policy, attr):
+                setattr(decoder, attr, getattr(self.policy, attr))
+
+        for attr in ["temperature", "tanh_clipping", "mask_logits"]:
+            set_attr_if_exists(attr)
+
         self.configure_optimizers(opt_params)
 
         # Solution and reward buffer
@@ -193,7 +202,7 @@ class EAS(SearchBase):
         for iter_count in range(self.hparams.max_iters):
             # Evaluate policy with sampling multistarts passing the cached embeddings
             best_solutions_expanded = best_solutions.repeat(n_aug, 1).repeat(n_runs, 1)
-            logprobs, actions, td_out, reward = decoder(
+            logprobs, actions, td_out, reward = decoder.forward_eas(
                 td_init.clone(),
                 cached_embeds=cached_embeds,
                 best_solutions=best_solutions_expanded,

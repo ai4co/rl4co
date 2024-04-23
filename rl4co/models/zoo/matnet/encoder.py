@@ -15,7 +15,7 @@ from rl4co.models.nn.ops import Normalization
 class MatNetCrossMHA(nn.Module):
     def __init__(
         self,
-        embedding_dim: int,
+        embed_dim: int,
         num_heads: int,
         bias: bool = False,
         mixer_hidden_dim: int = 16,
@@ -23,15 +23,13 @@ class MatNetCrossMHA(nn.Module):
         mix2_init: float = (1 / 16) ** (1 / 2),
     ):
         super().__init__()
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        assert (
-            self.embedding_dim % num_heads == 0
-        ), "embedding_dim must be divisible by num_heads"
-        self.head_dim = self.embedding_dim // num_heads
+        assert self.embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        self.head_dim = self.embed_dim // num_heads
 
-        self.Wq = nn.Linear(embedding_dim, embedding_dim, bias=bias)
-        self.Wkv = nn.Linear(embedding_dim, 2 * embedding_dim, bias=bias)
+        self.Wq = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias)
 
         # Score mixer
         # Taken from the official MatNet implementation
@@ -54,7 +52,7 @@ class MatNetCrossMHA(nn.Module):
         self.mix_W2 = nn.Parameter(mix_W2)
         self.mix_b2 = nn.Parameter(mix_b2)
 
-        self.out_proj = nn.Linear(embedding_dim, embedding_dim, bias=bias)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
     def forward(self, q_input, kv_input, dmat):
         """
@@ -106,10 +104,10 @@ class MatNetCrossMHA(nn.Module):
 
 
 class MatNetMHA(nn.Module):
-    def __init__(self, embedding_dim: int, num_heads: int, bias: bool = False):
+    def __init__(self, embed_dim: int, num_heads: int, bias: bool = False):
         super().__init__()
-        self.row_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
-        self.col_encoding_block = MatNetCrossMHA(embedding_dim, num_heads, bias)
+        self.row_encoding_block = MatNetCrossMHA(embed_dim, num_heads, bias)
+        self.col_encoding_block = MatNetCrossMHA(embed_dim, num_heads, bias)
 
     def forward(self, row_emb, col_emb, dmat):
         """
@@ -133,36 +131,36 @@ class MatNetMHA(nn.Module):
 class MatNetMHALayer(nn.Module):
     def __init__(
         self,
-        embedding_dim: int,
+        embed_dim: int,
         num_heads: int,
         bias: bool = False,
-        feed_forward_hidden: int = 512,
+        feedforward_hidden: int = 512,
         normalization: Optional[str] = "instance",
     ):
         super().__init__()
-        self.MHA = MatNetMHA(embedding_dim, num_heads, bias)
+        self.MHA = MatNetMHA(embed_dim, num_heads, bias)
 
         self.F_a = nn.ModuleDict(
             {
-                "norm1": Normalization(embedding_dim, normalization),
+                "norm1": Normalization(embed_dim, normalization),
                 "ffn": nn.Sequential(
-                    nn.Linear(embedding_dim, feed_forward_hidden),
+                    nn.Linear(embed_dim, feedforward_hidden),
                     nn.ReLU(),
-                    nn.Linear(feed_forward_hidden, embedding_dim),
+                    nn.Linear(feedforward_hidden, embed_dim),
                 ),
-                "norm2": Normalization(embedding_dim, normalization),
+                "norm2": Normalization(embed_dim, normalization),
             }
         )
 
         self.F_b = nn.ModuleDict(
             {
-                "norm1": Normalization(embedding_dim, normalization),
+                "norm1": Normalization(embed_dim, normalization),
                 "ffn": nn.Sequential(
-                    nn.Linear(embedding_dim, feed_forward_hidden),
+                    nn.Linear(embed_dim, feedforward_hidden),
                     nn.ReLU(),
-                    nn.Linear(feed_forward_hidden, embedding_dim),
+                    nn.Linear(feedforward_hidden, embed_dim),
                 ),
-                "norm2": Normalization(embedding_dim, normalization),
+                "norm2": Normalization(embed_dim, normalization),
             }
         )
 
@@ -191,11 +189,11 @@ class MatNetMHALayer(nn.Module):
 class MatNetMHANetwork(nn.Module):
     def __init__(
         self,
-        embedding_dim: int = 128,
+        embed_dim: int = 128,
         num_heads: int = 8,
         num_layers: int = 3,
         normalization: str = "batch",
-        feed_forward_hidden: int = 512,
+        feedforward_hidden: int = 512,
         bias: bool = False,
     ):
         super().__init__()
@@ -203,8 +201,8 @@ class MatNetMHANetwork(nn.Module):
             [
                 MatNetMHALayer(
                     num_heads=num_heads,
-                    embedding_dim=embedding_dim,
-                    feed_forward_hidden=feed_forward_hidden,
+                    embed_dim=embed_dim,
+                    feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
                     bias=bias,
                 )
@@ -232,11 +230,11 @@ class MatNetMHANetwork(nn.Module):
 class MatNetEncoder(nn.Module):
     def __init__(
         self,
-        embedding_dim: int = 256,
+        embed_dim: int = 256,
         num_heads: int = 16,
         num_layers: int = 5,
         normalization: str = "instance",
-        feed_forward_hidden: int = 512,
+        feedforward_hidden: int = 512,
         init_embedding: nn.Module = None,
         init_embedding_kwargs: dict = None,
         bias: bool = False,
@@ -245,16 +243,16 @@ class MatNetEncoder(nn.Module):
 
         if init_embedding is None:
             init_embedding = env_init_embedding(
-                "matnet", {"embedding_dim": embedding_dim, **init_embedding_kwargs}
+                "matnet", {"embed_dim": embed_dim, **init_embedding_kwargs}
             )
 
         self.init_embedding = init_embedding
         self.net = MatNetMHANetwork(
-            embedding_dim=embedding_dim,
+            embed_dim=embed_dim,
             num_heads=num_heads,
             num_layers=num_layers,
             normalization=normalization,
-            feed_forward_hidden=feed_forward_hidden,
+            feedforward_hidden=feedforward_hidden,
             bias=bias,
         )
 

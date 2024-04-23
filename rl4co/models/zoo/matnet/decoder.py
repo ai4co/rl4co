@@ -8,7 +8,7 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.models.nn.env_embeddings.context import FFSPContext
-from rl4co.models.zoo.common.autoregressive.decoder import AutoregressiveDecoder
+from rl4co.models.zoo.am.decoder import AttentionModelDecoder
 from rl4co.utils.decoding import process_logits
 
 
@@ -21,8 +21,8 @@ class PrecomputedCache:
     logit_key: Tensor
 
 
-class MatNetDecoder(AutoregressiveDecoder):
-    def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], td: TensorDict = None):
+class MatNetDecoder(AttentionModelDecoder):
+    def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], *args, **kwargs):
         col_emb, row_emb = embeddings
         (
             glimpse_key_fixed,
@@ -48,30 +48,28 @@ class MatNetDecoder(AutoregressiveDecoder):
         )
 
 
-class MatNetFFSPDecoder(AutoregressiveDecoder):
+class MatNetFFSPDecoder(AttentionModelDecoder):
     def __init__(
         self,
-        embedding_dim: int,
+        embed_dim: int,
         num_heads: int,
         use_graph_context: bool = False,
         **kwargs,
     ):
-        context_embedding = FFSPContext(embedding_dim)
+        context_embedding = FFSPContext(embed_dim)
 
         super().__init__(
             env_name="ffsp",
-            embedding_dim=embedding_dim,
+            embed_dim=embed_dim,
             num_heads=num_heads,
             use_graph_context=use_graph_context,
             context_embedding=context_embedding,
             **kwargs,
         )
 
-        self.no_job_emb = nn.Parameter(
-            torch.rand(1, 1, embedding_dim), requires_grad=True
-        )
+        self.no_job_emb = nn.Parameter(torch.rand(1, 1, embed_dim), requires_grad=True)
 
-    def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], td: TensorDict = None):
+    def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], **kwargs):
         job_emb, ma_emb = embeddings
 
         bs, _, emb_dim = job_emb.shape
@@ -108,6 +106,7 @@ class MatNetFFSPDecoder(AutoregressiveDecoder):
         )
 
 
+# TODO
 class MultiStageFFSPDecoder(MatNetFFSPDecoder):
     """Decoder class for the solving the FFSP using a seperate MatNet decoder for each stage
     as originally implemented by Kwon et al. (2021)
@@ -115,19 +114,19 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
 
     def __init__(
         self,
-        embedding_dim: int,
+        embed_dim: int,
         num_heads: int,
         use_graph_context: bool = True,
         **kwargs,
     ):
         super().__init__(
-            embedding_dim=embedding_dim,
+            embed_dim=embed_dim,
             num_heads=num_heads,
             use_graph_context=use_graph_context,
             **kwargs,
         )
         self.cached_embs: PrecomputedCache = None
-        # self.encoded_wait_op = nn.Parameter(torch.rand((1, 1, embedding_dim)))
+        # self.encoded_wait_op = nn.Parameter(torch.rand((1, 1, embed_dim)))
 
     def _precompute_cache(self, embeddings: Tuple[Tensor], td: TensorDict = None):
         self.cached_embs = super()._precompute_cache(embeddings, td)
@@ -142,7 +141,8 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         device = td.device
         batch_size = td.size(0)
 
-        logits, mask = self._get_logits(self.cached_embs, td, num_starts)
+        # TODO: we need to insert precompute cache inside the decoder
+        logits, mask = super().forward(self.cached_embs, td, num_starts)
         logprobs = process_logits(
             logits,
             mask,

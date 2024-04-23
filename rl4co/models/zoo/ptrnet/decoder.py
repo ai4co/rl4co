@@ -49,7 +49,7 @@ class SimpleAttention(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self,
-        embedding_dim: int = 128,
+        embed_dim: int = 128,
         hidden_dim: int = 128,
         tanh_exploration: float = 10.0,
         use_tanh: bool = True,
@@ -59,7 +59,7 @@ class Decoder(nn.Module):
     ):
         super(Decoder, self).__init__()
 
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.hidden_dim = hidden_dim
         self.num_glimpses = num_glimpses
         self.mask_glimpses = mask_glimpses
@@ -67,7 +67,7 @@ class Decoder(nn.Module):
         self.use_tanh = use_tanh
         self.tanh_exploration = tanh_exploration
 
-        self.lstm = nn.LSTMCell(embedding_dim, hidden_dim)
+        self.lstm = nn.LSTMCell(embed_dim, hidden_dim)
         self.pointer = SimpleAttention(hidden_dim, use_tanh=use_tanh, C=tanh_exploration)
         self.glimpse = SimpleAttention(hidden_dim, use_tanh=False)
 
@@ -131,8 +131,8 @@ class Decoder(nn.Module):
         """
         Args:
             decoder_input: The initial input to the decoder
-                size is [batch_size x embedding_dim]. Trainable parameter.
-            embedded_inputs: [sourceL x batch_size x embedding_dim]
+                size is [batch_size x embed_dim]. Trainable parameter.
+            embedded_inputs: [sourceL x batch_size x embed_dim]
             hidden: the prev hidden state, size is [batch_size x hidden_dim].
                 Initially this is set to (enc_h[-1], enc_c[-1])
             context: encoder outputs, [sourceL x batch_size x hidden_dim]
