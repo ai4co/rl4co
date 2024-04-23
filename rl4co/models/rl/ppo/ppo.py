@@ -159,9 +159,14 @@ class PPO(RL4COLitModule):
                 for sub_td in dataloader:
                     sub_td = sub_td.to(td.device)
                     previous_reward = sub_td["reward"].view(-1, 1)
-                    ll, entropy = self.policy.evaluate_action(
-                        sub_td, action=sub_td["action"], env=self.env
+                    out = self.policy(  # note: remember to clone to avoid in-place replacements!
+                        sub_td.clone(),
+                        actions=sub_td["action"],
+                        env=self.env,
+                        return_entropy=True,
+                        return_sum_log_likelihood=False,
                     )
+                    ll, entropy = out["log_likelihood"], out["entropy"]
 
                     # Compute the ratio of probabilities of new and old actions
                     ratio = torch.exp(ll.sum(dim=-1) - sub_td["logprobs"]).view(
