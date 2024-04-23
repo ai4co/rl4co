@@ -5,15 +5,16 @@ import pytest
 from rl4co.envs import ATSPEnv, PDPEnv, TSPEnv
 from rl4co.models import (
     MDAM,
+    REINFORCE,
     ActiveSearch,
     AttentionModel,
-    AutoregressivePolicy,
+    AttentionModelPolicy,
     DeepACO,
     EASEmb,
     EASLay,
     HeterogeneousAttentionModel,
     MatNet,
-    NonAutoregressiveModel,
+    NonAutoregressivePolicy,
     PPOModel,
     SymNCO,
 )
@@ -99,7 +100,7 @@ def test_search_methods(SearchMethod):
     env = TSPEnv(num_loc=20)
     batch_size = 2 if SearchMethod not in [ActiveSearch] else 1
     dataset = env.dataset(2)
-    policy = AutoregressivePolicy(env)
+    policy = AttentionModelPolicy(env_name=env.name)
     model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
     trainer = RL4COTrainer(max_epochs=1, devices=1)
     trainer.fit(model)
@@ -111,8 +112,9 @@ def test_search_methods(SearchMethod):
 )
 def test_nar():
     env = TSPEnv(num_loc=20)
-    model = NonAutoregressiveModel(
-        env, train_data_size=10, val_data_size=10, test_data_size=10
+    policy = NonAutoregressivePolicy(env_name=env.name)
+    model = REINFORCE(
+        env, policy=policy, train_data_size=10, val_data_size=10, test_data_size=10
     )
     trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1)
     trainer.fit(model)
