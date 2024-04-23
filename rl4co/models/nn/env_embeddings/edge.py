@@ -55,7 +55,7 @@ class TSPEdgeEmbedding(nn.Module):
 
     def __init__(
         self,
-        embedding_dim,
+        embed_dim,
         linear_bias=True,
         sparsify=True,
         k_sparse: int = None,
@@ -69,7 +69,7 @@ class TSPEdgeEmbedding(nn.Module):
         node_dim = 1
         self.k_sparse = k_sparse
         self.sparsify = sparsify
-        self.edge_embed = nn.Linear(node_dim, embedding_dim, linear_bias)
+        self.edge_embed = nn.Linear(node_dim, embed_dim, linear_bias)
 
     def forward(self, td, init_embeddings: Tensor):
         cost_matrix = get_distance_matrix(td["locs"])
@@ -124,14 +124,14 @@ class NoEdgeEmbedding(nn.Module):
     features are relevant.
     """
 
-    def __init__(self, embedding_dim, self_loop=False, **kwargs):
+    def __init__(self, embed_dim, self_loop=False, **kwargs):
         assert Batch is not None, (
             "torch_geometric not found. Please install torch_geometric using instructions from "
             "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
         )
 
         super(NoEdgeEmbedding, self).__init__()
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.self_loop = self_loop
 
     def forward(self, td, init_embeddings: Tensor):
@@ -145,7 +145,7 @@ class NoEdgeEmbedding(nn.Module):
             data = Data(
                 x=node_embed,
                 edge_index=edge_index,
-                edge_attr=torch.zeros((m, self.embedding_dim), device=device),
+                edge_attr=torch.zeros((m, self.embed_dim), device=device),
             )
             data_list.append(data)
 
