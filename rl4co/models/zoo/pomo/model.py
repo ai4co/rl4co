@@ -123,7 +123,7 @@ class POMO(REINFORCE):
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_aug, n_start))
                     out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs)}
+                        {"best_multistart_actions": gather_by_index(actions, max_idxs.unsqueeze(2), dim=2)}
                     )
                     out["actions"] = actions
 
