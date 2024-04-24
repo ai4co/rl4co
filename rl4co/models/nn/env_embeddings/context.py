@@ -138,7 +138,7 @@ class VRPContext(EnvContext):
     """Context embedding for the Capacitated Vehicle Routing Problem (CVRP).
     Project the following to the embedding space:
         - current node embedding
-        - remaining capacity (vehicle_capacity - used_capacity)
+        - remaining capacity (capacity - used_capacity)
     """
 
     def __init__(self, embedding_dim):
@@ -147,7 +147,7 @@ class VRPContext(EnvContext):
         )
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["vehicle_capacity"] - td["used_capacity"]
+        state_embedding = td["capacity"] - td["used_capacity"]
         return state_embedding
 
 
@@ -218,8 +218,8 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["max_length"][..., 0] - td["tour_length"]
-        return state_embedding[..., None]
+        state_embedding = td["max_length"][..., :1] - td["tour_length"]
+        return state_embedding
 
 
 class DPPContext(EnvContext):

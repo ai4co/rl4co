@@ -117,11 +117,11 @@ class VRPInitEmbedding(nn.Module):
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
-        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, cities = td["depot"][:, None, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
         # [batch, n_city, 2, batch, n_city, 1]  -> [batch, n_city, embedding_dim]
         node_embeddings = self.init_embed(
-            torch.cat((cities, td["demand"][..., None]), -1)
+            torch.cat((cities, td["demand"][:, 1:, None]), -1)
         )
         # [batch, n_city+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
@@ -141,7 +141,7 @@ class VRPTWInitEmbedding(VRPInitEmbedding):
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
-                (cities, td["demand"][..., None], time_windows, durations[..., None]), -1
+                (cities, td["demand"][:, 1:, None], time_windows, durations[..., None]), -1
             )
         )
         return torch.cat((depot_embedding, node_embeddings), -2)
@@ -161,7 +161,7 @@ class SVRPInitEmbedding(nn.Module):
         depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
         # [batch, n_city, 2, batch, n_city, 1]  -> [batch, n_city, embedding_dim]
-        node_embeddings = self.init_embed(torch.cat((cities, td["skills"]), -1))
+        node_embeddings = self.init_embed(torch.cat((cities, td["skills"][:, 1:, None]), -1))
         # [batch, n_city+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
@@ -189,7 +189,7 @@ class PCTSPInitEmbedding(nn.Module):
             torch.cat(
                 (
                     cities,
-                    td["expected_prize"][..., None],
+                    td["expected_prize"][..., 1:, None],
                     td["penalty"][..., 1:, None],
                 ),
                 -1,
