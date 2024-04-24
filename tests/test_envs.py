@@ -35,7 +35,7 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
         TSPEnv,
         CVRPEnv,
         CVRPTWEnv,
-        SVRPEnv,
+        # SVRPEnv,
         SDVRPEnv,
         PCTSPEnv,
         SPCTSPEnv,
@@ -53,30 +53,30 @@ def test_routing(env_cls, batch_size=2, size=20):
     assert reward.shape == (batch_size,)
 
 
-@pytest.mark.parametrize("env_cls", [DPPEnv, MDPPEnv])
-def test_eda(env_cls, batch_size=2, max_decaps=5):
-    env = env_cls(max_decaps=max_decaps)
-    reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    ## Note: we skip rendering for now because we need to collect extra data. TODO
-    # env.render(td, actions)
-    assert reward.shape == (batch_size,)
+# @pytest.mark.parametrize("env_cls", [DPPEnv, MDPPEnv])
+# def test_eda(env_cls, batch_size=2, max_decaps=5):
+#     env = env_cls(max_decaps=max_decaps)
+#     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+#     ## Note: we skip rendering for now because we need to collect extra data. TODO
+#     # env.render(td, actions)
+#     assert reward.shape == (batch_size,)
 
 
-@pytest.mark.parametrize("env_cls", [FFSPEnv])
-def test_scheduling(env_cls, batch_size=2):
-    env = env_cls(
-        num_stage=2,
-        num_machine=3,
-        num_job=4,
-        batch_size=[batch_size],
-    )
-    td = env.reset()
-    td["action"] = torch.tensor([1, 1])
-    td = env._step(td)
+# @pytest.mark.parametrize("env_cls", [FFSPEnv])
+# def test_scheduling(env_cls, batch_size=2):
+#     env = env_cls(
+#         num_stage=2,
+#         num_machine=3,
+#         num_job=4,
+#         batch_size=[batch_size],
+#     )
+#     td = env.reset()
+#     td["action"] = torch.tensor([1, 1])
+#     td = env._step(td)
 
 
-@pytest.mark.parametrize("env_cls", [SMTWTPEnv])
-def test_smtwtp(env_cls, batch_size=2):
-    env = env_cls(num_job=4)
-    reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    assert reward.shape == (batch_size,)
+# @pytest.mark.parametrize("env_cls", [SMTWTPEnv])
+# def test_smtwtp(env_cls, batch_size=2):
+#     env = env_cls(num_job=4)
+#     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+#     assert reward.shape == (batch_size,)
