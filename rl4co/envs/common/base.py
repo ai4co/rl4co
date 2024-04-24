@@ -127,6 +127,16 @@ class RL4COEnvBase(EnvBase):
             # Since we simplify the syntax
             return self._torchrl_step(td)
 
+    def reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+        """Reset function to call at the beginning of each episode"""
+        if batch_size is None:
+            batch_size = self.batch_size if td is None else td.batch_size
+        if td is None or td.is_empty():
+            td = self.generator(batch_size=batch_size)
+        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+        self.to(td.device)
+        return super().reset(td, batch_size=batch_size)
+
     def _torchrl_step(self, td: TensorDict) -> TensorDict:
         """See :meth:`super().step` for more details.
         This is the usual way to do it in TorchRL, but inefficient in our case
@@ -166,6 +176,14 @@ class RL4COEnvBase(EnvBase):
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
+        if self.check_solution:
+            self.check_solution_validity(td, actions)
+        return self._get_reward(td, actions)
+    
+    def _get_reward(self, td, actions) -> TensorDict:
+        """Function to compute the reward. Can be called by the agent to compute the reward of the current state
+        This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
+        """
         raise NotImplementedError
 
     def get_action_mask(self, td: TensorDict) -> torch.Tensor:
@@ -196,7 +214,7 @@ class RL4COEnvBase(EnvBase):
         if f is None:
             if phase != "train":
                 log.warning(f"{phase}_file not set. Generating dataset instead")
-            td = self.generate_data(batch_size)
+            td = self.generator(batch_size)
         else:
             log.info(f"Loading {phase} dataset from {f}")
             if phase == "train":
@@ -218,13 +236,9 @@ class RL4COEnvBase(EnvBase):
                     f"Provided file name {f} not found. Make sure to provide a file in the right path first or "
                     f"unset {phase}_file to generate data automatically instead"
                 )
-                td = self.generate_data(batch_size)
+                td = self.generator(batch_size)
 
         return self.dataset_cls(td)
-
-    def generate_data(self, batch_size):
-        """Dataset generation"""
-        raise NotImplementedError
 
     def transform(self):
         """Used for converting TensorDict variables (such as with torch.cat) efficiently
