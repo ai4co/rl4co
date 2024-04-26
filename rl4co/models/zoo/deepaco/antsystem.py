@@ -1,6 +1,7 @@
-from functools import lru_cache
+from functools import lru_cache, cached_property
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 
 from tensordict import TensorDict
@@ -25,6 +26,7 @@ class AntSystem:
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
         require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
+        use_nls: Whether to use neural-guided local search provided by the env. Default to False.
         local_search_params: Arguments to be passed to the local_search function.
     """
 
@@ -38,6 +40,7 @@ class AntSystem:
         pheromone: Optional[Tensor] = None,
         require_logprobs: bool = False,
         use_local_search: bool = False,
+        use_nls: bool = False,
         local_search_params: dict = {},
     ):
         self.batch_size = log_heuristic.shape[0]
@@ -56,8 +59,15 @@ class AntSystem:
         self.all_records = []
 
         self.use_local_search = use_local_search
+        assert not (use_nls and not use_local_search), "use_nls requires use_local_search"
+        self.use_nls = use_nls
         self.local_search_params = local_search_params
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
+
+    @cached_property
+    def heuristic_dist(self):
+        heuristic_numpy = self.log_heuristic.exp().detach().cpu().numpy().astype(np.float32)
+        return 1 / (heuristic_numpy / heuristic_numpy.max(-1, keepdims=True) + 1e-5)
 
     def run(
         self,
@@ -154,9 +164,31 @@ class AntSystem:
             actions: The modified actions
             reward: The modified reward
         """
-        actions = env.local_search(td=td, actions=og_actions, **self.local_search_params)
-        reward = env.get_reward(td, actions)
-        return actions, reward  # type: ignore
+        actions_flatten = og_actions.reshape(-1, og_actions.shape[-1])
+        best_actions = env.local_search(td=td, actions=actions_flatten, **self.local_search_params)
+        best_rewards = env.get_reward(td, best_actions)
+        if self.use_nls:
+            T_nls = self.local_search_params.get("T_nls", 5)
+            T_p = self.local_search_params.get("T_p", 20)
+
+            for _ in range(T_nls):
+                perturbed_paths = env.local_search(
+                    td=td,
+                    actions=best_actions,
+                    distances=np.tile(self.heuristic_dist, (self.n_ants, 1, 1)),
+                    max_iterations=T_p
+                )
+                new_paths = env.local_search(td=td, actions=perturbed_paths)
+                new_rewards = env.get_reward(td, new_paths)
+
+                improved_indices = new_rewards > best_rewards
+                best_actions[improved_indices] = new_paths[improved_indices]
+                best_rewards[improved_indices] = new_rewards[improved_indices]
+
+        # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
+        reward = best_rewards.view(self.n_ants, self.batch_size).T
+        actions = best_actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
+        return actions, reward
 
     def _update_results(self, actions, reward):
         # update the best-trails recorded in self.final_actions

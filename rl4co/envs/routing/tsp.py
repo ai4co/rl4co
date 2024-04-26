@@ -181,7 +181,9 @@ class TSPEnv(RL4COEnvBase):
         """
         max_iterations = kwargs.get("max_iterations", 1000)
 
-        dists = kwargs.get("distances", None) or get_distance_matrix(td["locs"]).detach().cpu().numpy()
+        dists = kwargs.get("distances", None)
+        if dists is None:
+            dists = get_distance_matrix(td["locs"]).detach().cpu().numpy()
         dists = dists + 1e9 * np.eye(dists.shape[1], dtype=np.float32)[None, :, :]  # fill diagonal with large number
 
         tours = actions.detach().cpu().numpy().astype(np.uint16)
