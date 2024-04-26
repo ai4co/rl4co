@@ -19,6 +19,15 @@ from rl4co.models import (
 )
 from rl4co.utils import RL4COTrainer
 
+import os
+
+# Get env variable MAC_OS_GITHUB_RUNNER
+if "MAC_OS_GITHUB_RUNNER" in os.environ:
+    accelerator = "cpu"
+else:
+    accelerator = "auto"
+
+
 
 # Test out simple training loop and test with multiple baselines
 @pytest.mark.parametrize("baseline", ["rollout", "exponential", "critic", "mean", "no"])
@@ -29,7 +38,7 @@ def test_reinforce(baseline):
         env, baseline=baseline, train_data_size=10, val_data_size=10, test_data_size=10
     )
 
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -37,7 +46,7 @@ def test_reinforce(baseline):
 def test_ppo():
     env = TSPEnv(num_loc=20)
     model = PPOModel(env, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -52,7 +61,7 @@ def test_symnco():
         num_augment=2,
         num_starts=20,
     )
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -62,7 +71,7 @@ def test_ham():
     model = HeterogeneousAttentionModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -76,7 +85,7 @@ def test_matnet():
         val_data_size=10,
         test_data_size=10,
     )
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -89,7 +98,7 @@ def test_mdam():
         val_data_size=10,
         test_data_size=10,
     )
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -101,7 +110,7 @@ def test_search_methods(SearchMethod):
     dataset = env.dataset(2)
     policy = AutoregressivePolicy(env)
     model = SearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
-    trainer = RL4COTrainer(max_epochs=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -114,7 +123,7 @@ def test_nar():
     model = NonAutoregressiveModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -125,6 +134,6 @@ def test_nar():
 def test_deepaco():
     env = TSPEnv(num_loc=20)
     model = DeepACO(env, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
