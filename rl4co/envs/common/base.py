@@ -186,11 +186,11 @@ class RL4COEnvBase(EnvBase):
         """
         raise NotImplementedError
     
-    def improve_solution(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+    def local_search(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         """Function to improve the solution. Can be called by the agent to improve the current state
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
-        raise NotImplementedError
+        raise NotImplementedError(f"Local is not implemented yet for {self.name} environment")
 
     def dataset(self, batch_size=[], phase="train", filename=None):
         """Return a dataset of observations
