@@ -1,14 +1,18 @@
-from typing import Any, Union
+from typing import IO, Any, Optional, Union, cast
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.utils.data import DataLoader
-
+from lightning.pytorch.core.saving import _load_from_checkpoint
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.utils.pylogger import get_pylogger
+
+from typing_extensions import Self
+
+from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 
 log = get_pylogger(__name__)
 
@@ -222,3 +226,48 @@ class PPO(RL4COLitModule):
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    @classmethod
+    def load_from_checkpoint(
+        cls,
+        checkpoint_path: Union[_PATH, IO],
+        map_location: _MAP_LOCATION_TYPE = None,
+        hparams_file: Optional[_PATH] = None,
+        strict: bool = False,
+        load_critic: bool = True,
+        **kwargs: Any,
+    ) -> Self:
+        """Load model from checkpoint/
+
+        Note:
+            This is a modified version of `load_from_checkpoint` from `pytorch_lightning.core.saving`.
+            It deals with matching keys for the baseline by first running setup
+        """
+
+        if strict:
+            log.warning("Setting strict=False for loading model from checkpoint.")
+            strict = False
+
+        # Do not use strict
+        loaded = _load_from_checkpoint(
+            cls,
+            checkpoint_path,
+            map_location,
+            hparams_file,
+            strict,
+            **kwargs,
+        )
+
+        # Load critic state dict
+        if load_critic:
+            # setup critic first
+            loaded.setup()
+            loaded.post_setup_hook()
+            # load critic state dict
+            state_dict = torch.load(checkpoint_path)["state_dict"]
+            # get only critic parameters            
+            state_dict = {k: v for k, v in state_dict.items() if "critic" in k}
+            state_dict = {k.replace("critic.", "", 1): v for k, v in state_dict.items()}
+            loaded.critic.load_state_dict(state_dict)
+
+        return cast(Self, loaded)
