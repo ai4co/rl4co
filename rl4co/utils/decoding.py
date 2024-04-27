@@ -1,3 +1,5 @@
+import abc
+
 from typing import Optional, Tuple
 
 import torch
@@ -186,7 +188,7 @@ def process_logits(
     return F.log_softmax(logits, dim=-1)
 
 
-class DecodingStrategy:
+class DecodingStrategy(metaclass=abc.ABCMeta):
     """Base class for decoding strategies. Subclasses should implement the :meth:`_step` method.
     Includes hooks for pre and post main decoding operations.
 
@@ -227,6 +229,7 @@ class DecodingStrategy:
         self.actions = []
         self.logprobs = []
 
+    @abc.abstractmethod
     def _step(
         self,
         logprobs: torch.Tensor,

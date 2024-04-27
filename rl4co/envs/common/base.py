@@ -1,3 +1,5 @@
+import abc
+
 from os.path import join as pjoin
 from typing import Iterable, Optional
 
@@ -14,7 +16,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class RL4COEnvBase(EnvBase):
+class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
     """Base class for RL4CO environments based on TorchRL EnvBase.
     The environment has the usual methods for stepping, resetting, and getting the specifications of the environment
     that shoud be implemented by the subclasses of this class.
@@ -148,12 +150,14 @@ class RL4COEnvBase(EnvBase):
         td.set("next", next_tensordict)
         return td
 
+    @abc.abstractmethod
     def _step(self, td: TensorDict) -> TensorDict:
         """Step function to call at each step of the episode containing an action.
         Gives the next observation, reward, done
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         """Reset function to call at the beginning of each episode"""
         raise NotImplementedError
