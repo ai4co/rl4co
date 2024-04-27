@@ -12,7 +12,7 @@ An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) ben
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-<a href="https://github.com/ai4co/rl4co/blob/main/LICENSE">![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)</a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+<a href="https://github.com/ai4co/rl4co/blob/main/LICENSE">[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)</a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
 [![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
 
 <iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=star&count=true" frameborder="0" scrolling="0" width="100" height="20" title="GitHub"></iframe> <iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=fork&count=true" frameborder="0" scrolling="0" width="100" height="30" title="GitHub"></iframe>
