@@ -1,3 +1,4 @@
+import abc
 from typing import Any, Optional, Union
 
 from lightning.pytorch.utilities.types import STEP_OUTPUT
@@ -6,9 +7,10 @@ from torch.utils.data import Dataset
 from rl4co.models.rl.common.base import RL4COLitModule
 
 
-class SearchBase(RL4COLitModule):
-    """Base class for search algorithms. Search algorithms
-    are used onlin to find better solutions for a given dataset, i.e.
+class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
+    """Base class for transductive algorithms (i.e. that optimize policy parameters for 
+    specific instances, see https://en.wikipedia.org/wiki/Transduction_(machine_learning)). 
+    Transductive algorithms are used online to find better solutions for a given dataset, i.e.
     given a policy, improve (a part of) its parameters such that
     the policy performs better on the given dataset.
 
@@ -61,6 +63,7 @@ class SearchBase(RL4COLitModule):
         """
         pass  # Implement in subclass
 
+    @abc.abstractmethod
     def training_step(self, batch, batch_idx):
         """Main search loop. We use the training step to effectively adapt to a `batch` of instances."""
         raise NotImplementedError("Implement in subclass")

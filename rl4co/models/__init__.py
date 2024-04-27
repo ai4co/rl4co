@@ -13,7 +13,7 @@ from rl4co.models.common.constructive.nonautoregressive import (
     NonAutoregressiveEncoder,
     NonAutoregressivePolicy,
 )
-from rl4co.models.common.search import SearchBase
+from rl4co.models.common.transductive import TransductiveModel
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.rl.ppo.ppo import PPO
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline

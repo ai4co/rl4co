@@ -9,14 +9,14 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch.utils.data import Dataset
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.models.common.search import SearchBase
+from rl4co.models.common.transductive import TransductiveModel
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class ActiveSearch(SearchBase):
+class ActiveSearch(TransductiveModel):
     """Active Search for Neural Combination Optimization from Bello et al. (2016).
     Fine-tunes the whole policy network (encoder + decoder) on a batch of instances.
     Reference: https://arxiv.org/abs/1611.09940
