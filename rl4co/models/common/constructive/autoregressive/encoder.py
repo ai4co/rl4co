@@ -1,7 +1,9 @@
+import abc
+
 from rl4co.models.common.constructive.base import ConstructiveEncoder
 
 
-class AutoregressiveEncoder(ConstructiveEncoder):
+class AutoregressiveEncoder(ConstructiveEncoder, metaclass=abc.ABCMeta):
     """Template class for an autoregressive encoder, simple wrapper around
     :class: rl4co.models.common.constructive.base.ConstructiveEncoder
 

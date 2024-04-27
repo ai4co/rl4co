@@ -1,14 +1,14 @@
 from typing import Optional, Type, Union
 
-import torch.nn as nn
-
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.common.constructive.nonautoregressive.policy import (
+from rl4co.models.common.constructive.nonautoregressive import (
+    NonAutoregressiveEncoder,
     NonAutoregressivePolicy,
 )
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
+from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.utils import merge_with_defaults
 
 
@@ -31,7 +31,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
     def __init__(
         self,
-        encoder: Optional[nn.Module] = None,
+        encoder: Optional[NonAutoregressiveEncoder] = None,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
@@ -39,13 +39,15 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         n_iterations: Optional[Union[int, dict]] = None,
         **encoder_kwargs,
     ):
+        if encoder is None:
+            encoder = NARGNNEncoder(**encoder_kwargs)
+
         super(DeepACOPolicy, self).__init__(
             encoder=encoder,
             env_name=env_name,
             train_decode_type="multistart_sampling",
             val_decode_type="multistart_sampling",
             test_decode_type="multistart_sampling",
-            **encoder_kwargs,
         )
 
         self.aco_class = AntSystem if aco_class is None else aco_class

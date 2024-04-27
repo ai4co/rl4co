@@ -1,3 +1,5 @@
+import abc
+
 from typing import Any, Callable, Tuple, Union
 
 import torch.nn as nn
@@ -17,9 +19,10 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class ConstructiveEncoder(nn.Module):
+class ConstructiveEncoder(nn.Module, metaclass=abc.ABCMeta):
     """Base class for the encoder of constructive models"""
 
+    @abc.abstractmethod
     def forward(self, td: TensorDict) -> Tuple[Any, Tensor]:
         """Forward pass for the encoder
 
@@ -34,9 +37,11 @@ class ConstructiveEncoder(nn.Module):
         raise NotImplementedError("Implement me in subclass!")
 
 
-class ConstructiveDecoder(nn.Module):
+class ConstructiveDecoder(nn.Module, metaclass=abc.ABCMeta):
+
     """Base decoder model for constructive models. The decoder is responsible for generating the logits for the action"""
 
+    @abc.abstractmethod
     def forward(
         self, td: TensorDict, hidden: Any = None, num_starts: int = 0
     ) -> Tuple[Tensor, Tensor]:
@@ -95,8 +100,8 @@ class ConstructivePolicy(nn.Module):
 
     def __init__(
         self,
-        encoder: Union[ConstructiveEncoder, Callable] = None,
-        decoder: Union[ConstructiveDecoder, Callable] = None,
+        encoder: Union[ConstructiveEncoder, Callable],
+        decoder: Union[ConstructiveDecoder, Callable],
         env_name: Union[str, RL4COEnvBase] = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,
@@ -115,17 +120,9 @@ class ConstructivePolicy(nn.Module):
 
         # Encoder and decoder
         if encoder is None:
-            log.info("No Encoder provided; using default `NoEncoder`")
+            log.warning("`None` was provided as encoder. Using `NoEncoder`.")
             encoder = NoEncoder()
-        else:
-            # Sanity checking if user passes arguments
-            assert isinstance(
-                encoder, Callable
-            ), "Encoder must be a callable, e.g. a nn.Module"
         self.encoder = encoder
-        assert (
-            decoder is not None
-        ), "A decoder must be provided, either as a neural network, or as a callable"
         self.decoder = decoder
 
         # Decoding strategies
@@ -169,7 +166,6 @@ class ConstructivePolicy(nn.Module):
         """
 
         # Encoder: get encoder output and initial embeddings from initial state
-        # TODO: names
         hidden, init_embeds = self.encoder(td)
 
         # Instantiate environment if needed

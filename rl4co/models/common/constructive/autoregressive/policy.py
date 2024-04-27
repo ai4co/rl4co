@@ -20,8 +20,8 @@ class AutoregressivePolicy(ConstructivePolicy):
 
     def __init__(
         self,
-        encoder: AutoregressiveEncoder = None,
-        decoder: AutoregressiveDecoder = None,
+        encoder: AutoregressiveEncoder,
+        decoder: AutoregressiveDecoder,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,

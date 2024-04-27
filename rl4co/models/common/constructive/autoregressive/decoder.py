@@ -1,7 +1,9 @@
+import abc
+
 from rl4co.models.common.constructive.base import ConstructiveDecoder
 
 
-class AutoregressiveDecoder(ConstructiveDecoder):
+class AutoregressiveDecoder(ConstructiveDecoder, metaclass=abc.ABCMeta):
     """Template class for an autoregressive decoder, simple wrapper around
     :class: rl4co.models.common.constructive.base.ConstructiveDecoder
 
