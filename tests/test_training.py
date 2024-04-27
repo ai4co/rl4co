@@ -1,3 +1,4 @@
+import os
 import sys
 
 import pytest
@@ -14,20 +15,17 @@ from rl4co.models import (
     EASLay,
     HeterogeneousAttentionModel,
     MatNet,
-    NonAutoregressivePolicy,
+    NARGNNPolicy,
     PPOModel,
     SymNCO,
 )
 from rl4co.utils import RL4COTrainer
-
-import os
 
 # Get env variable MAC_OS_GITHUB_RUNNER
 if "MAC_OS_GITHUB_RUNNER" in os.environ:
     accelerator = "cpu"
 else:
     accelerator = "auto"
-
 
 
 # Test out simple training loop and test with multiple baselines
@@ -47,7 +45,9 @@ def test_reinforce(baseline):
 def test_ppo():
     env = TSPEnv(num_loc=20)
     model = PPOModel(env, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
+    trainer = RL4COTrainer(
+        max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator
+    )
     trainer.fit(model)
     trainer.test(model)
 
@@ -119,13 +119,15 @@ def test_search_methods(SearchMethod):
 @pytest.mark.skipif(
     "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
 )
-def test_nar():
+def test_nargnn():
     env = TSPEnv(num_loc=20)
-    policy = NonAutoregressivePolicy(env_name=env.name)
+    policy = NARGNNPolicy(env_name=env.name)
     model = REINFORCE(
         env, policy=policy, train_data_size=10, val_data_size=10, test_data_size=10
     )
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
+    trainer = RL4COTrainer(
+        max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator
+    )
     trainer.fit(model)
     trainer.test(model)
 
@@ -136,6 +138,8 @@ def test_nar():
 def test_deepaco():
     env = TSPEnv(num_loc=20)
     model = DeepACO(env, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator)
+    trainer = RL4COTrainer(
+        max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
+    )
     trainer.fit(model)
     trainer.test(model)
