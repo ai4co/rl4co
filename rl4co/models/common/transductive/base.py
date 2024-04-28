@@ -1,4 +1,5 @@
 import abc
+
 from typing import Any, Optional, Union
 
 from lightning.pytorch.utilities.types import STEP_OUTPUT
@@ -8,8 +9,8 @@ from rl4co.models.rl.common.base import RL4COLitModule
 
 
 class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
-    """Base class for transductive algorithms (i.e. that optimize policy parameters for 
-    specific instances, see https://en.wikipedia.org/wiki/Transduction_(machine_learning)). 
+    """Base class for transductive algorithms (i.e. that optimize policy parameters for
+    specific instances, see https://en.wikipedia.org/wiki/Transduction_(machine_learning)).
     Transductive algorithms are used online to find better solutions for a given dataset, i.e.
     given a policy, improve (a part of) its parameters such that
     the policy performs better on the given dataset.
@@ -22,6 +23,9 @@ class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
         policy: policy network
         dataset: dataset to use for training
         batch_size: batch size
+        max_iters: maximum number of iterations
+        max_runtime: maximum runtime in seconds
+        save_path: path to save the model
         **kwargs: additional arguments
     """
 

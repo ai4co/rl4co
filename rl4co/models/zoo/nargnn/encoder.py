@@ -18,13 +18,14 @@ except ImportError:
 
 
 class EdgeHeatmapGenerator(nn.Module):
-    """MLP for converting edge embeddings to heatmaps
+    """MLP for converting edge embeddings to heatmaps.
 
     Args:
         embed_dim: Dimension of the embeddings
         num_layers: The number of linear layers in the network.
         act_fn: Activation function. Defaults to "silu".
         linear_bias: Use bias in linear layers. Defaults to True.
+        undirected_graph: Whether the graph is undirected. Defaults to True.
     """
 
     def __init__(
@@ -82,14 +83,12 @@ class EdgeHeatmapGenerator(nn.Module):
 
 
 class NARGNNEncoder(NonAutoregressiveEncoder):
-    """Anisotropic Graph Neural Network encoder with edge-gating mechanism as in Joshi et al. (2022), and used in DeepACO (Ye et al., 2023)
-    This creates a heatmap # TODO
-
-        This model utilizes a multi-layer perceptron (MLP) approach to predict edge attributes directly from the input graph features,
+    """Anisotropic Graph Neural Network encoder with edge-gating mechanism as in Joshi et al. (2022), and used in DeepACO (Ye et al., 2023).
+    This creates a heatmap of NxN for N nodes (i.e., heuristic) that models the probability to go from one node to another for all nodes.
+    This model utilizes a multi-layer perceptron (MLP) approach to predict edge attributes directly from the input graph features,
     which are then transformed into a heatmap representation to facilitate the decoding of the solution. The decoding process
     is managed by a specified strategy which could vary from simple greedy selection to more complex sampling methods.
 
-    # TODO
     Tip:
         This decoder's performance heavily relies on the ability of the MLP to capture the dependencies between different
         parts of the solution without the iterative refinement provided by autoregressive models. It is particularly useful
@@ -97,13 +96,18 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         are largely independent.
 
     Args:
-        env_name: Name of the environment used to initialize embeddings
         embed_dim: Dimension of the node embeddings
+        env_name: Name of the environment used to initialize embeddings
         num_layers: Number of layers in the encoder
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
         edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
+        graph_network: Model to use for the graph network. If None, use the default network for the environment
+        heatmap_generator: Model to use for the heatmap generator. If None, use the default network for the environment
+        num_layers_heatmap_generator: Number of layers in the heatmap generator
+        num_layers_graph_encoder: Number of layers in the graph encoder
         act_fn: The activation function to use in each GNNLayer, see https://pytorch.org/docs/stable/nn.functional.html#non-linear-activation-functions for available options. Defaults to 'silu'.
         agg_fn: The aggregation function to use in each GNNLayer for pooling features. Options: 'add', 'mean', 'max'. Defaults to 'mean'.
+        linear_bias: Use bias in linear layers. Defaults to True.
     """
 
     def __init__(

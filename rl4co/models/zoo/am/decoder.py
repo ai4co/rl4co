@@ -30,24 +30,25 @@ class PrecomputedCache:
 
 class AttentionModelDecoder(AutoregressiveDecoder):
     """
-
-    # TODO
-    Auto-regressive decoder for constructing solutions for combinatorial optimization problems.
+    Auto-regressive decoder based on Kool et al. (2019): https://arxiv.org/abs/1803.08475.
     Given the environment state and the embeddings, compute the logits and sample actions autoregressively until
     all the environments in the batch have reached a terminal state.
-    We additionally include support for multi-starts as it is more efficient to do so in the decoder as we can
-    natively perform the attention computation.
-
+    In this case we additionally have a `pre_decoder_hook` method that allows to precompute the embeddings before
+    the decoder is called, which saves a lot of computation.
 
 
     Args:
-        # TODO
-        env_name: environment name to solve
-        embed_dim: Dimension of the embeddings
-        num_heads: Number of heads for the attention
-        use_graph_context: Whether to use the initial graph context to modify the query
-        context_embedding: Module to compute the context embedding. If None, the default is used
-        dynamic_embedding: Module to compute the dynamic embedding. If None, the default is used
+        embed_dim: Embedding dimension
+        num_heads: Number of attention heads
+        env_name: Name of the environment used to initialize embeddings
+        context_embedding: Context embedding module
+        dynamic_embedding: Dynamic embedding module
+        mask_inner: Whether to mask the inner loop
+        out_bias_pointer_attn: Whether to use a bias in the pointer attention
+        linear_bias: Whether to use a bias in the linear layer
+        use_graph_context: Whether to use the graph context
+        check_nan: Whether to check for nan values during decoding
+        sdpa_fn: scaled_dot_product_attention function
     """
 
     def __init__(
@@ -176,6 +177,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
     ) -> Tuple[TensorDict, RL4COEnvBase, PrecomputedCache]:
+        """Precompute the embeddings cache before the decoder is called"""
         return td, env, self._precompute_cache(embeddings, num_starts)
 
     def _precompute_cache(

@@ -377,7 +377,7 @@ class Sampling(DecodingStrategy):
         self, logprobs: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Sample an action with a multinomial distribution given by the log probabilities."""
-        selected = self.sampling(logprobs, mask)  # TODO
+        selected = self.sampling(logprobs, mask)
         return logprobs, selected, td
 
 

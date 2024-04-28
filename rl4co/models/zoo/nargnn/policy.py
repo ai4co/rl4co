@@ -16,25 +16,31 @@ log = get_pylogger(__name__)
 
 class NARGNNPolicy(NonAutoregressivePolicy):
     """
-    # TODO
     Base Non-autoregressive policy for NCO construction methods.
+    This creates a heatmap of NxN for N nodes (i.e., heuristic) that models the probability to go from one node to another for all nodes.
+
     The policy performs the following steps:
         1. Encode the environment initial state into node embeddings
         2. Decode (non-autoregressively) to construct the solution to the NCO problem
-
 
     Warning:
         The effectiveness of the non-autoregressive approach can vary significantly across different problem types and configurations.
         It may require careful tuning of the model architecture and decoding strategy to achieve competitive results.
 
     Args:
-        env_name: Name of the environment used to initialize embeddings
         encoder: Encoder module. Can be passed by sub-classes
+        decoder: Decoder module. Note that this moule defaults to the non-autoregressive decoder
+        embed_dim: Dimension of the embeddings
+        env_name: Name of the environment used to initialize embeddings
         init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
         edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
-        embed_dim: Dimension of the embeddings
-        num_graph_layers: Number of layers in the encoder
-        num_decoder_layers: Number of layers in the decoder # TODO
+        graph_network: Model to use for the graph network. If None, use the default embedding for the environment
+        heatmap_generator: Model to use for the heatmap generator. If None, use the default embedding for the environment
+        num_layers_heatmap_generator: Number of layers in the heatmap generator
+        num_layers_graph_encoder: Number of layers in the graph encoder
+        act_fn: Activation function to use in the encoder
+        agg_fn: Aggregation function to use in the encoder
+        linear_bias: Whether to use bias in the encoder
         train_decode_type: Type of decoding during training
         val_decode_type: Type of decoding during validation
         test_decode_type: Type of decoding during testing

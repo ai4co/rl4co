@@ -38,14 +38,14 @@ class ConstructiveEncoder(nn.Module, metaclass=abc.ABCMeta):
 
 
 class ConstructiveDecoder(nn.Module, metaclass=abc.ABCMeta):
-
     """Base decoder model for constructive models. The decoder is responsible for generating the logits for the action"""
 
     @abc.abstractmethod
     def forward(
         self, td: TensorDict, hidden: Any = None, num_starts: int = 0
     ) -> Tuple[Tensor, Tensor]:
-        """Obtain heatmap logits for current action to the next ones
+        """Obtain logits for current action to the next ones
+
         Args:
             td: TensorDict containing the input data
             hidden: Hidden state from the encoder. Can be any type
@@ -67,7 +67,7 @@ class ConstructiveDecoder(nn.Module, metaclass=abc.ABCMeta):
             env: Environment for decoding
             num_starts: Number of starts for multistart decoding
 
-        Returns: # TODO
+        Returns:
             Tuple containing the updated hidden state, TensorDict, and environment
         """
         return td, env, hidden
@@ -83,19 +83,40 @@ class NoEncoder(ConstructiveEncoder):
 
 class ConstructivePolicy(nn.Module):
     """
-    TODO docstring
+    Base class for constructive policies. Constructive policies take as input and instance and output a solution (sequence of actions).
+    "Constructive" means that a solution is created from scratch by the model.
 
-        Note:
-            There are major differences between this decoding and most RL problems. The most important one is
-            that reward is not defined for partial solutions, hence we have to wait for the environment to reach a terminal
-            state before we can compute the reward with `env.get_reward()`.
+    The structure follows roughly the following steps:
+        1. Create a hidden state from the encoder
+        2. Initialize decoding strategy (such as greedy, sampling, etc.)
+        3. Decode the action given the hidden state and the environment state at the current step
+        4. Update the environment state with the action. Repeat 3-4 until all sequences are done
+        5. Obtain log likelihood, rewards etc.
 
-        Warning:
+    Note that an encoder is not strictly needed (see :class:`NoEncoder`).). A decoder however is always needed either in the form of a
+    network or a function.
+
+    Note:
+        There are major differences between this decoding and most RL problems. The most important one is
+        that reward may not defined for partial solutions, hence we have to wait for the environment to reach a terminal
+        state before we can compute the reward with `env.get_reward()`.
+
+    Warning:
         We suppose environments in the `done` state are still available for sampling. This is because in NCO we need to
         wait for all the environments to reach a terminal state before we can stop the decoding process. This is in
         contrast with the TorchRL framework (at the moment) where the `env.rollout` function automatically resets.
         You may follow tighter integration with TorchRL here: https://github.com/ai4co/rl4co/issues/72.
 
+    Args:
+        encoder: Encoder to use
+        decoder: Decoder to use
+        env_name: Environment name to solve (used for automatically instantiating networks)
+        temperature: Temperature for the softmax during decoding
+        tanh_clipping: Clipping value for the tanh activation (see Bello et al. 2016) during decoding
+        mask_logits: Whether to mask the logits or not during decoding
+        train_decode_type: Decoding strategy for training
+        val_decode_type: Decoding strategy for validation
+        test_decode_type: Decoding strategy for testing
     """
 
     def __init__(
@@ -150,15 +171,18 @@ class ConstructivePolicy(nn.Module):
         """Forward pass of the policy.
 
         Args:
-        # TODO
             td: TensorDict containing the environment state
             env: Environment to use for decoding. If None, the environment is instantiated from `env_name`. Note that
                 it is more efficient to pass an already instantiated environment each time for fine-grained control
             phase: Phase of the algorithm (train, val, test)
+            calc_reward: Whether to calculate the reward
             return_actions: Whether to return the actions
             return_entropy: Whether to return the entropy
-            actions: Actions to use for evaluating the policy. If passed, use these actions instead of sampling from the policy to calculate log likelihood
-            max_steps: Maximum number of decoding steps for sanity check
+            return_init_embeds: Whether to return the initial embeddings
+            return_sum_log_likelihood: Whether to return the sum of the log likelihood
+            actions: Actions to use for evaluating the policy.
+                If passed, use these actions instead of sampling from the policy to calculate log likelihood
+            max_steps: Maximum number of decoding steps for sanity check to avoid infinite loops if envs are buggy (i.e. do not reach `done`)
             decoding_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.utils.decoding.DecodingStrategy` for more information.
 
         Returns:
@@ -194,7 +218,7 @@ class ConstructivePolicy(nn.Module):
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
 
-        # TODO
+        # Additionally call a decoder hook if needed before main decoding
         td, env, hidden = self.decoder.pre_decoder_hook(td, env, hidden, num_starts)
 
         # Main decoding: loop until all sequences are done
