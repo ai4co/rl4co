@@ -1,13 +1,18 @@
+import copy
+
 import torch.nn as nn
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.rl import PPO
 from rl4co.models.rl.common.critic import CriticNetwork
 from rl4co.models.zoo.am.policy import AttentionModelPolicy
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
-class PPOModel(PPO):
-    """PPO Model based on Proximal Policy Optimization (PPO).
+class AMPPO(PPO):
+    """PPO Model based on Proximal Policy Optimization (PPO) with an attention model policy.
     We default to the attention model policy and the Attention Critic Network.
 
     Args:
@@ -31,6 +36,14 @@ class PPOModel(PPO):
             policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
 
         if critic is None:
-            critic = CriticNetwork(env_name=env.name, **critic_kwargs)
+            log.info("Creating critic network for {}".format(env.name))
+            # we reuse the parameters of the model
+            encoder = getattr(policy, "encoder", None)
+            if encoder is None:
+                raise ValueError("Critic network requires an encoder")
+            critic = CriticNetwork(
+                copy.deepcopy(encoder).to(next(encoder.parameters()).device),
+                **critic_kwargs,
+            )
 
         super().__init__(env, policy, critic, **kwargs)
