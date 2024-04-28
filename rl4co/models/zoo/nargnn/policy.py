@@ -69,11 +69,6 @@ class NARGNNPolicy(NonAutoregressivePolicy):
     ):
         if len(constructive_policy_kw) > 0:
             log.warn(f"Unused kwargs: {constructive_policy_kw}")
-            if "decoder" in constructive_policy_kw:
-                raise ValueError(
-                    "NonAutoregressivePolicy does not accept 'decoder' as a keyword argument. "
-                    "The decoder is fixed to the heatmap decoder."
-                )
 
         if encoder is None:
             encoder = NARGNNEncoder(
@@ -93,6 +88,12 @@ class NARGNNPolicy(NonAutoregressivePolicy):
         # The decoder generates logits given the current td and heatmap
         if decoder is None:
             decoder = NonAutoregressiveDecoder()
+        else:
+            # check if the decoder has trainable parameters
+            if any(p.requires_grad for p in decoder.parameters()):
+                log.error(
+                    "The decoder contains trainable parameters. This should not happen in a non-autoregressive policy."
+                )
 
         # Pass to constructive policy
         super(NARGNNPolicy, self).__init__(
