@@ -7,7 +7,7 @@ import torch.nn as nn
 from tensordict import TensorDict
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.envs.scheduling.ffsp import FFSPEnv
+from rl4co.envs.scheduling.ffsp.env import FFSPEnv
 from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.matnet.decoder import (
     MatNetDecoder,
