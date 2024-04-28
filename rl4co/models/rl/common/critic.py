@@ -1,76 +1,47 @@
-from typing import Callable, Optional, Union
+import copy
+
+from typing import Optional, Union
 
 from tensordict import TensorDict
 from torch import Tensor, nn
 
-from rl4co.envs import RL4COEnvBase
-from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.graph.attnnet import GraphAttentionNetwork
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class CriticNetwork(nn.Module):
-    """We make the critic network compatible with any problem by using encoder for any environment
-    Refactored from Kool et al. (2019) which only worked for TSP. In our case, we make it
-    compatible with any problem by using the environment init embedding. Note that if no environment
-    name and no init embedding are provided, the critic network does not transform the input (i.e.
-    it should be a tensor of shape (batch_size, embed_dim)).
+    """Create a critic network given an encoder (e.g. as the one in the policy network)
+    with a value head to transform the embeddings to a scalar value.
 
     Args:
-        env_name: environment name to solve
-        encoder: Encoder to use for the critic
-        init_embedding: Initial embedding to use for the critic
-        embed_dim: Dimension of the embeddings
-        hidden_dim: Hidden dimension for the feed-forward network
-        num_layers: Number of layers for the encoder
-        num_heads: Number of heads for the attention
-        normalization: Normalization to use for the attention
-        sdpa_fn: Scaled dot product function to use for the attention
+        encoder: Encoder module to encode the input
+        value_head: Value head to transform the embeddings to a scalar value
+        embed_dim: Dimension of the embeddings of the value head
+        hidden_dim: Dimension of the hidden layer of the value head
     """
 
     def __init__(
         self,
-        encoder: nn.Module = None,
-        env_name: str = "tsp",
-        init_embedding: nn.Module = None,
+        encoder: nn.Module,
+        value_head: Optional[nn.Module] = None,
         embed_dim: int = 128,
         hidden_dim: int = 512,
-        num_layers: int = 3,
-        num_heads: int = 8,
-        normalization: str = "batch",
-        sdpa_fn: Optional[Callable] = None,
-        **unused_kwargs,
     ):
         super(CriticNetwork, self).__init__()
 
-        if isinstance(env_name, RL4COEnvBase):
-            env_name = env_name.name
-        self.env_name = env_name
-
-        if env_name is None and init_embedding is None:
-            self.init_embedding = nn.Identity()  # No embedding
-        else:
-            self.init_embedding = (
-                env_init_embedding(self.env_name, {"embed_dim": embed_dim})
-                if init_embedding is None
-                else init_embedding
+        self.encoder = encoder
+        if value_head is None:
+            # check if embed dim of encoder is different, if so, use it
+            if getattr(encoder, "embed_dim", embed_dim) != embed_dim:
+                log.warning(
+                    f"Found encoder with different embed_dim {encoder.embed_dim} than the value head {embed_dim}. Using encoder embed_dim for value head."
+                )
+                embed_dim = getattr(encoder, "embed_dim", embed_dim)
+            value_head = nn.Sequential(
+                nn.Linear(embed_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
             )
-
-        self.encoder = (
-            GraphAttentionNetwork(
-                num_heads=num_heads,
-                embed_dim=embed_dim,
-                num_layers=num_layers,
-                normalization=normalization,
-                feedforward_hidden=hidden_dim,
-                sdpa_fn=sdpa_fn,
-            )
-            if encoder is None
-            else encoder
-        )
-
-        self.value_head = nn.Sequential(
-            nn.Linear(embed_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
-        )
+        self.value_head = value_head
 
     def forward(self, x: Union[Tensor, TensorDict]) -> Tensor:
         """Forward pass of the critic network: encode the imput in embedding space and return the value
@@ -81,8 +52,20 @@ class CriticNetwork(nn.Module):
         Returns:
             Value of the input state
         """
+        h, _ = self.encoder(x)  # [batch_size, N, embed_dim] -> [batch_size, N]
+        return self.value_head(h).mean(1)  # [batch_size, N] -> [batch_size]
 
-        # Initial embedding of x. This is the identity function if env_name is None.
-        x = self.init_embedding(x)
-        x = self.encoder(x)
-        return self.value_head(x).mean(1)
+
+def create_critic_from_actor(
+    policy: nn.Module, backbone: str = "encoder", **critic_kwargs
+):
+    # we reuse the network of the policy's backbone, such as an encoder
+    encoder = getattr(policy, backbone, None)
+    if encoder is None:
+        raise ValueError(
+            f"CriticBaseline requires a backbone in the policy network: {backbone}"
+        )
+    critic = CriticNetwork(copy.deepcopy(encoder), **critic_kwargs).to(
+        next(policy.parameters()).device
+    )
+    return critic
