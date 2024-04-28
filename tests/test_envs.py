@@ -49,7 +49,6 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 def test_routing(env_cls, batch_size=2, size=20):
     env = env_cls(num_loc=size)
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    env.render(td, actions)
     assert reward.shape == (batch_size,)
 
 
@@ -57,8 +56,6 @@ def test_routing(env_cls, batch_size=2, size=20):
 def test_eda(env_cls, batch_size=2, max_decaps=5):
     env = env_cls(max_decaps=max_decaps)
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    ## Note: we skip rendering for now because we need to collect extra data. TODO
-    # env.render(td, actions)
     assert reward.shape == (batch_size,)
 
 
