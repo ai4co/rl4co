@@ -32,7 +32,7 @@ class AttentionModelEncoder(AutoregressiveEncoder):
         self,
         embed_dim: int = 128,
         init_embedding: nn.Module = None,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         num_heads: int = 8,
         num_layers: int = 3,
         normalization: str = "batch",

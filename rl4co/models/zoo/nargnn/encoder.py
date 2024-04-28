@@ -6,7 +6,6 @@ import torch.nn as nn
 from tensordict import TensorDict
 from torch import Tensor
 
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.nonautoregressive import NonAutoregressiveEncoder
 from rl4co.models.nn.env_embeddings import env_edge_embedding, env_init_embedding
 from rl4co.models.nn.graph.gnn import GNNEncoder
@@ -110,7 +109,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
     def __init__(
         self,
         embed_dim: int = 64,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         # TODO: pass network
         init_embedding: Optional[nn.Module] = None,
         edge_embedding: Optional[nn.Module] = None,
@@ -123,7 +122,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         linear_bias: bool = True,
     ):
         super(NonAutoregressiveEncoder, self).__init__()
-        self.env_name = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
+        self.env_name = env_name
 
         self.init_embedding = (
             env_init_embedding(self.env_name, {"embed_dim": embed_dim})

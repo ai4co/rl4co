@@ -1,7 +1,6 @@
 from typing import Optional, Type, Union
 
 import torch
-import torch.nn as nn
 
 from tensordict import TensorDict
 
@@ -17,10 +16,6 @@ class DeepACODecoder(NonAutoregressiveDecoder):
 
     Args:
         env_name: Environment name to solve.
-        embed_dim: Dimension of the embeddings.
-        num_layers: Number of linear layers to use in the MLP.
-        heatmap_generator: Module to generate heatmaps from node embeddings. Defaults to :class:`~rl4co.models.common.nonautoregressive.decoder.EdgeHeatmapGenerator`.
-        linear_bias: Whether to use a bias term in the linear layers. Defaults to True.
         aco_class: Class representing the ACO algorithm to be used. Defaults to :class:`AntSystem`.
         n_ants: Number of ants to be used in the ACO algorithm. Can be an integer or dictionary. Defaults to 20.
         n_iterations: Number of iterations to run the ACO algorithm. Can be an integer or dictionary. Defaults to `dict(train=1, val=20, test=100)`.
@@ -29,23 +24,14 @@ class DeepACODecoder(NonAutoregressiveDecoder):
 
     def __init__(
         self,
-        env_name: Union[str, RL4COEnvBase],
-        embed_dim: int,
-        num_layers: int,
-        heatmap_generator: Optional[nn.Module] = None,
-        linear_bias: bool = True,
+        env_name: str = "tsp",
         aco_class: Optional[Type[AntSystem]] = None,
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
         **aco_args,
     ):
-        super(DeepACODecoder, self).__init__(
-            env_name=env_name,
-            embed_dim=embed_dim,
-            num_layers=num_layers,
-            heatmap_generator=heatmap_generator,
-            linear_bias=linear_bias,
-        )
+        super(DeepACODecoder, self).__init__()
+        self.env_name = env_name
         self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_args = aco_args
         self.n_ants = merge_with_defaults(n_ants, train=20, val=20, test=20)

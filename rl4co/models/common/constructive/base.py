@@ -102,7 +102,7 @@ class ConstructivePolicy(nn.Module):
         self,
         encoder: Union[ConstructiveEncoder, Callable],
         decoder: Union[ConstructiveDecoder, Callable],
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,
         mask_logits: bool = True,
@@ -116,7 +116,7 @@ class ConstructivePolicy(nn.Module):
         if len(unused_kw) > 0:
             log.error(f"Found {len(unused_kw)} unused kwargs: {unused_kw}")
 
-        self.env_name = env_name.name if isinstance(env_name, RL4COEnvBase) else env_name
+        self.env_name = env_name
 
         # Encoder and decoder
         if encoder is None:

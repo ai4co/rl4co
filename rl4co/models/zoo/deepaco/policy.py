@@ -32,7 +32,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
     def __init__(
         self,
         encoder: Optional[NonAutoregressiveEncoder] = None,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
         n_ants: Optional[Union[int, dict]] = None,

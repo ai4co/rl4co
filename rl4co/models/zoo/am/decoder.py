@@ -54,7 +54,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         self,
         embed_dim: int = 128,
         num_heads: int = 8,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         context_embedding: nn.Module = None,
         dynamic_embedding: nn.Module = None,
         mask_inner: bool = True,

@@ -1,8 +1,7 @@
-from typing import Optional, Union
+from typing import Optional
 
 import torch.nn as nn
 
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.nonautoregressive import (
     NonAutoregressiveDecoder,
     NonAutoregressiveEncoder,
@@ -47,7 +46,7 @@ class NARGNNPolicy(NonAutoregressivePolicy):
         encoder: Optional[NonAutoregressiveEncoder] = None,
         decoder: Optional[NonAutoregressiveDecoder] = None,
         embed_dim: int = 64,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         init_embedding: Optional[nn.Module] = None,
         edge_embedding: Optional[nn.Module] = None,
         graph_network: Optional[nn.Module] = None,

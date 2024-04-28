@@ -1,6 +1,3 @@
-from typing import Union
-
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.base import ConstructivePolicy
 
 from .decoder import AutoregressiveDecoder
@@ -22,7 +19,7 @@ class AutoregressivePolicy(ConstructivePolicy):
         self,
         encoder: AutoregressiveEncoder,
         decoder: AutoregressiveDecoder,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,
         mask_logits: bool = True,
