@@ -6,7 +6,7 @@ from .encoder import NonAutoregressiveEncoder
 
 class NonAutoregressivePolicy(ConstructivePolicy):
     """Template class for an nonautoregressive policy, simple wrapper around
-    :class: rl4co.models.common.constructive.base.ConstructivePolicy.
+    :class:`rl4co.models.common.constructive.base.ConstructivePolicy`.
     """
 
     def __init__(

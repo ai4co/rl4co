@@ -6,11 +6,11 @@ from .encoder import AutoregressiveEncoder
 
 class AutoregressivePolicy(ConstructivePolicy):
     """Template class for an autoregressive policy, simple wrapper around
-    :class: rl4co.models.common.constructive.base.ConstructivePolicy.
+    :class:`rl4co.models.common.constructive.base.ConstructivePolicy`.
 
     Note:
         While a decoder is required, an encoder is optional and will be initialized to
-        :class: rl4co.models.common.constructive.autoregressive.encoder.NoEncoder .
+        :class:`rl4co.models.common.constructive.autoregressive.encoder.NoEncoder`.
         This can be used in decoder-only models in which at each step actions do not depend on
         previously encoded states.
     """

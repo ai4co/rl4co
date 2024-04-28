@@ -13,7 +13,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
     This model first encodes the input graph using a Graph Attention Network (GAT) (:class:`AttentionModelEncoder`)
     and then decodes the solution using a pointer network (:class:`AttentionModelDecoder`). Cache is used to store the
     embeddings of the nodes to be used by the decoder to save computation.
-    See :class: `AutoregressivePolicy` for more details on the inference process.
+    See :class:`rl4co.models.common.constructive.autoregressive.policy.AutoregressivePolicy` for more details on the inference process.
 
     Args:
         encoder: Encoder module, defaults to :class:`AttentionModelEncoder`
