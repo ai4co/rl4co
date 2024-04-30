@@ -25,7 +25,7 @@ class PDPGenerator(Generator):
     
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
+            locs [batch_size, num_loc, 2]: locations of each customer
             depot [batch_size, 2]: location of the depot
     """
     def __init__(

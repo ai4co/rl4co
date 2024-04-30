@@ -27,8 +27,8 @@ class SVRPGenerator(Generator):
         A TensorDict with the following keys:
             locs [batch_size, num_loc, 2]: locations of each customer
             depot [batch_size, 2]: location of the depot
-            techs [batch_size, num_loc+1]: technic requirements of each customer and the depot
-            skills [batch_size, num_loc+1]: skills of the vehicles
+            techs [batch_size, num_loc]: technic requirements of each customer
+            skills [batch_size, num_loc]: skills of the vehicles
     """
     def __init__(
         self,

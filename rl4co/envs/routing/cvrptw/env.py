@@ -24,20 +24,34 @@ from .render import render
 
 class CVRPTWEnv(CVRPEnv):
     """Capacitated Vehicle Routing Problem with Time Windows (CVRPTW) environment.
-    Inherits from the CVRPEnv class in which capacities are considered.
+    Inherits from the CVRPEnv class in which customers are considered.
     Additionally considers time windows within which a service has to be started.
 
+    Observations:
+        - location of the depot.
+        - locations and demand of each customer.
+        - current location of the vehicle.
+        - the remaining customer of the vehicle.
+        - the current time.
+        - service durations of each location.
+        - time windows of each location.
+
+    Constraints:
+        - the tour starts and ends at the depot.
+        - each customer must be visited exactly once.
+        - the vehicle cannot visit customers exceed the remaining customer.
+        - the vehicle can return to the depot to refill the customer.
+        - the vehicle must start the service within the time window of each location.
+
+    Finish Condition:
+        - the vehicle has visited all customers and returned to the depot.
+
+    Reward:
+        - (minus) the negative length of the path.
+
     Args:
-        num_loc (int): number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
-        min_loc (float): minimum value for the location coordinates
-        max_loc (float): maximum value for the location coordinates. Defaults to 150.
-        min_demand (float): minimum value for the demand of each customer
-        max_demand (float): maximum value for the demand of each customer
-        max_time (int): maximum time for the environment. Defaults to 480.
-        vehicle_capacity (float): capacity of the vehicle
-        capacity (float): capacity of the vehicle
-        scale (bool): if True, the time windows and service durations are scaled to [0, 1]. Defaults to False.
-        td_params: parameters of the environment
+        generator: CVRPTWGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "cvrptw"

@@ -21,22 +21,33 @@ log = get_pylogger(__name__)
 
 
 class MPDPEnv(RL4COEnvBase):
-    """Multi-agent Pickup and Delivery Problem environment.
+    """Multi-agent Pickup and Delivery Problem (mPDP) environment.
     The goal is to pick up and deliver all the packages while satisfying the precedence constraints.
     When an agent goes back to the depot, a new agent is spawned. In the min-max version, the goal is to minimize the
-    maximum tour length among all agents.
-    The reward is 0 unless the agent visits all the cities.
+    maximum tour length among all agents. The reward is 0 unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
+    Observations:
+        - locations of the depot, pickup, and delivery locations
+        - current location of the vehicle
+        - the remaining locations to deliver
+        - the visited locations
+        - the current step
+    
+    Constraints:
+        - the tour starts and ends at the depot
+        - each pickup location must be visited before its corresponding delivery location
+        - the vehicle cannot visit the same location twice
+    
+    Finish Condition:
+        - the vehicle has visited all locations
+
+    Reward:
+        - (minus) the negative length of the path
+
     Args:
-        num_loc: number of locations (cities) in the TSP
-        min_loc: minimum location coordinate. Used for data generation
-        max_loc: maximum location coordinate. Used for data generation
-        min_num_agents: minimum number of agents. Used for data generation
-        max_num_agents: maximum number of agents. Used for data generation
-        objective: objective to optimize. Either 'minmax' or 'minsum'
-        check_solution: whether to check the validity of the solution
-        td_params: parameters of the environment
+        generator: MPDPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "mpdp"

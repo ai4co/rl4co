@@ -26,11 +26,27 @@ class PDPEnv(RL4COEnvBase):
     The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
     The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
 
+    Observations:
+        - locations of the depot, pickup, and delivery locations
+        - current location of the vehicle
+        - the remaining locations to deliver
+        - the visited locations
+        - the current step
+
+    Constraints:
+        - the tour starts and ends at the depot
+        - each pickup location must be visited before its corresponding delivery location
+        - the vehicle cannot visit the same location twice
+
+    Finish Condition:
+        - the vehicle has visited all locations
+
+    Reward:
+        - (minus) the negative length of the path
+
     Args:
-        num_loc: number of locations (cities) in the TSP
-        td_params: parameters of the environment
-        seed: seed for the environment
-        device: device to use.  Generally, no need to set as tensors are updated on the fly
+        generator: PDPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "pdp"

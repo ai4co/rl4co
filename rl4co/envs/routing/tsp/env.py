@@ -21,16 +21,27 @@ log = get_pylogger(__name__)
 
 
 class TSPEnv(RL4COEnvBase):
-    """
-    Traveling Salesman Problem environment
+    """Traveling Salesman Problem (TSP) environment
     At each step, the agent chooses a city to visit. The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
+    Observations:
+        - locations of each customer.
+        - the current location of the vehicle.
+
+    Constrains:
+        - the tour must return to the starting customer.
+        - each customer must be visited exactly once.
+
+    Finish condition:
+        - the agent has visited all customers and returned to the starting customer.
+
+    Reward:
+        - (minus) the negative length of the path.
+
     Args:
-        num_loc: number of locations (cities) in the TSP
-        td_params: parameters of the environment
-        seed: seed for the environment
-        device: device to use.  Generally, no need to set as tensors are updated on the fly
+        generator: TSPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "tsp"

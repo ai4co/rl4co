@@ -28,17 +28,33 @@ class SMTWTPEnv(RL4COEnvBase):
     At each step, the agent chooses a job to process. The reward is 0 unless the agent processes all the jobs.
     In that case, the reward is (-)objective value of the processing order: maximizing the reward is equivalent to minimizing the objective.
 
+    Observation:
+        - job_due_time: the due time of each job
+        - job_weight: the weight of each job
+        - job_process_time: the process time of each job
+        - current_node: the current node
+        - action_mask: a mask of available actions
+        - current_time: the current time
+
+    Constants:
+        - num_job: number of jobs
+        - min_time_span: lower bound of jobs' due time. By default, jobs' due time is uniformly sampled from (min_time_span, max_time_span)
+        - max_time_span: upper bound of jobs' due time. By default, it will be set to num_job / 2
+        - min_job_weight: lower bound of jobs' weights. By default, jobs' weights are uniformly sampled from (min_job_weight, max_job_weight)
+        - max_job_weight: upper bound of jobs' weights
+        - min_process_time: lower bound of jobs' process time. By default, jobs' process time is uniformly sampled from (min_process_time, max_process_time)
+        - max_process_time: upper bound of jobs' process time
+
+    Finishing condition:
+        - All jobs are processed
+    
+    Reward:
+        - The reward is 0 unless the agent processes all the jobs.
+        - In that case, the reward is (-)objective value of the processing order: maximizing the reward is equivalent to minimizing the objective.
+
     Args:
-        num_job: number of jobs
-        min_time_span: lower bound of jobs' due time. By default, jobs' due time is uniformly sampled from (min_time_span, max_time_span)
-        max_time_span: upper bound of jobs' due time. By default, it will be set to num_job / 2
-        min_job_weight: lower bound of jobs' weights. By default, jobs' weights are uniformly sampled from (min_job_weight, max_job_weight)
-        max_job_weight: upper bound of jobs' weights
-        min_process_time: lower bound of jobs' process time. By default, jobs' process time is uniformly sampled from (min_process_time, max_process_time)
-        max_process_time: upper bound of jobs' process time
-        td_params: parameters of the environment
-        seed: seed for the environment
-        device: device to use.  Generally, no need to set as tensors are updated on the fly
+        generator: FFSPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "smtwtp"

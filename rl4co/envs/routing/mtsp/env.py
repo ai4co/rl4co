@@ -27,14 +27,28 @@ class MTSPEnv(RL4COEnvBase):
         - `sum`: the cost is the sum of the path lengths of all the agents
     Reward is - cost, so the goal is to maximize the reward (minimize the cost).
 
+    Observations:
+        - locations of the depot and each customer.
+        - number of agents.
+        - the current agent index.
+        - the current location of the vehicle.
+
+    Constrains:
+        - each agent's tour starts and ends at the depot.
+        - each customer must be visited exactly once.
+
+    Finish condition:
+        - all customers are visited and all agents back to the depot.
+
+    Reward:
+        There are two ways to calculate the cost (-reward):
+        - `minmax`: (default) the cost is the maximum of the path lengths of all the agents.
+        - `sum`: the cost is the sum of the path lengths of all the agents.
+
     Args:
-        num_loc: number of locations (cities) to visit
-        min_loc: minimum value of the locations
-        max_loc: maximum value of the locations
-        min_num_agents: minimum number of agents
-        max_num_agents: maximum number of agents
         cost_type: type of cost to use, either `minmax` or `sum`
-        td_params: parameters for the TensorDict specs
+        generator: MTSPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "mtsp"

@@ -22,7 +22,7 @@ log = get_pylogger(__name__)
 
 
 class SVRPEnv(RL4COEnvBase):
-    """
+    """Skill-Vehicle Routing Problem (SVRP) environment.
     Basic Skill-VRP environment. The environment is a variant of the Capacitated Vehicle Routing Problem (CVRP).
     Each technician has a certain skill-level and each customer node requires a certain skill-level to be serviced.
     Each customer node needs is to be serviced by exactly one technician. Technicians can only service nodes if
@@ -30,14 +30,27 @@ class SVRPEnv(RL4COEnvBase):
     the goal is to minimize the total travel cost of the technicians. The travel cost depends on the skill-level of
     the technician. The environment is defined by the following parameters:
 
+    Observations:
+        - locations of the depot, pickup, and delivery locations
+        - current location of the vehicle
+        - the remaining locations to deliver
+        - the visited locations
+        - the current step
+    
+    Constraints:
+        - the tour starts and ends at the depot
+        - each pickup location must be visited before its corresponding delivery location
+        - the vehicle cannot visit the same location twice
+
+    Finish Condition:
+        - the vehicle has visited all locations
+
+    Reward:
+        - (minus) the negative length of the path
+
     Args:
-        num_loc (int): Number of customer locations. Default: 20
-        min_loc (float): Minimum value for the location coordinates. Default: 0
-        max_loc (float): Maximum value for the location coordinates. Default: 1
-        min_skill (float): Minimum skill level of the technicians. Default: 1
-        max_skill (float): Maximum skill level of the technicians. Default: 10
-        tech_costs (list): List of travel costs for the technicians. Default: [1, 2, 3]. The number of entries in this list determines the number of available technicians.
-        td_params (TensorDict): Parameters for the TensorDict. Default: None
+        generator: PDPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "svrp"

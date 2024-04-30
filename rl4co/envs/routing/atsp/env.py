@@ -21,17 +21,30 @@ log = get_pylogger(__name__)
 
 
 class ATSPEnv(RL4COEnvBase):
-    """
-    Asymmetric Traveling Salesman Problem environment
-    At each step, the agent chooses a city to visit. The reward is 0 unless the agent visits all the cities.
+    """Asymmetric Traveling Salesman Problem (ATSP) environment
+    At each step, the agent chooses a customer to visit. The reward is 0 unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
     Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
 
+    Observations:
+        - distance matrix between customers
+        - the current customer
+        - the first customer (for calculating the reward)
+        - the remaining unvisited customers
+    
+    Constraints:
+        - the tour starts and ends at the same customer.
+        - each customer must be visited exactly once.
+
+    Finish Condition:
+        - the agent has visited all customers.
+
+    Reward:
+        - (minus) the negative length of the path.
+
     Args:
-        num_loc: number of locations (cities) in the TSP
-        td_params: parameters of the environment
-        seed: seed for the environment
-        device: device to use.  Generally, no need to set as tensors are updated on the fly
+        generator: ATSPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "atsp"

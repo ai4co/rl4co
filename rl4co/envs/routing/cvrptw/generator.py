@@ -30,13 +30,13 @@ class CVRPTWGenerator(CVRPGenerator):
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each city and the depot
+            locs [batch_size, num_loc, 2]: locations of each city
             depot [batch_size, 2]: location of the depot
-            demand [batch_size, num_loc + 1]: demand of each customer and the depot, 
+            demand [batch_size, num_loc]: demand of each customer
                 while the demand of the depot is a placeholder
             capacity [batch_size, 1]: capacity of the vehicle
-            durations [batch_size, num_loc + 1]: service durations of each location
-            time_windows [batch_size, num_loc + 1, 2]: time windows of each location
+            durations [batch_size, num_loc]: service durations of each location
+            time_windows [batch_size, num_loc, 2]: time windows of each location
     """
     def __init__(
         self,

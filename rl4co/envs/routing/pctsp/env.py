@@ -26,14 +26,29 @@ class PCTSPEnv(RL4COEnvBase):
     The goal is to collect as much prize as possible while minimizing the total travel cost.
     The environment is stochastic, the prize is only revealed when the node is visited.
 
+    Observations:
+        - locations of the nodes
+        - prize and penalty of each node
+        - current location of the vehicle
+        - current total prize
+        - current total penalty
+        - visited nodes
+        - prize required to visit a node
+        - the current step
+
+    Constraints:
+        - the tour starts and ends at the depot
+        - the vehicle cannot visit nodes exceed the remaining prize
+
+    Finish Condition:
+        - the vehicle back to the depot
+
+    Reward:
+        - the sum of the saved penalties
+
     Args:
-        num_loc: Number of locations
-        min_loc: Minimum location value
-        max_loc: Maximum location value
-        penalty_factor: Penalty factor
-        prize_required: Minimum prize required to visit a node
-        check_solution: Set to False by default for small bug happening around 0.01% of the time (TODO: fix)
-        td_params: Parameters of the environment
+        generator: OPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "pctsp"

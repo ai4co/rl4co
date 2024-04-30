@@ -23,16 +23,31 @@ class FFSPEnv(RL4COEnvBase):
     """Flexible Flow Shop Problem (FFSP) environment.
     The goal is to schedule a set of jobs on a set of machines such that the makespan is minimized.
 
-    Args:
-        num_stage: number of stages
-        num_machine: number of machines in each stage
-        num_job: number of jobs
-        min_time: minimum processing time of a job
-        max_time: maximum processing time of a job
-        batch_size: batch size of the problem
+    Observations:
+        - time index
+        - sub time index
+        - batch index
+        - machine index
+        - schedule
+        - machine wait step
+        - job location
+        - job wait step
+        - job duration
 
-    Note:
-        - [IMPORTANT] This version of ffsp requires the number of machines in each stage to be the same
+    Constraints:
+        - each job has to be processed on each machine in a specific order
+        - the machine has to be available to process the job
+        - the job has to be available to be processed
+
+    Finish Condition:
+        - all jobs are scheduled
+
+    Reward:
+        - (minus) the makespan of the schedule
+
+    Args:
+        generator: FFSPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "ffsp"

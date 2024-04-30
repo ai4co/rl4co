@@ -28,14 +28,27 @@ class CVRPEnv(RL4COEnvBase):
     visit any customer, the agent must go back to the depot. The reward is 0 unless the agent visits all the cities.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
+    Observations:
+        - location of the depot.
+        - locations and demand of each customer.
+        - current location of the vehicle.
+        - the remaining customer of the vehicle,
+
+    Constraints:
+        - the tour starts and ends at the depot.
+        - each customer must be visited exactly once.
+        - the vehicle cannot visit customers exceed the remaining capacity.
+        - the vehicle can return to the depot to refill the capacity.
+
+    Finish Condition:
+        - the vehicle has visited all customers and returned to the depot.
+
+    Reward:
+        - (minus) the negative length of the path.
+
     Args:
-        num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
-        min_loc: minimum value for the location coordinates
-        max_loc: maximum value for the location coordinates
-        min_demand: minimum value for the demand of each customer
-        max_demand: maximum value for the demand of each customer
-        vehicle_capacity: capacity of the vehicle
-        td_params: parameters of the environment
+        generator: CVRPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "cvrp"

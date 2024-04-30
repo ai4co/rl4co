@@ -26,16 +26,28 @@ class OPEnv(RL4COEnvBase):
     At each step, the agent chooses a location to visit in order to maximize the collected prize.
     The total length of the path must not exceed a given threshold.
 
+    Observations:
+        - location of the depot
+        - locations and prize of each customer
+        - current location of the vehicle
+        - current tour length
+        - current total prize
+        - the remaining length of the path
+    
+    Constraints:
+        - the tour starts and ends at the depot
+        - not all customers need to be visited
+        - the vehicle cannot visit customers exceed the remaining length of the path
+
+    Finish Condition:
+        - the vehicle back to the depot
+
+    Reward:
+        - the sum of the prizes of visited nodes
+
     Args:
-        num_loc: number of locations (cities) in the OP
-        min_loc: minimum value of the locations
-        max_loc: maximum value of the locations
-        max_length: maximum length of the path
-        prize_type: type of prize to collect. Can be:
-            - "dist": the prize is the distance from the previous location
-            - "unif": the prize is a uniform random variable
-            - "const": the prize is a constant
-        td_params: parameters of the environment
+        generator: OPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "op"

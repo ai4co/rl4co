@@ -28,10 +28,9 @@ class OPGenerator(Generator):
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
+            locs [batch_size, num_loc, 2]: locations of each customer
             depot [batch_size, 2]: location of the depot
-            prize [batch_size, num_loc + 1]: prize of each customer and the depot, 
-                while the prize of the depot is 0
+            prize [batch_size, num_loc]: prize of each customer
             max_length [batch_size, 1]: maximum length of the path for each customer
     """
     def __init__(

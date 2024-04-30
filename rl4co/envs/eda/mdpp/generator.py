@@ -34,10 +34,9 @@ class MDPPGenerator(Generator):
     
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
+            locs [batch_size, num_loc, 2]: locations of each customer
             depot [batch_size, 2]: location of the depot
-            demand [batch_size, num_loc + 1]: demand of each customer and the depot, 
-                while the demand of the depot is a placeholder
+            demand [batch_size, num_loc]: demand of each customer
             capacity [batch_size]: capacity of the vehicle
     """
     def __init__(

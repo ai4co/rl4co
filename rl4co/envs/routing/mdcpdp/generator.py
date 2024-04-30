@@ -12,8 +12,28 @@ log = get_pylogger(__name__)
 
 
 class MDCPDPGenerator(Generator):
-    """Data generator for the Capacitated Vehicle Routing Problem (CVRP).
-    TODO
+    """Data generator for the Multi Depot Capacitated Pickup and Delivery Problem (MDCPDP) environment.
+        
+    Args:
+        num_loc: number of locations (customers)
+        min_loc: minimum value for the location coordinates
+        max_loc: maximum value for the location coordinates, default is 150 insted of 1.0, will be scaled
+        loc_distribution: distribution for the location coordinates
+        num_depot: number of depots, each depot has one vehicle
+        depot_mode: mode for the depot, either single or multiple
+        depod_distribution: distribution for the depot coordinates
+        min_capacity: minimum value of the capacity
+        max_capacity: maximum value of the capacity
+        min_lateness_weight: minimum value of the lateness weight
+        max_lateness_weight: maximum value of the lateness weight
+        latebess_weight_distribution: distribution for the lateness weight
+    
+    Returns:
+        A TensorDict with the following keys:
+            locs [batch_size, num_loc, 2]: locations of each customer
+            depot [batch_size, num_depot, 2]: locations of each depot
+            capacity [batch_size, 1]: capacity of the vehicle
+            lateness_weight [batch_size, 1]: weight of the lateness cost
     """
     def __init__(
         self,

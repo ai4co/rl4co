@@ -24,18 +24,30 @@ class SDVRPEnv(CVRPEnv):
     SDVRP is a generalization of CVRP, where nodes can be visited multiple times and a fraction of the demand can be met.
     At each step, the agent chooses a customer to visit depending on the current location and the remaining capacity.
     When the agent visits a customer, the remaining capacity is updated. If the remaining capacity is not enough to
-    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the cities.
+    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
+    Observations:
+        - location of the depot.
+        - locations and demand/remaining demand of each customer 
+        - current location of the vehicle.
+        - the remaining capacity of the vehicle.
+
+    Constraints:
+        - the tour starts and ends at the depot.
+        - each customer can be visited multiple times.
+        - the vehicle cannot visit customers exceed the remaining capacity.
+        - the vehicle can return to the depot to refill the capacity.
+
+    Finish Condition:
+        - the vehicle has finished all customers demand and returned to the depot.
+
+    Reward:
+        - (minus) the negative length of the path.
+
     Args:
-        num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
-        min_loc: minimum value for the location coordinates
-        max_loc: maximum value for the location coordinates
-        min_demand: minimum value for the demand of each customer
-        max_demand: maximum value for the demand of each customer
-        vehicle_capacity: capacity of the vehicle
-        capacity: capacity of the vehicle
-        td_params: parameters of the environment
+        generator: CVRPGenerator instance as the data generator
+        generator_params: parameters for the generator
     """
 
     name = "sdvrp"

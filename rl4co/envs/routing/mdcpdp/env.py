@@ -28,23 +28,36 @@ class MDCPDPEnv(RL4COEnvBase):
     The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
     The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
     The capacity is the maximum number of pickups that the vehicle can carry at the same time
+
+    Observations:
+        - locs: locations of the cities [num_loc + num_depot, 2]
+        - current_node: current node of the agent [1]
+        - to_deliver: if the node is to deliver [1]
+        - i: current step [1]
+        - action_mask: mask of the available actions [num_loc + num_depot]
+        - shape: shape of the observation
+
+    Constraints:
+        - The agent cannot visit the same city twice
+        - The agent must visit the pickup location before the delivery location
+        - The agent must visit the depot at the end of the tour
+
+    Finish Condition:
+        - The agent visited all the locations
+
+    Reward:
+        - Min-sum: the reward is the negative of the length of the tour
+        - Min-max: the reward is the negative of the maximum length of the tour
+        - Lateness: the reward is the negative of the cumulate sum of the length of the tour
+        - Lateness-square: the reward is the negative of the cumulate sum of the square of the length of the tour
+
     Args:
-        num_loc: number of locations (cities) in the TSP
-        num_depot: number of depots, each depot has one vehicle
-        min_loc: minimum value of the location
-        max_loc: maximum value of the location
-        min_capacity: minimum value of the capacity
-        max_capacity: maximum value of the capacity
-        min_lateness_weight: minimum value of the lateness weight
-        max_lateness_weight: maximum value of the lateness weight
+        generator: MDCPDPGenerator instance as the data generator
+        generator_params: parameters for the generator
         dist_mode: distance mode. One of ["L1", "L2"]
         reward_mode: objective of the problem. One of ["lateness", "lateness_square", "minmax", "minsum"]
         problem_mode: type of the problem. One of ["close", "open"]
         start_mode: type of the start. One of ["order", "random"]
-        depot_mode: type of the depot. One of ["single", "multiple"], are all depots the same place
-        td_params: parameters of the environment
-        seed: seed for the environment
-        device: device to use.  Generally, no need to set as tensors are updated on the fly
     """
 
     name = "mdcpdp"

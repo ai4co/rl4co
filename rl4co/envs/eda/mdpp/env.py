@@ -23,16 +23,32 @@ log = get_pylogger(__name__)
 class MDPPEnv(DPPEnv):
     """Multiple decap placement problem (mDPP) environment
     This is a modified version of the DPP environment where we allow multiple probing ports
-    The reward can be calculated as:
-        - minmax: min of the max of the decap scores
-        - meansum: mean of the sum of the decap scores
-    The minmax is more challenging as it requires to find the best decap location for the worst case
+
+    Observations:
+        - locations of the probing ports and keepout regions
+        - current decap placement
+        - remaining decaps
+
+    Constraints:
+        - decaps cannot be placed at the probing ports or keepout regions
+        - the number of decaps is limited
+
+    Finish Condition:
+        - the number of decaps exceeds the limit
+
+    Reward:
+        - the impedance suppression at the probing ports
 
     Args:
-        num_probes_min: minimum number of probes
-        num_probes_max: maximum number of probes
+        generator: DPPGenerator instance as the data generator
+        generator_params: parameters for the generator
         reward_type: reward type, either minmax or meansum
-        td_params: TensorDict parameters
+            - minmax: min of the max of the decap scores
+            - meansum: mean of the sum of the decap scores
+    
+    Note:
+        The minmax is more challenging as it requires to find the best decap location 
+        for the worst case
     """
 
     name = "mdpp"
