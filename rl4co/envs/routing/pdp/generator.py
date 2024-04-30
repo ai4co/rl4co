@@ -14,7 +14,7 @@ log = get_pylogger(__name__)
 class PDPGenerator(Generator):
     """Data generator for the Pickup and Delivery Problem (PDP).
     Args:
-        num_loc: number of locations (cities) in the PDP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        num_loc: number of locations (customers) in the PDP, without the depot. (e.g. 10 means 10 locs + 1 depot)
             - 1 depot
             - `num_loc` / 2 pickup locations
             - `num_loc` / 2 delivery locations
@@ -25,7 +25,7 @@ class PDPGenerator(Generator):
     
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each city and the depot
+            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
             depot [batch_size, 2]: location of the depot
     """
     def __init__(

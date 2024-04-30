@@ -23,7 +23,7 @@ MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 class PCTSPGenerator(Generator):
     """Data generator for the Prize-collecting Traveling Salesman Problem (PCTSP).
     Args:
-        num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        num_loc: number of locations (customers) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates

@@ -28,7 +28,7 @@ class OPEnv(RL4COEnvBase):
 
     Observations:
         - location of the depot
-        - locations and prize of each city
+        - locations and prize of each customer
         - current location of the vehicle
         - current tour length
         - current total prize
@@ -36,8 +36,8 @@ class OPEnv(RL4COEnvBase):
     
     Constraints:
         - the tour starts and ends at the depot
-        - not all cities need to be visited
-        - the vehicle cannot visit cities exceed the remaining length of the path
+        - not all customers need to be visited
+        - the vehicle cannot visit customers exceed the remaining length of the path
 
     Finish Condition:
         - the vehicle back to the depot
@@ -70,7 +70,7 @@ class OPEnv(RL4COEnvBase):
         # Update tour length
         previus_loc = gather_by_index(td["locs"], td["current_node"])
         current_loc = gather_by_index(td["locs"], current_node)
-        tour_length = td["tour_length"] + torch.norm(current_loc - previus_loc, dim=-1, keepdim=True)
+        tour_length = td["tour_length"] + (current_loc - previus_loc).norm(p=2, dim=-1)
 
         # Update prize with collected prize
         current_total_prize = td["current_total_prize"] + gather_by_index(
@@ -107,10 +107,10 @@ class OPEnv(RL4COEnvBase):
         """
         current_loc = gather_by_index(td["locs"], td["current_node"])[..., None, :]
         exceeds_length = (
-            td["tour_length"] + (td["locs"] - current_loc).norm(p=2, dim=-1)
+            td["tour_length"][..., None] + (td["locs"] - current_loc).norm(p=2, dim=-1)
             > td["max_length"]
         )
-        mask = td["visited"] | td["visited"][..., :1] | exceeds_length
+        mask = td["visited"] | td["visited"][..., 0:1] | exceeds_length
 
         action_mask = ~mask  # 1 = feasible action, 0 = infeasible action
 
@@ -120,31 +120,36 @@ class OPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None) -> TensorDict:
         device = td.device
-        locs = td["locs"]
-        num_loc = locs.size(-2)
 
-        tour_length = torch.zeros((*batch_size, 1), dtype=torch.float32, device=device)
-        current_total_prize = torch.zeros((*batch_size, 1), dtype=torch.float32, device=device)
-        
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        visited = torch.zeros((*batch_size, num_loc), dtype=torch.bool, device=device)
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        done = torch.zeros((*batch_size, 1), dtype=torch.bool, device=device)
+        locs_with_depot = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
-        # Depot is always visited
-        visited[:, 0] = True
-
+        # Create reset TensorDict
         td_reset = TensorDict(
             {
-                "locs": locs,
-                "prize": td["prize"],
-                "tour_length": tour_length,
-                "max_length": td["max_length"],
-                "current_node": current_node,
-                "visited": visited,
-                "current_total_prize": current_total_prize,
-                "i": i,
-                "done": done,
+                "locs": locs_with_depot,
+                "prize": F.pad(
+                    td["prize"], (1, 0), mode="constant", value=0
+                ),  # add 0 for depot
+                "tour_length": torch.zeros(*batch_size, device=device),
+                # max_length is max length allowed when arriving at node, so subtract distance to return to depot
+                # Additionally, substract epsilon margin for numeric stability
+                "max_length": td["max_length"][..., None]
+                - (td["depot"][..., None, :] - locs_with_depot).norm(p=2, dim=-1)
+                - 1e-6,
+                "current_node": torch.zeros(
+                    *batch_size, 1, dtype=torch.long, device=device
+                ),
+                "visited": torch.zeros(
+                    (*batch_size, locs_with_depot.shape[-2]),
+                    dtype=torch.bool,
+                    device=device,
+                ),
+                "current_total_prize": torch.zeros(
+                    *batch_size, 1, dtype=torch.float, device=device
+                ),
+                "i": torch.zeros(
+                    (*batch_size,), dtype=torch.int64, device=device
+                ),  # counter
             },
             batch_size=batch_size,
         )

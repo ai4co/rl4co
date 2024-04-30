@@ -22,22 +22,22 @@ log = get_pylogger(__name__)
 
 class ATSPEnv(RL4COEnvBase):
     """Asymmetric Traveling Salesman Problem (ATSP) environment
-    At each step, the agent chooses a city to visit. The reward is 0 unless the agent visits all the cities.
+    At each step, the agent chooses a customer to visit. The reward is 0 unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
     Unlike the TSP, the distance matrix is asymmetric, i.e., the distance from A to B is not necessarily the same as the distance from B to A.
 
     Observations:
-        - distance matrix between cities
-        - the current city
-        - the first city (for calculating the reward)
-        - the remaining unvisited cities
+        - distance matrix between customers
+        - the current customer
+        - the first customer (for calculating the reward)
+        - the remaining unvisited customers
     
     Constraints:
-        - the tour starts and ends at the same city.
-        - each city must be visited exactly once.
+        - the tour starts and ends at the same customer.
+        - each customer must be visited exactly once.
 
     Finish Condition:
-        - the agent has visited all cities.
+        - the agent has visited all customers.
 
     Reward:
         - (minus) the negative length of the path.
@@ -115,7 +115,7 @@ class ATSPEnv(RL4COEnvBase):
 
         # Get indexes of tour edges
         nodes_src = actions
-        nodes_tgt = torch.roll(actions, 1, dims=1)
+        nodes_tgt = torch.roll(inupt=actions, shift=-1, dims=1)
         batch_idx = torch.arange(
             distance_matrix.shape[0], device=distance_matrix.device
         ).unsqueeze(1)

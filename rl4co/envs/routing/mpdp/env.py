@@ -25,7 +25,7 @@ class MPDPEnv(RL4COEnvBase):
     The goal is to pick up and deliver all the packages while satisfying the precedence constraints.
     When an agent goes back to the depot, a new agent is spawned. In the min-max version, the goal is to minimize the
     maximum tour length among all agents.
-    The reward is 0 unless the agent visits all the cities.
+    The reward is 0 unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Observations:

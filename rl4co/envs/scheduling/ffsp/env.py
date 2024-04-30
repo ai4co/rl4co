@@ -55,7 +55,7 @@ class FFSPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        generator,
+        generator: FFSPGenerator = None,
         generator_params: dict = {},
         **kwargs,
     ):
@@ -70,6 +70,7 @@ class FFSPEnv(RL4COEnvBase):
         self.num_machine_total = generator.num_machine_total
         self.tables = None
         self.step_cnt = None
+        self.flatten_stages = generator.flatten_stages
 
         self._make_spec(generator)
 
@@ -417,7 +418,7 @@ class FFSPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=generator.num_loc,
+            high=generator.num_machine_total,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

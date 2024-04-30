@@ -25,15 +25,15 @@ class TSPEnv(RL4COEnvBase):
     """Traveling Salesman Problem (TSP) environment.
 
     Observations:
-        - locations of each city.
+        - locations of each customer.
         - the current location of the vehicle.
 
     Constrains:
-        - the tour must return to the starting city.
-        - each city must be visited exactly once.
+        - the tour must return to the starting customer.
+        - each customer must be visited exactly once.
 
     Finish condition:
-        - the agent has visited all cities and returned to the starting city.
+        - the agent has visited all customers and returned to the starting customer.
 
     Reward:
         - (minus) the negative length of the path.

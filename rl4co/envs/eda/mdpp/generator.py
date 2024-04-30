@@ -16,9 +16,8 @@ from rl4co.envs.common.utils import get_sampler, Generator
 log = get_pylogger(__name__)
 
 
-
-class DPPGenerator(Generator):
-    """Data generator for the Decap Placement Problem (DPP).
+class MDPPGenerator(Generator):
+    """Data generator for the Multi Decap Placement Problem (MDPP).
 
     Args:
         min_loc: Minimum location value. Defaults to 0.
@@ -47,6 +46,8 @@ class DPPGenerator(Generator):
         max_loc: float = 1.0,
         num_keepout_min: int = 1,
         num_keepout_max: int = 50,
+        num_probes_min: int = 2,
+        num_probes_max: int = 5,
         max_decaps: int = 20,
         data_dir: str = "data/dpp/",
         chip_file: str = "10x10_pkg_chip.npy",
@@ -59,6 +60,8 @@ class DPPGenerator(Generator):
         self.max_loc = max_loc
         self.num_keepout_min = num_keepout_min
         self.num_keepout_max = num_keepout_max
+        self.num_probes_min = num_probes_min
+        self.num_probes_max = num_probes_max
         self.max_decaps = max_decaps
         self.data_dir = data_dir
 
@@ -87,10 +90,6 @@ class DPPGenerator(Generator):
         ), "num_keepout_max must be <= size * size (total number of locations)"
 
     def _generate(self, batch_size) -> TensorDict:
-        """
-        Generate initial observations for the environment with locations, probe, and action mask
-        Action_mask eliminates the keepout regions and the probe location, and is updated to eliminate placed decaps
-        """
         m = n = self.size
         # if int, convert to list and make it a batch for easier generation
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
@@ -98,9 +97,7 @@ class DPPGenerator(Generator):
         bs = [1] if not batched else batch_size
 
         # Create a list of locs on a grid
-        locs = torch.meshgrid(
-            torch.arange(m), torch.arange(n)
-        )
+        locs = torch.meshgrid(torch.arange(m), torch.arange(n))
         locs = torch.stack(locs, dim=-1).reshape(-1, 2)
         # normalize the locations by the number of rows and columns
         locs = locs / torch.tensor([m, n], dtype=torch.float)
@@ -112,6 +109,18 @@ class DPPGenerator(Generator):
         # Sample probe location from m*n
         probe = torch.randint(m * n, size=(*bs, 1))
         available.scatter_(1, probe, False)
+
+        # Sample probe locatins
+        num_probe = torch.randint(
+            self.num_probes_min,
+            self.num_probes_max,
+            size=(*bs, 1),
+        )
+        probe = [torch.randperm(m * n)[:p] for p in num_probe]
+        probes = torch.zeros((*bs, m * n), dtype=torch.bool)
+        for i, (a, p) in enumerate(zip(available, probe)):
+            available[i] = a.scatter(0, p, False)
+            probes[i] = probes[i].scatter(0, p, True)
 
         # Sample keepout locations from m*n except probe
         num_keepout = torch.randint(
@@ -126,7 +135,7 @@ class DPPGenerator(Generator):
         return TensorDict(
             {
                 "locs": locs if batched else locs.squeeze(0),
-                "probe": probe if batched else probe.squeeze(0),
+                "probe": probes if batched else probes.squeeze(0),
                 "action_mask": available if batched else available.squeeze(0),
             },
             batch_size=batch_size,

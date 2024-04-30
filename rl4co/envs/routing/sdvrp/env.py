@@ -16,23 +16,23 @@ class SDVRPEnv(CVRPEnv):
     SDVRP is a generalization of CVRP, where nodes can be visited multiple times and a fraction of the demand can be met.
     At each step, the agent chooses a customer to visit depending on the current location and the remaining capacity.
     When the agent visits a customer, the remaining capacity is updated. If the remaining capacity is not enough to
-    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the cities.
+    visit any customer, the agent must go back to the depot. The reward is the -infinite unless the agent visits all the customers.
     In that case, the reward is (-)length of the path: maximizing the reward is equivalent to minimizing the path length.
 
     Observations:
         - location of the depot.
-        - locations and demand/remaining demand of each customer (city).
+        - locations and demand/remaining demand of each customer 
         - current location of the vehicle.
         - the remaining capacity of the vehicle.
 
     Constraints:
         - the tour starts and ends at the depot.
-        - each city can be visited multiple times.
-        - the vehicle cannot visit cities exceed the remaining capacity.
+        - each customer can be visited multiple times.
+        - the vehicle cannot visit customers exceed the remaining capacity.
         - the vehicle can return to the depot to refill the capacity.
 
     Finish Condition:
-        - the vehicle has finished all cities demand and returned to the depot.
+        - the vehicle has finished all customers demand and returned to the depot.
 
     Reward:
         - (minus) the negative length of the path.

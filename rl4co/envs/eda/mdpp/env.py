@@ -11,10 +11,11 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
+from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.envs.eda.dpp.env import DPPEnv
 from rl4co.utils.pylogger import get_pylogger
 
-from ..dpp.generator import DPPGenerator
+from .generator import MDPPGenerator
 from .render import render
 
 log = get_pylogger(__name__)
@@ -39,7 +40,7 @@ class MDPPEnv(DPPEnv):
 
     def __init__(
         self,
-        generator: DPPGenerator = None,
+        generator: MDPPGenerator = None,
         generator_params: dict = {},
         data_dir: str = "data/dpp/",
         reward_type: str = "minmax",
@@ -48,7 +49,7 @@ class MDPPEnv(DPPEnv):
         kwargs["data_dir"] = data_dir
         super().__init__(**kwargs)
         if generator is None:
-            generator = DPPGenerator(data_dir=data_dir, **generator_params)
+            generator = MDPPGenerator(data_dir=data_dir, **generator_params)
         self.generator = generator
 
         assert reward_type in [
@@ -64,30 +65,24 @@ class MDPPEnv(DPPEnv):
         return super()._step(td)
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        # Reset function is the same as DPPEnv, only masking changes due to probes
-        td_reset = super()._reset(td, batch_size=batch_size)
-
         device = td.device
-        action_mask = td_reset["action_mask"]
-        m, n = self.generator.size
 
-        probes = torch.zeros((*batch_size, m * n), dtype=torch.bool, device=device)
-        for i, (a, p) in enumerate(zip(action_mask, td_reset["probe"])):
-            action_mask[i] = a.scatter(0, p, False)
-            probes[i] = probes[i].scatter(0, p, True)
+        # Other variables
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Action mask is 0 if both action_mask (e.g. keepout) and probe are 0
-        action_mask = torch.logical_and(action_mask, ~probes)
+        action_mask = torch.logical_and(td["action_mask"], ~td["probe"])
 
-        # Keepout regions are the inverse of action_mask
-        td_reset.update(
+        return TensorDict(
             {
-                "keepout": ~action_mask,
-                "probe": probes,
+                "locs": td["locs"],
+                "probe": td["probe"],
+                "i": i,
                 "action_mask": action_mask,
-            }
+                "keepout": ~action_mask,
+            },
+            batch_size=batch_size,
         )
-        return td_reset
 
     def get_reward(self, td, actions):
         """We call the reward function with the final sequence of actions to get the reward
@@ -122,7 +117,7 @@ class MDPPEnv(DPPEnv):
     def render(td, actions=None, ax=None, legend=True, settings=None):
         return render(td, actions, ax, legend, settings)
 
-    def _make_spec(self, generator: DPPGenerator):
+    def _make_spec(self, generator: MDPPGenerator):
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
                 low=generator.min_loc,

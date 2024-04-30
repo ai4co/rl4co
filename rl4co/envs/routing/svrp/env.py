@@ -68,23 +68,20 @@ class SVRPEnv(RL4COEnvBase):
         self.tech_costs = self.generator.tech_costs
         self._make_spec(self.generator)
 
-    def _step(self, td: TensorDict) -> TensorDict:
+    def _step(self, td: TensorDict) -> torch.Tensor:
         """Step function for the Skill-VRP. If a technician returns to the depot, the next technician is sent out.
         The visited node is marked as visited. The reward is set to zero and the done flag is set if all nodes have been visited.
         """
         current_node = td["action"][:, None]  # Add dimension for step
 
-        # If I go back to the depot, send out next technician
+        # if I go back to the depot, send out next technician
         td["current_tech"] += (current_node == 0).int()
 
         # Add one dimension since we write a single value
-        visited = td["visited"].scatter(
-            -1, current_node.expand_as(td["action_mask"]), 1
-        )
-        print(current_node)
+        visited = td["visited"].scatter(-2, current_node[..., None], 1)
 
         # SECTION: get done
-        done = visited.sum(-1, keepdim=True) == visited.size(-1)
+        done = visited.sum(-2) == visited.size(-2)
         reward = torch.zeros_like(done)
 
         td.update(
@@ -110,37 +107,34 @@ class SVRPEnv(RL4COEnvBase):
         current_tech_skill = gather_by_index(td["techs"], td["current_tech"]).reshape(
             [batch_size, 1]
         )
-        can_service = td["skills"][:, 1:] <= current_tech_skill.expand_as(
-            td["skills"][:, 1:]
+        can_service = td["skills"] <= current_tech_skill.unsqueeze(1).expand_as(
+            td["skills"]
         )
-        mask_loc = td["visited"][:, 1:] | ~can_service
+        mask_loc = td["visited"][..., 1:, :].to(can_service.dtype) | ~can_service
         # Cannot visit the depot if there are still unserved nodes and I either just visited the depot or am the last technician
-        mask_depot = ((td["current_node"] == 0) | (td["current_tech"] == td["techs"].size(-2) - 1)) &\
-            ((mask_loc == 0).int().sum(-1, keepdim=True) > 0)
-        return ~torch.cat((mask_depot, mask_loc), -1)
+        mask_depot = (
+            (td["current_node"] == 0) | (td["current_tech"] == td["techs"].size(-2) - 1)
+        ) & ((mask_loc == 0).int().sum(-2) > 0)
+        return ~torch.cat((mask_depot[..., None], mask_loc), -2).squeeze(-1)
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None) -> TensorDict:
         device = td.device
-        locs = td["locs"]
-        num_loc = locs.size(-2)
-        
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        current_tech = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        visited = torch.zeros((*batch_size, num_loc), dtype=torch.bool, device=device)
-        done = torch.zeros((*batch_size, 1), dtype=torch.bool, device=device)
-
-        # Depot is always visited
-        visited[:, 0] = True
-
         td_reset = TensorDict(
             {
-                "locs": locs,
+                "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
                 "techs": td["techs"],
                 "skills": td["skills"],
-                "current_node": current_node,
-                "current_tech": current_tech,
-                "visited": visited,
-                "done": done,
+                "current_node": torch.zeros(
+                    *batch_size, 1, dtype=torch.long, device=device
+                ),
+                "current_tech": torch.zeros(
+                    *batch_size, 1, dtype=torch.long, device=device
+                ),
+                "visited": torch.zeros(
+                    (*batch_size, td["locs"].shape[-2] + 1, 1),
+                    dtype=torch.uint8,
+                    device=self.device,
+                ),
             },
             batch_size=batch_size,
         )
@@ -184,14 +178,14 @@ class SVRPEnv(RL4COEnvBase):
         return -(distances * costs).sum(-1)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         """Check that solution is valid: nodes are not visited twice except depot and required skill levels are always met."""
         batch_size, graph_size = td["skills"].shape[0], td["skills"].shape[1]
         sorted_pi = actions.data.sort(1).values
 
         # Sorting it should give all zeros at front and then 1...n
         assert (
-            torch.arange(0, graph_size, out=sorted_pi.data.new())
+            torch.arange(1, graph_size + 1, out=sorted_pi.data.new())
             .view(1, -1)
             .expand(batch_size, graph_size)
             == sorted_pi[:, -graph_size:]
@@ -199,7 +193,10 @@ class SVRPEnv(RL4COEnvBase):
 
         # make sure all required skill  levels are met
         indices = torch.nonzero(actions == 0)
-        skills_ordered = gather_by_index(td["skills"], actions).reshape(
+        skills = torch.cat(
+            [torch.zeros(batch_size, 1, 1, device=td.device), td["skills"]], 1
+        )
+        skills_ordered = gather_by_index(skills, actions).reshape(
             [batch_size, actions.size(-1), 1]
         )
         batch = start = tech = 0
@@ -208,7 +205,7 @@ class SVRPEnv(RL4COEnvBase):
                 start = tech = 0
                 batch = each[0]
             assert (
-                skills_ordered[batch, start:each[1]] <= td["techs"][batch, tech]
+                skills_ordered[batch, start : each[1]] <= td["techs"][batch, tech]
             ).all(), "Skill level not met"
             start = each[1] + 1  # skip the depot
             tech += 1

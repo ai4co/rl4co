@@ -14,7 +14,7 @@ log = get_pylogger(__name__)
 class MTSPGenerator(Generator):
     """Data generator for the Multiple Travelling Salesman Problem (mTSP).
     Args:
-        num_loc: number of locations (cities) in the TSP
+        num_loc: number of locations (customers) in the TSP
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
@@ -23,7 +23,7 @@ class MTSPGenerator(Generator):
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc, 2]: locations of each city
+            locs [batch_size, num_loc, 2]: locations of each customer
             num_agents [batch_size]: number of agents (vehicles)
     """
     def __init__(

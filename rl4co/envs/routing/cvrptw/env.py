@@ -24,27 +24,27 @@ from ..cvrp.generator import CVRPGenerator
 
 class CVRPTWEnv(CVRPEnv):
     """Capacitated Vehicle Routing Problem with Time Windows (CVRPTW) environment.
-    Inherits from the CVRPEnv class in which capacities are considered.
+    Inherits from the CVRPEnv class in which customers are considered.
     Additionally considers time windows within which a service has to be started.
 
     Observations:
         - location of the depot.
-        - locations and demand of each customer (city).
+        - locations and demand of each customer.
         - current location of the vehicle.
-        - the remaining capacity of the vehicle.
+        - the remaining customer of the vehicle.
         - the current time.
         - service durations of each location.
         - time windows of each location.
 
     Constraints:
         - the tour starts and ends at the depot.
-        - each city must be visited exactly once.
-        - the vehicle cannot visit cities exceed the remaining capacity.
-        - the vehicle can return to the depot to refill the capacity.
+        - each customer must be visited exactly once.
+        - the vehicle cannot visit customers exceed the remaining customer.
+        - the vehicle can return to the depot to refill the customer.
         - the vehicle must start the service within the time window of each location.
 
     Finish Condition:
-        - the vehicle has visited all cities and returned to the depot.
+        - the vehicle has visited all customers and returned to the depot.
 
     Reward:
         - (minus) the negative length of the path.

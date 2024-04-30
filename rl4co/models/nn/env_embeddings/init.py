@@ -43,7 +43,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
 class TSPInitEmbedding(nn.Module):
     """Initial embedding for the Traveling Salesman Problems (TSP).
     Embed the following node features to the embedding space:
-        - locs: x, y coordinates of the cities
+        - locs: x, y coordinates of the customers
     """
 
     def __init__(self, embedding_dim, linear_bias=True):
@@ -117,13 +117,13 @@ class VRPInitEmbedding(nn.Module):
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
-        depot, cities = td["depot"][:, None, :], td["locs"][:, 1:, :]
+        depot, customers = td["depot"][:, None, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
-        # [batch, n_city, 2, batch, n_city, 1]  -> [batch, n_city, embedding_dim]
+        # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
         node_embeddings = self.init_embed(
-            torch.cat((cities, td["demand"][:, 1:, None]), -1)
+            torch.cat((customers, td["demand"][:, 1:, None]), -1)
         )
-        # [batch, n_city+1, embedding_dim]
+        # [batch, n_customer+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
@@ -134,14 +134,14 @@ class VRPTWInitEmbedding(VRPInitEmbedding):
         super(VRPTWInitEmbedding, self).__init__(embedding_dim, linear_bias, node_dim)
 
     def forward(self, td):
-        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         durations = td["durations"][..., 1:]
         time_windows = td["time_windows"][..., 1:, :]
         # embeddings
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
-                (cities, td["demand"][:, 1:, None], time_windows, durations[..., None]), -1
+                (customers, td["demand"][:, 1:, None], time_windows, durations[..., None]), -1
             )
         )
         return torch.cat((depot_embedding, node_embeddings), -2)
@@ -158,11 +158,11 @@ class SVRPInitEmbedding(nn.Module):
 
     def forward(self, td):
         # [batch, 1, 2]-> [batch, 1, embedding_dim]
-        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
-        # [batch, n_city, 2, batch, n_city, 1]  -> [batch, n_city, embedding_dim]
-        node_embeddings = self.init_embed(torch.cat((cities, td["skills"][:, 1:, None]), -1))
-        # [batch, n_city+1, embedding_dim]
+        # [batch, n_customer, 2, batch, n_customer, 1]  -> [batch, n_customer, embedding_dim]
+        node_embeddings = self.init_embed(torch.cat((customers, td["skills"][:, 1:, None]), -1))
+        # [batch, n_customer+1, embedding_dim]
         out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
@@ -183,19 +183,19 @@ class PCTSPInitEmbedding(nn.Module):
         self.init_embed_depot = nn.Linear(2, embedding_dim, linear_bias)
 
     def forward(self, td):
-        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
                 (
-                    cities,
+                    customers,
                     td["expected_prize"][..., 1:, None],
                     td["penalty"][..., 1:, None],
                 ),
                 -1,
             )
         )
-        # batch, n_city+1, embedding_dim
+        # batch, n_customer+1, embedding_dim
         out = torch.cat((depot_embedding, node_embeddings), -2)
         return out
 
@@ -216,12 +216,12 @@ class OPInitEmbedding(nn.Module):
         )  # depot embedding
 
     def forward(self, td):
-        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        depot, customers = td["locs"][:, :1, :], td["locs"][:, 1:, :]
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
                 (
-                    cities,
+                    customers,
                     td["prize"][..., 1:, None],  # exclude depot
                 ),
                 -1,
@@ -320,7 +320,7 @@ class PDPInitEmbedding(nn.Module):
 class MTSPInitEmbedding(nn.Module):
     """Initial embedding for the Multiple Traveling Salesman Problem (mTSP).
     Embed the following node features to the embedding space:
-        - locs: x, y coordinates of the nodes (depot, cities)
+        - locs: x, y coordinates of the nodes (depot, customers)
     """
 
     def __init__(self, embedding_dim, linear_bias=True):

@@ -22,22 +22,22 @@ log = get_pylogger(__name__)
 
 
 class CVRPEnv(RL4COEnvBase):
-    """Capacitated Vehicle Routing Problem (CVRP) environment.
+    """Capacitated customers Routing Problem (CVRP) environment.
     
     Observations:
         - location of the depot.
-        - locations and demand of each customer (city).
+        - locations and demand of each customer.
         - current location of the vehicle.
-        - the remaining capacity of the vehicle,
+        - the remaining customer of the vehicle,
 
     Constraints:
         - the tour starts and ends at the depot.
-        - each city must be visited exactly once.
-        - the vehicle cannot visit cities exceed the remaining capacity.
+        - each customer must be visited exactly once.
+        - the vehicle cannot visit customers exceed the remaining capacity.
         - the vehicle can return to the depot to refill the capacity.
 
     Finish Condition:
-        - the vehicle has visited all cities and returned to the depot.
+        - the vehicle has visited all customers and returned to the depot.
 
     Reward:
         - (minus) the negative length of the path.

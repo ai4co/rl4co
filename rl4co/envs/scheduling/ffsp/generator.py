@@ -37,9 +37,9 @@ class FFSPGenerator(Generator):
     """
     def __init__(
         self,
-        num_stage: int,
-        num_machine: int,
-        num_job: int,
+        num_stage: int = 2,
+        num_machine: int = 3,
+        num_job: int = 4,
         min_time: int = 2,
         max_time: int = 10,
         flatten_stages: bool = True,
@@ -63,7 +63,7 @@ class FFSPGenerator(Generator):
             low=self.min_time,
             high=self.max_time,
             size=(*batch_size, self.num_job, self.num_machine, self.num_stage),
-        ).to(self.device)
+        )
 
         if self.flatten_stages:
             run_time = (

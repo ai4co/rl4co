@@ -29,14 +29,14 @@ def render(td, actions=None, ax=None):
 
     # Variables
     depot = td["locs"][0, :]
-    cities = td["locs"][1:, :]
+    customers = td["locs"][1:, :]
     prizes = td["prize"][1:]
     normalized_prizes = (
         200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes))
         + 10
     )
 
-    # Plot depot and cities with prize
+    # Plot depot and customers with prize
     ax.scatter(
         depot[0],
         depot[1],
@@ -47,21 +47,21 @@ def render(td, actions=None, ax=None):
         s=100,
     )  # Plot depot as square
     ax.scatter(
-        cities[:, 0],
-        cities[:, 1],
+        customers[:, 0],
+        customers[:, 1],
         s=normalized_prizes,
         c=normalized_prizes,
         cmap="autumn_r",
         alpha=0.6,
         edgecolors="black",
-    )  # Plot all cities with size and color indicating the prize
+    )  # Plot all customers with size and color indicating the prize
 
     # Gather locs in order of action if available
     if actions is None:
         log.warning("No action in TensorDict, rendering unsorted locs")
     else:
-        # Reorder the cities and their corresponding prizes based on actions
-        tour = cities[actions - 1]  # subtract 1 to match Python's 0-indexing
+        # Reorder the customers and their corresponding prizes based on actions
+        tour = customers[actions - 1]  # subtract 1 to match Python's 0-indexing
 
         # Append the depot at the beginning and the end of the tour
         tour = np.vstack((depot, tour, depot))

@@ -24,20 +24,20 @@ log = get_pylogger(__name__)
 
 class MTSPEnv(RL4COEnvBase):
     """Multiple Traveling Salesman Problem (mTSP) environment.
-    At each step, an agent chooses to visit a city. A maximum of `num_agents` agents can be employed to visit the cities.
+    At each step, an agent chooses to visit a customer. A maximum of `num_agents` agents can be employed to visit the customers.
 
     Observations:
-        - locations of the depot and each city.
+        - locations of the depot and each customer.
         - number of agents.
         - the current agent index.
         - the current location of the vehicle.
 
     Constrains:
         - each agent's tour starts and ends at the depot.
-        - each city must be visited exactly once.
+        - each customer must be visited exactly once.
 
     Finish condition:
-        - all cities are visited and all agents back to the depot.
+        - all customers are visited and all agents back to the depot.
 
     Reward:
         There are two ways to calculate the cost (-reward):

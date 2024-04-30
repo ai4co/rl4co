@@ -20,7 +20,7 @@ class MDCPDPEnv(RL4COEnvBase):
     """Multi Depot Capacitated Pickup and Delivery Problem (MDCPDP) environment.
     One reference to understand the problem could be: Solving the multi-compartment capacitated location routing 
     problem with pickup–delivery routes and stochastic demands (https://doi.org/10.1016/j.cie.2015.05.008).
-    The environment is made of num_loc + num_depots locations (cities):
+    The environment is made of num_loc + num_depots locations (customers):
         - num_depot depot
         - num_loc / 2 pickup locations
         - num_loc / 2 delivery locations
@@ -28,7 +28,7 @@ class MDCPDPEnv(RL4COEnvBase):
     The conditions is that the agent must visit a pickup location before visiting its corresponding delivery location
     The capacity is the maximum number of pickups that the vehicle can carry at the same time
     Args:
-        num_loc: number of locations (cities) in the TSP
+        num_loc: number of locations (customers) in the TSP
         num_depot: number of depots, each depot has one vehicle
         min_loc: minimum value of the location
         max_loc: maximum value of the location

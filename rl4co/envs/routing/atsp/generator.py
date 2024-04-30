@@ -17,7 +17,7 @@ class ATSPGenerator(Generator):
     We satifsy the triangle inequality (TMAT class) in a batch
 
     Args:
-        num_loc: number of locations (cities) in the TSP
+        num_loc: number of locations (customers) in the TSP
         min_dist: minimum value for the distance between nodes
         max_dist: maximum value for the distance between nodes
         dist_distribution: distribution for the distance between nodes
@@ -25,7 +25,7 @@ class ATSPGenerator(Generator):
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc, 2]: locations of each city
+            locs [batch_size, num_loc, 2]: locations of each customer
     """
     def __init__(
         self,

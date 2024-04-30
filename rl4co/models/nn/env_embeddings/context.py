@@ -218,8 +218,8 @@ class OPContext(EnvContext):
         super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
 
     def _state_embedding(self, embeddings, td):
-        state_embedding = td["max_length"][..., :1] - td["tour_length"]
-        return state_embedding
+        state_embedding = td["max_length"][..., 0] - td["tour_length"]
+        return state_embedding[..., None]
 
 
 class DPPContext(EnvContext):

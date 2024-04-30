@@ -14,7 +14,7 @@ log = get_pylogger(__name__)
 class SVRPGenerator(Generator):
     """Data generator for the Skill Vehicle Routing Problem (SVRP).
     Args:
-        num_loc: number of locations (cities) in the TSP
+        num_loc: number of locations (customers) in the TSP
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
@@ -25,9 +25,9 @@ class SVRPGenerator(Generator):
     
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc, 2]: locations of each city
+            locs [batch_size, num_loc, 2]: locations of each customer
             depot [batch_size, 2]: location of the depot
-            techs [batch_size, num_loc+1]: technic requirements of each city and the depot
+            techs [batch_size, num_loc+1]: technic requirements of each customer and the depot
             skills [batch_size, num_loc+1]: skills of the vehicles
     """
     def __init__(
@@ -43,9 +43,6 @@ class SVRPGenerator(Generator):
         ] = Uniform,
         min_skill: float = 1.0,
         max_skill: float = 10.0,
-        skill_distribution: Union[
-            int, float, type, Callable
-        ] = Uniform,
         tech_costs: list = [1, 2, 3],
         **kwargs
     ):
@@ -69,37 +66,38 @@ class SVRPGenerator(Generator):
         else:
             self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs)
 
-        # Skill distribution
-        if kwargs.get("skill_sampler", None) is not None:
-            self.skill_sampler = kwargs["skill_sampler"]
-        else:
-            self.skill_sampler = get_sampler("skill", skill_distribution, min_skill, max_skill, **kwargs)
-
-        # Uniform distribution for the scaling for skill
-        self.uniform_sampler = get_sampler("", "uniform", 0.0, 1.0, **kwargs)
-
     def _generate(self, batch_size) -> TensorDict:
+        """Generate data for the basic Skill-VRP. The data consists of the locations of the customers,
+        the skill-levels of the technicians and the required skill-levels of the customers.
+        The data is generated randomly within the given bounds."""
         # Sample locations
         locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
 
         # Sample depot
         depot = self.depot_sampler.sample((*batch_size, 2))
-        
-        # Sample technic requirements
-        techs, _ = torch.sort(self.skill_sampler.sample((*batch_size, self.num_tech)), dim=-1)
-        techs[:, 0] = 0.0 # Technic of the depot is 0 as a placeholder
 
-        # Sample skills, make sure there exist at least one vehicle with the highest tech level skill
-        skills = self.uniform_sampler.sample((*batch_size, self.num_loc+1))
-        skills[:, 0] = 0.0 # Skill of the depot is 0 as a placeholder
+        locs_with_depot = torch.cat((depot[:, None, :], locs), dim=1)
+
+        # Initialize technicians and sort ascendingly
+        techs, _ = torch.sort(
+            torch.FloatTensor(*batch_size, self.num_tech, 1)
+            .uniform_(self.min_skill, self.max_skill),
+            dim=-2,
+        )
+
+        # Initialize the skills
+        skills = (
+            torch.FloatTensor(*batch_size, self.num_loc, 1).uniform_(0, 1)
+        )
+        # scale skills
         skills = torch.max(techs, dim=1, keepdim=True).values * skills
-
-        return TensorDict(
+        td = TensorDict(
             {
-                "locs": torch.cat((depot[:, None, :], locs), dim=1),
-                "depot": depot,
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "techs": techs,
                 "skills": skills,
             },
             batch_size=batch_size,
         )
+        return td

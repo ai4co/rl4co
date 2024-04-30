@@ -17,7 +17,7 @@ class CVRPTWGenerator(CVRPGenerator):
     The start times of the time windows are bounded by how long it takes to travel there from the depot.
 
     Args:
-        num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        num_loc: number of locations (customers) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates, default is 150 insted of 1.0, will be scaled
         loc_distribution: distribution for the location coordinates

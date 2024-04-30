@@ -44,7 +44,7 @@ class CVRPGenerator(Generator):
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each city and the depot
+            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
             depot [batch_size, 2]: location of the depot
             demand [batch_size, num_loc + 1]: demand of each customer and the depot, 
                 while the demand of the depot is a placeholder
@@ -115,6 +115,7 @@ class CVRPGenerator(Generator):
         
         # Sample demands
         demand = self.demand_sampler.sample((*batch_size, self.num_loc+1))
+        demand = (demand.int() + 1).float()
         demand[:, 0] = 0.0 # Demand of the depot is 0 as a placeholder
 
         # Sample capacities

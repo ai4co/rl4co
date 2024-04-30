@@ -61,6 +61,14 @@ class DPPEnv(RL4COEnvBase):
         if generator is None:
             generator = DPPGenerator(data_dir=data_dir, **generator_params)
         self.generator = generator
+        
+        self.max_decaps = self.generator.max_decaps
+        self.size = self.generator.size
+        self.raw_pdn = self.generator.raw_pdn
+        self.decap = self.generator.decap
+        self.freq = self.generator.freq
+        self.num_freq = self.generator.num_freq
+
         self._make_spec(self.generator)
 
     def _step(self, td: TensorDict) -> TensorDict:
@@ -89,33 +97,17 @@ class DPPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         device = td.device
-        locs = td["locs"]
-        num_loc = locs.size(-2)
-        m, n = self.generator.size
-        
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
-        visited = torch.zeros((*batch_size, num_loc), dtype=torch.bool, device=device)
-        done = torch.zeros((*batch_size, 1), dtype=torch.bool, device=device)
 
-        # Depot is always visited
-        visited[:, 0] = True
-
-        # Create available mask
-        visited = torch.zeros((*batch_size, m * n), dtype=torch.bool)
-        visited.scatter_(1, td["probe"], True)
-
-        keepouts = [torch.randperm(m * n)[:k] for k in td["num_keepout"]]
-        for i, (a, k) in enumerate(zip(visited, keepouts)):
-            visited[i] = a.scatter(0, k, True)
+        # Other variables
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         return TensorDict(
             {
                 "locs": td["locs"],
                 "probe": td["probe"],
                 "i": i,
-                "action_mask": ~visited,
-                "keepout": visited,
-                "done": done,
+                "action_mask": td["action_mask"],
+                "keepout": ~td["action_mask"],
             },
             batch_size=batch_size,
         )

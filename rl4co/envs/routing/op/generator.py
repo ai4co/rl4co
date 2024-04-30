@@ -17,22 +17,22 @@ MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 class OPGenerator(Generator):
     """Data generator for the Orienteering Problem (OP).
     Args:
-        num_loc: number of locations (cities) in the OP, without the depot. (e.g. 10 means 10 locs + 1 depot)
+        num_loc: number of locations (customers) in the OP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
-        min_prize: minimum value for the prize of each city
-        max_prize: maximum value for the prize of each city
-        prize_distribution: distribution for the prize of each city
+        min_prize: minimum value for the prize of each customer
+        max_prize: maximum value for the prize of each customer
+        prize_distribution: distribution for the prize of each customer
         max_length: maximum length of the path
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc + 1, 2]: locations of each city and the depot
+            locs [batch_size, num_loc + 1, 2]: locations of each customer and the depot
             depot [batch_size, 2]: location of the depot
-            prize [batch_size, num_loc + 1]: prize of each city and the depot, 
+            prize [batch_size, num_loc + 1]: prize of each customer and the depot, 
                 while the prize of the depot is 0
-            max_length [batch_size, 1]: maximum length of the path for each city
+            max_length [batch_size, 1]: maximum length of the path for each customer
     """
     def __init__(
         self,
@@ -50,6 +50,7 @@ class OPGenerator(Generator):
         prize_distribution: Union[
             int, float, type, Callable
         ] = Uniform,
+        prize_type: str = "dist",
         max_length: float = None,
         **kwargs
     ):
@@ -58,6 +59,7 @@ class OPGenerator(Generator):
         self.max_loc = max_loc
         self.min_prize = min_prize
         self.max_prize = max_prize
+        self.prize_type = prize_type
         self.max_length = max_length
 
         # Location distribution
@@ -100,21 +102,38 @@ class OPGenerator(Generator):
         # Sample depot
         depot = self.depot_sampler.sample((*batch_size, 2))
 
-        # Sample prizes
-        if self.prize_sampler is None:
-            prize = torch.norm(locs - depot[:, None, :], dim=-1)
-        else:
-            prize = self.prize_sampler.sample((*batch_size, self.num_loc))
-        prize = torch.cat((torch.zeros_like(prize[:, :1]), prize), dim=-1) # Add depot prize with 0 as a placeholder
+        locs_with_depot = torch.cat((depot.unsqueeze(1), locs), dim=1)
 
-        # Init the max length
-        max_length = torch.full((*batch_size, 1), self.max_length, dtype=torch.float32)
-        max_length = max_length - torch.norm(torch.cat((depot[:, None, :], locs), dim=1) - depot[:, None, :], dim=-1) - 1e-5
+        # Methods taken from Fischetti et al. (1998) and Kool et al. (2019)
+        if self.prize_type == "const":
+            prize = torch.ones(*batch_size, self.num_loc, device=self.device)
+        elif self.prize_type == "unif":
+            prize = (
+                1
+                + torch.randint(
+                    0, 100, (*batch_size, self.num_loc), device=self.device
+                ).float()
+            ) / 100
+        elif self.prize_type == "dist":  # based on the distance to the depot
+            prize = (locs_with_depot[..., 0:1, :] - locs_with_depot[..., 1:, :]).norm(
+                p=2, dim=-1
+            )
+            prize = (
+                1 + (prize / prize.max(dim=-1, keepdim=True)[0] * 99).int()
+            ).float() / 100
+        else:
+            raise ValueError(f"Invalid prize_type: {self.prize_type}")
+
+        # Support for heterogeneous max length if provided
+        if not isinstance(self.max_length, torch.Tensor):
+            max_length = torch.full((*batch_size,), self.max_length)
+        else:
+            max_length = self.max_length
 
         return TensorDict(
             {
-                "locs": torch.cat((depot[:, None, :], locs), dim=1),
-                "depot": depot,
+                "locs": locs_with_depot[..., 1:, :],
+                "depot": locs_with_depot[..., 0, :],
                 "prize": prize,
                 "max_length": max_length,
             },

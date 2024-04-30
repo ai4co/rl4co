@@ -14,14 +14,14 @@ log = get_pylogger(__name__)
 class TSPGenerator(Generator):
     """Data generator for the Travelling Salesman Problem (TSP).
     Args:
-        num_loc: number of locations (cities) in the TSP
+        num_loc: number of locations (customers) in the TSP
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
 
     Returns:
         A TensorDict with the following keys:
-            locs [batch_size, num_loc, 2]: locations of each city
+            locs [batch_size, num_loc, 2]: locations of each customer
     """
     def __init__(
         self,

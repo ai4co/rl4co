@@ -51,7 +51,7 @@ def render(td, actions=None, ax=None):
             # normal location
             marker = "o"
             color = "tab:blue"
-            label = "Cities"
+            label = "Customers"
             markersize = 8
         if i > 1:
             label = ""
