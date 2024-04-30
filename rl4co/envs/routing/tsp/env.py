@@ -14,6 +14,9 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
+from .generator import TSPGenerator
+from .render import render
+
 log = get_pylogger(__name__)
 
 
@@ -34,17 +37,15 @@ class TSPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 20,
-        min_loc: float = 0,
-        max_loc: float = 1,
-        td_params: TensorDict = None,
+        generator: TSPGenerator = None,
+        generator_params: dict = {},
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.num_loc = num_loc
-        self.min_loc = min_loc
-        self.max_loc = max_loc
-        self._make_spec(td_params)
+        if generator is None:
+            generator = TSPGenerator(**generator_params)
+        self.generator = generator
+        self._make_spec(self.generator)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -76,14 +77,8 @@ class TSPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         # Initialize locations
-        init_locs = td["locs"] if td is not None else None
-        if batch_size is None:
-            batch_size = self.batch_size if init_locs is None else init_locs.shape[:-2]
-        device = init_locs.device if init_locs is not None else self.device
-        self.to(device)
-        if init_locs is None:
-            init_locs = self.generate_data(batch_size=batch_size).to(device)["locs"]
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+        device = td.device
+        init_locs = td["locs"]
 
         # We do not enforce loading from self for flexibility
         num_loc = init_locs.shape[-2]
@@ -107,13 +102,12 @@ class TSPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params):
-        """Make the observation and action specs from the parameters"""
+    def _make_spec(self, generator: TSPGenerator):
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                low=self.min_loc,
-                high=self.max_loc,
-                shape=(self.num_loc, 2),
+                low=generator.min_loc,
+                high=generator.max_loc,
+                shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
             first_node=UnboundedDiscreteTensorSpec(
@@ -129,21 +123,21 @@ class TSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc),
+                shape=(generator.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
         )
         self.action_spec = BoundedTensorSpec(
-            shape=(1,),
+            shape=(1),
             dtype=torch.int64,
             low=0,
-            high=self.num_loc,
+            high=generator.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1))
+        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def _get_reward(self, td, actions) -> TensorDict:
         if self.check_solution:
             self.check_solution_validity(td, actions)
 
@@ -161,55 +155,6 @@ class TSPEnv(RL4COEnvBase):
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 
-    def generate_data(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-        locs = (
-            torch.rand((*batch_size, self.num_loc, 2), generator=self.rng)
-            * (self.max_loc - self.min_loc)
-            + self.min_loc
-        )
-        return TensorDict({"locs": locs}, batch_size=batch_size)
-
     @staticmethod
-    def render(td, actions=None, ax=None):
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        if ax is None:
-            # Create a plot of the nodes
-            _, ax = plt.subplots()
-
-        td = td.detach().cpu()
-
-        if actions is None:
-            actions = td.get("action", None)
-        # if batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-            actions = actions[0]
-
-        locs = td["locs"]
-
-        # gather locs in order of action if available
-        if actions is None:
-            log.warning("No action in TensorDict, rendering unsorted locs")
-        else:
-            actions = actions.detach().cpu()
-            locs = gather_by_index(locs, actions, dim=0)
-
-        # Cat the first node to the end to complete the tour
-        locs = torch.cat((locs, locs[0:1]))
-        x, y = locs[:, 0], locs[:, 1]
-
-        # Plot the visited nodes
-        ax.scatter(x, y, color="tab:blue")
-
-        # Add arrows between visited nodes as a quiver plot
-        dx, dy = np.diff(x), np.diff(y)
-        ax.quiver(
-            x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k"
-        )
-
-        # Setup limits and show
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
+    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+        return render(td, actions, ax)

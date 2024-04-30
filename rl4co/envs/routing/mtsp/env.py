@@ -15,6 +15,9 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
 
+from .generator import MTSPGenerator
+from .render import render
+
 
 class MTSPEnv(RL4COEnvBase):
     """Multiple Traveling Salesman Problem environment
@@ -38,23 +41,17 @@ class MTSPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 20,
-        min_loc: float = 0,
-        max_loc: float = 1,
-        min_num_agents: int = 5,
-        max_num_agents: int = 5,
+        generator: MTSPGenerator = None,
+        generator_params: dict = {},
         cost_type: str = "minmax",
-        td_params: TensorDict = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.num_loc = num_loc
-        self.min_loc = min_loc
-        self.max_loc = max_loc
-        self.min_num_agents = min_num_agents
-        self.max_num_agents = max_num_agents
+        if generator is None:
+            generator = MTSPGenerator(**generator_params)
+        self.generator = generator
         self.cost_type = cost_type
-        self._make_spec(td_params)
+        self._make_spec(self.generator)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -128,13 +125,7 @@ class MTSPEnv(RL4COEnvBase):
         return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        # Initialize data
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
-
-        device = td.device if td is not None else self.device
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
+        device = td.device
 
         # Keep track of the agent number to know when to stop
         agent_idx = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
@@ -146,7 +137,7 @@ class MTSPEnv(RL4COEnvBase):
         # Other variables
         current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
         available = torch.ones(
-            (*batch_size, self.num_loc), dtype=torch.bool, device=device
+            (*batch_size, self.generator.num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         available[..., 0] = 0  # Depot is not available as first node
         i = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
@@ -166,13 +157,13 @@ class MTSPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params: TensorDict):
+    def _make_spec(self, generator: MTSPGenerator):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                low=self.min_loc,
-                high=self.max_loc,
-                shape=(self.num_loc, 2),
+                low=generator.min_loc,
+                high=generator.max_loc,
+                shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
             num_agents=UnboundedDiscreteTensorSpec(
@@ -204,7 +195,7 @@ class MTSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc),
+                shape=(generator.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -213,12 +204,12 @@ class MTSPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=self.num_loc,
+            high=generator.num_loc,
         )
         self.reward_spec = UnboundedContinuousTensorSpec()
         self.done_spec = UnboundedDiscreteTensorSpec(dtype=torch.bool)
 
-    def get_reward(self, td, actions=None) -> TensorDict:
+    def _get_reward(self, td, actions=None) -> TensorDict:
         # With minmax, get the maximum distance among subtours, calculated in the model
         if self.cost_type == "minmax":
             return td["reward"].squeeze(-1)
@@ -232,124 +223,10 @@ class MTSPEnv(RL4COEnvBase):
         else:
             raise ValueError(f"Cost type {self.cost_type} not supported")
 
-    def generate_data(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # Initialize the locations (including the depot which is always the first node)
-        locs = (
-            torch.FloatTensor(*batch_size, self.num_loc, 2)
-            .uniform_(self.min_loc, self.max_loc)
-            .to(self.device)
-        )
-
-        # Initialize the num_agents: either fixed or random integer between min and max
-        if self.min_num_agents == self.max_num_agents:
-            num_agents = (
-                torch.ones(batch_size, dtype=torch.int64, device=self.device)
-                * self.min_num_agents
-            )
-        else:
-            num_agents = torch.randint(
-                self.min_num_agents,
-                self.max_num_agents,
-                size=batch_size,
-                device=self.device,
-            )
-
-        return TensorDict(
-            {
-                "locs": locs,
-                "num_agents": num_agents,
-            },
-            batch_size=batch_size,
-        )
+    @staticmethod
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+        assert True, "Not implemented"
 
     @staticmethod
     def render(td, actions=None, ax=None):
-        import matplotlib.pyplot as plt
-
-        from matplotlib import colormaps
-
-        def discrete_cmap(num, base_cmap="nipy_spectral"):
-            """Create an N-bin discrete colormap from the specified input map"""
-            base = colormaps[base_cmap]
-            color_list = base(np.linspace(0, 1, num))
-            cmap_name = base.name + str(num)
-            return base.from_list(cmap_name, color_list, num)
-
-        if actions is None:
-            actions = td.get("action", None)
-        # if batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-            actions = actions[0]
-
-        num_agents = td["num_agents"]
-        locs = td["locs"]
-        cmap = discrete_cmap(num_agents, "rainbow")
-
-        fig, ax = plt.subplots()
-
-        # Add depot action = 0 to before first action and after last action
-        actions = torch.cat(
-            [
-                torch.zeros(1, dtype=torch.int64),
-                actions,
-                torch.zeros(1, dtype=torch.int64),
-            ]
-        )
-
-        # Make list of colors from matplotlib
-        for i, loc in enumerate(locs):
-            if i == 0:
-                # depot
-                marker = "s"
-                color = "g"
-                label = "Depot"
-                markersize = 10
-            else:
-                # normal location
-                marker = "o"
-                color = "tab:blue"
-                label = "Cities"
-                markersize = 8
-            if i > 1:
-                label = ""
-
-            ax.plot(
-                loc[0],
-                loc[1],
-                color=color,
-                marker=marker,
-                markersize=markersize,
-                label=label,
-            )
-
-        # Plot the actions in order
-        agent_idx = 0
-        for i in range(len(actions)):
-            if actions[i] == 0:
-                agent_idx += 1
-            color = cmap(num_agents - agent_idx)
-
-            from_node = actions[i]
-            to_node = (
-                actions[i + 1] if i < len(actions) - 1 else actions[0]
-            )  # last goes back to depot
-            from_loc = td["locs"][from_node]
-            to_loc = td["locs"][to_node]
-            ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], color=color)
-            ax.annotate(
-                "",
-                xy=(to_loc[0], to_loc[1]),
-                xytext=(from_loc[0], from_loc[1]),
-                arrowprops=dict(arrowstyle="->", color=color),
-                annotation_clip=False,
-            )
-
-        # Legend
-        handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles, labels)
-        ax.set_title("mTSP")
-        ax.set_xlabel("x-coordinate")
-        ax.set_ylabel("y-coordinate")
+        return render(td, actions, ax)

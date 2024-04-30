@@ -13,6 +13,9 @@ from torchrl.data import (
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
 
+from .generator import MDCPDPGenerator
+from .render import render
+
 
 class MDCPDPEnv(RL4COEnvBase):
     """Multi Depot Capacitated Pickup and Delivery Problem (MDCPDP) environment.
@@ -48,43 +51,29 @@ class MDCPDPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 20,
-        num_depot: int = 5,
-        min_loc: float = 0,
-        max_loc: float = 1,
-        min_capacity: int = 1,
-        max_capacity: int = 5,
-        min_lateness_weight: float = 1.0,
-        max_lateness_weight: float = 1.0,
+        generator: MDCPDPGenerator = None,
+        generator_params: dict = {},
         dist_mode: str = "L2",
         reward_mode: str = "lateness",
         problem_mode: str = "close",
         start_mode: str = "order",
-        depot_mode: str = "multiple",
-        td_params: TensorDict = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.num_loc = num_loc
-        self.num_depot = num_depot
-        self.min_loc = min_loc
-        self.max_loc = max_loc
-        self.min_capacity = min_capacity
-        self.max_capacity = max_capacity
-        self.min_lateness_weight = min_lateness_weight
-        self.max_lateness_weight = max_lateness_weight
+        if generator is None:
+            generator = MDCPDPGenerator(**generator_params)
+        self.generator = generator
         self.dist_mode = dist_mode
         self.reward_mode = reward_mode
         self.problem_mode = problem_mode
         self.start_mode = start_mode
-        self.depot_mode = depot_mode
-        self._make_spec(td_params)
+        self.depot_mode = generator.depot_mode
+        self._make_spec(self.generator)
 
         assert self.dist_mode in ["L1", "L2"], "Distance mode (L1/L2) not supported"
         assert self.reward_mode in ["lateness", "lateness_square", "minmax", "minsum"], "Objective mode not supported"
         assert self.problem_mode in ["close", "open"], "Task type (open/close) not supported"
         assert self.start_mode in ["order", "random"], "Start type (order/random) not supported"
-        assert self.depot_mode in ["single", "multiple"], "Depot type (single/multiple) not supported"
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"].unsqueeze(-1)
@@ -192,30 +181,23 @@ class MDCPDPEnv(RL4COEnvBase):
         return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td.batch_size
-
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
-
-        self.to(td.device)
-
+        device = td.device
         locs = torch.cat((td["depot"], td["locs"]), -2)
 
         # Record how many depots are visited
-        depot_idx = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        depot_idx = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Pick is 1, deliver is 0 [batch_size, graph_size+1], i.e. [1, 1, ..., 1, 0, ...0]
         to_deliver = torch.cat(
             [
                 torch.ones(
                     *batch_size,
-                    self.num_loc // 2 + self.num_depot,
+                    self.generator.num_loc // 2 + self.generator.num_depot,
                     dtype=torch.bool,
-                    device=self.device,
+                    device=device,
                 ),
                 torch.zeros(
-                    *batch_size, self.num_loc // 2, dtype=torch.bool, device=self.device
+                    *batch_size, self.generator.num_loc // 2, dtype=torch.bool, device=device
                 ),
             ],
             dim=-1,
@@ -224,32 +206,32 @@ class MDCPDPEnv(RL4COEnvBase):
         # Current depot index
         if self.start_mode == "random":
             current_depot = torch.randint(
-                low=0, high=self.num_depot, size=(*batch_size, 1), device=self.device
+                low=0, high=self.generator.num_depot, size=(*batch_size, 1), device=device
             )
         elif self.start_mode == "order":
-            current_depot = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+            current_depot = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Current carry order number
-        current_carry = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        current_carry = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Current length of each depot
-        current_length = torch.zeros((*batch_size, self.num_depot), dtype=torch.float32, device=self.device)
+        current_length = torch.zeros((*batch_size, self.generator.num_depot), dtype=torch.float32, device=device)
 
         # Arrive time for each city
-        arrivetime_record = torch.zeros((*batch_size, self.num_loc + self.num_depot), dtype=torch.float32, device=self.device)
+        arrivetime_record = torch.zeros((*batch_size, self.generator.num_loc + self.generator.num_depot), dtype=torch.float32, device=device)
 
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
-            (*batch_size, self.num_loc + self.num_depot), dtype=torch.bool, device=self.device
+            (*batch_size, self.generator.num_loc + self.generator.num_depot), dtype=torch.bool, device=device
         )
         action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
         action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
         current_node = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64, device=self.device
+            (*batch_size, 1), dtype=torch.int64, device=device
         )
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         return TensorDict(
             {
@@ -270,13 +252,13 @@ class MDCPDPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params: TensorDict):
+    def _make_spec(self, generator: MDCPDPGenerator):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                low=self.min_loc,
-                high=self.max_loc,
-                shape=(self.num_loc + 1, 2),
+                minimum=generator.min_loc,
+                maximum=generator.max_loc,
+                shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -292,7 +274,7 @@ class MDCPDPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc + 1),
+                shape=(generator.num_loc + 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -300,8 +282,8 @@ class MDCPDPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            low=0,
-            high=self.num_loc + 1,
+            minimum=0,
+            maximum=generator.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
@@ -315,7 +297,7 @@ class MDCPDPEnv(RL4COEnvBase):
         else:
             raise ValueError(f"Invalid distance norm: {self.dist_norm}")
 
-    def get_reward(self, td: TensorDict, actions) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions) -> TensorDict:
         """Return the rewrad for the current state
         Support modes:
             - minmax: the reward is the maximum length of all agents
@@ -350,178 +332,10 @@ class MDCPDPEnv(RL4COEnvBase):
             raise NotImplementedError(f"Invalid reward mode: {self.reward_mode}. Available modes: minmax, minsum, lateness_square, lateness")
         return -cost # minus for reward
 
-    def generate_data(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-        num_orders = self.num_loc // 2
-
-        # Pickup locations
-        pickup_locs = (
-            torch.FloatTensor(*batch_size, num_orders, 2)
-            .uniform_(self.min_loc, self.max_loc)
-            .to(self.device)
-        )
-
-        # Delivery locations
-        delivery_locs = (
-            torch.FloatTensor(*batch_size, num_orders, 2)
-            .uniform_(self.min_loc, self.max_loc)
-            .to(self.device)
-        )
-
-        # Depots locations
-        if self.depot_mode == "single":
-            depot_locs = (
-                torch.FloatTensor(*batch_size, 1, 2)
-                .uniform_(self.min_loc, self.max_loc)
-                .to(self.device)
-            ).repeat(1, self.num_depot, 1)
-        elif self.depot_mode == "multiple":
-            depot_locs = (
-                torch.FloatTensor(*batch_size, self.num_depot, 2)
-                .uniform_(self.min_loc, self.max_loc)
-                .to(self.device)
-            )
-
-        # Capacity
-        capacity = torch.randint(
-            low=self.min_capacity,
-            high=self.max_capacity + 1,
-            size=(*batch_size, self.num_depot),
-        )
-
-        # Lateness weight
-        lateness_weight = (
-            torch.FloatTensor(*batch_size, 1)
-            .uniform_(self.min_lateness_weight, self.max_lateness_weight)
-            .to(self.device)
-        )
-        
-
-        return TensorDict(
-            {
-                "locs": torch.cat([pickup_locs, delivery_locs], dim=-2), # No depot
-                "depot": depot_locs,
-                "capacity": capacity,
-                "lateness_weight": lateness_weight,
-            },
-            batch_size=batch_size,
-        )
+    @staticmethod
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+        assert True, "Not implemented"
 
     @staticmethod
-    def render(td: TensorDict, actions=None, ax=None):
-        import matplotlib.pyplot as plt
-        markersize = 8
-
-        td = td.detach().cpu()
-
-        # If batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-            if actions is not None:
-                actions = actions[0]
-
-        n_depots = td["capacity"].size(-1)
-        n_pickups = (td["locs"].size(-2) - n_depots) // 2
-
-        # Variables
-        init_deliveries = td["to_deliver"][n_depots:]
-        delivery_locs = td["locs"][n_depots:][~init_deliveries.bool()]
-        pickup_locs = td["locs"][n_depots:][init_deliveries.bool()]
-        depot_locs = td["locs"][:n_depots]
-        actions = actions if actions is not None else td["action"]
-
-        if ax is None:
-            _, ax = plt.subplots(figsize=(4, 4))
-
-        # Plot the actions in order
-        last_depot = 0
-        for i in range(len(actions)-1):
-            if actions[i+1] < n_depots:
-                last_depot = actions[i+1]
-            if actions[i] < n_depots and actions[i+1] < n_depots:
-                continue
-            from_node = actions[i]
-            to_node = (
-                actions[i + 1] if i < len(actions) - 1 else actions[0]
-            )  # last goes back to depot
-            from_loc = td["locs"][from_node]
-            to_loc = td["locs"][to_node]
-            ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], "k-")
-            ax.annotate(
-                "",
-                xy=(to_loc[0], to_loc[1]),
-                xytext=(from_loc[0], from_loc[1]),
-                arrowprops=dict(arrowstyle="->", color="black"),
-                annotation_clip=False,
-            )
-
-        # Plot last back to the depot
-        from_node = actions[-1]
-        to_node = last_depot
-        from_loc = td["locs"][from_node]
-        to_loc = td["locs"][to_node]
-        ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], "k-")
-        ax.annotate(
-            "",
-            xy=(to_loc[0], to_loc[1]),
-            xytext=(from_loc[0], from_loc[1]),
-            arrowprops=dict(arrowstyle="->", color="black"),
-            annotation_clip=False,
-        )
-
-        # Annotate node location
-        for i, loc in enumerate(td["locs"]):
-            ax.annotate(
-                str(i),
-                (loc[0], loc[1]),
-                textcoords="offset points",
-                xytext=(0, 5),
-                ha="center",
-            )
-
-        for i, depot_loc in enumerate(depot_locs):
-            ax.plot(
-                depot_loc[0],
-                depot_loc[1],
-                "tab:green",
-                marker="s",
-                markersize=markersize,
-                label="Depot" if i == 0 else None,
-            )
-
-        # Plot the pickup locations
-        for i, pickup_loc in enumerate(pickup_locs):
-            ax.plot(
-                pickup_loc[0],
-                pickup_loc[1],
-                "tab:red",
-                marker="^",
-                markersize=markersize,
-                label="Pickup" if i == 0 else None,
-            )
-
-        # Plot the delivery locations
-        for i, delivery_loc in enumerate(delivery_locs):
-            ax.plot(
-                delivery_loc[0],
-                delivery_loc[1],
-                "tab:blue",
-                marker="x",
-                markersize=markersize,
-                label="Delivery" if i == 0 else None,
-            )
-
-        # Plot pickup and delivery pair: from loc[n_depot + i ] to loc[n_depot + n_pickups + i]
-        for i in range(n_pickups):
-            pickup_loc = td["locs"][n_depots + i]
-            delivery_loc = td["locs"][n_depots + n_pickups + i]
-            ax.plot(
-                [pickup_loc[0], delivery_loc[0]],
-                [pickup_loc[1], delivery_loc[1]],
-                "k--",
-                alpha=0.5,
-            )
-
-        # Setup limits and show
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
+    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+        return render(td, actions, ax)

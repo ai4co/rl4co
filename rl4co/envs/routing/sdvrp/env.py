@@ -13,7 +13,8 @@ from torchrl.data import (
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
-from .cvrp import CVRPEnv
+from ..cvrp.env import CVRPEnv
+from ..cvrp.generator import CVRPGenerator
 
 log = get_pylogger(__name__)
 
@@ -41,27 +42,11 @@ class SDVRPEnv(CVRPEnv):
 
     def __init__(
         self,
-        num_loc: int = 20,
-        min_loc: float = 0,
-        max_loc: float = 1,
-        min_demand: float = 1,
-        max_demand: float = 10,
-        vehicle_capacity: float = 1.0,
-        capacity: float = None,
-        td_params: TensorDict = None,
+        generator: CVRPGenerator = None,
+        generator_params: dict = {},
         **kwargs,
     ):
-        super().__init__(
-            num_loc=num_loc,
-            min_loc=min_loc,
-            max_loc=max_loc,
-            min_demand=min_demand,
-            max_demand=max_demand,
-            vehicle_capacity=vehicle_capacity,
-            capacity=capacity,
-            td_params=td_params,
-            **kwargs,
-        )
+        super().__init__(generator, generator_params, **kwargs)
 
     def _step(self, td: TensorDict) -> TensorDict:
         # Update the state
@@ -109,13 +94,7 @@ class SDVRPEnv(CVRPEnv):
         td: Optional[TensorDict] = None,
         batch_size: Optional[list] = None,
     ) -> TensorDict:
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
-
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
-
-        self.to(td.device)
+        device = td.device
 
         # Create reset TensorDict
         reset_td = TensorDict(
@@ -126,11 +105,11 @@ class SDVRPEnv(CVRPEnv):
                     (torch.zeros_like(td["demand"][..., 0:1]), td["demand"]), -1
                 ),
                 "current_node": torch.zeros(
-                    *batch_size, 1, dtype=torch.long, device=self.device
+                    *batch_size, 1, dtype=torch.long, device=device
                 ),
-                "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
+                "used_capacity": torch.zeros((*batch_size, 1), device=device),
                 "vehicle_capacity": torch.full(
-                    (*batch_size, 1), self.vehicle_capacity, device=self.device
+                    (*batch_size, 1), self.generator.vehicle_capacity, device=device
                 ),
             },
             batch_size=batch_size,
@@ -172,13 +151,13 @@ class SDVRPEnv(CVRPEnv):
             a_prev = a
         assert (demands == 0).all(), "All demand must be satisfied"
 
-    def _make_spec(self, td_params: TensorDict):
+    def _make_spec(self, generator):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                low=self.min_loc,
-                high=self.max_loc,
-                shape=(self.num_loc + 1, 2),
+                low=generator.min_loc,
+                high=generator.max_loc,
+                shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -186,25 +165,25 @@ class SDVRPEnv(CVRPEnv):
                 dtype=torch.int64,
             ),
             demand=BoundedTensorSpec(
-                low=self.min_demand,
-                high=self.max_demand,
-                shape=(self.num_loc, 1),  # demand is only for customers
+                low=generator.min_demand,
+                high=generator.max_demand,
+                shape=(generator.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
             ),
             demand_with_depot=BoundedTensorSpec(
-                low=self.min_demand,
-                high=self.max_demand,
-                shape=(self.num_loc + 1, 1),
+                low=generator.min_demand,
+                high=generator.max_demand,
+                shape=(generator.num_loc + 1, 1),
                 dtype=torch.float32,
             ),
             used_capacity=BoundedTensorSpec(
                 low=0,
-                high=self.vehicle_capacity,
+                high=generator.vehicle_capacity,
                 shape=(1,),
                 dtype=torch.float32,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc + 1, 1),
+                shape=(generator.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -213,7 +192,7 @@ class SDVRPEnv(CVRPEnv):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=self.num_loc + 1,
+            high=generator.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

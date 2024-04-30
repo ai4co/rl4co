@@ -13,6 +13,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
+from .generator import FFSPGenerator
+from .render import render
+
 from rl4co.envs.common.base import RL4COEnvBase
 
 
@@ -36,24 +39,24 @@ class FFSPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_stage: int,
-        num_machine: int,
-        num_job: int,
-        min_time: int = 2,
-        max_time: int = 10,
-        flatten_stages: bool = True,
+        generator: FFSPGenerator = None,
+        generator_params: dict = {},
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.num_stage = num_stage
-        self.num_machine = num_machine
-        self.num_machine_total = num_stage * num_machine
-        self.num_job = num_job
-        self.min_time = min_time
-        self.max_time = max_time
-        self.flatten_stages = flatten_stages
+        if generator is None:
+            generator = FFSPGenerator(**generator_params)
+        self.generator = generator
+
+        self.num_stage = generator.num_stage
+        self.num_machine = generator.num_machine
+        self.num_job = generator.num_job
+        self.num_machine_total = generator.num_machine_total
         self.tables = None
         self.step_cnt = None
+        self.flatten_stages = generator.flatten_stages
+
+        self._make_spec(generator)
 
     def get_num_starts(self, td):
         return factorial(self.num_machine)
@@ -255,51 +258,46 @@ class FFSPEnv(RL4COEnvBase):
             - job_wait_step [batch_size, num_job+1]
             - job_duration [batch_size, num_job+1, num_machine * num_stage]
         """
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td.batch_size
-
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
+        device = td.device
 
         self.step_cnt = 0
-        self.to(td.device)
         self.tables = IndexTables(self)
         # reset tables to undo the augmentation
         # self.tables._reset(device=self.device)
         self.tables.set_bs(batch_size[0])
 
         # Init index record tensor
-        time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=self.device)
+        time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=device)
         sub_time_idx = torch.zeros(
-            size=(*batch_size,), dtype=torch.long, device=self.device
+            size=(*batch_size,), dtype=torch.long, device=device
         )
 
         # Scheduling status information
         schedule = torch.full(
             size=(*batch_size, self.num_machine_total, self.num_job + 1),
             dtype=torch.long,
-            device=self.device,
+            device=device,
             fill_value=-999999,
         )
         machine_wait_step = torch.zeros(
             size=(*batch_size, self.num_machine_total),
             dtype=torch.long,
-            device=self.device,
+            device=device,
         )
         job_location = torch.zeros(
             size=(*batch_size, self.num_job + 1),
             dtype=torch.long,
-            device=self.device,
+            device=device,
         )
         job_wait_step = torch.zeros(
             size=(*batch_size, self.num_job + 1),
             dtype=torch.long,
-            device=self.device,
+            device=device,
         )
         job_duration = torch.empty(
             size=(*batch_size, self.num_job + 1, self.num_machine * self.num_stage),
             dtype=torch.long,
-            device=self.device,
+            device=device,
         )
         if self.flatten_stages:
             assert (
@@ -322,18 +320,18 @@ class FFSPEnv(RL4COEnvBase):
         reward = torch.full(
             size=(*batch_size,),
             dtype=torch.float32,
-            device=self.device,
+            device=device,
             fill_value=float("-inf"),
         )
         done = torch.full(
             size=(*batch_size,),
             dtype=torch.bool,
-            device=self.device,
+            device=device,
             fill_value=False,
         )
 
         action_mask = torch.ones(
-            size=(*batch_size, self.num_job + 1), dtype=bool, device=self.device
+            size=(*batch_size, self.num_job + 1), dtype=bool, device=device
         )
         action_mask[..., -1] = 0
 
@@ -364,7 +362,7 @@ class FFSPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params: TensorDict):
+    def _make_spec(self, generator: FFSPGenerator):
         self.observation_spec = CompositeSpec(
             time_idx=UnboundedDiscreteTensorSpec(
                 shape=(1,),
@@ -383,23 +381,23 @@ class FFSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             schedule=UnboundedDiscreteTensorSpec(
-                shape=(self.num_machine_total, self.num_job + 1),
+                shape=(generator.num_machine_total, generator.num_job + 1),
                 dtype=torch.int64,
             ),
             machine_wait_step=UnboundedDiscreteTensorSpec(
-                shape=(self.num_machine_total),
+                shape=(generator.num_machine_total),
                 dtype=torch.int64,
             ),
             job_location=UnboundedDiscreteTensorSpec(
-                shape=(self.num_job + 1),
+                shape=(generator.num_job + 1),
                 dtype=torch.int64,
             ),
             job_wait_step=UnboundedDiscreteTensorSpec(
-                shape=(self.num_job + 1),
+                shape=(generator.num_job + 1),
                 dtype=torch.int64,
             ),
             job_duration=UnboundedDiscreteTensorSpec(
-                shape=(self.num_job + 1, self.num_machine * self.num_stage),
+                shape=(generator.num_job + 1, generator.num_machine * generator.num_stage),
                 dtype=torch.int64,
             ),
             shape=(),
@@ -408,84 +406,13 @@ class FFSPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=self.num_loc,
+            high=generator.num_machine_total,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def _get_reward(self, td, actions) -> TensorDict:
         return td["reward"]
-
-    def generate_data(self, batch_size) -> TensorDict:
-        # Batch size input check
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # Init observation: running time of each job on each machine
-        run_time = torch.randint(
-            low=self.min_time,
-            high=self.max_time,
-            size=(*batch_size, self.num_job, self.num_machine, self.num_stage),
-        ).to(self.device)
-
-        if self.flatten_stages:
-            run_time = (
-                run_time.transpose(-2, -1)
-                .contiguous()
-                .view(*batch_size, self.num_job, self.num_machine_total)
-            )
-
-        return TensorDict(
-            {
-                "run_time": run_time,
-            },
-            batch_size=batch_size,
-        )
-
-    def render(self, td: TensorDict, idx: int):
-        import matplotlib.patches as patches
-        import matplotlib.pyplot as plt
-
-        job_durations = td["job_duration"][idx, :, :]
-        # shape: (job, machine)
-        schedule = td["schedule"][idx, :, :]
-        # shape: (machine, job)
-
-        total_machine_cnt = self.num_machine_total
-        makespan = -td["reward"][idx].item()
-
-        # Create figure and axes
-        fig, ax = plt.subplots(figsize=(makespan / 3, 5))
-        cmap = self._get_cmap(self.num_job)
-
-        plt.xlim(0, makespan)
-        plt.ylim(0, total_machine_cnt)
-        ax.invert_yaxis()
-
-        plt.plot([0, makespan], [4, 4], "black")
-        plt.plot([0, makespan], [8, 8], "black")
-
-        for machine_idx in range(total_machine_cnt):
-            duration = job_durations[:, machine_idx]
-            # shape: (job)
-            machine_schedule = schedule[machine_idx, :]
-            # shape: (job)
-
-            for job_idx in range(self.num_job):
-                job_length = duration[job_idx].item()
-                job_start_time = machine_schedule[job_idx].item()
-                if job_start_time >= 0:
-                    # Create a Rectangle patch
-                    rect = patches.Rectangle(
-                        (job_start_time, machine_idx),
-                        job_length,
-                        1,
-                        facecolor=cmap(job_idx),
-                    )
-                    ax.add_patch(rect)
-
-        ax.grid()
-        ax.set_axisbelow(True)
-        plt.show()
 
     def _get_cmap(self, color_cnt):
         from random import shuffle

@@ -13,6 +13,9 @@ from torchrl.data import (
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
 
+from .generator import PDPGenerator
+from .render import render
+
 
 class PDPEnv(RL4COEnvBase):
     """Pickup and Delivery Problem (PDP) environment.
@@ -34,17 +37,15 @@ class PDPEnv(RL4COEnvBase):
 
     def __init__(
         self,
-        num_loc: int = 20,
-        min_loc: float = 0,
-        max_loc: float = 1,
-        td_params: TensorDict = None,
+        generator: PDPGenerator = None,
+        generator_params: dict = {},
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.num_loc = num_loc
-        self.min_loc = min_loc
-        self.max_loc = max_loc
-        self._make_spec(td_params)
+        if generator is None:
+            generator = PDPGenerator(**generator_params)
+        self.generator = generator
+        self._make_spec(self.generator)
 
     @staticmethod
     def _step(td: TensorDict) -> TensorDict:
@@ -89,13 +90,7 @@ class PDPEnv(RL4COEnvBase):
         return td
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td.batch_size
-
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
-
-        self.to(td.device)
+        device = td.device
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
 
@@ -104,12 +99,12 @@ class PDPEnv(RL4COEnvBase):
             [
                 torch.ones(
                     *batch_size,
-                    self.num_loc // 2 + 1,
+                    self.generator.num_loc // 2 + 1,
                     dtype=torch.bool,
-                    device=self.device,
+                    device=device,
                 ),
                 torch.zeros(
-                    *batch_size, self.num_loc // 2, dtype=torch.bool, device=self.device
+                    *batch_size, self.generator.num_loc // 2, dtype=torch.bool, device=device
                 ),
             ],
             dim=-1,
@@ -117,16 +112,16 @@ class PDPEnv(RL4COEnvBase):
 
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
-            (*batch_size, self.num_loc + 1), dtype=torch.bool, device=self.device
+            (*batch_size, self.generator.num_loc + 1), dtype=torch.bool, device=device
         )
         action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
         action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
         current_node = torch.zeros(
-            (*batch_size, 1), dtype=torch.int64, device=self.device
+            (*batch_size, 1), dtype=torch.int64, device=device
         )
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=self.device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         return TensorDict(
             {
@@ -140,13 +135,13 @@ class PDPEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
-    def _make_spec(self, td_params: TensorDict):
+    def _make_spec(self, generator: PDPGenerator):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                low=self.min_loc,
-                high=self.max_loc,
-                shape=(self.num_loc + 1, 2),
+                low=generator.min_loc,
+                high=generator.max_loc,
+                shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
             current_node=UnboundedDiscreteTensorSpec(
@@ -162,7 +157,7 @@ class PDPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_loc + 1),
+                shape=(generator.num_loc + 1),
                 dtype=torch.bool,
             ),
             shape=(),
@@ -171,13 +166,18 @@ class PDPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=self.num_loc + 1,
+            high=generator.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def get_reward(td, actions) -> TensorDict:
+    def _get_reward(td, actions) -> TensorDict:
+        # Gather locations in the order of actions and get reward = -(total distance)
+        locs_ordered = gather_by_index(td["locs"], actions)  # [batch, graph_size+1, 2]
+        return -get_tour_length(locs_ordered)
+
+    def check_solution_validity(self, td, actions):
         # assert (actions[:, 0] == 0).all(), "Not starting at depot"
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
@@ -193,100 +193,3 @@ class PDPEnv(RL4COEnvBase):
             visited_time[:, 1 : actions.size(1) // 2 + 1]
             < visited_time[:, actions.size(1) // 2 + 1 :]
         ).all(), "Deliverying without pick-up"
-
-        # Gather locations in the order of actions and get reward = -(total distance)
-        locs_ordered = gather_by_index(td["locs"], actions)  # [batch, graph_size+1, 2]
-        return -get_tour_length(locs_ordered)
-
-    def generate_data(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        # Initialize the locations (including the depot which is always the first node)
-        locs_with_depot = (
-            torch.FloatTensor(*batch_size, self.num_loc + 1, 2)
-            .uniform_(self.min_loc, self.max_loc)
-            .to(self.device)
-        )
-
-        return TensorDict(
-            {
-                "locs": locs_with_depot[..., 1:, :],
-                "depot": locs_with_depot[..., 0, :],
-            },
-            batch_size=batch_size,
-        )
-
-    @staticmethod
-    def render(td: TensorDict, actions=None, ax=None):
-        import matplotlib.pyplot as plt
-
-        markersize = 8
-
-        td = td.detach().cpu()
-        # if batch_size greater than 0 , we need to select the first batch element
-        if td.batch_size != torch.Size([]):
-            td = td[0]
-            if actions is not None:
-                actions = actions[0]
-
-        # Variables
-        init_deliveries = td["to_deliver"][1:]
-        delivery_locs = td["locs"][1:][~init_deliveries.bool()]
-        pickup_locs = td["locs"][1:][init_deliveries.bool()]
-        depot_loc = td["locs"][0]
-        actions = actions if actions is not None else td["action"]
-
-        fig, ax = plt.subplots()
-
-        # Plot the actions in order
-        for i in range(len(actions)):
-            from_node = actions[i]
-            to_node = (
-                actions[i + 1] if i < len(actions) - 1 else actions[0]
-            )  # last goes back to depot
-            from_loc = td["locs"][from_node]
-            to_loc = td["locs"][to_node]
-            ax.plot([from_loc[0], to_loc[0]], [from_loc[1], to_loc[1]], "k-")
-            ax.annotate(
-                "",
-                xy=(to_loc[0], to_loc[1]),
-                xytext=(from_loc[0], from_loc[1]),
-                arrowprops=dict(arrowstyle="->", color="black"),
-                annotation_clip=False,
-            )
-
-        # Plot the depot location
-        ax.plot(
-            depot_loc[0],
-            depot_loc[1],
-            "g",
-            marker="s",
-            markersize=markersize,
-            label="Depot",
-        )
-
-        # Plot the pickup locations
-        for i, pickup_loc in enumerate(pickup_locs):
-            ax.plot(
-                pickup_loc[0],
-                pickup_loc[1],
-                "r",
-                marker="^",
-                markersize=markersize,
-                label="Pickup" if i == 0 else None,
-            )
-
-        # Plot the delivery locations
-        for i, delivery_loc in enumerate(delivery_locs):
-            ax.plot(
-                delivery_loc[0],
-                delivery_loc[1],
-                "b",
-                marker="v",
-                markersize=markersize,
-                label="Delivery" if i == 0 else None,
-            )
-
-        # Setup limits and show
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)

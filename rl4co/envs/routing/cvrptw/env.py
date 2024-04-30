@@ -8,13 +8,18 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
 )
 
-from rl4co.envs.routing.cvrp import CVRPEnv, CAPACITIES
+from rl4co.envs.routing.cvrp.env import CVRPEnv
+from rl4co.envs.routing.cvrp.generator import CAPACITIES
 from rl4co.utils.ops import gather_by_index, get_distance
 from rl4co.data.utils import (
     load_npz_to_tensordict,
     load_solomon_instance,
     load_solomon_solution,
 )
+
+from ..cvrp.generator import CVRPGenerator
+from .generator import CVRPTWGenerator
+from .render import render
 
 
 class CVRPTWEnv(CVRPEnv):
@@ -39,138 +44,51 @@ class CVRPTWEnv(CVRPEnv):
 
     def __init__(
         self,
-        max_loc: float = 150,  # different default value to CVRPEnv to match max_time, will be scaled
-        max_time: int = 480,
-        scale: bool = False,
+        generator: CVRPTWGenerator = None,
+        generator_params: dict = {},
         **kwargs,
     ):
-        self.min_time = 0  # always 0
-        self.max_time = max_time
-        self.scale = scale
-        super().__init__(max_loc=max_loc, **kwargs)
+        super().__init__(**kwargs)
+        if generator is None:
+            generator = CVRPTWGenerator(**generator_params)
+        self.generator = generator
+        self._make_spec(self.generator)
 
-    def _make_spec(self, td_params: TensorDict):
-        super()._make_spec(td_params)
-
-        current_time = UnboundedContinuousTensorSpec(
-            shape=(1), dtype=torch.float32, device=self.device
-        )
-
-        current_loc = UnboundedContinuousTensorSpec(
-            shape=(2), dtype=torch.float32, device=self.device
-        )
-
-        durations = BoundedTensorSpec(
-            low=self.min_time,
-            high=self.max_time,
-            shape=(self.num_loc, 1),
-            dtype=torch.int64,
-            device=self.device,
-        )
-
-        time_windows = BoundedTensorSpec(
-            low=self.min_time,
-            high=self.max_time,
-            shape=(
-                self.num_loc,
-                2,
-            ),  # each location has a 2D time window (start, end)
-            dtype=torch.int64,
-            device=self.device,
-        )
-
-        # extend observation specs
-        self.observation_spec = CompositeSpec(
-            **self.observation_spec,
-            current_time=current_time,
-            current_loc=current_loc,
-            durations=durations,
-            time_windows=time_windows,
-            # vehicle_idx=vehicle_idx,
-        )
-
-    def generate_data(self, batch_size) -> TensorDict:
-        """
-        Generates time windows and service durations for the locations. The depot has a time window of [0, self.max_time].
-        The time windows define the time span within which a service has to be started. To reach the depot in time from the last node,
-        the end time of each node is bounded by the service duration and the distance back to the depot.
-        The start times of the time windows are bounded by how long it takes to travel there from the depot.
-        """
-        td = super().generate_data(batch_size)
-
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        ## define service durations
-        # generate randomly (first assume service durations of 0, to be changed later)
-        durations = torch.zeros(
-            *batch_size, self.num_loc + 1, dtype=torch.float32, device=self.device
-        )
-
-        ## define time windows
-        # 1. get distances from depot
-        dist = get_distance(td["depot"], td["locs"].transpose(0, 1)).transpose(0, 1)
-        dist = torch.cat((torch.zeros(*batch_size, 1, device=self.device), dist), dim=1)
-        # 2. define upper bound for time windows to make sure the vehicle can get back to the depot in time
-        upper_bound = self.max_time - dist - durations
-        # 3. create random values between 0 and 1
-        ts_1 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
-        ts_2 = torch.rand(*batch_size, self.num_loc + 1, device=self.device)
-        # 4. scale values to lie between their respective min_time and max_time and convert to integer values
-        min_ts = (dist + (upper_bound - dist) * ts_1).int()
-        max_ts = (dist + (upper_bound - dist) * ts_2).int()
-        # 5. set the lower value to min, the higher to max
-        min_times = torch.min(min_ts, max_ts)
-        max_times = torch.max(min_ts, max_ts)
-        # 6. reset times for depot
-        min_times[..., :, 0] = 0.0
-        max_times[..., :, 0] = self.max_time
-
-        # 7. ensure min_times < max_times to prevent numerical errors in attention.py
-        # min_times == max_times may lead to nan values in _inner_mha()
-        mask = min_times == max_times
-        if torch.any(mask):
-            min_tmp = min_times.clone()
-            min_tmp[mask] = torch.max(
-                dist[mask].int(), min_tmp[mask] - 1
-            )  # we are handling integer values, so we can simply substract 1
-            min_times = min_tmp
-
-            mask = min_times == max_times  # update mask to new min_times
-            if torch.any(mask):
-                max_tmp = max_times.clone()
-                max_tmp[mask] = torch.min(
-                    torch.floor(upper_bound[mask]).int(),
-                    torch.max(
-                        torch.ceil(min_tmp[mask] + durations[mask]).int(),
-                        max_tmp[mask] + 1,
-                    ),
-                )
-                max_times = max_tmp
-
-        # scale to [0, 1]
-        if self.scale:
-            durations = durations / self.max_time
-            min_times = min_times / self.max_time
-            max_times = max_times / self.max_time
-            td["depot"] = td["depot"] / self.max_time
-            td["locs"] = td["locs"] / self.max_time
-
-        # 8. stack to tensor time_windows
-        time_windows = torch.stack((min_times, max_times), dim=-1)
-
-        assert torch.all(
-            min_times < max_times
-        ), "Please make sure the relation between max_loc and max_time allows for feasible solutions."
-
-        # reset duration at depot to 0
-        durations[:, 0] = 0.0
-        td.update(
-            {
-                "durations": durations,
-                "time_windows": time_windows,
-            }
-        )
-        return td
+    def _make_spec(self, generator: CVRPTWGenerator):
+        if isinstance(generator, CVRPGenerator):
+            super()._make_spec(generator)
+        else:
+            current_time = UnboundedContinuousTensorSpec(
+                shape=(1), dtype=torch.float32, device=self.device
+            )
+            current_loc = UnboundedContinuousTensorSpec(
+                shape=(2), dtype=torch.float32, device=self.device
+            )
+            durations = BoundedTensorSpec(
+                low=generator.min_time,
+                high=generator.max_time,
+                shape=(generator.num_loc, 1),
+                dtype=torch.int64,
+                device=self.device,
+            )
+            time_windows = BoundedTensorSpec(
+                low=generator.min_time,
+                high=generator.max_time,
+                shape=(
+                    generator.num_loc,
+                    2,
+                ),  # Each location has a 2D time window (start, end)
+                dtype=torch.int64,
+                device=self.device,
+            )
+            # Extend observation specs
+            self.observation_spec = CompositeSpec(
+                **self.observation_spec,
+                current_time=current_time,
+                current_loc=current_loc,
+                durations=durations,
+                time_windows=time_windows,
+            )
 
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
@@ -211,32 +129,25 @@ class CVRPTWEnv(CVRPEnv):
     def _reset(
         self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
     ) -> TensorDict:
-        if batch_size is None:
-            batch_size = self.batch_size if td is None else td["locs"].shape[:-2]
-        if td is None or td.is_empty():
-            td = self.generate_data(batch_size=batch_size)
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-
-        self.to(td.device)
-        # Create reset TensorDict
+        device = td.device
         td_reset = TensorDict(
             {
                 "locs": torch.cat((td["depot"][..., None, :], td["locs"]), -2),
                 "demand": td["demand"],
                 "current_node": torch.zeros(
-                    *batch_size, 1, dtype=torch.long, device=self.device
+                    *batch_size, 1, dtype=torch.long, device=device
                 ),
                 "current_time": torch.zeros(
-                    *batch_size, 1, dtype=torch.float32, device=self.device
+                    *batch_size, 1, dtype=torch.float32, device=device
                 ),
-                "used_capacity": torch.zeros((*batch_size, 1), device=self.device),
+                "used_capacity": torch.zeros((*batch_size, 1), device=device),
                 "vehicle_capacity": torch.full(
-                    (*batch_size, 1), self.vehicle_capacity, device=self.device
+                    (*batch_size, 1), self.generator.vehicle_capacity, device=device
                 ),
                 "visited": torch.zeros(
                     (*batch_size, 1, td["locs"].shape[-2] + 1),
                     dtype=torch.uint8,
-                    device=self.device,
+                    device=device,
                 ),
                 "durations": td["durations"],
                 "time_windows": td["time_windows"],
@@ -246,10 +157,10 @@ class CVRPTWEnv(CVRPEnv):
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
 
-    def get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         """The reward is the negative tour length. Time windows
         are not considered for the calculation of the reward."""
-        return super().get_reward(td, actions)
+        return super()._get_reward(td, actions)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
@@ -300,8 +211,8 @@ class CVRPTWEnv(CVRPEnv):
             curr_time[curr_node == 0] = 0.0  # reset time for depot
 
     @staticmethod
-    def render(td: TensorDict, actions=None, ax=None, scale_xy: bool = False, **kwargs):
-        CVRPEnv.render(td=td, actions=actions, ax=ax, scale_xy=scale_xy, **kwargs)
+    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+        render(td, actions, ax)
 
     @staticmethod
     def load_data(
