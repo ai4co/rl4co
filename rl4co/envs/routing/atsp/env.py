@@ -107,15 +107,12 @@ class ATSPEnv(RL4COEnvBase):
         )
         return td_reset
 
-    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> TensorDict:
-        if self.check_solution:
-            self.check_solution_validity(td, actions)
-
+    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> TensorDict:
         distance_matrix = td["cost_matrix"]
 
         # Get indexes of tour edges
         nodes_src = actions
-        nodes_tgt = torch.roll(inupt=actions, shift=-1, dims=1)
+        nodes_tgt = torch.roll(actions, 1, dims=1)
         batch_idx = torch.arange(
             distance_matrix.shape[0], device=distance_matrix.device
         ).unsqueeze(1)
