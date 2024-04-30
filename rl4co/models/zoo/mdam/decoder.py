@@ -24,13 +24,13 @@ class PrecomputedCache:
     logit_key: torch.Tensor
 
 
-class Decoder(nn.Module):
+class MDAMDecoder(nn.Module):
     def __init__(
         self,
-        env_name,
-        embedding_dim,
-        num_heads,
+        embed_dim: int = 128,
+        num_heads: int = 8,
         num_paths: int = 5,
+        env_name: str = "tsp",
         mask_inner: bool = True,
         mask_logits: bool = True,
         eg_step_gap: int = 200,
@@ -40,57 +40,51 @@ class Decoder(nn.Module):
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
     ):
-        super(Decoder, self).__init__()
-        self.dynamic_embedding = env_dynamic_embedding(
-            env_name, {"embedding_dim": embedding_dim}
-        )
+        super(MDAMDecoder, self).__init__()
+        self.dynamic_embedding = env_dynamic_embedding(env_name, {"embed_dim": embed_dim})
 
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
 
-        self.W_placeholder = nn.Parameter(torch.Tensor(2 * embedding_dim))
+        self.W_placeholder = nn.Parameter(torch.Tensor(2 * embed_dim))
         self.W_placeholder.data.uniform_(
             -1, 1
         )  # Placeholder should be in range of activations
 
         self.context = nn.ModuleList(
             [
-                env_context_embedding(env_name, {"embedding_dim": embedding_dim})
+                env_context_embedding(env_name, {"embed_dim": embed_dim})
                 for _ in range(num_paths)
             ]
         )
 
         self.project_node_embeddings = [
-            nn.Linear(embedding_dim, 3 * embedding_dim, bias=False)
-            for _ in range(num_paths)
+            nn.Linear(embed_dim, 3 * embed_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_node_embeddings = nn.ModuleList(self.project_node_embeddings)
 
         self.project_fixed_context = [
-            nn.Linear(embedding_dim, embedding_dim, bias=False) for _ in range(num_paths)
+            nn.Linear(embed_dim, embed_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_fixed_context = nn.ModuleList(self.project_fixed_context)
 
         self.project_step_context = [
-            nn.Linear(2 * embedding_dim, embedding_dim, bias=False)
-            for _ in range(num_paths)
+            nn.Linear(2 * embed_dim, embed_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_step_context = nn.ModuleList(self.project_step_context)
 
         self.project_out = [
-            nn.Linear(embedding_dim, embedding_dim, bias=False) for _ in range(num_paths)
+            nn.Linear(embed_dim, embed_dim, bias=False) for _ in range(num_paths)
         ]
         self.project_out = nn.ModuleList(self.project_out)
 
-        self.dynamic_embedding = env_dynamic_embedding(
-            env_name, {"embedding_dim": embedding_dim}
-        )
+        self.dynamic_embedding = env_dynamic_embedding(env_name, {"embed_dim": embed_dim})
 
         # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
         self.pointer = [
             PointerAttention(
-                embedding_dim,
+                embed_dim,
                 num_heads,
                 mask_inner=mask_inner,
             )
@@ -311,7 +305,7 @@ class Decoder(nn.Module):
         # Batch matrix multiplication to compute heads (n_heads, batch_size, num_steps, val_size)
         heads = torch.matmul(F.softmax(compatibility, dim=-1), glimpse_V)
 
-        # Project to get glimpse/updated context node embedding (batch_size, num_steps, embedding_dim)
+        # Project to get glimpse/updated context node embedding (batch_size, num_steps, embed_dim)
         glimpse = self.project_out[path_index](
             heads.permute(1, 2, 3, 0, 4)
             .contiguous()

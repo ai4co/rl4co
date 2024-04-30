@@ -55,8 +55,10 @@ def main():
     # Greedy rollouts over trained model
     # note: modify this to load your own data instead!
     td_init = env.reset(batch_size=[16]).to(device)
-    model = model.to(device)
-    out = model(td_init.clone(), phase="test", decode_type="greedy", return_actions=True)
+    policy = model.policy.to(device)
+    out = policy(
+        td_init.clone(), env, phase="test", decode_type="greedy", return_actions=True
+    )
 
     # Print results
     print(f"Tour lengths: {[f'{-r.item():.3f}' for r in out['reward']]}")

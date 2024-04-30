@@ -4,7 +4,11 @@ Models from the literature and contributions are contained in the Model Zoo.
 
 ---
 
-# Auto-Regressive Models
+# Constructive Methods
+
+These can be classified into Auto-Regressive (AR) and Non-Auto-Regressive (NAR) policies. These constructive methods also include ad-hoc RL algorithms for constructive policies.
+
+# AutoRegressive
 
 ## Attention Model (AM)
 
@@ -20,19 +24,14 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
-## Attention Model (AM-PPO)
+## Attention Model - PPO (AM-PPO)
 
 ```{eval-rst}
-.. automodule:: rl4co.models.zoo.ppo.model
+.. automodule:: rl4co.models.zoo.amppo.model
    :members:
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.ppo.policy
-   :members:
-   :undoc-members:
-```
 
 
 ## Heterogeneous Attention Model (HAM)
@@ -123,13 +122,6 @@ Models from the literature and contributions are contained in the Model Zoo.
    :undoc-members:
 ```
 
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.pomo.policy
-   :members:
-   :undoc-members:
-```
-
-
 ## Pointer Network (PtrNet)
 
 ```{eval-rst}
@@ -184,7 +176,8 @@ Models from the literature and contributions are contained in the Model Zoo.
 
 ---
 
-# NonAutoregressive Models
+# NonAutoregressive
+
 
 ## DeepACO
 
@@ -213,9 +206,34 @@ Models from the literature and contributions are contained in the Model Zoo.
 ```
 
 
+## NAR-GNN
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.nargnn.policy
+   :members:
+   :undoc-members:
+```
+
+```{eval-rst}
+.. automodule:: rl4co.models.zoo.nargnn.encoder
+   :members:
+   :undoc-members:
+```
+
 ---
 
-# Search Methods
+# Improvement Methods
+
+These methods are trained to improve existing solutions iteratively, akin to local search algorithms. They focus on refining existing solutions rather than generating them from scratch.
+
+_coming soon!_
+
+
+---
+
+# Transductive Methods
+
+These methods update policy parameters during online testing to improve the solutions of a specific instance.
 
 ## Active Search (AS)
 

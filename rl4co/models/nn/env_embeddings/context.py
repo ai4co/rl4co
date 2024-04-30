@@ -47,15 +47,11 @@ class EnvContext(nn.Module):
     query embedding of the problem node of the current partial solution.
     Consists of a linear layer that projects the node features to the embedding space."""
 
-    def __init__(self, embedding_dim, step_context_dim=None, linear_bias=False):
+    def __init__(self, embed_dim, step_context_dim=None, linear_bias=False):
         super(EnvContext, self).__init__()
-        self.embedding_dim = embedding_dim
-        step_context_dim = (
-            step_context_dim if step_context_dim is not None else embedding_dim
-        )
-        self.project_context = nn.Linear(
-            step_context_dim, embedding_dim, bias=linear_bias
-        )
+        self.embed_dim = embed_dim
+        step_context_dim = step_context_dim if step_context_dim is not None else embed_dim
+        self.project_context = nn.Linear(step_context_dim, embed_dim, bias=linear_bias)
 
     def _cur_node_embedding(self, embeddings, td):
         """Get embedding of current node"""
@@ -74,12 +70,12 @@ class EnvContext(nn.Module):
 
 
 class FFSPContext(EnvContext):
-    def __init__(self, embedding_dim, stage_cnt=None):
+    def __init__(self, embed_dim, stage_cnt=None):
         self.has_stage_emb = stage_cnt is not None
-        step_context_dim = (1 + int(self.has_stage_emb)) * embedding_dim
-        super().__init__(embedding_dim=embedding_dim, step_context_dim=step_context_dim)
+        step_context_dim = (1 + int(self.has_stage_emb)) * embed_dim
+        super().__init__(embed_dim=embed_dim, step_context_dim=step_context_dim)
         if self.has_stage_emb:
-            self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embedding_dim))
+            self.stage_emb = nn.Parameter(torch.rand(stage_cnt, embed_dim))
 
     def _cur_node_embedding(self, embeddings: TensorDict, td):
         cur_node_embedding = gather_by_index(
@@ -108,10 +104,10 @@ class TSPContext(EnvContext):
         - current node embedding
     """
 
-    def __init__(self, embedding_dim):
-        super(TSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
+    def __init__(self, embed_dim):
+        super(TSPContext, self).__init__(embed_dim, 2 * embed_dim)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(2 * self.embedding_dim).uniform_(-1, 1)
+            torch.Tensor(2 * self.embed_dim).uniform_(-1, 1)
         )
 
     def forward(self, embeddings, td):
@@ -141,9 +137,9 @@ class VRPContext(EnvContext):
         - remaining capacity (vehicle_capacity - used_capacity)
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embed_dim):
         super(VRPContext, self).__init__(
-            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 1
+            embed_dim=embed_dim, step_context_dim=embed_dim + 1
         )
 
     def _state_embedding(self, embeddings, td):
@@ -159,9 +155,9 @@ class VRPTWContext(VRPContext):
         - current time
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embed_dim):
         super(VRPContext, self).__init__(
-            embedding_dim=embedding_dim, step_context_dim=embedding_dim + 2
+            embed_dim=embed_dim, step_context_dim=embed_dim + 2
         )
 
     def _cur_node_embedding(self, embeddings, td):
@@ -180,10 +176,8 @@ class SVRPContext(EnvContext):
         - current technician
     """
 
-    def __init__(self, embedding_dim):
-        super(SVRPContext, self).__init__(
-            embedding_dim=embedding_dim, step_context_dim=embedding_dim
-        )
+    def __init__(self, embed_dim):
+        super(SVRPContext, self).__init__(embed_dim=embed_dim, step_context_dim=embed_dim)
 
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
@@ -197,8 +191,8 @@ class PCTSPContext(EnvContext):
         - remaining prize (prize_required - cur_total_prize)
     """
 
-    def __init__(self, embedding_dim):
-        super(PCTSPContext, self).__init__(embedding_dim, embedding_dim + 1)
+    def __init__(self, embed_dim):
+        super(PCTSPContext, self).__init__(embed_dim, embed_dim + 1)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = torch.clamp(
@@ -214,8 +208,8 @@ class OPContext(EnvContext):
         - remaining distance (max_length - tour_length)
     """
 
-    def __init__(self, embedding_dim):
-        super(OPContext, self).__init__(embedding_dim, embedding_dim + 1)
+    def __init__(self, embed_dim):
+        super(OPContext, self).__init__(embed_dim, embed_dim + 1)
 
     def _state_embedding(self, embeddings, td):
         state_embedding = td["max_length"][..., 0] - td["tour_length"]
@@ -228,14 +222,14 @@ class DPPContext(EnvContext):
         - current cell embedding
     """
 
-    def __init__(self, embedding_dim):
-        super(DPPContext, self).__init__(embedding_dim)
+    def __init__(self, embed_dim):
+        super(DPPContext, self).__init__(embed_dim)
 
     def forward(self, embeddings, td):
         """Context cannot be defined by a single node embedding for DPP, hence 0.
         We modify the dynamic embedding instead to capture placed items
         """
-        return embeddings.new_zeros(embeddings.size(0), self.embedding_dim)
+        return embeddings.new_zeros(embeddings.size(0), self.embed_dim)
 
 
 class PDPContext(EnvContext):
@@ -244,8 +238,8 @@ class PDPContext(EnvContext):
         - current node embedding
     """
 
-    def __init__(self, embedding_dim):
-        super(PDPContext, self).__init__(embedding_dim, embedding_dim)
+    def __init__(self, embed_dim):
+        super(PDPContext, self).__init__(embed_dim, embed_dim)
 
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
@@ -262,12 +256,12 @@ class MTSPContext(EnvContext):
         - distance_from_depot
     """
 
-    def __init__(self, embedding_dim, linear_bias=False):
-        super(MTSPContext, self).__init__(embedding_dim, 2 * embedding_dim)
+    def __init__(self, embed_dim, linear_bias=False):
+        super(MTSPContext, self).__init__(embed_dim, 2 * embed_dim)
         proj_in_dim = (
             4  # remaining_agents, current_length, max_subtour_length, distance_from_depot
         )
-        self.proj_dynamic_feats = nn.Linear(proj_in_dim, embedding_dim, bias=linear_bias)
+        self.proj_dynamic_feats = nn.Linear(proj_in_dim, embed_dim, bias=linear_bias)
 
     def _cur_node_embedding(self, embeddings, td):
         cur_node_embedding = gather_by_index(embeddings, td["current_node"])
@@ -298,8 +292,8 @@ class SMTWTPContext(EnvContext):
         - current time
     """
 
-    def __init__(self, embedding_dim):
-        super(SMTWTPContext, self).__init__(embedding_dim, embedding_dim + 1)
+    def __init__(self, embed_dim):
+        super(SMTWTPContext, self).__init__(embed_dim, embed_dim + 1)
 
     def _cur_node_embedding(self, embeddings, td):
         cur_node_embedding = gather_by_index(embeddings, td["current_job"])
@@ -316,8 +310,8 @@ class MDCPDPContext(EnvContext):
         - current node embedding
     """
 
-    def __init__(self, embedding_dim):
-        super(MDCPDPContext, self).__init__(embedding_dim, embedding_dim)
+    def __init__(self, embed_dim):
+        super(MDCPDPContext, self).__init__(embed_dim, embed_dim)
 
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()

@@ -51,7 +51,7 @@ class SymNCO(REINFORCE):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            policy = SymNCOPolicy(env.name, **policy_kwargs)
+            policy = SymNCOPolicy(env_name=env.name, **policy_kwargs)
 
         assert baseline == "symnco", "SymNCO only supports custom-symnco baseline"
         baseline = "no"  # Pass no baseline to superclass since there are multiple custom baselines
@@ -61,7 +61,9 @@ class SymNCO(REINFORCE):
 
         self.num_starts = num_starts
         self.num_augment = num_augment
-        self.augment = StateAugmentation(num_augment=self.num_augment, augment_fn=augment_fn, feats=feats)
+        self.augment = StateAugmentation(
+            num_augment=self.num_augment, augment_fn=augment_fn, feats=feats
+        )
         self.alpha = alpha  # weight for invariance loss
         self.beta = beta  # weight for solution symmetricity loss
 

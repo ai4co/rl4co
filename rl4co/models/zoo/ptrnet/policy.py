@@ -1,11 +1,8 @@
 import math
 
-from typing import Union
-
 import torch
 import torch.nn as nn
 
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.zoo.ptrnet.decoder import Decoder
 from rl4co.models.zoo.ptrnet.encoder import Encoder
 from rl4co.utils.decoding import get_log_likelihood
@@ -17,8 +14,8 @@ log = get_pylogger(__name__)
 class PointerNetworkPolicy(nn.Module):
     def __init__(
         self,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
-        embedding_dim: int = 128,
+        env_name: str = "tsp",
+        embed_dim: int = 128,
         hidden_dim: int = 128,
         tanh_clipping=10.0,
         mask_inner=True,
@@ -27,16 +24,14 @@ class PointerNetworkPolicy(nn.Module):
     ):
         super(PointerNetworkPolicy, self).__init__()
 
-        if isinstance(env_name, RL4COEnvBase):
-            env_name = env_name.name
         assert env_name == "tsp", "Only the Euclidean TSP env is implemented"
         self.env_name = env_name
         self.input_dim = 2
 
-        self.encoder = Encoder(embedding_dim, hidden_dim)
+        self.encoder = Encoder(embed_dim, hidden_dim)
 
         self.decoder = Decoder(
-            embedding_dim,
+            embed_dim,
             hidden_dim,
             tanh_exploration=tanh_clipping,
             use_tanh=tanh_clipping > 0,
@@ -46,11 +41,11 @@ class PointerNetworkPolicy(nn.Module):
         )
 
         # Trainable initial hidden states
-        std = 1.0 / math.sqrt(embedding_dim)
-        self.decoder_in_0 = nn.Parameter(torch.FloatTensor(embedding_dim))
+        std = 1.0 / math.sqrt(embed_dim)
+        self.decoder_in_0 = nn.Parameter(torch.FloatTensor(embed_dim))
         self.decoder_in_0.data.uniform_(-std, std)
 
-        self.embedding = nn.Parameter(torch.FloatTensor(self.input_dim, embedding_dim))
+        self.embedding = nn.Parameter(torch.FloatTensor(self.input_dim, embed_dim))
         self.embedding.data.uniform_(-std, std)
 
     def forward(

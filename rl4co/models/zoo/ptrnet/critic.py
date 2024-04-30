@@ -10,7 +10,7 @@ class CriticNetworkLSTM(nn.Module):
 
     def __init__(
         self,
-        embedding_dim,
+        embed_dim,
         hidden_dim,
         n_process_block_iters,
         tanh_exploration,
@@ -21,7 +21,7 @@ class CriticNetworkLSTM(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_process_block_iters = n_process_block_iters
 
-        self.encoder = Encoder(embedding_dim, hidden_dim)
+        self.encoder = Encoder(embed_dim, hidden_dim)
 
         self.process_block = SimpleAttention(
             hidden_dim, use_tanh=use_tanh, C=tanh_exploration
@@ -34,7 +34,7 @@ class CriticNetworkLSTM(nn.Module):
     def forward(self, inputs):
         """
         Args:
-            inputs: [embedding_dim x batch_size x sourceL] of embedded inputs
+            inputs: [embed_dim x batch_size x sourceL] of embedded inputs
         """
         inputs = inputs.transpose(0, 1).contiguous()
 

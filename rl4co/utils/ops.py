@@ -105,6 +105,18 @@ def get_distance_matrix(locs: Tensor):
     return distance
 
 
+def calculate_entropy(logprobs: Tensor):
+    """Calculate the entropy of the log probabilities distribution
+    logprobs: Tensor of shape [batch, decoder_steps, num_actions]
+    """
+    logprobs = torch.nan_to_num(logprobs, nan=0.0)
+    entropy = -(logprobs.exp() * logprobs).sum(dim=-1)  # [batch, decoder steps]
+    entropy = entropy.sum(dim=1)  # [batch] -- sum over decoding steps
+    assert entropy.isfinite().all(), "Entropy is not finite"
+    return entropy
+
+
+# TODO: modularize inside the envs
 def get_num_starts(td, env_name=None):
     """Returns the number of possible start nodes for the environment based on the action mask"""
     num_starts = td["action_mask"].shape[-1]

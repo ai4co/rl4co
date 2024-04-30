@@ -155,7 +155,6 @@ class PointerAttention(nn.Module):
         out_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: Optional[Callable] = None,
-        **unused_kwargs,
     ):
         super(PointerAttention, self).__init__()
         self.num_heads = num_heads
@@ -165,10 +164,6 @@ class PointerAttention(nn.Module):
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
         self.sdpa_fn = sdpa_fn if sdpa_fn is not None else scaled_dot_product_attention
         self.check_nan = check_nan
-
-        # Check unused kwargs
-        if unused_kwargs:
-            log.warning(f"Unused kwargs: {unused_kwargs}")
 
     def forward(self, query, key, value, logit_key, attn_mask=None):
         """Compute attention logits given query, key, value, logit key and attention mask.
