@@ -6,13 +6,13 @@ from tensordict.tensordict import TensorDict
 from torchrl.modules.models import MLP
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
+from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class SymNCOPolicy(AutoregressivePolicy):
+class SymNCOPolicy(AttentionModelPolicy):
     """SymNCO Policy based on AutoregressivePolicy.
     This differs from the default :class:`AutoregressivePolicy` in that it
     projects the initial embeddings to a lower dimension using a projection head and
@@ -20,8 +20,8 @@ class SymNCOPolicy(AutoregressivePolicy):
     Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209.
 
     Args:
+        embed_dim: Dimension of the embedding
         env_name: Name of the environment
-        embedding_dim: Dimension of the embedding
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the encoder
         normalization: Normalization to use in the encoder
@@ -32,8 +32,8 @@ class SymNCOPolicy(AutoregressivePolicy):
 
     def __init__(
         self,
-        env_name: str,
-        embedding_dim: int = 128,
+        embed_dim: int = 128,
+        env_name: str = "tsp",
         num_encoder_layers: int = 3,
         num_heads: int = 8,
         normalization: str = "batch",
@@ -43,7 +43,7 @@ class SymNCOPolicy(AutoregressivePolicy):
     ):
         super(SymNCOPolicy, self).__init__(
             env_name=env_name,
-            embedding_dim=embedding_dim,
+            embed_dim=embed_dim,
             num_encoder_layers=num_encoder_layers,
             num_heads=num_heads,
             normalization=normalization,
@@ -54,7 +54,7 @@ class SymNCOPolicy(AutoregressivePolicy):
 
         if self.use_projection_head:
             self.projection_head = (
-                MLP(embedding_dim, embedding_dim, 1, embedding_dim, nn.ReLU)
+                MLP(embed_dim, embed_dim, 1, embed_dim, nn.ReLU)
                 if projection_head is None
                 else projection_head
             )
@@ -65,9 +65,8 @@ class SymNCOPolicy(AutoregressivePolicy):
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
         return_actions: bool = False,
-        return_entropy: bool = False,
         return_init_embeds: bool = True,
-        **decoder_kwargs,
+        **kwargs,
     ) -> dict:
         super().forward.__doc__  # trick to get docs from parent class
 
@@ -80,10 +79,9 @@ class SymNCOPolicy(AutoregressivePolicy):
             td,
             env,
             phase,
-            return_actions,
-            return_entropy,
-            return_init_embeds,
-            **decoder_kwargs,
+            return_actions=return_actions,
+            return_init_embeds=return_init_embeds,
+            **kwargs,
         )
 
         # Project initial embeddings

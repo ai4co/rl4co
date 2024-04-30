@@ -12,7 +12,7 @@ An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) ben
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-<a href="https://github.com/ai4co/rl4co/blob/main/LICENSE">![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?)</a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+<a href="https://github.com/ai4co/rl4co/blob/main/LICENSE">[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)</a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
 [![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
 
 <iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=star&count=true" frameborder="0" scrolling="0" width="100" height="20" title="GitHub"></iframe> <iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=fork&count=true" frameborder="0" scrolling="0" width="100" height="30" title="GitHub"></iframe>
@@ -31,7 +31,7 @@ RL4CO is built upon:
 
 ```{eval-rst}
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Getting started
 
    _content/start/installation
@@ -40,27 +40,28 @@ RL4CO is built upon:
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Tutorials
 
    _collections/2-full-training
    _collections/3-creating-new-env-model
    _collections/modeling/1-decoding-strategies
-   _collections/modeling/2-change-encoder
+   _collections/modeling/2-transductive-methods
+   _collections/modeling/3-change-encoder
    _collections/advanced/1-hydra-config
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: RL Algorithms
 
    _content/api/algos/base
    _content/api/algos/reinforce
+   _content/api/algos/a2c
    _content/api/algos/ppo
-   _content/api/algos/search
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Environments
 
    _content/api/envs/base
@@ -68,31 +69,39 @@ RL4CO is built upon:
    _content/api/envs/routing
    _content/api/envs/scheduling
 
-
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Networks
 
    _content/api/models/nn
    _content/api/models/env_embeddings
 
+.. toctree::
+   :maxdepth: 3
+   :caption: Base NCO Methods
+
+   _content/api/models/common/__init__
+   _content/api/models/common/constructive
+   _content/api/models/common/improvement
+   _content/api/models/common/transductive
+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Model Zoo
 
-   _content/api/models/base
    _content/api/models/zoo
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Additional API
 
    _content/api/tasks
+   _content/api/decoding
    _content/api/data
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Other
 
    _content/general/contribute

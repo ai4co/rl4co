@@ -11,7 +11,7 @@ from rl4co.models.nn.graph.attnnet import (
 from rl4co.models.zoo.mdam.mha import MultiHeadAttentionMDAM
 
 
-class GraphAttentionEncoder(nn.Module):
+class MDAMGraphAttentionEncoder(nn.Module):
     def __init__(
         self,
         num_heads,
@@ -19,10 +19,10 @@ class GraphAttentionEncoder(nn.Module):
         num_layers,
         node_dim=None,
         normalization="batch",
-        feed_forward_hidden=512,
+        feedforward_hidden=512,
         sdpa_fn: Optional[Callable] = None,
     ):
-        super(GraphAttentionEncoder, self).__init__()
+        super(MDAMGraphAttentionEncoder, self).__init__()
 
         # To map input to embedding space
         self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
@@ -30,9 +30,9 @@ class GraphAttentionEncoder(nn.Module):
         self.layers = nn.Sequential(
             *(
                 MultiHeadAttentionLayer(
-                    num_heads,
                     embed_dim,
-                    feed_forward_hidden,
+                    num_heads,
+                    feedforward_hidden,
                     normalization,
                     sdpa_fn=sdpa_fn,
                 )
@@ -45,11 +45,11 @@ class GraphAttentionEncoder(nn.Module):
         self.BN1 = Normalization(embed_dim, normalization)
         self.projection = SkipConnection(
             nn.Sequential(
-                nn.Linear(embed_dim, feed_forward_hidden),
+                nn.Linear(embed_dim, feedforward_hidden),
                 nn.ReLU(),
-                nn.Linear(feed_forward_hidden, embed_dim),
+                nn.Linear(feedforward_hidden, embed_dim),
             )
-            if feed_forward_hidden > 0
+            if feedforward_hidden > 0
             else nn.Linear(embed_dim, embed_dim)
         )
         self.BN2 = Normalization(embed_dim, normalization)

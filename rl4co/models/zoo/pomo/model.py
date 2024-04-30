@@ -5,7 +5,7 @@ import torch.nn as nn
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
-from rl4co.models.zoo.pomo.policy import POMOPolicy
+from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -15,6 +15,15 @@ log = get_pylogger(__name__)
 class POMO(REINFORCE):
     """POMO Model for neural combinatorial optimization based on REINFORCE
     Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011.
+
+    Note:
+        If no policy kwargs is passed, we use the Attention Model policy with the following arguments:
+        Differently to the base class:
+        - `num_encoder_layers=6` (instead of 3)
+        - `normalization="instance"` (instead of "batch")
+        - `use_graph_context=False` (instead of True)
+        The latter is due to the fact that the paper does not use the graph context in the policy, which seems to be
+        helpful in overfitting to the training graph size.
 
     Args:
         env: TorchRL Environment
@@ -33,7 +42,7 @@ class POMO(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: Union[nn.Module, POMOPolicy] = None,
+        policy: nn.Module = None,
         policy_kwargs={},
         baseline: str = "shared",
         num_augment: int = 8,
@@ -46,7 +55,13 @@ class POMO(REINFORCE):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            policy = POMOPolicy(env.name, **policy_kwargs)
+            policy_kwargs_with_defaults = {
+                "num_encoder_layers": 6,
+                "normalization": "instance",
+                "use_graph_context": False,
+            }
+            policy_kwargs_with_defaults.update(policy_kwargs)
+            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs_with_defaults)
 
         assert baseline == "shared", "POMO only supports shared baseline"
 
@@ -108,7 +123,7 @@ class POMO(REINFORCE):
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_aug, n_start))
                     out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs)}
+                        {"best_multistart_actions": gather_by_index(actions, max_idxs, dim=max_idxs.dim())}
                     )
                     out["actions"] = actions
 

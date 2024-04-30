@@ -28,6 +28,6 @@ class DeepACO(REINFORCE):
         **kwargs,
     ):
         if policy is None:
-            policy = DeepACOPolicy(env.name, **policy_kwargs)
+            policy = DeepACOPolicy(env_name=env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)

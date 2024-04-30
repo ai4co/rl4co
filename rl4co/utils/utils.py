@@ -1,3 +1,6 @@
+import importlib
+import platform
+import sys
 import warnings
 
 from importlib.util import find_spec
@@ -5,10 +8,15 @@ from typing import Callable, List
 
 import hydra
 
+from lightning import Callback
 from lightning.pytorch.loggers.logger import Logger
+
+# Import the necessary PyTorch Lightning component
+from lightning.pytorch.trainer.connectors.accelerator_connector import (
+    _AcceleratorConnector,
+)
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 from omegaconf import DictConfig
-from pytorch_lightning import Callback
 
 from rl4co.utils import pylogger, rich_utils
 
@@ -234,3 +242,46 @@ def merge_with_defaults(_config=None, **defaults) -> dict:
         return defaults
     else:
         return {key: _config for key in defaults.keys()}
+
+
+def show_versions():
+    """
+    This function prints version information that is useful when filing bug
+    reports. Inspired by https://github.com/PyVRP/PyVRP
+    """
+
+    modules = {
+        "rl4co": "rl4co",
+        "torch": "torch",
+        "lightning": "pytorch_lightning",  # Updated module name if necessary
+        "torchrl": "torchrl",
+        "tensordict": "tensordict",
+        "numpy": "numpy",
+        "pytorch_geometric": "torch_geometric",
+        "hydra-core": "hydra",
+        "omegaconf": "omegaconf",
+        "matplotlib": "matplotlib",
+    }
+
+    # Find the longest module name for formatting
+    longest_name = max(len(name) for name in modules.keys())
+
+    print("INSTALLED VERSIONS")
+    print("-" * (longest_name + 20))
+    # modules
+    for name, module in modules.items():
+        try:
+            imported_module = importlib.import_module(module)
+            version = imported_module.__version__
+        except ImportError:
+            version = "Not installed"
+        print(f"{name.rjust(longest_name)} : {version}")
+    # platform information
+    print(f'{"Python".rjust(longest_name)} : {sys.version.split()[0]}')
+    print(f'{"Platform".rjust(longest_name)} : {platform.platform()}')
+    try:
+        lightning_auto_device = _AcceleratorConnector()._choose_auto_accelerator(None)
+    except Exception:
+        lightning_auto_device = _AcceleratorConnector()._choose_auto_accelerator()
+    # lightning hardware accelerators
+    print(f'{"Lightning device".rjust(longest_name)} : {lightning_auto_device}')
