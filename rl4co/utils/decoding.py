@@ -239,6 +239,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
+
         Args:
             logprobs: Log probabilities processed from logits of the model.
             mask: Action mask. 1 if feasible, 0 otherwise (so we keep if 1 as done in PyTorch).
@@ -304,6 +305,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> TensorDict:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
+
         Args:
             logits: Logits from the model.
             mask: Action mask. 1 if feasible, 0 otherwise (so we keep if 1 as done in PyTorch).
