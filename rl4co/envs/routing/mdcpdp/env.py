@@ -264,8 +264,8 @@ class MDCPDPEnv(RL4COEnvBase):
         """Make the observation and action specs from the parameters."""
         self.observation_spec = CompositeSpec(
             locs=BoundedTensorSpec(
-                minimum=generator.min_loc,
-                maximum=generator.max_loc,
+                low=generator.min_loc,
+                high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
@@ -290,8 +290,8 @@ class MDCPDPEnv(RL4COEnvBase):
         self.action_spec = BoundedTensorSpec(
             shape=(1,),
             dtype=torch.int64,
-            minimum=0,
-            maximum=generator.num_loc + 1,
+            low=0,
+            high=generator.num_loc + 1,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
