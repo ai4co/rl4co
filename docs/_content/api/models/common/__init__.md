@@ -4,6 +4,7 @@
 We categorize NCO approaches (which are in fact not necessarily trained with RL!) into the following: 1) constructive, 2) improvement, 3) transductive.
 
 
+
 ```{eval-rst}
 .. tip::
    Note that in RL4CO we distinguish the RL algorithms and the actors via the following naming:
@@ -29,17 +30,17 @@ The following table contains the categorization that we follow in RL4CO:
      - Input
      - Output
      - Description
-   * - Constructive
+   * - `Constructive <constructive.md>`_
      - Policy
      - Instance
      - Solution
      - Policies trained to generate solutions from scratch. Can be categorized into AutoRegressive (AR) and Non-Autoregressive (NAR).
-   * - Improvement
+   * - `Improvement <improvement.md>`_
      - Policy
      - Instance, Current Solution
      - Improved Solution
      - Policies trained to improve existing solutions iteratively, akin to local search algorithms. They focus on refining *existing* solutions rather than generating them from scratch.
-   * - Transductive
+   * - `Transductive <transductive.md>`_
      - Model
      - Instance, (Policy)
      - Solution, (Updated Policy)

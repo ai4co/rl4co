@@ -1,9 +1,3 @@
-# Model Zoo
-
-Models from the literature and contributions are contained in the Model Zoo.
-
----
-
 # Constructive Methods
 
 These can be classified into Auto-Regressive (AR) and Non-Auto-Regressive (NAR) policies. These constructive methods also include ad-hoc RL algorithms for constructive policies.
@@ -216,49 +210,6 @@ These can be classified into Auto-Regressive (AR) and Non-Auto-Regressive (NAR) 
 
 ```{eval-rst}
 .. automodule:: rl4co.models.zoo.nargnn.encoder
-   :members:
-   :undoc-members:
-```
-
----
-
-# Improvement Methods
-
-These methods are trained to improve existing solutions iteratively, akin to local search algorithms. They focus on refining existing solutions rather than generating them from scratch.
-
-_coming soon!_
-
-
----
-
-# Transductive Methods
-
-These methods update policy parameters during online testing to improve the solutions of a specific instance.
-
-## Active Search (AS)
-
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.active_search.search
-   :members:
-   :undoc-members:
-```
-
-## Efficent Active Search (EAS)
-
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.eas.search
-   :members:
-   :undoc-members:
-```
-
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.eas.decoder
-   :members:
-   :undoc-members:
-```
-
-```{eval-rst}
-.. automodule:: rl4co.models.zoo.eas.nn
    :members:
    :undoc-members:
 ```

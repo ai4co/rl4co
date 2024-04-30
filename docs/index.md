@@ -37,6 +37,7 @@ RL4CO is built upon:
    _content/start/installation
    _collections/1-quickstart
    _content/start/hydra
+   _content/api/models/common/__init__
 
 
 .. toctree::
@@ -80,7 +81,6 @@ RL4CO is built upon:
    :maxdepth: 3
    :caption: Base NCO Methods
 
-   _content/api/models/common/__init__
    _content/api/models/common/constructive
    _content/api/models/common/improvement
    _content/api/models/common/transductive
@@ -90,7 +90,10 @@ RL4CO is built upon:
    :maxdepth: 3
    :caption: Model Zoo
 
-   _content/api/models/zoo
+   _content/api/models/common/zoo/__init__
+   _content/api/models/common/zoo/constructive
+   _content/api/models/common/zoo/improvement
+   _content/api/models/common/zoo/transductive
 
 .. toctree::
    :maxdepth: 3
