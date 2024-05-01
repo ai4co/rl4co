@@ -1,2 +1,2 @@
-from rl4co.envs.eda.dpp import DPPEnv
-from rl4co.envs.eda.mdpp import MDPPEnv
+from rl4co.envs.eda.dpp.env import DPPEnv
+from rl4co.envs.eda.mdpp.env import MDPPEnv

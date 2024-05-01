@@ -61,13 +61,8 @@ def test_eda(env_cls, batch_size=2, max_decaps=5):
 
 @pytest.mark.parametrize("env_cls", [FFSPEnv])
 def test_scheduling(env_cls, batch_size=2):
-    env = env_cls(
-        num_stage=2,
-        num_machine=3,
-        num_job=4,
-        batch_size=[batch_size],
-    )
-    td = env.reset()
+    env = env_cls()
+    td = env.reset(batch_size=[batch_size])
     td["action"] = torch.tensor([1, 1])
     td = env._step(td)
 
