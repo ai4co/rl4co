@@ -90,7 +90,7 @@ class AntSystem:
         for _ in range(n_iterations):
             # reset environment
             td = td_initial.clone()
-            self.one_step(td, env)
+            self._one_step(td, env)
 
         action_matrix = self._convert_final_action_to_matrix()
         assert action_matrix is not None and self.final_reward is not None
@@ -98,7 +98,7 @@ class AntSystem:
 
         return td, action_matrix, self.final_reward
 
-    def one_step(self, td: TensorDict, env: RL4COEnvBase):
+    def _one_step(self, td: TensorDict, env: RL4COEnvBase):
         """Run one step of the Ant System algorithm.
 
         Args:
@@ -113,7 +113,12 @@ class AntSystem:
         td, env, actions, reward = self._sampling(td, env)
         # local search, reserved for extensions
         if self.use_local_search:
-            actions, reward = self._local_search(td, env, actions)
+            actions, reward = self.local_search(td, env, actions)
+
+        # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
+        reward = reward.view(self.n_ants, self.batch_size).T
+        actions = actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
+
         # update final actions and rewards
         self._update_results(actions, reward)
         # update pheromone matrix
@@ -146,14 +151,10 @@ class AntSystem:
         if self.require_logprobs:
             self.all_records.append((logprobs, actions, reward, td.get("mask", None)))
 
-        # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
-        reward = reward.view(self.n_ants, self.batch_size).T
-        actions = actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
-
         return td, env, actions, reward
 
-    def _local_search(
-        self, td: TensorDict, env: RL4COEnvBase, og_actions: Tensor
+    def local_search(
+        self, td: TensorDict, env: RL4COEnvBase, actions: Tensor
     ) -> Tuple[Tensor, Tensor]:
         """Perform local search on the actions and reward obtained.
 
@@ -166,8 +167,7 @@ class AntSystem:
             actions: The modified actions
             reward: The modified reward
         """
-        actions_flatten = og_actions.reshape(-1, og_actions.shape[-1])
-        best_actions = env.local_search(td=td, actions=actions_flatten, **self.local_search_params)
+        best_actions = env.local_search(td=td, actions=actions, **self.local_search_params)
         best_rewards = env.get_reward(td, best_actions)
         if self.use_nls:
             T_nls = self.local_search_params.get("T_nls", 5)
@@ -187,10 +187,7 @@ class AntSystem:
                 best_actions[improved_indices] = new_paths[improved_indices]
                 best_rewards[improved_indices] = new_rewards[improved_indices]
 
-        # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
-        reward = best_rewards.view(self.n_ants, self.batch_size).T
-        actions = best_actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
-        return actions, reward
+        return best_actions, best_rewards
 
     def _update_results(self, actions, reward):
         # update the best-trails recorded in self.final_actions

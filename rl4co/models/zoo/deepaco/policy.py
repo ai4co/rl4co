@@ -10,6 +10,7 @@ from rl4co.models.common.constructive.nonautoregressive import (
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.utils import merge_with_defaults
+from rl4co.utils.ops import batchify
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
@@ -24,6 +25,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         aco_kwargs: Additional arguments to be passed to the ACO algorithm.
         n_ants: Number of ants to be used in the ACO algorithm. Can be an integer or dictionary. Defaults to 20.
         n_iterations: Number of iterations to run the ACO algorithm. Can be an integer or dictionary. Defaults to `dict(train=1, val=20, test=100)`.
+        ls_reward_aug_W: Coefficient to be used for the reward augmentation with the local search. Defaults to 0.95.
         encoder_kwargs: Additional arguments to be passed to the encoder.
     """
 
@@ -35,6 +37,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         aco_kwargs: dict = {},
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
+        ls_reward_aug_W: float = 0.95,
         **encoder_kwargs,
     ):
         if encoder is None:
@@ -50,45 +53,59 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
         self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_kwargs = aco_kwargs
-        self.n_ants = merge_with_defaults(n_ants, train=20, val=20, test=20)
-        self.n_iterations = merge_with_defaults(n_iterations, train=1, val=20, test=100)
+        self.n_ants = merge_with_defaults(n_ants, train=30, val=48, test=48)
+        self.n_iterations = merge_with_defaults(n_iterations, train=1, val=10, test=10)
+        self.ls_reward_aug_W = ls_reward_aug_W
 
     def forward(
         self,
         td_initial: TensorDict,
-        env: Union[str, RL4COEnvBase, None] = None,
+        env: Optional[Union[str, RL4COEnvBase]] = None,
         calc_reward: bool = True,
         phase: str = "train",
         actions=None,
-        return_actions: bool = False,
+        return_actions: bool = True,
+        return_hidden: bool = True,
         **kwargs,
     ):
         """
         Forward method. During validation and testing, the policy runs the ACO algorithm to construct solutions.
         See :class:`NonAutoregressivePolicy` for more details during the training phase.
         """
+        n_ants = self.n_ants[phase]
+        # Instantiate environment if needed
+        if (phase != "train" or self.ls_reward_aug_W > 0) and (env is None or isinstance(env, str)):
+            env_name = self.env_name if env is None else env
+            env = get_env(env_name)
+
         if phase == "train":
             #  we just use the constructive policy
-            return super().forward(
+            outdict = super().forward(
                 td_initial,
                 env,
                 phase=phase,
                 decode_type="multistart_sampling",
                 calc_reward=calc_reward,
-                num_starts=self.n_ants[phase],
+                num_starts=n_ants,
                 actions=actions,
                 return_actions=return_actions,
+                return_hidden=return_hidden,
                 **kwargs,
             )
 
-        # Instantiate environment if needed
-        if env is None or isinstance(env, str):
-            env_name = self.env_name if env is None else env
-            env = get_env(env_name)
+            if self.ls_reward_aug_W > 0:
+                heatmap_logits = outdict["hidden"]
+                aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
+                
+                actions = outdict["actions"]
+                _, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, actions)
+                outdict["reward"] = outdict["reward"] * (1 - self.ls_reward_aug_W) + ls_reward * self.ls_reward_aug_W
+
+            return outdict
 
         heatmap_logits, _ = self.encoder(td_initial)
 
-        aco = self.aco_class(heatmap_logits, n_ants=self.n_ants[phase], **self.aco_kwargs)
+        aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
         td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
 
         if calc_reward:

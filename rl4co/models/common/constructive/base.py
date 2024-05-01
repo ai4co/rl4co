@@ -1,6 +1,6 @@
 import abc
 
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import torch.nn as nn
 
@@ -157,11 +157,12 @@ class ConstructivePolicy(nn.Module):
     def forward(
         self,
         td: TensorDict,
-        env: Union[str, RL4COEnvBase] = None,
+        env: Optional[Union[str, RL4COEnvBase]] = None,
         phase: str = "train",
         calc_reward: bool = True,
         return_actions: bool = False,
         return_entropy: bool = False,
+        return_hidden: bool = False,
         return_init_embeds: bool = False,
         return_sum_log_likelihood: bool = True,
         actions=None,
@@ -178,6 +179,7 @@ class ConstructivePolicy(nn.Module):
             calc_reward: Whether to calculate the reward
             return_actions: Whether to return the actions
             return_entropy: Whether to return the entropy
+            return_hidden: Whether to return the hidden state
             return_init_embeds: Whether to return the initial embeddings
             return_sum_log_likelihood: Whether to return the sum of the log likelihood
             actions: Actions to use for evaluating the policy.
@@ -257,6 +259,8 @@ class ConstructivePolicy(nn.Module):
             outdict["actions"] = actions
         if return_entropy:
             outdict["entropy"] = calculate_entropy(logprobs)
+        if return_hidden:
+            outdict["hidden"] = hidden
         if return_init_embeds:
             outdict["init_embeds"] = init_embeds
 
