@@ -1,3 +1,5 @@
+import abc
+
 from functools import partial
 from typing import Any, Iterable, Union
 
@@ -15,7 +17,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class RL4COLitModule(LightningModule):
+class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
     """Base class for Lightning modules for RL4CO. This defines the general training loop in terms of
     RL algorithms. Subclasses should implement mainly the `shared_step` to define the specific
     loss functions and optimization routines.

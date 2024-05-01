@@ -8,8 +8,8 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.zoo.common.nonautoregressive.decoder import (
-    NonAutoregressiveDecoder as NARDecoder,
+from rl4co.models.common.constructive.nonautoregressive.decoder import (
+    NonAutoregressiveDecoder,
 )
 from rl4co.utils.decoding import Sampling
 
@@ -134,7 +134,9 @@ class AntSystem:
         decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
-            logits, mask = NARDecoder._get_logits(td, heatmaps_logits, num_starts)
+            logits, mask = NonAutoregressiveDecoder.heatmap_to_logits(
+                td, heatmaps_logits, num_starts
+            )
             td = decode_strategy.step(logits, mask, td)
             td = env.step(td)["next"]
 

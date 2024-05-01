@@ -67,7 +67,7 @@ class MessagePassingEncoder(nn.Module):
     def __init__(
         self,
         env_name: str,
-        embedding_dim: int,
+        embed_dim: int,
         num_nodes: int,
         num_layers: int,
         init_embedding: nn.Module = None,
@@ -84,7 +84,7 @@ class MessagePassingEncoder(nn.Module):
         self.env_name = env_name
 
         self.init_embedding = (
-            env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            env_init_embedding(self.env_name, {"embed_dim": embed_dim})
             if init_embedding is None
             else init_embedding
         )
@@ -99,8 +99,8 @@ class MessagePassingEncoder(nn.Module):
         self.mpnn_layers = nn.ModuleList(
             [
                 MessagePassingLayer(
-                    node_indim=embedding_dim,
-                    node_outdim=embedding_dim,
+                    node_indim=embed_dim,
+                    node_outdim=embed_dim,
                     edge_indim=1,
                     edge_outdim=1,
                     aggregation=aggregation,

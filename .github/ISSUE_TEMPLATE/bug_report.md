@@ -8,7 +8,7 @@ assignees: fedebotu, cbhua
 
 ## Describe the bug
 
-A clear and concise description of what the bug is. 
+A clear and concise description of what the bug is.
 
 ## To Reproduce
 
@@ -24,22 +24,21 @@ import src
 
 ```bash
 Traceback (most recent call last):
-  File ... 
+  File ...
 ```
 
 ## System info
 
-Report the characteristics of your environment such as how the library was installed (pip or source), Python version, and version of other relevant libraries.
+Specify the version information of the `rl4co` installation you use. You can do this by including the output of `show_versions()`:
 
-> [!TIP] 
-> You can use the script below to report relevant versions. Just make sure you are using the same Python environment where the bug occurred!
+```python
+from rl4co.utils import show_versions
+show_versions()
+```
+in your report. You can run this from the command line as
 
 ```bash
-python -c "import rl4co, torch, lightning, torchrl, tensordict, numpy, sys; print('RL4CO:', \
- rl4co.__version__, '\nPyTorch:', torch.__version__, '\nPyTorch Lightning:', \
-lightning.__version__, '\nTorchRL:',  torchrl.__version__, '\nTensorDict:',\
- tensordict.__version__, '\nNumpy:', numpy.__version__, '\nPython:', \
-sys.version, '\nPlatform:', sys.platform)"
+python -c 'from rl4co.utils import show_versions; show_versions()'
 ```
 
 ## Additional context

@@ -60,9 +60,9 @@ class SDVRPDynamicEmbedding(nn.Module):
     based on the current state of the environment (which is changing during the rollout).
     """
 
-    def __init__(self, embedding_dim, linear_bias=False):
+    def __init__(self, embed_dim, linear_bias=False):
         super(SDVRPDynamicEmbedding, self).__init__()
-        self.projection = nn.Linear(1, 3 * embedding_dim, bias=linear_bias)
+        self.projection = nn.Linear(1, 3 * embed_dim, bias=linear_bias)
 
     def forward(self, td):
         demands_with_depot = td["demand_with_depot"][..., None].clone()

@@ -95,7 +95,7 @@ def forward_eas(
     # Main decoding: loop until all sequences are done
     while not td["done"].all():
         decode_step += 1
-        logits, mask = self._get_logits(cached_embeds, td, num_starts + 1)
+        logits, mask = self.forward(td, cached_embeds, num_starts + 1)
 
         logp = process_logits(
             logits,

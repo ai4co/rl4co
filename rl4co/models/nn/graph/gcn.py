@@ -19,7 +19,7 @@ class GCNEncoder(nn.Module):
     """Graph Convolutional Network to encode embeddings with a series of GCN layers
 
     Args:
-        embedding_dim: dimension of the embeddings
+        embed_dim: dimension of the embeddings
         num_nodes: number of nodes in the graph
         num_gcn_layer: number of GCN layers
         self_loop: whether to add self loop in the graph
@@ -29,7 +29,7 @@ class GCNEncoder(nn.Module):
     def __init__(
         self,
         env_name: str,
-        embedding_dim: int,
+        embed_dim: int,
         num_nodes: int,
         num_layers: int,
         init_embedding: nn.Module = None,
@@ -41,7 +41,7 @@ class GCNEncoder(nn.Module):
         self.env_name = env_name
 
         self.init_embedding = (
-            env_init_embedding(self.env_name, {"embedding_dim": embedding_dim})
+            env_init_embedding(self.env_name, {"embed_dim": embed_dim})
             if init_embedding is None
             else init_embedding
         )
@@ -51,7 +51,7 @@ class GCNEncoder(nn.Module):
 
         # Define the GCN layers
         self.gcn_layers = nn.ModuleList(
-            [GCNConv(embedding_dim, embedding_dim) for _ in range(num_layers)]
+            [GCNConv(embed_dim, embed_dim) for _ in range(num_layers)]
         )
 
         # Record parameters

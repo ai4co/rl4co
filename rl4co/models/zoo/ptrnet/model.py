@@ -30,6 +30,6 @@ class PointerNetwork(REINFORCE):
         **kwargs,
     ):
         policy = (
-            PointerNetworkPolicy(env, **policy_kwargs) if policy is None else policy
+            PointerNetworkPolicy(env=env, **policy_kwargs) if policy is None else policy
         )
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)

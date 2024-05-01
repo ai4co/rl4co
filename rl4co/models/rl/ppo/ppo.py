@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
+from rl4co.models.rl.common.critic import CriticNetwork, create_critic_from_actor
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -61,7 +62,8 @@ class PPO(RL4COLitModule):
         self,
         env: RL4COEnvBase,
         policy: nn.Module,
-        critic: nn.Module,
+        critic: CriticNetwork = None,
+        critic_kwargs: dict = {},
         clip_range: float = 0.2,  # epsilon of PPO
         ppo_epochs: int = 2,  # inner epoch, K
         mini_batch_size: Union[int, float] = 0.25,  # 0.25,
@@ -76,6 +78,10 @@ class PPO(RL4COLitModule):
     ):
         super().__init__(env, policy, metrics=metrics, **kwargs)
         self.automatic_optimization = False  # PPO uses custom optimization routine
+
+        if critic is None:
+            log.info("Creating critic network for {}".format(env.name))
+            critic = create_critic_from_actor(policy, **critic_kwargs)
         self.critic = critic
 
         if isinstance(mini_batch_size, float) and (
@@ -159,9 +165,14 @@ class PPO(RL4COLitModule):
                 for sub_td in dataloader:
                     sub_td = sub_td.to(td.device)
                     previous_reward = sub_td["reward"].view(-1, 1)
-                    ll, entropy = self.policy.evaluate_action(
-                        sub_td, action=sub_td["action"], env=self.env
+                    out = self.policy(  # note: remember to clone to avoid in-place replacements!
+                        sub_td.clone(),
+                        actions=sub_td["action"],
+                        env=self.env,
+                        return_entropy=True,
+                        return_sum_log_likelihood=False,
                     )
+                    ll, entropy = out["log_likelihood"], out["entropy"]
 
                     # Compute the ratio of probabilities of new and old actions
                     ratio = torch.exp(ll.sum(dim=-1) - sub_td["logprobs"]).view(
