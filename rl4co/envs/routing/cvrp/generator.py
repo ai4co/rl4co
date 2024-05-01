@@ -98,12 +98,12 @@ class CVRPGenerator(Generator):
         self.capacity = kwargs.get("capacity", None)
         if self.capacity is None: # If not provided, use the default capacity from Kool et al. 2019
             self.capacity = CAPACITIES.get(num_loc, None)
-        if self.capacity is None: # If not in the table keys, find the cloest number of nodes as the key
-            cloest_num_loc = min(CAPACITIES.keys(), key=lambda x: abs(x - num_loc))
-            self.capacity = CAPACITIES[cloest_num_loc]
+        if self.capacity is None: # If not in the table keys, find the closest number of nodes as the key
+            closest_num_loc = min(CAPACITIES.keys(), key=lambda x: abs(x - num_loc))
+            self.capacity = CAPACITIES[closest_num_loc]
             log.warning(
                 f"The capacity capacity for {num_loc} locations is not defined. Using the closest capacity: {self.capacity}\
-                    with {cloest_num_loc} locations."
+                    with {closest_num_loc} locations."
             )
 
     def _generate(self, batch_size) -> TensorDict:

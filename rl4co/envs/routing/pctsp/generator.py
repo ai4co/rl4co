@@ -81,12 +81,12 @@ class PCTSPGenerator(Generator):
         self.max_penalty = kwargs.get("max_penalty", None)
         if self.max_penalty is None: # If not provided, use the default max penalty
             self.max_penalty = MAX_LENGTHS.get(num_loc, None)
-        if self.max_penalty is None: # If not in the table keys, find the cloest number of nodes as the key
-            cloest_num_loc = min(MAX_LENGTHS.keys(), key=lambda x: abs(x - num_loc))
-            self.max_penalty = MAX_LENGTHS[cloest_num_loc]
+        if self.max_penalty is None: # If not in the table keys, find the closest number of nodes as the key
+            closest_num_loc = min(MAX_LENGTHS.keys(), key=lambda x: abs(x - num_loc))
+            self.max_penalty = MAX_LENGTHS[closest_num_loc]
             log.warning(
                 f"The max penalty for {num_loc} locations is not defined. Using the closest max penalty: {self.max_penalty}\
-                    with {cloest_num_loc} locations."
+                    with {closest_num_loc} locations."
             )
         self.penalty_sampler = get_sampler("penalty", "uniform", 0.0, self.max_penalty, **kwargs)
 

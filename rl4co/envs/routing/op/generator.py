@@ -87,11 +87,11 @@ class OPGenerator(Generator):
         else:
             self.max_length = MAX_LENGTHS.get(num_loc, None)
         if self.max_length is None:
-            cloest_num_loc = min(MAX_LENGTHS.keys(), key=lambda x: abs(x - num_loc))
-            self.max_length = MAX_LENGTHS[cloest_num_loc]
+            closest_num_loc = min(MAX_LENGTHS.keys(), key=lambda x: abs(x - num_loc))
+            self.max_length = MAX_LENGTHS[closest_num_loc]
             log.warning(
                 f"The max length for {num_loc} locations is not defined. Using the closest max length: {self.max_length}\
-                    with {cloest_num_loc} locations."
+                    with {closest_num_loc} locations."
             )
 
     def _generate(self, batch_size) -> TensorDict:
