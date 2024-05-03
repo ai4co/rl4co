@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from einops import rearrange
 
 from rl4co.utils import get_pylogger
+import itertools
 
 log = get_pylogger(__name__)
 
@@ -211,6 +212,7 @@ class PointerAttention(nn.Module):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
 
 
+
 # Deprecated
 class LogitAttention(PointerAttention):
     def __init__(self, *args, **kwargs):
@@ -222,3 +224,80 @@ class LogitAttention(PointerAttention):
             category=DeprecationWarning,
         )
         super(LogitAttention, self).__init__(*args, **kwargs)
+
+class PolyNetAttention(PointerAttention):
+    """Calculate logits given query, key and value and logit key.
+    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134).
+
+    Note:
+        With Flash Attention, masking is not supported
+
+    Performs the following:
+        1. Apply cross attention to get the heads
+        2. Project heads to get glimpse
+        3. Compute attention score between glimpse and logit key
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        mask_inner: whether to mask inner attention
+        linear_bias: whether to use bias in linear projection
+        check_nan: whether to check for NaNs in logits
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
+    """
+
+    def __init__(
+        self,
+        k: int,
+        embed_dim: int,
+        poly_layer_dim: int,
+        num_heads: int,
+        **kwargs
+    ):
+        super(PolyNetAttention, self).__init__(embed_dim, num_heads, **kwargs)
+
+        self.binary_vector_dim = math.ceil(math.log2(k))
+        self.binary_vectors = torch.nn.Parameter(torch.Tensor(
+            list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]), requires_grad=False)
+
+        self.poly_layer_1 = nn.Linear(embed_dim + self.binary_vector_dim, poly_layer_dim)
+        self.poly_layer_2 = nn.Linear(poly_layer_dim, embed_dim)
+
+    def forward(self, query, key, value, logit_key, attn_mask=None):
+        """Compute attention logits given query, key, value, logit key and attention mask.
+
+        Args:
+            query: query tensor of shape [B, ..., L, E]
+            key: key tensor of shape [B, ..., S, E]
+            value: value tensor of shape [B, ..., S, E]
+            logit_key: logit key tensor of shape [B, ..., S, E]
+            attn_mask: attention mask tensor of shape [B, ..., S]. Note that `True` means that the value _should_ take part in attention
+                as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
+        """
+        # Compute inner multi-head attention with no projections.
+        heads = self._inner_mha(query, key, value, attn_mask)
+        glimpse = self.project_out(heads)
+
+        num_solutions = glimpse.shape[1]
+        z = self.binary_vectors.repeat(math.ceil(num_solutions / self.binary_vector_dim), 1)[:num_solutions]
+        z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
+
+        # PolyNet layers
+        poly_out = self.poly_layer_1(torch.cat((glimpse, z), dim=2))
+        # shape: ?
+        poly_out = F.relu(poly_out)
+        # shape: ?
+        poly_out = self.poly_layer_2(poly_out)
+
+        glimpse += poly_out
+
+        # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
+        # bmm is slightly faster than einsum and matmul
+        logits = (torch.bmm(glimpse, logit_key.squeeze(-2).transpose(-2, -1))).squeeze(
+            -2
+        ) / math.sqrt(glimpse.size(-1))
+
+        if self.check_nan:
+            assert not torch.isnan(logits).any(), "Logits contain NaNs"
+
+        return logits
