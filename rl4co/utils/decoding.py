@@ -272,14 +272,15 @@ class DecodingStrategy:
             # Expand td to batch_size * num_starts
             td = batchify(td, self.num_starts)
 
-            td.set("action", action)
-            td = env.step(td)["next"]
-            logprobs = torch.zeros_like(
-                td["action_mask"], device=td.device
-            )  # first logprobs is 0, so p = logprobs.exp() = 1
+            if action is not None:
+                td.set("action", action)
+                td = env.step(td)["next"]
+                logprobs = torch.zeros_like(
+                    td["action_mask"], device=td.device
+                )  # first logprobs is 0, so p = logprobs.exp() = 1
 
-            self.logprobs.append(logprobs)
-            self.actions.append(action)
+                self.logprobs.append(logprobs)
+                self.actions.append(action)
 
         return td, env, self.num_starts
 
