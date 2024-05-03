@@ -31,7 +31,7 @@ from rl4co.models.zoo.ham import (
 from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
 from rl4co.models.zoo.nargnn import NARGNNPolicy
+from rl4co.models.zoo.polynet import PolyNet
 from rl4co.models.zoo.pomo import POMO
-from rl4co.models.zoo.ppo import PPOModel
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
 from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy
