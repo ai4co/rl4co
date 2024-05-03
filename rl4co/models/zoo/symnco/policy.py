@@ -20,8 +20,8 @@ class SymNCOPolicy(AttentionModelPolicy):
     Based on Kim et al. (2022) https://arxiv.org/abs/2205.13209.
 
     Args:
-        env_name: Name of the environment
         embed_dim: Dimension of the embedding
+        env_name: Name of the environment
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the encoder
         normalization: Normalization to use in the encoder

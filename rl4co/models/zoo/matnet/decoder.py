@@ -106,7 +106,6 @@ class MatNetFFSPDecoder(AttentionModelDecoder):
         )
 
 
-# TODO
 class MultiStageFFSPDecoder(MatNetFFSPDecoder):
     """Decoder class for the solving the FFSP using a seperate MatNet decoder for each stage
     as originally implemented by Kwon et al. (2021)

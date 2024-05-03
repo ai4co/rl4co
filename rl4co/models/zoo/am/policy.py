@@ -1,8 +1,7 @@
-from typing import Callable, Union
+from typing import Callable
 
 import torch.nn as nn
 
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
 from rl4co.models.zoo.am.decoder import AttentionModelDecoder
 from rl4co.models.zoo.am.encoder import AttentionModelEncoder
@@ -10,18 +9,37 @@ from rl4co.models.zoo.am.encoder import AttentionModelEncoder
 
 class AttentionModelPolicy(AutoregressivePolicy):
     """
-    # TODO
     Attention Model Policy based on Kool et al. (2019): https://arxiv.org/abs/1803.08475.
-    We re-declare the most important arguments here for convenience as in the paper.
-    See `AutoregressivePolicy` superclass for more details.
+    This model first encodes the input graph using a Graph Attention Network (GAT) (:class:`AttentionModelEncoder`)
+    and then decodes the solution using a pointer network (:class:`AttentionModelDecoder`). Cache is used to store the
+    embeddings of the nodes to be used by the decoder to save computation.
+    See :class:`rl4co.models.common.constructive.autoregressive.policy.AutoregressivePolicy` for more details on the inference process.
 
     Args:
-        env_name: Name of the environment used to initialize embeddings
+        encoder: Encoder module, defaults to :class:`AttentionModelEncoder`
+        decoder: Decoder module, defaults to :class:`AttentionModelDecoder`
         embed_dim: Dimension of the node embeddings
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
         normalization: Normalization type in the attention layers
-        **kwargs: keyword arguments passed to the `AutoregressivePolicy`
+        feedforward_hidden: Dimension of the hidden layer in the feedforward network
+        env_name: Name of the environment used to initialize embeddings
+        encoder_network: Network to use for the encoder
+        init_embedding: Module to use for the initialization of the embeddings
+        context_embedding: Module to use for the context embedding
+        dynamic_embedding: Module to use for the dynamic embedding
+        use_graph_context: Whether to use the graph context
+        linear_bias_decoder: Whether to use a bias in the linear layer of the decoder
+        sdpa_fn: Function to use for the scaled dot product attention
+        mask_inner: Whether to mask the inner product
+        out_bias_pointer_attn: Whether to use a bias in the pointer attention
+        check_nan: Whether to check for nan values during decoding
+        temperature: Temperature for the softmax
+        tanh_clipping: Tanh clipping value (see Bello et al., 2016)
+        mask_logits: Whether to mask the logits during decoding
+        train_decode_type: Type of decoding to use during training
+        val_decode_type: Type of decoding to use during validation
+        test_decode_type: Type of decoding to use during testing
     """
 
     def __init__(
@@ -33,7 +51,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
         num_heads: int = 8,
         normalization: str = "batch",
         feedforward_hidden: int = 512,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         encoder_network: nn.Module = None,
         init_embedding: nn.Module = None,
         context_embedding: nn.Module = None,
@@ -50,7 +68,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
-        **unused_kwargs,  # TODO
+        **unused_kwargs,
     ):
         if encoder is None:
             encoder = AttentionModelEncoder(
@@ -83,6 +101,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
         super(AttentionModelPolicy, self).__init__(
             encoder=encoder,
             decoder=decoder,
+            env_name=env_name,
             temperature=temperature,
             tanh_clipping=tanh_clipping,
             mask_logits=mask_logits,

@@ -10,7 +10,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.models.common.search import SearchBase
+from rl4co.models.common.transductive import TransductiveModel
 from rl4co.models.zoo.eas.decoder import forward_eas, forward_pointer_attn_eas_lay
 from rl4co.models.zoo.eas.nn import EASLayerNet
 from rl4co.utils.decoding import get_log_likelihood
@@ -20,7 +20,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class EAS(SearchBase):
+class EAS(TransductiveModel):
     """Efficient Active Search for Neural Combination Optimization from Hottung et al. (2022).
     Fine-tunes a subset of parameters (such as node embeddings or newly added layers) thus avoiding
     expensive re-encoding of the problem.

@@ -7,18 +7,21 @@ from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
 
 
 class HeterogeneousAttentionModelPolicy(AttentionModelPolicy):
-    """Heterogeneous Attention Model Policy based on # TODO
+    """Heterogeneous Attention Model Policy based on https://ieeexplore.ieee.org/document/9352489.
     We re-declare the most important arguments here for convenience as in the paper.
-    See `AutoregressivePolicy` superclass for more details.
+    See :class:`rl4co.models.zoo.am.AttentionModelPolicy` for more details.
 
     Args:
+        encoder: Encoder module. Can be passed by sub-classes
         env_name: Name of the environment used to initialize embeddings
-        encoder: Encoder to use for the policy
-        embed_dim: Dimension of the node embeddings
+        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
+        embed_dim: Dimension of the embeddings
         num_encoder_layers: Number of layers in the encoder
-        num_heads: Number of heads in the attention layers
-        normalization: Normalization type in the attention layers
-        **kwargs: keyword arguments passed to the `AutoregressivePolicy`
+        num_heads: Number of heads for the attention in encoder
+        normalization: Normalization to use for the attention layers
+        feedforward_hidden: Dimension of the hidden layer in the feedforward network
+        sdpa_fn: Function to use for the scaled dot product attention
+        **kwargs: keyword arguments passed to the :class:`rl4co.models.zoo.am.AttentionModelPolicy`
     """
 
     def __init__(

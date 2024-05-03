@@ -1,3 +1,5 @@
+import abc
+
 from typing import Optional, Tuple
 
 import torch
@@ -186,7 +188,7 @@ def process_logits(
     return F.log_softmax(logits, dim=-1)
 
 
-class DecodingStrategy:
+class DecodingStrategy(metaclass=abc.ABCMeta):
     """Base class for decoding strategies. Subclasses should implement the :meth:`_step` method.
     Includes hooks for pre and post main decoding operations.
 
@@ -227,6 +229,7 @@ class DecodingStrategy:
         self.actions = []
         self.logprobs = []
 
+    @abc.abstractmethod
     def _step(
         self,
         logprobs: torch.Tensor,
@@ -236,6 +239,7 @@ class DecodingStrategy:
         **kwargs,
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
+
         Args:
             logprobs: Log probabilities processed from logits of the model.
             mask: Action mask. 1 if feasible, 0 otherwise (so we keep if 1 as done in PyTorch).
@@ -302,6 +306,7 @@ class DecodingStrategy:
         **kwargs,
     ) -> TensorDict:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
+
         Args:
             logits: Logits from the model.
             mask: Action mask. 1 if feasible, 0 otherwise (so we keep if 1 as done in PyTorch).
@@ -375,7 +380,7 @@ class Sampling(DecodingStrategy):
         self, logprobs: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Sample an action with a multinomial distribution given by the log probabilities."""
-        selected = self.sampling(logprobs, mask)  # TODO
+        selected = self.sampling(logprobs, mask)
         return logprobs, selected, td
 
 

@@ -55,13 +55,13 @@ class POMO(REINFORCE):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            default_values = {
+            policy_kwargs_with_defaults = {
                 "num_encoder_layers": 6,
                 "normalization": "instance",
                 "use_graph_context": False,
             }
-            default_values.update(policy_kwargs)
-            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
+            policy_kwargs_with_defaults.update(policy_kwargs)
+            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs_with_defaults)
 
         assert baseline == "shared", "POMO only supports shared baseline"
 

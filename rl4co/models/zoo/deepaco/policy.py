@@ -1,51 +1,51 @@
 from typing import Optional, Type, Union
 
-import torch.nn as nn
-
 from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
-from rl4co.models.common.constructive.nonautoregressive.policy import (
+from rl4co.models.common.constructive.nonautoregressive import (
+    NonAutoregressiveEncoder,
     NonAutoregressivePolicy,
 )
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
+from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.utils import merge_with_defaults
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
-    """Implememts DeepACO policy based on :class:`NonAutoregressivePolicy`.
+    """Implememts DeepACO policy based on :class:`NonAutoregressivePolicy`. Introduced by Ye et al. (2023): https://arxiv.org/abs/2309.14032.
+    This policy uses a Non-Autoregressive Graph Neural Network to generate heatmaps,
+    which are then used to run Ant Colony Optimization (ACO) to construct solutions.
 
     Args:
-        # TODO
-        env_name: Name of the environment used to initialize embeddings
         encoder: Encoder module. Can be passed by sub-classes
-        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
-        edge_embedding: Model to use for the edge embedding. If None, use the default embedding for the environment
-        heatmap_generator: Model to use for converting the edge embeddings to the heuristic information.
-            If None, use the default MLP defined in :class:`~rl4co.models.common.nonautoregressive.decoder.EdgeHeatmapGenerator`.
-        embed_dim: Dimension of the embeddings
-        num_encoder_layers: Number of layers in the encoder
-        num_decoder_layers: Number of layers in the decoder
-        **decoder_kwargs: Additional arguments to be passed to the DeepACO decoder.
+        env_name: Name of the environment used to initialize embeddings
+        aco_class: Class representing the ACO algorithm to be used. Defaults to :class:`AntSystem`.
+        aco_kwargs: Additional arguments to be passed to the ACO algorithm.
+        n_ants: Number of ants to be used in the ACO algorithm. Can be an integer or dictionary. Defaults to 20.
+        n_iterations: Number of iterations to run the ACO algorithm. Can be an integer or dictionary. Defaults to `dict(train=1, val=20, test=100)`.
+        encoder_kwargs: Additional arguments to be passed to the encoder.
     """
 
     def __init__(
         self,
-        encoder: Optional[nn.Module] = None,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        encoder: Optional[NonAutoregressiveEncoder] = None,
+        env_name: str = "tsp",
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
         **encoder_kwargs,
     ):
+        if encoder is None:
+            encoder = NARGNNEncoder(**encoder_kwargs)
+
         super(DeepACOPolicy, self).__init__(
             encoder=encoder,
             env_name=env_name,
             train_decode_type="multistart_sampling",
             val_decode_type="multistart_sampling",
             test_decode_type="multistart_sampling",
-            **encoder_kwargs,
         )
 
         self.aco_class = AntSystem if aco_class is None else aco_class
@@ -63,6 +63,10 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         return_actions: bool = False,
         **kwargs,
     ):
+        """
+        Forward method. During validation and testing, the policy runs the ACO algorithm to construct solutions.
+        See :class:`NonAutoregressivePolicy` for more details during the training phase.
+        """
         if phase == "train":
             #  we just use the constructive policy
             return super().forward(

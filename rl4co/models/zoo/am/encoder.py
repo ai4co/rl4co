@@ -13,26 +13,25 @@ from rl4co.models.nn.graph.attnnet import GraphAttentionNetwork
 
 class AttentionModelEncoder(AutoregressiveEncoder):
     """Graph Attention Encoder as in Kool et al. (2019).
+    First embed the input and then process it with a Graph Attention Network.
 
-    # TODO
     Args:
-        env_name: environment name to solve
-        num_heads: Number of heads for the attention
-        embed_dim: Dimension of the embeddings
-        num_layers: Number of layers for the encoder
-        normalization: Normalization to use for the attention
-        feedforward_hidden: Hidden dimension for the feed-forward network
-        init_embedding: Model to use for the initial embedding. If None, use the default embedding for the environment
-        use_graph_context: Whether to use the initial graph context to modify the query
-        linear_bias: Whether to use a linear bias in the projection layers for precomputing the cache
-        sdpa_fn: Scaled dot product function to use for the attention
+        embed_dim: Dimension of the embedding space
+        init_embedding: Module to use for the initialization of the embeddings
+        env_name: Name of the environment used to initialize embeddings
+        num_heads: Number of heads in the attention layers
+        num_layers: Number of layers in the attention network
+        normalization: Normalization type in the attention layers
+        feedforward_hidden: Hidden dimension in the feedforward layers
+        net: Graph Attention Network to use
+        sdpa_fn: Function to use for the scaled dot product attention
     """
 
     def __init__(
         self,
         embed_dim: int = 128,
         init_embedding: nn.Module = None,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        env_name: str = "tsp",
         num_heads: int = 8,
         num_layers: int = 3,
         normalization: str = "batch",

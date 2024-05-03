@@ -1,13 +1,12 @@
 from math import factorial
-from typing import List, Union
+from typing import List
 
 import torch
 import torch.nn as nn
 
 from tensordict import TensorDict
 
-from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.envs.scheduling.ffsp import FFSPEnv
+from rl4co.envs.scheduling.ffsp.env import FFSPEnv
 from rl4co.models.common.constructive.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.matnet.decoder import (
     MatNetDecoder,
@@ -41,7 +40,7 @@ class MatNetPolicy(AutoregressivePolicy):
 
     def __init__(
         self,
-        env_name: Union[str, RL4COEnvBase],
+        env_name: str = "atsp",
         embed_dim: int = 256,
         num_encoder_layers: int = 5,
         num_heads: int = 16,
@@ -51,9 +50,6 @@ class MatNetPolicy(AutoregressivePolicy):
         bias: bool = False,
         **kwargs,
     ):
-        if isinstance(env_name, RL4COEnvBase):
-            env_name = env_name.name
-
         if env_name not in ["atsp", "ffsp"]:
             log.error(f"env_name {env_name} is not originally implemented in MatNet")
 

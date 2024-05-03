@@ -1,6 +1,3 @@
-from typing import Union
-
-from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.base import ConstructivePolicy
 
 from .decoder import AutoregressiveDecoder
@@ -9,20 +6,20 @@ from .encoder import AutoregressiveEncoder
 
 class AutoregressivePolicy(ConstructivePolicy):
     """Template class for an autoregressive policy, simple wrapper around
-    :class: rl4co.models.common.constructive.base.ConstructivePolicy.
+    :class:`rl4co.models.common.constructive.base.ConstructivePolicy`.
 
     Note:
         While a decoder is required, an encoder is optional and will be initialized to
-        :class: rl4co.models.common.constructive.autoregressive.encoder.NoEncoder .
+        :class:`rl4co.models.common.constructive.autoregressive.encoder.NoEncoder`.
         This can be used in decoder-only models in which at each step actions do not depend on
         previously encoded states.
     """
 
     def __init__(
         self,
-        encoder: AutoregressiveEncoder = None,
-        decoder: AutoregressiveDecoder = None,
-        env_name: Union[str, RL4COEnvBase] = "tsp",
+        encoder: AutoregressiveEncoder,
+        decoder: AutoregressiveDecoder,
+        env_name: str = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,
         mask_logits: bool = True,
