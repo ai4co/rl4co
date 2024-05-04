@@ -11,16 +11,12 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.utils.ops import gather_by_index, get_distance_matrix, get_tour_length
+from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
-
-# For local search
-import concurrent.futures
-import numpy as np
-import numba as nb
 
 from .generator import TSPGenerator
 from .render import render
+from .local_search import local_search
 
 log = get_pylogger(__name__)
 
@@ -171,34 +167,6 @@ class TSPEnv(RL4COEnvBase):
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 
-    @staticmethod
-    def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
-        """
-        Improve the solution using local search, especially 2-opt for TSP.
-        Implementation credits to: https://github.com/henry-yeh/DeepACO
-
-        Args:
-            td: TensorDict, td from env with shape [batch_size,]
-            actions: torch.Tensor, Tour indices with shape [batch_size, num_loc]
-            max_iterations: int, maximum number of iterations for 2-opt
-            distances: torch.Tensor, distance matrix with shape [batch_size, num_loc, num_loc]
-                                     if None, it will be calculated from td["locs"]
-        """
-        max_iterations = kwargs.get("max_iterations", 1000)
-
-        dists = kwargs.get("distances", None)
-        if dists is None:
-            dists = get_distance_matrix(td["locs"]).detach().cpu().numpy()
-        dists = dists + 1e9 * np.eye(dists.shape[1], dtype=np.float32)[None, :, :]  # fill diagonal with large number
-
-        tours = actions.detach().cpu().numpy().astype(np.uint16)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
-            for dist, tour in zip(dists, tours):
-                future = executor.submit(_two_opt_python, distmat=dist, tour=tour, max_iterations=max_iterations)
-                futures.append(future)
-            return torch.from_numpy(np.stack([f.result() for f in futures]).astype(np.int64)).to(actions.device)
-
     def generate_data(self, batch_size) -> TensorDict:
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         locs = (
@@ -212,37 +180,6 @@ class TSPEnv(RL4COEnvBase):
     def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
         return render(td, actions, ax)
 
-
-@nb.njit(nb.float32(nb.float32[:,:], nb.uint16[:], nb.uint16), nogil=True)
-def two_opt_once(distmat, tour, fixed_i = 0):
-    '''in-place operation'''
-    n = tour.shape[0]
-    p = q = 0
-    delta = 0
-    for i in range(1, n - 1) if fixed_i==0 else range(fixed_i, fixed_i + 1):
-        for j in range(i + 1, n):
-            node_i, node_j = tour[i], tour[j]
-            node_prev, node_next = tour[i - 1], tour[(j + 1) % n]
-            if node_prev == node_j or node_next == node_i:
-                continue
-            change = (
-                distmat[node_prev, node_j] + distmat[node_i, node_next]
-                - distmat[node_prev, node_i] - distmat[node_j, node_next]
-            )
-            if change < delta:
-                p, q, delta = i, j, change
-    if delta < -1e-6:
-        tour[p: q + 1] = np.flip(tour[p: q + 1])
-        return delta
-    else:
-        return 0.0
-
-
-@nb.njit(nb.uint16[:](nb.float32[:,:], nb.uint16[:], nb.int64), nogil=True)
-def _two_opt_python(distmat, tour, max_iterations=1000):
-    iterations = 0
-    min_change = -1.0
-    while min_change < -1e-6 and iterations < max_iterations:
-        min_change = two_opt_once(distmat, tour, 0)
-        iterations += 1
-    return tour
+    @staticmethod
+    def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        return local_search(td, actions, **kwargs)
