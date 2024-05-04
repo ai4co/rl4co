@@ -15,7 +15,7 @@ This is the base wrapper around TorchRL's `EnvBase`, with additional functionali
 These contain utilities such as the base `Generator` class and `get_sampler`.
 
 ```{eval-rst}
-.. automodule:: rl4co.envs.common.base
+.. automodule:: rl4co.envs.common.utils
    :members:
    :undoc-members:
 ```
