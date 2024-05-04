@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Optional, Type, Union
 
 from tensordict import TensorDict
@@ -54,7 +55,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_kwargs = aco_kwargs
         self.n_ants = merge_with_defaults(n_ants, train=30, val=48, test=48)
-        self.n_iterations = merge_with_defaults(n_iterations, train=1, val=10, test=10)
+        self.n_iterations = merge_with_defaults(n_iterations, train=1, val=5, test=10)
         self.ls_reward_aug_W = ls_reward_aug_W
 
     def forward(
@@ -79,6 +80,10 @@ class DeepACOPolicy(NonAutoregressivePolicy):
             env = get_env(env_name)
 
         if phase == "train":
+            select_start_nodes_fn = partial(
+                self.aco_class.select_start_node_fn, start_node=self.aco_kwargs.get("start_node", None)
+            )
+            kwargs.update({"select_start_nodes_fn": select_start_nodes_fn})
             #  we just use the constructive policy
             outdict = super().forward(
                 td_initial,
@@ -93,7 +98,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
                 **kwargs,
             )
 
-            if self.ls_reward_aug_W > 0:
+            if self.ls_reward_aug_W > 0 and self.aco_kwargs.get("use_local_search", False):
                 heatmap_logits = outdict["hidden"]
                 aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
                 

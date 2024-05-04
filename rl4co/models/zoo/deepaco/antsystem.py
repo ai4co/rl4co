@@ -1,4 +1,4 @@
-from functools import lru_cache, cached_property
+from functools import lru_cache, cached_property, partial
 from typing import Optional, Tuple
 
 import numpy as np
@@ -42,6 +42,7 @@ class AntSystem:
         use_local_search: bool = False,
         use_nls: bool = False,
         local_search_params: dict = {},
+        start_node: Optional[int] = None,
     ):
         self.batch_size = log_heuristic.shape[0]
         self.n_ants = n_ants
@@ -62,12 +63,27 @@ class AntSystem:
         assert not (use_nls and not use_local_search), "use_nls requires use_local_search"
         self.use_nls = use_nls
         self.local_search_params = local_search_params
+        self.start_node = start_node
+
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
 
     @cached_property
     def heuristic_dist(self):
         heuristic_numpy = self.log_heuristic.exp().detach().cpu().numpy().astype(np.float32)
         return 1 / (heuristic_numpy / heuristic_numpy.max(-1, keepdims=True) + 1e-5)
+
+    @staticmethod
+    def select_start_node_fn(
+        td: TensorDict, env: RL4COEnvBase, num_starts: int, start_node: Optional[int]=None
+    ):
+        if env.name == "tsp" and start_node is not None:
+            # For now, only TSP supports explicitly setting the start node
+            return start_node * torch.ones(
+                td.shape[0] * num_starts, dtype=torch.long, device=td.device
+            )
+
+        # if start_node is not set, we use random start nodes
+        return torch.multinomial(td["action_mask"].float(), num_starts, replacement=True).view(-1)
 
     def run(
         self,
@@ -136,7 +152,12 @@ class AntSystem:
         heatmaps_logits = (
             self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
         )
-        decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
+        decode_strategy = Sampling(
+            multistart=True,
+            num_starts=self.n_ants,
+            select_start_nodes_fn=partial(self.select_start_node_fn, start_node=self.start_node),
+        )
+
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
             logits, mask = NonAutoregressiveDecoder.heatmap_to_logits(
