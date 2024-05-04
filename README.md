@@ -127,7 +127,7 @@ from rl4co.models import AttentionModel
 from rl4co.utils import RL4COTrainer
 
 # Environment, Model, and Lightning Module
-env = TSPEnv(num_loc=20)
+env = TSPEnv(generator_params={'num_loc': 50, 'loc_distribution': 'uniform'})
 model = AttentionModel(env,
                        baseline="rollout",
                        train_data_size=100_000,

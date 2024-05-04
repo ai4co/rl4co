@@ -124,7 +124,9 @@ class AugmentationEval(EvalBase):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
         self.augmentation = StateAugmentation(
-            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric', feats=feats
+            num_augment=num_augment,
+            augment_fn="dihedral8" if force_dihedral_8 else "symmetric",
+            feats=feats,
         )
 
     def _inner(self, policy, td, num_augment=None):
@@ -239,7 +241,13 @@ class GreedyMultiStartAugmentEval(EvalBase):
     name = "multistart_greedy_augment"
 
     def __init__(
-        self, env, num_starts=None, num_augment=8, force_dihedral_8=False, feats=None, **kwargs
+        self,
+        env,
+        num_starts=None,
+        num_augment=8,
+        force_dihedral_8=False,
+        feats=None,
+        **kwargs,
     ):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
@@ -250,7 +258,9 @@ class GreedyMultiStartAugmentEval(EvalBase):
             num_augment != 8 and force_dihedral_8
         ), "Cannot force dihedral 8 when num_augment != 8"
         self.augmentation = StateAugmentation(
-            num_augment=num_augment, augment_fn='dihedral8' if force_dihedral_8 else 'symmetric', feats=feats
+            num_augment=num_augment,
+            augment_fn="dihedral8" if force_dihedral_8 else "symmetric",
+            feats=feats,
         )
 
     def _inner(self, policy, td, num_augment=None):
@@ -327,7 +337,7 @@ def evaluate_policy(
     save_fname="results.npz",
     **kwargs,
 ):
-    num_loc = getattr(env, "num_loc", None)
+    num_loc = getattr(env.generator, "num_loc", None)
 
     methods_mapping = {
         "greedy": {"func": GreedyEval, "kwargs": {}},

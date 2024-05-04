@@ -1,12 +1,12 @@
-from typing import Union, Callable
+from typing import Callable, Union
 
 import torch
 
-from torch.distributions import Uniform
 from tensordict.tensordict import TensorDict
+from torch.distributions import Uniform
 
+from rl4co.envs.common.utils import Generator, get_sampler
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.common.utils import get_sampler, Generator
 
 log = get_pylogger(__name__)
 
@@ -49,25 +49,20 @@ class CVRPGenerator(Generator):
             demand [batch_size, num_loc]: demand of each customer
             capacity [batch_size]: capacity of the vehicle
     """
+
     def __init__(
         self,
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: Union[
-            int, float, str, type, Callable
-        ] = Uniform,
-        depot_distribution: Union[
-            int, float, str, type, Callable
-        ] = Uniform,
+        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
+        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
         min_demand: int = 1,
         max_demand: int = 10,
-        demand_distribution: Union[
-            int, float, type, Callable
-        ] = Uniform,
+        demand_distribution: Union[int, float, type, Callable] = Uniform,
         vehicle_capacity: float = 1.0,
         capacity: float = None,
-        **kwargs
+        **kwargs,
     ):
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -80,31 +75,42 @@ class CVRPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
+            self.loc_sampler = get_sampler(
+                "loc", loc_distribution, min_loc, max_loc, **kwargs
+            )
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:
             self.depot_sampler = kwargs["depot_sampler"]
         else:
-            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs)
+            self.depot_sampler = get_sampler(
+                "depot", depot_distribution, min_loc, max_loc, **kwargs
+            )
 
         # Demand distribution
         if kwargs.get("demand_sampler", None) is not None:
             self.demand_sampler = kwargs["demand_sampler"]
         else:
-            self.demand_sampler = get_sampler("demand", demand_distribution, min_demand-1, max_demand-1, **kwargs)
-        
+            self.demand_sampler = get_sampler(
+                "demand", demand_distribution, min_demand - 1, max_demand - 1, **kwargs
+            )
+
         # Capacity
         self.capacity = kwargs.get("capacity", None)
-        if self.capacity is None: # If not provided, use the default capacity from Kool et al. 2019
+        if (
+            self.capacity is None
+        ):  # If not provided, use the default capacity from Kool et al. 2019
             self.capacity = CAPACITIES.get(num_loc, None)
-        if self.capacity is None: # If not in the table keys, find the closest number of nodes as the key
+        if (
+            self.capacity is None
+        ):  # If not in the table keys, find the closest number of nodes as the key
             closest_num_loc = min(CAPACITIES.keys(), key=lambda x: abs(x - num_loc))
             self.capacity = CAPACITIES[closest_num_loc]
             log.warning(
                 f"The capacity capacity for {num_loc} locations is not defined. Using the closest capacity: {self.capacity}\
                     with {closest_num_loc} locations."
             )
+        # TODO: when setting attribute num_loc, update the capacity
 
     def _generate(self, batch_size) -> TensorDict:
         # Sample locations
@@ -112,7 +118,7 @@ class CVRPGenerator(Generator):
 
         # Sample depot
         depot = self.depot_sampler.sample((*batch_size, 2))
-        
+
         # Sample demands
         demand = self.demand_sampler.sample((*batch_size, self.num_loc))
         demand = (demand.int() + 1).float()
