@@ -90,7 +90,7 @@ def get_tour_length(ordered_locs):
     Args:
         ordered_locs: Tensor of shape [batch_size, num_nodes, 2] containing the ordered locations of the tour
     """
-    ordered_locs_next = torch.roll(ordered_locs, 1, dims=-2)
+    ordered_locs_next = torch.roll(ordered_locs, -1, dims=-2)
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
@@ -140,7 +140,7 @@ def select_start_nodes(td, env, num_starts):
         env: Environment may determine the node selection strategy
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    num_loc = env.num_loc if hasattr(env, "num_loc") else 0xFFFFFFFF
+    num_loc = env.generator.num_loc if hasattr(env.generator, "num_loc") else 0xFFFFFFFF
     if env.name in ["tsp", "atsp"]:
         selected = (
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])

@@ -181,7 +181,7 @@ class AntSystem:
         # calculate Δphe
         delta_pheromone = torch.zeros_like(self.pheromone)
         from_node = actions
-        to_node = torch.roll(from_node, 1, -1)
+        to_node = torch.roll(from_node, -1, -1)
         mapped_reward = self._reward_map(reward).detach()
         batch_action_indices = self._batch_action_indices(
             self.batch_size, actions.shape[-1], reward.device
