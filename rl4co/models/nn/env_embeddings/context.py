@@ -160,9 +160,6 @@ class VRPTWContext(VRPContext):
             embed_dim=embed_dim, step_context_dim=embed_dim + 2
         )
 
-    def _cur_node_embedding(self, embeddings, td):
-        return super()._cur_node_embedding(embeddings, td).reshape(embeddings.size(0), -1)
-
     def _state_embedding(self, embeddings, td):
         capacity = super()._state_embedding(embeddings, td)
         current_time = td["current_time"]
