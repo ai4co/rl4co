@@ -46,10 +46,15 @@ class AntSystem:
         self.beta = beta
         self.decay = decay
 
-        self.log_heuristic = log_heuristic
-        self.pheromone = (
-            torch.ones_like(log_heuristic) if pheromone is None else pheromone
-        )
+        self.log_heuristic = log_heuristic - log_heuristic.flatten(-2, -1).max(
+            -1, keepdim=True
+        )[0].unsqueeze(-1)
+
+        if pheromone is None:
+            self.pheromone = torch.ones_like(log_heuristic)
+            self.pheromone.fill_(0.0005)
+        else:
+            self.pheromone = pheromone
 
         self.final_actions = self.final_reward = None
         self.require_logprobs = require_logprobs
@@ -198,9 +203,14 @@ class AntSystem:
         self.pheromone *= self.decay
         self.pheromone += delta_pheromone
 
-    def _reward_map(self, x):
+    def _reward_map(self, x: Tensor):
         """Map reward :math:`f: \\mathbb{R} \\rightarrow \\mathbb{R}^+`"""
-        return torch.where(x >= -2, 0.25 * x + 1, -1 / x)
+        M, _ = x.max(-1, keepdim=True)
+        mean = x.mean(-1, keepdim=True)
+        v = (M - mean) / (2 * M - x - mean)
+        v[x < mean] /= 5
+        v[x == mean] = 0.5
+        return v
 
     def _recreate_final_routes(self, td, env, action_matrix):
         for action_index in range(action_matrix.shape[-1]):
