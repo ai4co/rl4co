@@ -114,7 +114,7 @@ class CVRPTWEnv(CVRPEnv):
         current_loc = gather_by_index(td["locs"], td["current_node"]).reshape(
             [batch_size, 2]
         )
-        dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1)
+        dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1).contiguous()
         td.update({"current_loc": current_loc, "distances": dist})
         can_reach_in_time = (
             td["current_time"] + dist <= td["time_windows"][..., 1]
