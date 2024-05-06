@@ -124,7 +124,7 @@ def get_num_starts(td, env_name=None):
         num_starts = (
             num_starts - 1
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
-    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
+    elif env_name in ["cvrp", "cvrptw", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot cannot be a start node
 
     return num_starts
