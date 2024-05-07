@@ -62,19 +62,21 @@ class PolyNet(REINFORCE):
 
         assert encoder_type in ["AM", "MatNet"], "Supported encoder types are 'AM' and 'MatNet'"
 
-        if policy is None:
-            policy = PolyNetPolicy(env_name=env.name, k=k, encoder_type=encoder_type, **policy_kwargs)
-
         assert baseline == "shared", "PolyNet only supports shared baseline"
-        assert val_num_solutions >= k , "num_solutions_val needs to be >= k"
+
+        if policy_kwargs.get("val_decode_type") == "greedy" or policy_kwargs.get("test_decode_type") == "greedy":
+            assert val_num_solutions <= k, "If greedy decoding is used val_num_solutions must be <= k"
 
         if encoder_type == "MatNet":
             assert num_augment == 1, "MatNet does not use symmetric or dihedral augmentation"
 
+        if policy is None:
+            policy = PolyNetPolicy(env_name=env.name, k=k, encoder_type=encoder_type, **policy_kwargs)
+
         train_batch_size = kwargs["batch_size"] if "batch_size" in kwargs else 64
         kwargs_with_defaults = {
-            "val_batch_size": max(1, train_batch_size // num_augment // (val_num_solutions // k)),
-            "test_batch_size": max(1, train_batch_size // num_augment // (val_num_solutions // k))
+            "val_batch_size": max(1, train_batch_size // (val_num_solutions // k)),
+            "test_batch_size": max(1, train_batch_size // (val_num_solutions // k))
         }
         kwargs_with_defaults.update(kwargs)
 
