@@ -106,15 +106,8 @@ class CVRPTWEnv(CVRPEnv):
         The vehicle can only visit a location if it can reach it in time, i.e. before its time window ends.
         """
         not_masked = CVRPEnv.get_action_mask(td)
-        batch_size = td["locs"].shape[0]
-        current_loc = gather_by_index(td["locs"], td["current_node"]).reshape(
-            [batch_size, 2]
-        )
-        dist = (
-            get_distance(current_loc, td["locs"].transpose(0, 1))
-            .transpose(0, 1)
-            .contiguous()
-        )
+        current_loc = gather_by_index(td["locs"], td["current_node"])
+        dist = get_distance(current_loc[..., None, :], td["locs"])
         td.update({"current_loc": current_loc, "distances": dist})
         can_reach_in_time = (
             td["current_time"] + dist <= td["time_windows"][..., 1]
@@ -236,7 +229,7 @@ class CVRPTWEnv(CVRPEnv):
         type: str = None,
         compute_edge_weights: bool = False,
     ):
-        if solomon is True:
+        if solomon:
             assert type in [
                 "instance",
                 "solution",
