@@ -279,7 +279,7 @@ class PolyNetAttention(PointerAttention):
         glimpse = self.project_out(heads)
 
         num_solutions = glimpse.shape[1]
-        z = self.binary_vectors.repeat(math.ceil(num_solutions / self.binary_vector_dim), 1)[:num_solutions]
+        z = self.binary_vectors.repeat(math.ceil(num_solutions / (2**self.binary_vector_dim)), 1)[:num_solutions]
         z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
 
         # PolyNet layers
