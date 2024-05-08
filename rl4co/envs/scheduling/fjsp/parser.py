@@ -121,7 +121,7 @@ def read(loc: Path, max_ops=None):
     return td, num_jobs, num_machines, max_ops_per_job
 
 
-def file2lines(loc: Union[Path, str]) -> list[list[int]]:
+def file2lines(loc: Union[Path, str]) -> List[List[int]]:
     with open(loc, "r") as fh:
         lines = [line for line in fh.readlines() if line.strip()]
 

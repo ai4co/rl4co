@@ -30,24 +30,19 @@ class HetGNNDecoder(AutoregressiveDecoder):
         # (bs, n_jobs, emb)
         job_emb = col_emb.gather(1, next_op)
         # (bs, n_jobs, n_ma, emb)
-        job_emb_expanded = job_emb.unsqueeze(-2).expand(-1, -1, n_rows, -1)
-        ma_emb_expanded = row_emb.unsqueeze(-3).expand_as(job_emb_expanded)
+        job_emb_expanded = job_emb.unsqueeze(2).expand(-1, -1, n_rows, -1)
+        ma_emb_expanded = row_emb.unsqueeze(1).expand_as(job_emb_expanded)
 
         # Input of actor MLP
-        # shape: [bs, num_mas, num_jobs, 2*emb]
-        h_actions = (
-            torch.cat((job_emb_expanded, ma_emb_expanded), dim=-1)
-            .transpose(1, 2)
-            .flatten(1, 2)
-        )
+        # shape: [bs, num_jobs * n_ma, 2*emb]
+        h_actions = torch.cat((job_emb_expanded, ma_emb_expanded), dim=-1).flatten(1, 2)
         no_ops = self.dummy[None, None].expand(bs, 1, -1)  # [bs, 1, 2*emb_dim]
-        h_actions_w_noop = torch.cat(
-            (no_ops, h_actions), 1
-        )  # [bs, num_shelves * num_skus + 1, 2*emb_dim]
+        # [bs, num_shelves * num_skus + 1, 2*emb_dim]
+        h_actions_w_noop = torch.cat((no_ops, h_actions), 1)
 
         # (b, m*j)
         mask = get_flat_action_mask(td)
 
         # (bs, ma*jobs)
-        scores = self.mlp(h_actions_w_noop).squeeze(-1)
-        return scores, mask
+        logits = self.mlp(h_actions_w_noop).squeeze(-1)
+        return logits, mask

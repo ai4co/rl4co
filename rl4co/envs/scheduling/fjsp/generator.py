@@ -1,4 +1,5 @@
 from functools import partial
+from typing import List
 
 import numpy as np
 import torch
@@ -183,7 +184,7 @@ class FJSPFileGenerator(Generator):
         self.max_ops_per_job = max_ops_per_job
         self.start_idx = 0
 
-    def _generate(self, batch_size: list[int]) -> TensorDict:
+    def _generate(self, batch_size: List[int]) -> TensorDict:
         batch_size = np.prod(batch_size)
         if batch_size > self.num_samples:
             log.warning(

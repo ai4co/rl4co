@@ -53,6 +53,7 @@ class HetGNNPolicy(AutoregressivePolicy):
         encoder: Optional[AutoregressiveEncoder] = None,
         decoder: Optional[AutoregressiveDecoder] = None,
         embed_dim: int = 64,
+        num_encoder_layers: int = 2,
         env_name: str = "fjsp",
         init_embedding: Optional[nn.Module] = None,
         linear_bias: bool = True,
@@ -67,6 +68,7 @@ class HetGNNPolicy(AutoregressivePolicy):
         if encoder is None:
             encoder = HetGNNEncoder(
                 embed_dim=embed_dim,
+                num_layers=num_encoder_layers,
                 init_embedding=init_embedding,
                 linear_bias=linear_bias,
             )
