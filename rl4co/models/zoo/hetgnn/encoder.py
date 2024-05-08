@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from einops import einsum
+from torch import Tensor
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
 
@@ -22,7 +23,9 @@ class HetGNNLayer(nn.Module):
         self.activation = nn.ReLU()
         self.scale = 1 / math.sqrt(embed_dim)
 
-    def forward(self, self_emb, other_emb, edge_emb, mask):
+    def forward(
+        self, self_emb: Tensor, other_emb: Tensor, edge_emb: Tensor, mask: Tensor
+    ):
         bs, n_rows, _ = self_emb.shape
 
         # concat operation embeddings and o-m edge features (proc times)
@@ -56,7 +59,12 @@ class HetGNNLayer(nn.Module):
         mask = torch.cat(
             (
                 mask == 1,
-                torch.full(size=(bs, n_rows, 1), dtype=torch.bool, fill_value=True),
+                torch.full(
+                    size=(bs, n_rows, 1),
+                    dtype=torch.bool,
+                    fill_value=True,
+                    device=mask.device,
+                ),
             ),
             dim=-1,
         )
