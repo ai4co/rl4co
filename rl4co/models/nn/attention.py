@@ -1,3 +1,4 @@
+import itertools
 import math
 import warnings
 
@@ -10,7 +11,6 @@ import torch.nn.functional as F
 from einops import rearrange
 
 from rl4co.utils import get_pylogger
-import itertools
 
 log = get_pylogger(__name__)
 
@@ -212,7 +212,6 @@ class PointerAttention(nn.Module):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
 
 
-
 # Deprecated
 class LogitAttention(PointerAttention):
     def __init__(self, *args, **kwargs):
@@ -225,9 +224,12 @@ class LogitAttention(PointerAttention):
         )
         super(LogitAttention, self).__init__(*args, **kwargs)
 
+
 class PolyNetAttention(PointerAttention):
     """Calculate logits given query, key and value and logit key.
-    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134).
+    This implements a modified version the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134)
+    as described in Hottung et al. (2024) (https://arxiv.org/abs/2402.14048) PolyNetAttention conditions the attention logits on
+    a set of k different binary vectors allowing to learn k different solution strategies.
 
     Note:
         With Flash Attention, masking is not supported
@@ -235,10 +237,13 @@ class PolyNetAttention(PointerAttention):
     Performs the following:
         1. Apply cross attention to get the heads
         2. Project heads to get glimpse
-        3. Compute attention score between glimpse and logit key
+        3. Apply PolyNet layers
+        4. Compute attention score between glimpse and logit key
 
     Args:
+        k: Number unique bit vectors used to compute attention score
         embed_dim: total dimension of the model
+        poly_layer_dim: Dimension of the PolyNet layers
         num_heads: number of heads
         mask_inner: whether to mask inner attention
         linear_bias: whether to use bias in linear projection
@@ -247,18 +252,17 @@ class PolyNetAttention(PointerAttention):
     """
 
     def __init__(
-        self,
-        k: int,
-        embed_dim: int,
-        poly_layer_dim: int,
-        num_heads: int,
-        **kwargs
+        self, k: int, embed_dim: int, poly_layer_dim: int, num_heads: int, **kwargs
     ):
         super(PolyNetAttention, self).__init__(embed_dim, num_heads, **kwargs)
 
         self.binary_vector_dim = math.ceil(math.log2(k))
-        self.binary_vectors = torch.nn.Parameter(torch.Tensor(
-            list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]), requires_grad=False)
+        self.binary_vectors = torch.nn.Parameter(
+            torch.Tensor(
+                list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]
+            ),
+            requires_grad=False,
+        )
 
         self.poly_layer_1 = nn.Linear(embed_dim + self.binary_vector_dim, poly_layer_dim)
         self.poly_layer_2 = nn.Linear(poly_layer_dim, embed_dim)
@@ -279,14 +283,14 @@ class PolyNetAttention(PointerAttention):
         glimpse = self.project_out(heads)
 
         num_solutions = glimpse.shape[1]
-        z = self.binary_vectors.repeat(math.ceil(num_solutions / (2**self.binary_vector_dim)), 1)[:num_solutions]
+        z = self.binary_vectors.repeat(
+            math.ceil(num_solutions / (2**self.binary_vector_dim)), 1
+        )[:num_solutions]
         z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
 
         # PolyNet layers
         poly_out = self.poly_layer_1(torch.cat((glimpse, z), dim=2))
-        # shape: ?
         poly_out = F.relu(poly_out)
-        # shape: ?
         poly_out = self.poly_layer_2(poly_out)
 
         glimpse += poly_out

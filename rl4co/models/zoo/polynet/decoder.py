@@ -9,9 +9,8 @@ from rl4co.envs import RL4COEnvBase
 from rl4co.models.nn.attention import PolyNetAttention
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-from rl4co.utils.pylogger import get_pylogger
-
 from rl4co.models.zoo.am.decoder import AttentionModelDecoder
+from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
@@ -27,24 +26,27 @@ class PrecomputedCache:
 
 class PolyNetDecoder(AttentionModelDecoder):
     """
-
-    # TODO
-    Auto-regressive decoder for constructing solutions for combinatorial optimization problems.
+    PolyNet decoder for constructing diverse solutions for combinatorial optimization problems.
     Given the environment state and the embeddings, compute the logits and sample actions autoregressively until
     all the environments in the batch have reached a terminal state.
     We additionally include support for multi-starts as it is more efficient to do so in the decoder as we can
     natively perform the attention computation.
 
-
-
     Args:
-        # TODO
-        env_name: environment name to solve
-        embed_dim: Dimension of the embeddings
-        num_heads: Number of heads for the attention
-        use_graph_context: Whether to use the initial graph context to modify the query
-        context_embedding: Module to compute the context embedding. If None, the default is used
-        dynamic_embedding: Module to compute the dynamic embedding. If None, the default is used
+        k: Number of strategies to learn ("K" in the PolyNet paper)
+        encoder_type: Type of encoder that should be used. "AM" or "MatNet" are supported
+        embed_dim: Embedding dimension
+        poly_layer_dim: Dimension of the PolyNet layers
+        num_heads: Number of attention heads
+        env_name: Name of the environment used to initialize embeddings
+        context_embedding: Context embedding module
+        dynamic_embedding: Dynamic embedding module
+        mask_inner: Whether to mask the inner loop
+        out_bias_pointer_attn: Whether to use a bias in the pointer attention
+        linear_bias: Whether to use a bias in the linear layer
+        use_graph_context: Whether to use the graph context
+        check_nan: Whether to check for nan values during decoding
+        sdpa_fn: scaled_dot_product_attention function
     """
 
     def __init__(
@@ -63,7 +65,7 @@ class PolyNetDecoder(AttentionModelDecoder):
         use_graph_context: bool = True,
         check_nan: bool = True,
         sdpa_fn: callable = None,
-        **unused_kwargs
+        **unused_kwargs,
     ):
         super().__init__()
 
@@ -109,8 +111,9 @@ class PolyNetDecoder(AttentionModelDecoder):
         self.project_fixed_context = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
         self.use_graph_context = use_graph_context
 
-
-    def _precompute_cache_matnet(self, embeddings: Tuple[Tensor, Tensor], *args, **kwargs):
+    def _precompute_cache_matnet(
+        self, embeddings: Tuple[Tensor, Tensor], *args, **kwargs
+    ):
         col_emb, row_emb = embeddings
         (
             glimpse_key_fixed,

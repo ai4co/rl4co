@@ -1,28 +1,38 @@
-from typing import Callable, Union
-
+from typing import Union
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
-from rl4co.models.zoo.polynet.decoder import PolyNetDecoder
 from rl4co.models.zoo.am.encoder import AttentionModelEncoder
 from rl4co.models.zoo.matnet.encoder import MatNetEncoder
-
+from rl4co.models.zoo.polynet.decoder import PolyNetDecoder
 
 
 class PolyNetPolicy(AutoregressivePolicy):
     """
     # TODO
-    Attention Model Policy based on Kool et al. (2019): https://arxiv.org/abs/1803.08475.
-    We re-declare the most important arguments here for convenience as in the paper.
-    See `AutoregressivePolicy` superclass for more details.
+    Polynet policy based on Hottung et al. (2024) https://arxiv.org/abs/2402.14048.
+    The model uses either the AttentionModel encoder or the MatNet encoder in combination with
+    a custom PolyNet decoder.
+
+    Note: The default arguments for the AttentionModel encoder follow the POMO paper. The default decoding type
+    during validation and testing is 'sampling'.
 
     Args:
-        env_name: Name of the environment used to initialize embeddings
+        k: Number of strategies to learn ("K" in the paper)
+        encoder_type: Type of encoder that should be used. "AM" or "MatNet" are supported.
         embed_dim: Dimension of the node embeddings
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
         normalization: Normalization type in the attention layers
-        **kwargs: keyword arguments passed to the `AutoregressivePolicy`
+        feedforward_hidden: Dimension of the hidden layer in the feedforward network
+        env_name: Name of the environment used to initialize embeddings
+        temperature: Temperature for the softmax
+        tanh_clipping: Tanh clipping value (see Bello et al., 2016)
+        mask_logits: Whether to mask the logits during decoding
+        train_decode_type: Type of decoding to use during training
+        val_decode_type: Type of decoding to use during validation
+        test_decode_type: Type of decoding to use during testing
+        **kwargs: keyword arguments passed to the encoder and decoder modules
     """
 
     def __init__(
@@ -41,7 +51,7 @@ class PolyNetPolicy(AutoregressivePolicy):
         train_decode_type: str = "sampling",
         val_decode_type: str = "sampling",
         test_decode_type: str = "sampling",
-        **kwargs,  # TODO
+        **kwargs,
     ):
         if encoder_type == "AM":
             encoder = AttentionModelEncoder(
@@ -51,7 +61,7 @@ class PolyNetPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,
-                **kwargs
+                **kwargs,
             )
         elif encoder_type == "MatNet":
             kwargs_with_defaults = {"init_embedding_kwargs": {"mode": "RandomOneHot"}}
@@ -61,7 +71,7 @@ class PolyNetPolicy(AutoregressivePolicy):
                 num_heads=num_heads,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
-                **kwargs_with_defaults
+                **kwargs_with_defaults,
             )
 
         decoder = PolyNetDecoder(
@@ -70,7 +80,7 @@ class PolyNetPolicy(AutoregressivePolicy):
             embed_dim=embed_dim,
             num_heads=num_heads,
             env_name=env_name,
-            **kwargs
+            **kwargs,
         )
 
         super(PolyNetPolicy, self).__init__(
@@ -82,5 +92,5 @@ class PolyNetPolicy(AutoregressivePolicy):
             train_decode_type=train_decode_type,
             val_decode_type=val_decode_type,
             test_decode_type=test_decode_type,
-            **kwargs
+            **kwargs,
         )

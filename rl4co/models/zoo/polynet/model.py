@@ -17,29 +17,27 @@ log = get_pylogger(__name__)
 
 
 class PolyNet(REINFORCE):
-    """POMO Model for neural combinatorial optimization based on REINFORCE
-    Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011.
+    """PolyNet
+    Based on Hottung et al. (2024) https://arxiv.org/abs/2402.14048.
 
     Note:
-        If no policy kwargs is passed, we use the Attention Model policy with the following arguments:
-        Differently to the base class:
-        - `num_encoder_layers=6` (instead of 3)
-        - `normalization="instance"` (instead of "batch")
-        - `use_graph_context=False` (instead of True)
-        The latter is due to the fact that the paper does not use the graph context in the policy, which seems to be
-        helpful in overfitting to the training graph size.
+        PolyNet allows to learn diverse solution stratgies with a single model. This is achieved
+        through a modified decoder and the Poppy loss (Grinsztajn et al. (2021)). PolyNet can be used with the attention model encoder or the MatNet encoder by
+        setting encoder_type to "AM" or "MatNet", respectively.
 
     Args:
         env: TorchRL Environment
         policy: Policy to use for the algorithm
+        k: Number of strategies to learn ("K" in the paper)
+        val_num_solutions: Number of solutions that are generated per instance during validation
+        encoder_type: Type of encoder that should be used. "AM" or "MatNet" are supported
         policy_kwargs: Keyword arguments for policy
-        baseline: Baseline to use for the algorithm. Note that POMO only supports shared baseline,
+        baseline: Baseline to use for the algorithm. Note that PolyNet only supports shared baseline,
             so we will throw an error if anything else is passed.
         num_augment: Number of augmentations (used only for validation and test)
         augment_fn: Function to use for augmentation, defaulting to dihedral8
         first_aug_identity: Whether to include the identity augmentation in the first position
         feats: List of features to augment
-        num_starts: Number of starts for multi-start. If None, use the number of available actions
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -96,7 +94,7 @@ class PolyNet(REINFORCE):
             checkpoint = torch.load(base_model_checkpoint_path)
             state_dict = checkpoint["state_dict"]
             state_dict = {k.replace("policy.", "", 1): v for k, v in state_dict.items()}
-            policy.load_state_dict(state_dict)
+            policy.load_state_dict(state_dict, strict=False)
 
         train_batch_size = kwargs["batch_size"] if "batch_size" in kwargs else 64
         kwargs_with_defaults = {
@@ -203,7 +201,7 @@ class PolyNet(REINFORCE):
         reward: Optional[torch.Tensor] = None,
         log_likelihood: Optional[torch.Tensor] = None,
     ):
-        """Calculate loss for REINFORCE algorithm.
+        """Calculate loss following Poppy (https://arxiv.org/abs/2210.03475).
 
         Args:
             td: TensorDict containing the current state of the environment
@@ -224,7 +222,7 @@ class PolyNet(REINFORCE):
             self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
         )
 
-        # Log-lilelihood mask
+        # Log-likelihood mask. Mask everything but the best rollout per instance
         best_idx = (-reward).argsort(1).argsort(1)
         mask = best_idx < 1
 
