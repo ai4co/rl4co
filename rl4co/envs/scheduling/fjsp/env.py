@@ -24,13 +24,15 @@ class FJSPEnv(EnvBase):
     FJSP environment
     """
 
+    name = "fjsp"
+
     def __init__(
         self,
         generator: FJSPGenerator = None,
         generator_params: dict = {},
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(check_solution=False, **kwargs)
         if generator is None:
             if generator_params.get("file_path", None) is not None:
                 generator = FJSPFileGenerator(**generator_params)
@@ -39,7 +41,7 @@ class FJSPEnv(EnvBase):
         self.generator = generator
         self.num_mas = generator.num_mas
         self.num_jobs = generator.num_jobs
-        self.max_total_ops = generator.max_ops_per_job * self.num_jobs
+        self.n_ops_max = generator.max_ops_per_job * self.num_jobs
         self._make_spec(self.generator)
 
     def _set_seed(self, seed):
@@ -52,11 +54,11 @@ class FJSPEnv(EnvBase):
         start_op_per_job = td["start_op_per_job"]
         end_op_per_job = td["end_op_per_job"]
         pad_mask = td["pad_mask"]
-        n_ops_max = int(end_op_per_job.max() + 1)
+        n_ops_max = td["pad_mask"].size(-1)
 
         # here we will generate the operations-job mapping:
         ops_job_map, ops_job_bin_map = get_job_ops_mapping(
-            start_op_per_job, end_op_per_job
+            start_op_per_job, end_op_per_job, n_ops_max
         )
 
         # mask invalid edges (caused by padding)
@@ -117,7 +119,10 @@ class FJSPEnv(EnvBase):
 
         # reset feature space
         busy_until = torch.zeros((*batch_size, self.num_mas))
-        num_eligible = torch.sum(td_reset["proc_times"] > 0, dim=1)
+        # (bs, ma, ops)
+        ops_ma_adj = (td_reset["proc_times"] > 0).to(torch.float32)
+        # (bs, ops)
+        num_eligible = torch.sum(ops_ma_adj, dim=1)
 
         td_reset = td_reset.update(
             {
@@ -127,6 +132,7 @@ class FJSPEnv(EnvBase):
                 "busy_until": busy_until,
                 "num_eligible": num_eligible,
                 "next_op": start_op_per_job.clone().to(torch.int64),
+                "ops_ma_adj": ops_ma_adj,
                 "op_scheduled": torch.full((*batch_size, n_ops_max), False),
                 "job_in_process": torch.full((*batch_size, self.num_jobs), False),
                 "reward": torch.zeros((*batch_size,), dtype=torch.float32),
@@ -177,15 +183,15 @@ class FJSPEnv(EnvBase):
 
         # no_op_to_process = torch.logical_or((td["busy_until"]>td["time"][:, None]), action_mask.all(1))
         # no_op_mask = torch.logical_and(~no_op_to_process, ~td["done"])
-
-        td["action_mask"] = action_mask
-        td["no_op_mask"] = no_op_mask
+        # NOTE: 1 means feasible action, 0 means infeasible action
+        td["action_mask"] = ~action_mask
+        td["no_op_mask"] = ~no_op_mask
         return td
 
     def _step(self, td: TensorDict):
         # cloning required to avoid inplace operation which avoids gradient backtracking
         td = td.clone()
-
+        td["action"].subtract_(1)
         # (bs)
         dones = td["done"].squeeze(1)
         # specify which batch instances require which operation
@@ -318,11 +324,11 @@ class FJSPEnv(EnvBase):
                 dtype=torch.int64,
             ),
             proc_times=UnboundedDiscreteTensorSpec(
-                shape=(self.num_mas, self.max_total_ops),
+                shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.float32,
             ),
             pad_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.num_mas, self.max_total_ops),
+                shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.bool,
             ),
             start_op_per_job=UnboundedDiscreteTensorSpec(
@@ -334,27 +340,27 @@ class FJSPEnv(EnvBase):
                 dtype=torch.bool,
             ),
             start_times=UnboundedDiscreteTensorSpec(
-                shape=(self.max_total_ops,),
+                shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
             finish_times=UnboundedDiscreteTensorSpec(
-                shape=(self.max_total_ops,),
+                shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
             job_ops_adj=UnboundedDiscreteTensorSpec(
-                shape=(self.num_jobs, self.max_total_ops),
+                shape=(self.num_jobs, self.n_ops_max),
                 dtype=torch.int64,
             ),
             ops_job_map=UnboundedDiscreteTensorSpec(
-                shape=(self.max_total_ops),
+                shape=(self.n_ops_max),
                 dtype=torch.int64,
             ),
             ops_sequence_order=UnboundedDiscreteTensorSpec(
-                shape=(self.max_total_ops),
+                shape=(self.n_ops_max),
                 dtype=torch.int64,
             ),
             ma_assignment=UnboundedDiscreteTensorSpec(
-                shape=(self.num_mas, self.max_total_ops),
+                shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.int64,
             ),
             busy_until=UnboundedDiscreteTensorSpec(
@@ -362,7 +368,7 @@ class FJSPEnv(EnvBase):
                 dtype=torch.int64,
             ),
             num_eligible=UnboundedDiscreteTensorSpec(
-                shape=(self.max_total_ops,),
+                shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
             job_in_process=UnboundedDiscreteTensorSpec(
@@ -379,7 +385,7 @@ class FJSPEnv(EnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=-1,
-            high=self.max_total_ops,
+            high=self.n_ops_max,
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)

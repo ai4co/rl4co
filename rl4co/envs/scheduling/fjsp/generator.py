@@ -54,6 +54,9 @@ class FJSPGenerator(Generator):
         self.max_processing_time = max_processing_time
         self.min_eligible_ma_per_op = min_eligible_ma_per_op
         self.max_eligible_ma_per_op = max_eligible_ma_per_op or num_machines
+        # determines whether to use a fixed number of total operations or let it vary between instances
+        # NOTE: due to the way rl4co builds datasets, we need a fixed size here
+        self.n_ops_max = max_ops_per_job * num_jobs
 
         # FFSP environment doen't have any other kwargs
         if len(unused_kwargs) > 0:
@@ -107,7 +110,7 @@ class FJSPGenerator(Generator):
         # determine the total number of operations per batch instance (which may differ)
         n_ops_batch = n_ope_per_job.sum(1)  # (bs)
         # determine the maximum total number of operations over all batch instances
-        n_ops_max = n_ops_batch.max()
+        n_ops_max = self.n_ops_max or n_ops_batch.max()
 
         # generate a mask, specifying which operations are padded
         pad_mask = torch.arange(n_ops_max).unsqueeze(0).expand(*batch_size, -1)
