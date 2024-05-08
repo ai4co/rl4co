@@ -30,18 +30,9 @@ class HetGNNLayer(nn.Module):
 
         # concat operation embeddings and o-m edge features (proc times)
         # Calculate attention coefficients
-        er = (
-            einsum(self_emb, self.self_attn, "b m e, e one -> b m one").squeeze(-1)
-            * self.scale
-        )
-        ec = (
-            einsum(other_emb, self.cross_attn, "b o e, e one -> b o one").squeeze(-1)
-            * self.scale
-        )
-        ee = (
-            einsum(edge_emb, self.cross_attn, "b m o e, e one -> b m o one").squeeze(-1)
-            * self.scale
-        )
+        er = einsum(self_emb, self.self_attn, "b m e, e one -> b m") * self.scale
+        ec = einsum(other_emb, self.cross_attn, "b o e, e one -> b o") * self.scale
+        ee = einsum(edge_emb, self.edge_attn, "b m o e, e one -> b m o one") * self.scale
 
         # element wise multiplication similar to broadcast column logits over rows with masking
         ec_expanded = einsum(mask, ec, "b m o, b o -> b m o")

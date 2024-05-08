@@ -1,15 +1,14 @@
 import os
 
 from functools import partial
-from multiprocessing import cpu_count
 from pathlib import Path
-from typing import Union
+from typing import List, Tuple, Union
 
 import torch
 
 from tensordict import TensorDict
 
-ProcessingData = list[tuple[int, int]]
+ProcessingData = List[Tuple[int, int]]
 
 
 def list_files(path):
@@ -23,7 +22,7 @@ def list_files(path):
     return files
 
 
-def parse_job_line(line: list[int]) -> list[ProcessingData]:
+def parse_job_line(line: Tuple[int]) -> Tuple[ProcessingData]:
     """
     Parses a FJSPLIB job data line of the following form:
 
@@ -60,15 +59,8 @@ def get_n_ops_of_instance(file):
     return total_ops
 
 
-def get_max_ops_from_files(files, n_proc: int = None):
-    n_proc = cpu_count() if n_proc == -1 else n_proc
-    if n_proc:
-        from torch.multiprocessing import Pool
-
-        with Pool(n_proc) as p:
-            return max(p.map(get_n_ops_of_instance, files))
-    else:
-        return max(map(get_n_ops_of_instance, files))
+def get_max_ops_from_files(files):
+    return max(map(get_n_ops_of_instance, files))
 
 
 def read(loc: Path, max_ops=None):
@@ -184,16 +176,8 @@ def write_one(args, where=None):
     return formatted
 
 
-def write(where: Union[Path, str], instances: TensorDict, n_proc: int = None):
-    n_proc = cpu_count() if n_proc == -1 else n_proc
-
+def write(where: Union[Path, str], instances: TensorDict):
     if not os.path.exists(where):
         os.makedirs(where)
 
-    if n_proc:
-        from torch.multiprocessing import Pool
-
-        with Pool(n_proc) as p:
-            p.map(partial(write_one, where=where), enumerate(iter(instances)))
-    else:
-        return map(partial(write_one, where=where), enumerate(iter(instances)))
+    return list(map(partial(write_one, where=where), enumerate(iter(instances))))
