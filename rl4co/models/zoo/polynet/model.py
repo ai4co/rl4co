@@ -1,6 +1,10 @@
-from typing import Any, Union, Optional
+import logging
+
+from typing import Any, Optional, Union
 
 import torch
+
+from tensordict import TensorDict
 
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
@@ -8,7 +12,6 @@ from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.polynet.policy import PolyNetPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
-from tensordict import TensorDict
 
 log = get_pylogger(__name__)
 
@@ -47,6 +50,7 @@ class PolyNet(REINFORCE):
         k: int = 128,
         val_num_solutions: int = 800,
         encoder_type="AM",
+        base_model_checkpoint_path: str = None,
         policy_kwargs={},
         baseline: str = "shared",
         num_augment: int = 8,
@@ -60,23 +64,44 @@ class PolyNet(REINFORCE):
         self.k = k
         self.val_num_solutions = val_num_solutions
 
-        assert encoder_type in ["AM", "MatNet"], "Supported encoder types are 'AM' and 'MatNet'"
+        assert encoder_type in [
+            "AM",
+            "MatNet",
+        ], "Supported encoder types are 'AM' and 'MatNet'"
 
         assert baseline == "shared", "PolyNet only supports shared baseline"
 
-        if policy_kwargs.get("val_decode_type") == "greedy" or policy_kwargs.get("test_decode_type") == "greedy":
-            assert val_num_solutions <= k, "If greedy decoding is used val_num_solutions must be <= k"
+        if (
+            policy_kwargs.get("val_decode_type") == "greedy"
+            or policy_kwargs.get("test_decode_type") == "greedy"
+        ):
+            assert (
+                val_num_solutions <= k
+            ), "If greedy decoding is used val_num_solutions must be <= k"
 
         if encoder_type == "MatNet":
-            assert num_augment == 1, "MatNet does not use symmetric or dihedral augmentation"
+            assert (
+                num_augment == 1
+            ), "MatNet does not use symmetric or dihedral augmentation"
 
         if policy is None:
-            policy = PolyNetPolicy(env_name=env.name, k=k, encoder_type=encoder_type, **policy_kwargs)
+            policy = PolyNetPolicy(
+                env_name=env.name, k=k, encoder_type=encoder_type, **policy_kwargs
+            )
+
+        if base_model_checkpoint_path is not None:
+            logging.info(
+                f"Trying to load weights from baseline model {base_model_checkpoint_path}"
+            )
+            checkpoint = torch.load(base_model_checkpoint_path)
+            state_dict = checkpoint["state_dict"]
+            state_dict = {k.replace("policy.", "", 1): v for k, v in state_dict.items()}
+            policy.load_state_dict(state_dict)
 
         train_batch_size = kwargs["batch_size"] if "batch_size" in kwargs else 64
         kwargs_with_defaults = {
             "val_batch_size": max(1, train_batch_size // (val_num_solutions // k)),
-            "test_batch_size": max(1, train_batch_size // (val_num_solutions // k))
+            "test_batch_size": max(1, train_batch_size // (val_num_solutions // k)),
         }
         kwargs_with_defaults.update(kwargs)
 
@@ -117,8 +142,12 @@ class PolyNet(REINFORCE):
 
         # Evaluate policy
         out = self.policy(
-            td, self.env, phase=phase, num_starts=n_start, return_actions=True,
-            select_start_nodes_fn=(lambda *args: None)
+            td,
+            self.env,
+            phase=phase,
+            num_starts=n_start,
+            return_actions=True,
+            select_start_nodes_fn=(lambda *args: None),
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
@@ -142,7 +171,11 @@ class PolyNet(REINFORCE):
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_aug, n_start))
                     out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs.unsqueeze(2), dim=2)}
+                        {
+                            "best_multistart_actions": gather_by_index(
+                                actions, max_idxs.unsqueeze(2), dim=2
+                            )
+                        }
                     )
                     out["actions"] = actions
 
@@ -161,7 +194,6 @@ class PolyNet(REINFORCE):
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
-
 
     def calculate_loss(
         self,
