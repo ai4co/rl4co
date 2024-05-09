@@ -77,8 +77,8 @@ def get_job_mask(td):
     """
     # (bs, 1); mask no op if all machines are idle (no job is processed atm)
     no_op_mask = td["no_op_mask"].all(1, keepdims=True)
-    # if a job cannot be processed on any machine, mask it; shape=(bs, jobs)
-    job_mask = td["action_mask"].all(2)
+    # if a job can be processed on any machine, mask it as valid; shape=(bs, jobs)
+    job_mask = td["action_mask"].any(2)
     # (bs, 1 + jobs)
     return torch.cat((no_op_mask, job_mask), dim=1)
 
@@ -97,15 +97,15 @@ def get_machine_mask(td):
         1, td["selected_job"][:, None, None].expand(bs, 1, num_mas) + 1
     ).view(bs, num_mas)
     # (bs, 1); if no job is selected (waiting operation), dummy machine is only feasible option
-    dummy_ma_mask = torch.where(td["selected_job"] == -1, False, True)[:, None]
+    dummy_ma_mask = torch.where(td["selected_job"] == -1, True, False)[:, None]
     # (bs, 1 + ma); concat
     return torch.cat((dummy_ma_mask, ma_mask), dim=1)
 
 
-def get_no_op_mask_per_ma(td):
-    action_mask = td["action_mask"]
+def get_no_op_mask_per_ma(td, action_mask=None):
+    action_mask = action_mask if action_mask is not None else td["action_mask"]
     no_op_to_process = torch.logical_or(
-        (td["busy_until"] > td["time"][:, None]), action_mask.all(1)
+        (td["busy_until"] > td["time"][:, None]), ~action_mask.any(1)
     )
-    no_op_mask = torch.logical_and(~no_op_to_process, ~td["done"])
+    no_op_mask = torch.logical_or(no_op_to_process, td["done"])
     return no_op_mask

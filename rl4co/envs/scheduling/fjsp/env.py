@@ -180,15 +180,14 @@ class FJSPEnv(EnvBase):
         )
         action_mask.add_(next_ops_proc_times == 0)
         if self.mask_no_ops:
-            no_op_mask = ~td["done"]
+            no_op_mask = ~td["done"].expand(batch_size, self.num_mas)
         else:
             no_op_mask = torch.logical_and(
                 ~td["job_in_process"].any(1, keepdims=True), ~td["done"]
             ).expand(batch_size, self.num_mas)
 
-        # no_op_to_process = torch.logical_or((td["busy_until"]>td["time"][:, None]), action_mask.all(1))
-        # no_op_mask = torch.logical_and(~no_op_to_process, ~td["done"])
         # NOTE: 1 means feasible action, 0 means infeasible action
+        # TODO make shape consistent with logit shape
         td["action_mask"] = ~action_mask
         td["no_op_mask"] = ~no_op_mask
         return td
