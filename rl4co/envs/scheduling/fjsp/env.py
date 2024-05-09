@@ -16,6 +16,7 @@ from rl4co.envs.common.base import RL4COEnvBase as EnvBase
 from . import INIT_FINISH, NO_OP_ID
 from .features import calc_lower_bound, op_is_ready
 from .generator import FJSPFileGenerator, FJSPGenerator
+from .render import render
 from .utils import get_job_ops_mapping
 
 
@@ -30,6 +31,7 @@ class FJSPEnv(EnvBase):
         self,
         generator: FJSPGenerator = None,
         generator_params: dict = {},
+        mask_no_ops: bool = False,
         **kwargs,
     ):
         super().__init__(check_solution=False, **kwargs)
@@ -42,6 +44,7 @@ class FJSPEnv(EnvBase):
         self.num_mas = generator.num_mas
         self.num_jobs = generator.num_jobs
         self.n_ops_max = generator.max_ops_per_job * self.num_jobs
+        self.mask_no_ops = mask_no_ops
         self._make_spec(self.generator)
 
     def _set_seed(self, seed):
@@ -176,10 +179,12 @@ class FJSPEnv(EnvBase):
             .transpose(1, 2)
         )
         action_mask.add_(next_ops_proc_times == 0)
-
-        no_op_mask = torch.logical_and(
-            ~td["job_in_process"].any(1, keepdims=True), ~td["done"]
-        ).expand(batch_size, self.num_mas)
+        if self.mask_no_ops:
+            no_op_mask = ~td["done"]
+        else:
+            no_op_mask = torch.logical_and(
+                ~td["job_in_process"].any(1, keepdims=True), ~td["done"]
+            ).expand(batch_size, self.num_mas)
 
         # no_op_to_process = torch.logical_or((td["busy_until"]>td["time"][:, None]), action_mask.all(1))
         # no_op_mask = torch.logical_and(~no_op_to_process, ~td["done"])
@@ -216,16 +221,11 @@ class FJSPEnv(EnvBase):
         # action mask
         td = self.set_action_mask(td)
 
-        step_complete = torch.logical_and(
-            reduce(td["action_mask"], "bs ... -> bs", "all"), ~dones
-        )
-
+        step_complete = self._check_step_complete(td, dones)
         while step_complete.any():
             td, dones = self._transit_to_next_time(step_complete, td)
             td = self.set_action_mask(td)
-            step_complete = torch.logical_and(
-                reduce(td["action_mask"], "bs ... -> bs", "all"), ~dones
-            )
+            step_complete = self._check_step_complete(td, dones)
 
         # after we have transitioned to a next time step, we determine which operations are ready
         td["is_ready"] = op_is_ready(td)
@@ -233,6 +233,15 @@ class FJSPEnv(EnvBase):
         td["lbs"] = calc_lower_bound(td)
 
         return td
+
+    @staticmethod
+    def _check_step_complete(td, dones):
+        """check whether there a feasible actions left to be taken during the current
+        time step. If this is not the case, we need to adance the timer of the repsective
+        instance"""
+        return torch.logical_and(
+            ~reduce(td["action_mask"], "bs ... -> bs", "any"), ~dones
+        )
 
     def _make_step(self, td: TensorDict, selected_job, selected_machine) -> TensorDict:
         """
@@ -389,3 +398,7 @@ class FJSPEnv(EnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+
+    @staticmethod
+    def render(td, idx):
+        return render(td, idx)

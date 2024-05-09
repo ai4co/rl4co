@@ -138,7 +138,7 @@ class FJSPGenerator(Generator):
             {
                 "start_op_per_job": start_op_per_job,
                 "end_op_per_job": end_op_per_job,
-                "proc_times": proc_times,  # TODO move the normalization logic to the model / self.norm_const,
+                "proc_times": proc_times,
                 "pad_mask": pad_mask,
             },
             batch_size=batch_size,
