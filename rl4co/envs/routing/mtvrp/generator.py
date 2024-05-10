@@ -213,25 +213,33 @@ class MTVRPGenerator(Generator):
         """
         batch_size = td.batch_size[0]
 
+        variant_probs = torch.tensor(list(self.variant_probs.values()))
+
         if self.use_combinations:
             # in a batch, multiple variants combinations can be picked
-            keep_mask = torch.rand(batch_size, 4) >= torch.tensor(
-                list(self.variant_probs.values())
-            )
+            keep_mask = torch.rand(batch_size, 4) >= variant_probs  # O, TW, L, B
         else:
             # in a batch, only a variant can be picked.
             # we assign a 0.5 prob to the last variant (which is normal cvrp)
-            if self.variant_preset in ["vrpb", "vrpl", "ovrp", "vrptw"]:
+            if self.variant_preset in list(
+                VARIANT_GENERATION_PRESETS.keys()
+            ) and self.variant_preset not in ("all", "cvrp", "single_feat"):
                 cvrp_prob = 0
             else:
                 cvrp_prob = 0.5
-            indices = torch.distributions.Categorical(
-                torch.Tensor(list(self.variant_probs.values()) + [cvrp_prob])[
-                    None
-                ].repeat(batch_size, 1)
-            ).sample()
-            keep_mask = torch.zeros((batch_size, 5), dtype=torch.bool)
-            keep_mask[torch.arange(batch_size), indices] = 1
+            if self.variant_preset in ("all", "cvrp", "single_feat"):
+                indices = torch.distributions.Categorical(
+                    torch.Tensor(list(self.variant_probs.values()) + [cvrp_prob])[
+                        None
+                    ].repeat(batch_size, 1)
+                ).sample()
+                keep_mask = torch.zeros((batch_size, 5), dtype=torch.bool)
+                keep_mask[torch.arange(batch_size), indices] = True
+            else:
+                # if the variant is specified, we keep the attributes with probability > 0
+                keep_mask = torch.zeros((batch_size, 4), dtype=torch.bool)
+                indices = torch.nonzero(variant_probs).squeeze()
+                keep_mask[:, indices] = True
 
         td = self._default_open(td, ~keep_mask[:, 0])
         td = self._default_time_window(td, ~keep_mask[:, 1])
