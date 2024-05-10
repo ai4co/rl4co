@@ -1,12 +1,10 @@
-from typing import Union, Callable
+from typing import Callable, Union
 
-import torch
-
-from torch.distributions import Uniform
 from tensordict.tensordict import TensorDict
+from torch.distributions import Uniform
 
+from rl4co.envs.common.utils import Generator, get_sampler
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.common.utils import get_sampler, Generator
 
 log = get_pylogger(__name__)
 
@@ -22,6 +20,7 @@ MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 
 class PCTSPGenerator(Generator):
     """Data generator for the Prize-collecting Traveling Salesman Problem (PCTSP).
+
     Args:
         num_loc: number of locations (customers) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         min_loc: minimum value for the location coordinates
@@ -40,20 +39,17 @@ class PCTSPGenerator(Generator):
             demand [batch_size, num_loc]: demand of each customer
             capacity [batch_size, 1]: capacity of the vehicle
     """
+
     def __init__(
         self,
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: Union[
-            int, float, str, type, Callable
-        ] = Uniform,
-        depot_distribution: Union[
-            int, float, str, type, Callable
-        ] = Uniform,
+        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
+        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
         penalty_factor: float = 3.0,
         prize_required: float = 1.0,
-        **kwargs
+        **kwargs,
     ):
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -65,30 +61,42 @@ class PCTSPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
+            self.loc_sampler = get_sampler(
+                "loc", loc_distribution, min_loc, max_loc, **kwargs
+            )
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:
             self.depot_sampler = kwargs["depot_sampler"]
         else:
-            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs)
+            self.depot_sampler = get_sampler(
+                "depot", depot_distribution, min_loc, max_loc, **kwargs
+            )
 
         # Prize distribution
-        self.deterministic_prize_sampler = get_sampler("deterministric_prize", "uniform", 0.0, 4.0/self.num_loc, **kwargs)
-        self.stochastic_prize_sampler = get_sampler("stochastic_prize", "uniform", 0.0, 8.0/self.num_loc, **kwargs)
-        
+        self.deterministic_prize_sampler = get_sampler(
+            "deterministric_prize", "uniform", 0.0, 4.0 / self.num_loc, **kwargs
+        )
+        self.stochastic_prize_sampler = get_sampler(
+            "stochastic_prize", "uniform", 0.0, 8.0 / self.num_loc, **kwargs
+        )
+
         # Penalty
         self.max_penalty = kwargs.get("max_penalty", None)
-        if self.max_penalty is None: # If not provided, use the default max penalty
+        if self.max_penalty is None:  # If not provided, use the default max penalty
             self.max_penalty = MAX_LENGTHS.get(num_loc, None)
-        if self.max_penalty is None: # If not in the table keys, find the closest number of nodes as the key
+        if (
+            self.max_penalty is None
+        ):  # If not in the table keys, find the closest number of nodes as the key
             closest_num_loc = min(MAX_LENGTHS.keys(), key=lambda x: abs(x - num_loc))
             self.max_penalty = MAX_LENGTHS[closest_num_loc]
             log.warning(
                 f"The max penalty for {num_loc} locations is not defined. Using the closest max penalty: {self.max_penalty}\
                     with {closest_num_loc} locations."
             )
-        self.penalty_sampler = get_sampler("penalty", "uniform", 0.0, self.max_penalty, **kwargs)
+        self.penalty_sampler = get_sampler(
+            "penalty", "uniform", 0.0, self.max_penalty, **kwargs
+        )
 
     def _generate(self, batch_size) -> TensorDict:
         # Sample locations
@@ -96,13 +104,17 @@ class PCTSPGenerator(Generator):
 
         # Sample depot
         depot = self.depot_sampler.sample((*batch_size, 2))
-        
+
         # Sample penalty
         penalty = self.penalty_sampler.sample((*batch_size, self.num_loc))
 
         # Sampel prize
-        deterministic_prize = self.deterministic_prize_sampler.sample((*batch_size, self.num_loc))
-        stochastic_prize = self.stochastic_prize_sampler.sample((*batch_size, self.num_loc))
+        deterministic_prize = self.deterministic_prize_sampler.sample(
+            (*batch_size, self.num_loc)
+        )
+        stochastic_prize = self.stochastic_prize_sampler.sample(
+            (*batch_size, self.num_loc)
+        )
 
         return TensorDict(
             {
