@@ -120,13 +120,13 @@ class MTVRPEnv(RL4COEnvBase):
             src=td["time_windows"], idx=curr_node, dim=1, squeeze=False
         )[..., 0]
         # we cannot start before we arrive and we should start at least at start times
-        current_time = (curr_node[:, None] != 0) * (
+        curr_time = (curr_node[:, None] != 0) * (
             torch.max(td["current_time"] + distance / td["speed"], start_times)
             + service_time
         )
 
         # Update current route length (reset at depot)
-        current_route_length = (curr_node[:, None] != 0) * (
+        curr_route_length = (curr_node[:, None] != 0) * (
             td["current_route_length"] + distance
         )
 
@@ -157,8 +157,8 @@ class MTVRPEnv(RL4COEnvBase):
         td.update(
             {
                 "current_node": curr_node,
-                "current_route_length": current_route_length,
-                "current_time": current_time,
+                "current_route_length": curr_route_length,
+                "current_time": curr_time,
                 "done": done,
                 "reward": reward,
                 "used_capacity_linehaul": used_capacity_linehaul,
@@ -313,6 +313,9 @@ class MTVRPEnv(RL4COEnvBase):
             == sorted_pi[:, -n_loc:]
         ).all() and (sorted_pi[:, :-n_loc] == 0).all(), "Invalid tour"
 
+        # Distance limits (L)
+        assert (td["distance_limit"] >= 0).all(), "Distance limits must be non-negative."
+
         # Time windows (TW)
         d_j0 = get_distance(locs, locs[..., 0:1, :])  # j (next) -> 0 (depot)
         assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
@@ -327,11 +330,21 @@ class MTVRPEnv(RL4COEnvBase):
         # check individual time windows
         curr_time = torch.zeros(batch_size, dtype=torch.float32, device=td.device)
         curr_node = torch.zeros(batch_size, dtype=torch.int64, device=td.device)
+        curr_length = torch.zeros(batch_size, dtype=torch.float32, device=td.device)
         for ii in range(actions.size(1)):
             next_node = actions[:, ii]
             curr_loc = gather_by_index(td["locs"], curr_node)
             next_loc = gather_by_index(td["locs"], next_node)
             dist = get_distance(curr_loc, next_loc)
+
+            # distance limit (L)
+            curr_length = curr_length + dist * ~(
+                td["open_route"].squeeze(-1) & (next_node == 0)
+            )  # do not count back to depot for open route
+            assert torch.all(
+                curr_length <= td["distance_limit"].squeeze(-1)
+            ), "Route exceeds distance limit"
+            curr_length[next_node == 0] = 0.0  # reset length for depot
 
             curr_time = torch.max(
                 curr_time + dist, gather_by_index(td["time_windows"], next_node)[..., 0]
@@ -342,44 +355,6 @@ class MTVRPEnv(RL4COEnvBase):
             curr_time = curr_time + gather_by_index(td["service_time"], next_node)
             curr_node = next_node
             curr_time[curr_node == 0] = 0.0  # reset time for depot
-
-        # Distance limits (L)
-        assert (td["distance_limit"] >= 0).all(), "Distance limits must be non-negative."
-        distance_limit = td["distance_limit"][0].item()
-        if distance_limit != float("inf"):
-            go_from = torch.cat((torch.zeros(batch_size, 1), actions), dim=1).to(
-                dtype=torch.int64
-            )
-            go_to = torch.roll(go_from, shifts=-1).to(dtype=torch.int64)
-            curr_loc = gather_by_index(td["locs"], go_from)
-            next_loc = gather_by_index(td["locs"], go_to)
-            distances = get_distance(curr_loc, next_loc)
-
-            # Compute the lengths of each route for each batch
-            lengths = [
-                torch.diff(
-                    torch.where((torch.cat((go_from[ii], torch.tensor([0]))) == 0))[0]
-                )
-                for ii in range(batch_size)
-            ]
-
-            # Split distances into sections
-            routes = [
-                torch.split(distances[ii], lengths[ii].tolist(), dim=0)
-                for ii in range(batch_size)
-            ]
-            # If the route is open, we don't need to return to the depot
-            for ii in range(batch_size):
-                if td["open_route"][ii]:
-                    routes[ii] = [route[:-1] for route in routes[ii]]
-            # Flatten routes into a list of tensors
-            routes = [tensor for route in routes for tensor in route]
-
-            # Compute the sum for each tensor in the list
-            sums = [route.sum() for route in routes]
-            assert (
-                torch.stack(sums) <= distance_limit
-            ).all(), "Route exceeds distance limit"
 
         # Demand constraints (C) and (B)
         # linehauls are the same as backhauls but with a different feature
