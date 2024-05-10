@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from rl4co.data.transforms import StateAugmentation
-from rl4co.utils.ops import batchify, gather_by_index, unbatchify
+from rl4co.utils.ops import batchify, gather_by_index, sample_n_random_actions, unbatchify
 
 
 def check_unused_kwargs(class_, kwargs):
@@ -177,6 +177,7 @@ class SamplingEval(EvalBase):
             return_actions=True,
             softmax_temp=self.softmax_temp,
             select_best=True,
+            select_start_nodes_fn=lambda td, _, n: sample_n_random_actions(td, n),
         )
 
         # Move into batches and compute rewards

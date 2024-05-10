@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.utils.ops import batchify, gather_by_index, unbatchify
+from rl4co.utils.ops import batchify, unbatchify, unbatchify_and_gather
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -366,16 +366,12 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         return selected
 
     def _select_best(self, logprobs, actions, td: TensorDict, env: RL4COEnvBase):
-        def unbatchify_and_gather(x, idx):
-            x = unbatchify(x, self.num_starts)
-            return gather_by_index(x, idx, dim=idx.dim())
-
         rewards = env.get_reward(td, actions)
         _, max_idxs = unbatchify(rewards, self.num_starts).max(dim=-1)
 
-        actions = unbatchify_and_gather(actions, max_idxs)
-        logprobs = unbatchify_and_gather(logprobs, max_idxs)
-        td = unbatchify_and_gather(td, max_idxs)
+        actions = unbatchify_and_gather(actions, max_idxs, self.num_starts)
+        logprobs = unbatchify_and_gather(logprobs, max_idxs, self.num_starts)
+        td = unbatchify_and_gather(td, max_idxs, self.num_starts)
 
         return logprobs, actions, td, env
 
