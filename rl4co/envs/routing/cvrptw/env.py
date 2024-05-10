@@ -159,7 +159,7 @@ class CVRPTWEnv(CVRPEnv):
                     (*batch_size, 1), self.generator.vehicle_capacity, device=device
                 ),
                 "visited": torch.zeros(
-                    (*batch_size, 1, td["locs"].shape[-2] + 1),
+                    (*batch_size, td["locs"].shape[-2] + 1),
                     dtype=torch.uint8,
                     device=device,
                 ),
