@@ -1,21 +1,17 @@
-from math import sqrt
 from typing import Optional
-import torch
-from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-)
 
-from rl4co.envs.routing.cvrp.env import CVRPEnv
-from rl4co.envs.routing.cvrp.generator import CAPACITIES
-from rl4co.utils.ops import gather_by_index, get_distance
+import torch
+
+from tensordict.tensordict import TensorDict
+from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+
 from rl4co.data.utils import (
     load_npz_to_tensordict,
     load_solomon_instance,
     load_solomon_solution,
 )
+from rl4co.envs.routing.cvrp.env import CVRPEnv
+from rl4co.utils.ops import gather_by_index, get_distance
 
 from ..cvrp.generator import CVRPGenerator
 from .generator import CVRPTWGenerator
@@ -110,11 +106,8 @@ class CVRPTWEnv(CVRPEnv):
         The vehicle can only visit a location if it can reach it in time, i.e. before its time window ends.
         """
         not_masked = CVRPEnv.get_action_mask(td)
-        batch_size = td["locs"].shape[0]
-        current_loc = gather_by_index(td["locs"], td["current_node"]).reshape(
-            [batch_size, 2]
-        )
-        dist = get_distance(current_loc, td["locs"].transpose(0, 1)).transpose(0, 1)
+        current_loc = gather_by_index(td["locs"], td["current_node"])
+        dist = get_distance(current_loc[..., None, :], td["locs"])
         td.update({"current_loc": current_loc, "distances": dist})
         can_reach_in_time = (
             td["current_time"] + dist <= td["time_windows"][..., 1]
@@ -225,7 +218,7 @@ class CVRPTWEnv(CVRPEnv):
             curr_time[curr_node == 0] = 0.0  # reset time for depot
 
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         render(td, actions, ax)
 
     @staticmethod
@@ -236,7 +229,7 @@ class CVRPTWEnv(CVRPEnv):
         type: str = None,
         compute_edge_weights: bool = False,
     ):
-        if solomon == True:
+        if solomon:
             assert type in [
                 "instance",
                 "solution",
