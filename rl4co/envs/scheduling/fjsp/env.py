@@ -12,6 +12,7 @@ from torchrl.data import (
 )
 
 from rl4co.envs.common.base import RL4COEnvBase as EnvBase
+from rl4co.utils.ops import gather_by_index, sample_n_random_actions
 
 from . import INIT_FINISH, NO_OP_ID
 from .generator import FJSPFileGenerator, FJSPGenerator
@@ -20,8 +21,46 @@ from .utils import calc_lower_bound, get_job_ops_mapping, op_is_ready
 
 
 class FJSPEnv(EnvBase):
-    """
-    FJSP environment
+    """Flexible Job-Shop Scheduling Problem (FJSP) environment
+    At each step, the agent chooses a job-machine combination. The operation to be processed next for the selected job is
+    then executed on the selected machine. The reward is 0 unless the agent scheduled all operations of all jobs.
+    In that case, the reward is (-)makespan of the schedule: maximizing the reward is equivalent to minimizing the makespan.
+
+    Observations:
+        - time: current time
+        - next_op: next operation per job
+        - proc_times: processing time of operation-machine pairs
+        - pad_mask: specifies padded operations
+        - start_op_per_job: id of first operation per job
+        - end_op_per_job: id of last operation per job
+        - start_times: start time of operation (defaults to 0 if not scheduled)
+        - finish_times: finish time of operation (defaults to INIT_FINISH if not scheduled)
+        - job_ops_adj: adjacency matrix specifying job-operation affiliation
+        - ops_job_map: same as above but using ids of jobs to indicate affiliation
+        - ops_sequence_order: specifies the order in which operations have to be processed
+        - ma_assignment: specifies which operation has been scheduled on which machine
+        - busy_until: specifies until when the machine will be busy
+        - num_eligible: number of machines that can process an operation
+        - job_in_process: whether job is currently being processed
+        - job_done: whether the job is done
+
+    Constrains:
+        the agent may not select:
+        - machines that are currently busy
+        - jobs that are done already
+        - jobs that are currently processed
+        - job-machine combinations, where the machine cannot process the next operation of the job
+
+    Finish condition:
+        - the agent has scheduled all operations of all jobs
+
+    Reward:
+        - the negative makespan of the final schedule
+
+    Args:
+        generator: FJSPGenerator instance as the data generator
+        generator_params: parameters for the generator
+        mask_no_ops: if True, agent may not select waiting operation (unless instance is done)
     """
 
     name = "fjsp"
@@ -167,23 +206,14 @@ class FJSPEnv(EnvBase):
         action_mask.add_(td["busy_until"].gt(td["time"].unsqueeze(1)).unsqueeze(1))
 
         # exclude job-machine combinations, where the machine cannot process the next op of the job
-        next_ops_proc_times = (
-            td["proc_times"]
-            .gather(
-                2,
-                td["next_op"]
-                .unsqueeze(1)
-                .expand(batch_size, self.num_mas, self.num_jobs),
-            )
-            .transpose(1, 2)
-        )
+        next_ops_proc_times = gather_by_index(
+            td["proc_times"], td["next_op"].unsqueeze(1), dim=2
+        ).transpose(1, 2)
         action_mask.add_(next_ops_proc_times == 0)
         if self.mask_no_ops:
             no_op_mask = ~td["done"]
         else:
-            no_op_mask = torch.logical_and(
-                ~td["job_in_process"].any(1, keepdims=True), ~td["done"]
-            )
+            no_op_mask = ~td["job_in_process"].any(1, keepdims=True) & ~td["done"]
         # flatten action mask to correspond with logit shape
         action_mask = rearrange(action_mask, "bs j m -> bs (j m)")
         # NOTE: 1 means feasible action, 0 means infeasible action
@@ -199,8 +229,8 @@ class FJSPEnv(EnvBase):
         dones = td["done"].squeeze(1)
         # specify which batch instances require which operation
         no_op = td["action"].eq(NO_OP_ID)
-        no_op = torch.logical_and(no_op, ~dones)
-        req_op = torch.logical_and(~no_op, ~dones)
+        no_op = no_op & ~dones
+        req_op = ~no_op & ~dones
 
         # transition to next time for no op instances
         if no_op.any():
@@ -236,10 +266,9 @@ class FJSPEnv(EnvBase):
     def _check_step_complete(td, dones):
         """check whether there a feasible actions left to be taken during the current
         time step. If this is not the case (and the instance is not done),
-        we need to adance the timer of the repsective instance"""
-        return torch.logical_and(
-            ~reduce(td["action_mask"], "bs ... -> bs", "any"), ~dones
-        )
+        we need to adance the timer of the repsective instance
+        """
+        return ~reduce(td["action_mask"], "bs ... -> bs", "any") & ~dones
 
     def _make_step(self, td: TensorDict, selected_job, selected_machine) -> TensorDict:
         """
@@ -299,14 +328,12 @@ class FJSPEnv(EnvBase):
         # this may only be set when the operation is finished, not when it is scheduled
         # operation of job is finished, set next operation and flag job as being idle
         curr_ops_end = td["finish_times"].gather(1, td["next_op"])
-        op_finished = torch.logical_and(
-            td["job_in_process"], curr_ops_end <= td["time"][:, None]
-        )
+        op_finished = td["job_in_process"] & (curr_ops_end <= td["time"][:, None])
         # check whether a job is finished, which is the case when the last operation of the job is finished
-        job_finished = torch.logical_and(op_finished, td["next_op"] == end_op_per_job)
+        job_finished = op_finished & (td["next_op"] == end_op_per_job)
         # determine the next operation for a job that is not done, but whose latest operation is finished
         td["next_op"] = torch.where(
-            torch.logical_and(op_finished, ~job_finished),
+            op_finished & ~job_finished,
             td["next_op"] + 1,
             td["next_op"],
         )
@@ -402,20 +429,7 @@ class FJSPEnv(EnvBase):
         return render(td, idx)
 
     def select_start_nodes(self, td: TensorDict, num_starts: int):
-        action_mask = td["action_mask"]
-        # check whether to use replacement or not
-        n_valid_actions = torch.sum(action_mask[:, 1:], 1).min()
-        if n_valid_actions < num_starts:
-            replace = True
-        else:
-            replace = False
-        ps = torch.rand((action_mask.shape))
-        ps[~action_mask] = -torch.inf
-        # (bs, j*m+1)
-        ps = torch.softmax(ps, dim=1)
-        selected = torch.multinomial(ps, num_starts, replacement=replace).squeeze(1)
-        selected = rearrange(selected, "b n -> (n b)")
-        return selected.to(td.device)
+        return sample_n_random_actions(td, num_starts)
 
     def get_num_starts(self, td):
         # NOTE in the paper they use N_s = 100

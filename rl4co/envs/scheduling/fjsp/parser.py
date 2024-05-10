@@ -67,15 +67,12 @@ def read(loc: Path, max_ops=None):
     """
     Reads an FJSPLIB instance.
 
-    Parameters
-    ----------
-    loc
-        Location of the instance file.
+    Args:
+        loc: location of instance file
+        max_ops: optionally specify the maximum number of total operations (will be filled by padding)
 
-    Returns
-    -------
-    Instance
-        The parsed instance.
+    Returns:
+        instance: the parsed instance
     """
     lines = file2lines(loc)
 

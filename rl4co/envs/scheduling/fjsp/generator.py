@@ -127,7 +127,11 @@ class FJSPGenerator(Generator):
         )
 
         # here we simulate the eligible machines per operation and the processing times
-        n_eligible_per_ops = torch.randint(1, self.num_mas + 1, (*batch_size, n_ops_max))
+        n_eligible_per_ops = torch.randint(
+            self.min_eligible_ma_per_op,
+            self.max_eligible_ma_per_op + 1,
+            (*batch_size, n_ops_max),
+        )
         n_eligible_per_ops[pad_mask] = 0
 
         # simulate processing times for machine-operation pairs
