@@ -2,7 +2,7 @@ from typing import Tuple
 
 import torch
 
-from einops import reduce
+from einops import rearrange, reduce
 from tensordict.tensordict import TensorDict
 from torchrl.data import (
     BoundedTensorSpec,
@@ -14,10 +14,9 @@ from torchrl.data import (
 from rl4co.envs.common.base import RL4COEnvBase as EnvBase
 
 from . import INIT_FINISH, NO_OP_ID
-from .features import calc_lower_bound, op_is_ready
 from .generator import FJSPFileGenerator, FJSPGenerator
 from .render import render
-from .utils import get_job_ops_mapping
+from .utils import calc_lower_bound, get_job_ops_mapping, op_is_ready
 
 
 class FJSPEnv(EnvBase):
@@ -31,7 +30,7 @@ class FJSPEnv(EnvBase):
         self,
         generator: FJSPGenerator = None,
         generator_params: dict = {},
-        mask_no_ops: bool = False,
+        mask_no_ops: bool = True,
         **kwargs,
     ):
         super().__init__(check_solution=False, **kwargs)
@@ -180,16 +179,16 @@ class FJSPEnv(EnvBase):
         )
         action_mask.add_(next_ops_proc_times == 0)
         if self.mask_no_ops:
-            no_op_mask = ~td["done"].expand(batch_size, self.num_mas)
+            no_op_mask = ~td["done"]
         else:
             no_op_mask = torch.logical_and(
                 ~td["job_in_process"].any(1, keepdims=True), ~td["done"]
-            ).expand(batch_size, self.num_mas)
-
+            )
+        # flatten action mask to correspond with logit shape
+        action_mask = rearrange(action_mask, "bs j m -> bs (j m)")
         # NOTE: 1 means feasible action, 0 means infeasible action
-        # TODO make shape consistent with logit shape
-        td["action_mask"] = ~action_mask
-        td["no_op_mask"] = ~no_op_mask
+        mask = torch.cat((~no_op_mask, ~action_mask), dim=1)
+        td["action_mask"] = mask
         return td
 
     def _step(self, td: TensorDict):
@@ -236,8 +235,8 @@ class FJSPEnv(EnvBase):
     @staticmethod
     def _check_step_complete(td, dones):
         """check whether there a feasible actions left to be taken during the current
-        time step. If this is not the case, we need to adance the timer of the repsective
-        instance"""
+        time step. If this is not the case (and the instance is not done),
+        we need to adance the timer of the repsective instance"""
         return torch.logical_and(
             ~reduce(td["action_mask"], "bs ... -> bs", "any"), ~dones
         )
@@ -401,3 +400,23 @@ class FJSPEnv(EnvBase):
     @staticmethod
     def render(td, idx):
         return render(td, idx)
+
+    def select_start_nodes(self, td, num_starts):
+        action_mask = td["action_mask"]
+        # check whether to use replacement or not
+        n_valid_actions = torch.sum(action_mask[:, 1:], 1).min()
+        if n_valid_actions < num_starts:
+            replace = True
+        else:
+            replace = False
+        ps = torch.rand((action_mask.shape))
+        ps[~action_mask] = -torch.inf
+        # (bs, j*m+1)
+        ps = torch.softmax(ps, dim=1)
+        selected = torch.multinomial(ps, num_starts, replacement=replace).squeeze(1)
+        selected = rearrange(selected, "b n -> (n b)")
+        return selected
+
+    def get_num_starts(self, td):
+        # NOTE in the paper they use N_s = 100
+        return 100

@@ -59,7 +59,7 @@ class HetGNNPolicy(AutoregressivePolicy):
         linear_bias: bool = True,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
-        test_decode_type: str = "greedy",
+        test_decode_type: str = "multistart_sampling",
         **constructive_policy_kw,
     ):
         if len(constructive_policy_kw) > 0:

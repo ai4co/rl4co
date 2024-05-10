@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from rl4co.envs.scheduling.fjsp.utils import get_flat_action_mask
 from rl4co.models.common.constructive.autoregressive import AutoregressiveDecoder
 from rl4co.models.nn.mlp import MLP
+from rl4co.utils.ops import batchify, gather_by_index
 
 
 class HetGNNDecoder(AutoregressiveDecoder):
@@ -22,27 +22,30 @@ class HetGNNDecoder(AutoregressiveDecoder):
         return td, env, hidden
 
     def forward(self, td, hidden, num_starts):
-        row_emb, col_emb = hidden
-        bs, n_rows, emb_dim = row_emb.shape
+        if num_starts > 1:
+            hidden = tuple(map(lambda x: batchify(x, num_starts), hidden))
 
-        # TODO where to put this FJSP exclusive logic?
-        next_op = td["next_op"].unsqueeze(-1).expand((-1, -1, emb_dim))
+        ma_emb, ops_emb = hidden
+        bs, n_rows, emb_dim = ma_emb.shape
+
         # (bs, n_jobs, emb)
-        job_emb = col_emb.gather(1, next_op)
+        job_emb = gather_by_index(ops_emb, td["next_op"])
+
         # (bs, n_jobs, n_ma, emb)
         job_emb_expanded = job_emb.unsqueeze(2).expand(-1, -1, n_rows, -1)
-        ma_emb_expanded = row_emb.unsqueeze(1).expand_as(job_emb_expanded)
+        ma_emb_expanded = ma_emb.unsqueeze(1).expand_as(job_emb_expanded)
 
         # Input of actor MLP
         # shape: [bs, num_jobs * n_ma, 2*emb]
         h_actions = torch.cat((job_emb_expanded, ma_emb_expanded), dim=-1).flatten(1, 2)
         no_ops = self.dummy[None, None].expand(bs, 1, -1)  # [bs, 1, 2*emb_dim]
-        # [bs, num_shelves * num_skus + 1, 2*emb_dim]
+        # [bs, num_jobs * n_ma + 1, 2*emb_dim]
         h_actions_w_noop = torch.cat((no_ops, h_actions), 1)
 
-        # (b, m*j)
-        mask = get_flat_action_mask(td)
+        # (b, j*m)
+        mask = td["action_mask"]
 
-        # (bs, ma*jobs)
+        # (b, j*m)
         logits = self.mlp(h_actions_w_noop).squeeze(-1)
+
         return logits, mask
