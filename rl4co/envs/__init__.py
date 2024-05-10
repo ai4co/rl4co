@@ -9,15 +9,16 @@ from rl4co.envs.routing import (
     ATSPEnv,
     CVRPEnv,
     CVRPTWEnv,
+    MDCPDPEnv,
     MTSPEnv,
+    MTVRPEnv,
     OPEnv,
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
-    SVRPEnv,
     SPCTSPEnv,
+    SVRPEnv,
     TSPEnv,
-    MDCPDPEnv,
 )
 
 # Scheduling
