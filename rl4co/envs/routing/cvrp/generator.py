@@ -32,6 +32,7 @@ CAPACITIES = {
 
 class CVRPGenerator(Generator):
     """Data generator for the Capacitated Vehicle Routing Problem (CVRP).
+
     Args:
         num_loc: number of locations (cities) in the VRP, without the depot. (e.g. 10 means 10 locs + 1 depot)
         min_loc: minimum value for the location coordinates

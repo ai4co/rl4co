@@ -1,18 +1,19 @@
-from typing import Union, Callable
+from typing import Callable, Union
 
 import torch
 
-from torch.distributions import Uniform
 from tensordict.tensordict import TensorDict
+from torch.distributions import Uniform
 
+from rl4co.envs.common.utils import Generator, get_sampler
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.common.utils import get_sampler, Generator
 
 log = get_pylogger(__name__)
 
 
 class MTSPGenerator(Generator):
     """Data generator for the Multiple Travelling Salesman Problem (mTSP).
+
     Args:
         num_loc: number of locations (customers) in the TSP
         min_loc: minimum value for the location coordinates
@@ -26,17 +27,16 @@ class MTSPGenerator(Generator):
             locs [batch_size, num_loc, 2]: locations of each customer
             num_agents [batch_size]: number of agents (vehicles)
     """
+
     def __init__(
         self,
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: Union[
-            int, float, str, type, Callable
-        ] = Uniform,
+        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
         min_num_agents: int = 5,
         max_num_agents: int = 5,
-        **kwargs
+        **kwargs,
     ):
         self.num_loc = num_loc
         self.min_loc = min_loc
@@ -48,7 +48,9 @@ class MTSPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
+            self.loc_sampler = get_sampler(
+                "loc", loc_distribution, min_loc, max_loc, **kwargs
+            )
 
     def _generate(self, batch_size) -> TensorDict:
         # Sample locations
@@ -58,9 +60,9 @@ class MTSPGenerator(Generator):
         num_agents = torch.randint(
             self.min_num_agents,
             self.max_num_agents + 1,
-            size=(*batch_size, ),
+            size=(*batch_size,),
         )
-        
+
         return TensorDict(
             {
                 "locs": locs,
@@ -68,4 +70,3 @@ class MTSPGenerator(Generator):
             },
             batch_size=batch_size,
         )
-    
