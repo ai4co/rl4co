@@ -169,23 +169,20 @@ class SamplingEval(EvalBase):
         self.softmax_temp = softmax_temp
 
     def _inner(self, policy, td):
-        td = batchify(td, self.samples)
         out = policy(
             td.clone(),
             decode_type="sampling",
-            num_starts=0,
+            num_starts=self.samples,
+            multistart=True,
             return_actions=True,
             softmax_temp=self.softmax_temp,
+            select_best=True,
         )
 
         # Move into batches and compute rewards
-        rewards = self.env.get_reward(td, out["actions"])
-        rewards = unbatchify(rewards, self.samples)
-        actions = unbatchify(out["actions"], self.samples)
+        rewards = out["reward"]
+        actions = out["actions"]
 
-        # Get the best reward and action for each sample
-        rewards, max_idxs = rewards.max(dim=1)
-        actions = gather_by_index(actions, max_idxs, dim=1)
         return actions, rewards
 
 
