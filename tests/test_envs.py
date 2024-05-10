@@ -10,6 +10,7 @@ from rl4co.envs import (
     CVRPTWEnv,
     DPPEnv,
     FFSPEnv,
+    FJSPEnv,
     MDCPDPEnv,
     MDPPEnv,
     MTSPEnv,
@@ -45,6 +46,7 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
         MTSPEnv,
         ATSPEnv,
         MDCPDPEnv,
+        FJSPEnv,
     ],
 )
 def test_routing(env_cls, batch_size=2, size=20):
