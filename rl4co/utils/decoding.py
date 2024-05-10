@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.utils.ops import batchify
+from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -215,6 +215,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         multistart: bool = False,
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
+        select_best: bool = False,
         **kwargs,
     ) -> None:
         self.temperature = temperature
@@ -225,6 +226,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.multistart = multistart
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
+        self.select_best = select_best
         # initialize buffers
         self.actions = []
         self.logprobs = []
@@ -293,8 +295,11 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         assert (
             len(self.logprobs) > 0
         ), "No logprobs were collected because all environments were done. Check your initial state"
-
-        return torch.stack(self.logprobs, 1), torch.stack(self.actions, 1), td, env
+        logprobs = torch.stack(self.logprobs, 1)
+        actions = torch.stack(self.actions, 1)
+        if self.num_starts > 0 and self.select_best:
+            logprobs, actions, td, env = self._select_best(logprobs, actions, td, env)
+        return logprobs, actions, td, env
 
     def step(
         self,
@@ -359,6 +364,20 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             ), "infeasible action selected"
 
         return selected
+
+    def _select_best(self, logprobs, actions, td: TensorDict, env: RL4COEnvBase):
+        def unbatchify_and_gather(x, idx):
+            x = unbatchify(x, self.num_starts)
+            return gather_by_index(x, idx, dim=idx.dim())
+
+        rewards = env.get_reward(td, actions)
+        _, max_idxs = unbatchify(rewards, self.num_starts).max(dim=-1)
+
+        actions = unbatchify_and_gather(actions, max_idxs)
+        logprobs = unbatchify_and_gather(logprobs, max_idxs)
+        td = unbatchify_and_gather(td, max_idxs)
+
+        return logprobs, actions, td, env
 
 
 class Greedy(DecodingStrategy):
