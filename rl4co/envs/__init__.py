@@ -11,6 +11,7 @@ from rl4co.envs.routing import (
     CVRPTWEnv,
     MDCPDPEnv,
     MTSPEnv,
+    MTVRPEnv,
     OPEnv,
     PCTSPEnv,
     PDPEnv,
