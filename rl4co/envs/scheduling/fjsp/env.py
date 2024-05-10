@@ -401,7 +401,7 @@ class FJSPEnv(EnvBase):
     def render(td, idx):
         return render(td, idx)
 
-    def select_start_nodes(self, td, num_starts):
+    def select_start_nodes(self, td: TensorDict, num_starts: int):
         action_mask = td["action_mask"]
         # check whether to use replacement or not
         n_valid_actions = torch.sum(action_mask[:, 1:], 1).min()
@@ -415,7 +415,7 @@ class FJSPEnv(EnvBase):
         ps = torch.softmax(ps, dim=1)
         selected = torch.multinomial(ps, num_starts, replacement=replace).squeeze(1)
         selected = rearrange(selected, "b n -> (n b)")
-        return selected
+        return selected.to(td.device)
 
     def get_num_starts(self, td):
         # NOTE in the paper they use N_s = 100
