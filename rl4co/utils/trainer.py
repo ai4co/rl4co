@@ -73,7 +73,7 @@ class RL4COTrainer(Trainer):
         if auto_configure_ddp and strategy == "auto":
             if devices == "auto":
                 n_devices = num_cuda_devices()
-            elif isinstance(devices, list):
+            elif isinstance(devices, Iterable):
                 n_devices = len(devices)
             else:
                 n_devices = devices
