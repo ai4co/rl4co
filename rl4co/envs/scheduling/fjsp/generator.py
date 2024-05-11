@@ -93,14 +93,11 @@ class FJSPGenerator(Generator):
             size=(bs, self.num_mas, n_ops_max),
         )
 
-        # TODO: This should be unnecessary due to multiplication with ma-ops edges
-        # proc_times[mask[:,None].expand_as(proc_times)] = 0
         # remove proc_times for which there is no corresponding ma-ops connection
         proc_times = proc_times * ma_ops_edges
         return proc_times
 
     def _generate(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         # simulate how many operations each job has
         n_ope_per_job = torch.randint(
             self.min_ops_per_job,
@@ -123,7 +120,11 @@ class FJSPGenerator(Generator):
         # determine the id of the starting operation for each job
         # (bs, num_jobs)
         start_op_per_job = torch.cat(
-            (torch.zeros((*batch_size, 1)), end_op_per_job[:, :-1] + 1), dim=1
+            (
+                torch.zeros((*batch_size, 1)).to(end_op_per_job),
+                end_op_per_job[:, :-1] + 1,
+            ),
+            dim=1,
         )
 
         # here we simulate the eligible machines per operation and the processing times

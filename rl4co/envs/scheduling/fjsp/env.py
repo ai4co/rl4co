@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 
 from einops import rearrange, reduce
@@ -85,11 +83,6 @@ class FJSPEnv(EnvBase):
         self.mask_no_ops = mask_no_ops
         self._make_spec(self.generator)
 
-    def _set_seed(self, seed):
-        """Set the seed for the environment"""
-        rng = torch.manual_seed(seed)
-        self.rng = rng
-
     def _decode_graph_structure(self, td: TensorDict):
         batch_size = td.batch_size
         start_op_per_job = td["start_op_per_job"]
@@ -145,9 +138,6 @@ class FJSPEnv(EnvBase):
         return td, n_ops_max
 
     def _reset(self, td: TensorDict = None, batch_size=None) -> TensorDict:
-        device = td.device
-        self.to(device)
-
         td_reset = td.clone()
 
         td_reset, n_ops_max = self._decode_graph_structure(td_reset)
@@ -185,11 +175,11 @@ class FJSPEnv(EnvBase):
 
         td_reset.set("lbs", calc_lower_bound(td_reset))
         td_reset.set("is_ready", op_is_ready(td_reset))
-        td_reset = self.set_action_mask(td_reset)
+        td_reset.set("action_mask", self.get_action_mask(td_reset))
 
         return td_reset
 
-    def set_action_mask(self, td: TensorDict) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_action_mask(self, td: TensorDict) -> torch.Tensor:
         batch_size = td.size(0)
 
         # (bs, jobs, machines)
@@ -218,8 +208,7 @@ class FJSPEnv(EnvBase):
         action_mask = rearrange(action_mask, "bs j m -> bs (j m)")
         # NOTE: 1 means feasible action, 0 means infeasible action
         mask = torch.cat((~no_op_mask, ~action_mask), dim=1)
-        td["action_mask"] = mask
-        return td
+        return mask
 
     def _step(self, td: TensorDict):
         # cloning required to avoid inplace operation which avoids gradient backtracking
@@ -247,12 +236,12 @@ class FJSPEnv(EnvBase):
         td[req_op] = td_op
 
         # action mask
-        td = self.set_action_mask(td)
+        td.set("action_mask", self.get_action_mask(td))
 
         step_complete = self._check_step_complete(td, dones)
         while step_complete.any():
             td, dones = self._transit_to_next_time(step_complete, td)
-            td = self.set_action_mask(td)
+            td.set("action_mask", self.get_action_mask(td))
             step_complete = self._check_step_complete(td, dones)
 
         # after we have transitioned to a next time step, we determine which operations are ready
@@ -278,7 +267,6 @@ class FJSPEnv(EnvBase):
         batch_idx = torch.arange(td.size(0))
 
         td["job_in_process"][batch_idx, selected_job] = 1
-        # job_in_process = td_op["job_in_process"].scatter_add(1, selected_job[:, None], torch.ones_like(td_op["job_in_process"]))
 
         # (#req_op)
         selected_op = td["next_op"].gather(1, selected_job[:, None]).squeeze(1)
