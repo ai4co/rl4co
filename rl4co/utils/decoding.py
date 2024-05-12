@@ -215,6 +215,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         multistart: bool = False,
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
+        improvement_method_mode: bool = False,
         **kwargs,
     ) -> None:
         self.temperature = temperature
@@ -225,6 +226,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.multistart = multistart
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
+        self.improvement_method_mode = improvement_method_mode
         # initialize buffers
         self.actions = []
         self.logprobs = []
@@ -252,6 +254,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self, td: TensorDict, env: RL4COEnvBase, action: torch.Tensor = None
     ):
         """Pre decoding hook. This method is called before the main decoding operation."""
+        
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if self.multistart:
             if self.num_starts is None:
@@ -300,7 +303,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self,
         logits: torch.Tensor,
         mask: torch.Tensor,
-        td: TensorDict,
+        td: TensorDict = None,
         action: torch.Tensor = None,
         **kwargs,
     ) -> TensorDict:
@@ -327,10 +330,14 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         logprobs, selected_action, td = self._step(
             logprobs, mask, td, action=action, **kwargs
         )
-        td.set("action", selected_action)
-        self.actions.append(selected_action)
-        self.logprobs.append(logprobs)
-        return td
+        # skip this step for improvement methods, since the action for improvement methods is finalized in its own policy
+        if not self.improvement_method_mode:
+            td.set("action", selected_action)
+            self.actions.append(selected_action)
+            self.logprobs.append(logprobs)
+            return td
+        else:
+            return logprobs, selected_action
 
     @staticmethod
     def greedy(logprobs, mask=None):

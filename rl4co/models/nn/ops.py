@@ -1,6 +1,7 @@
 import math
 
 import torch.nn as nn
+import torch
 
 
 class SkipConnection(nn.Module):
@@ -15,23 +16,24 @@ class SkipConnection(nn.Module):
 class Normalization(nn.Module):
     def __init__(self, embed_dim, normalization="batch"):
         super(Normalization, self).__init__()
-
-        normalizer_class = {"batch": nn.BatchNorm1d, "instance": nn.InstanceNorm1d}.get(
-            normalization, None
-        )
-
-        self.normalizer = normalizer_class(embed_dim, affine=True)
-
-    def init_parameters(self):
-        for name, param in self.named_parameters():
-            stdv = 1.0 / math.sqrt(param.size(-1))
-            param.data.uniform_(-stdv, stdv)
-
+        if normalization != 'layer':
+            normalizer_class = {"batch": nn.BatchNorm1d, "instance": nn.InstanceNorm1d}.get(
+                normalization, None
+            )
+    
+            self.normalizer = normalizer_class(embed_dim, affine=True)
+        else:
+            self.normalizer = 'layer'
+            
     def forward(self, x):
         if isinstance(self.normalizer, nn.BatchNorm1d):
             return self.normalizer(x.view(-1, x.size(-1))).view(*x.size())
         elif isinstance(self.normalizer, nn.InstanceNorm1d):
             return self.normalizer(x.permute(0, 2, 1)).permute(0, 2, 1)
+        elif self.normalizer == 'layer':
+            return (x - x.mean((1, 2)).view(-1, 1, 1)) / torch.sqrt(
+                x.var((1, 2)).view(-1, 1, 1) + 1e-05
+            )
         else:
             assert self.normalizer is None, "Unknown normalizer type"
             return x
