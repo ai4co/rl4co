@@ -29,7 +29,7 @@ class HetGNNDecoder(AutoregressiveDecoder):
         bs, n_rows, emb_dim = ma_emb.shape
 
         # (bs, n_jobs, emb)
-        job_emb = gather_by_index(ops_emb, td["next_op"])
+        job_emb = gather_by_index(ops_emb, td["next_op"], squeeze=False)
 
         # (bs, n_jobs, n_ma, emb)
         job_emb_expanded = job_emb.unsqueeze(2).expand(-1, -1, n_rows, -1)

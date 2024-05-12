@@ -197,7 +197,7 @@ class FJSPEnv(EnvBase):
 
         # exclude job-machine combinations, where the machine cannot process the next op of the job
         next_ops_proc_times = gather_by_index(
-            td["proc_times"], td["next_op"].unsqueeze(1), dim=2
+            td["proc_times"], td["next_op"].unsqueeze(1), dim=2, squeeze=False
         ).transpose(1, 2)
         action_mask.add_(next_ops_proc_times == 0)
         if self.mask_no_ops:
