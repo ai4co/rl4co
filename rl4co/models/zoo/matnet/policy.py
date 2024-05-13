@@ -1,14 +1,13 @@
 from math import factorial
-from typing import List, Union
+from typing import List
 
 import torch
 import torch.nn as nn
 
 from tensordict import TensorDict
 
-from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.envs.scheduling.ffsp import FFSPEnv
-from rl4co.models.zoo.common.autoregressive import AutoregressivePolicy
+from rl4co.envs.scheduling.ffsp.env import FFSPEnv
+from rl4co.models.common.constructive.autoregressive import AutoregressivePolicy
 from rl4co.models.zoo.matnet.decoder import (
     MatNetDecoder,
     MatNetFFSPDecoder,
@@ -30,7 +29,7 @@ class MatNetPolicy(AutoregressivePolicy):
 
     Args:
         env_name: Name of the environment used to initialize embeddings
-        embedding_dim: Dimension of the node embeddings
+        embed_dim: Dimension of the node embeddings
         num_encoder_layers: Number of layers in the encoder
         num_heads: Number of heads in the attention layers
         normalization: Normalization type in the attention layers
@@ -41,8 +40,8 @@ class MatNetPolicy(AutoregressivePolicy):
 
     def __init__(
         self,
-        env_name: Union[str, RL4COEnvBase],
-        embedding_dim: int = 256,
+        env_name: str = "atsp",
+        embed_dim: int = 256,
         num_encoder_layers: int = 5,
         num_heads: int = 16,
         normalization: str = "instance",
@@ -51,15 +50,12 @@ class MatNetPolicy(AutoregressivePolicy):
         bias: bool = False,
         **kwargs,
     ):
-        if isinstance(env_name, RL4COEnvBase):
-            env_name = env_name.name
-
         if env_name not in ["atsp", "ffsp"]:
             log.error(f"env_name {env_name} is not originally implemented in MatNet")
 
         if env_name == "ffsp":
             decoder = MatNetFFSPDecoder(
-                embedding_dim=embedding_dim,
+                embed_dim=embed_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
                 out_bias=True,
@@ -68,7 +64,7 @@ class MatNetPolicy(AutoregressivePolicy):
         else:
             decoder = MatNetDecoder(
                 env_name=env_name,
-                embedding_dim=embedding_dim,
+                embed_dim=embed_dim,
                 num_heads=num_heads,
                 use_graph_context=use_graph_context,
             )
@@ -76,7 +72,7 @@ class MatNetPolicy(AutoregressivePolicy):
         super(MatNetPolicy, self).__init__(
             env_name=env_name,
             encoder=MatNetEncoder(
-                embedding_dim=embedding_dim,
+                embed_dim=embed_dim,
                 num_heads=num_heads,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
@@ -84,7 +80,7 @@ class MatNetPolicy(AutoregressivePolicy):
                 bias=bias,
             ),
             decoder=decoder,
-            embedding_dim=embedding_dim,
+            embed_dim=embed_dim,
             num_encoder_layers=num_encoder_layers,
             num_heads=num_heads,
             normalization=normalization,
@@ -100,12 +96,12 @@ class MultiStageFFSPPolicy(nn.Module):
     def __init__(
         self,
         stage_cnt: int,
-        embedding_dim: int = 256,
+        embed_dim: int = 256,
         num_heads: int = 16,
         num_encoder_layers: int = 3,
         use_graph_context: bool = False,
         normalization: str = "instance",
-        feed_forward_hidden: int = 512,
+        feedforward_hidden: int = 512,
         bias: bool = False,
         train_decode_type: str = "sampling",
         val_decode_type: str = "sampling",  # authors report better results for sampling
@@ -117,11 +113,11 @@ class MultiStageFFSPPolicy(nn.Module):
         self.encoders: List[MatNetEncoder] = nn.ModuleList(
             [
                 MatNetEncoder(
-                    embedding_dim=embedding_dim,
+                    embed_dim=embed_dim,
                     num_heads=num_heads,
                     num_layers=num_encoder_layers,
                     normalization=normalization,
-                    feed_forward_hidden=feed_forward_hidden,
+                    feedforward_hidden=feedforward_hidden,
                     bias=bias,
                     init_embedding_kwargs={"mode": "RandomOneHot"},
                 )
@@ -130,7 +126,7 @@ class MultiStageFFSPPolicy(nn.Module):
         )
         self.decoders: List[MultiStageFFSPDecoder] = nn.ModuleList(
             [
-                MultiStageFFSPDecoder(embedding_dim, num_heads, use_graph_context)
+                MultiStageFFSPDecoder(embed_dim, num_heads, use_graph_context)
                 for _ in range(self.stage_cnt)
             ]
         )

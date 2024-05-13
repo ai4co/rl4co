@@ -2,6 +2,7 @@ from typing import Iterable, List, Optional, Union
 
 import lightning.pytorch as pl
 import torch
+
 from lightning import Callback, Trainer
 from lightning.fabric.accelerators.cuda import num_cuda_devices
 from lightning.pytorch.accelerators import Accelerator
@@ -39,7 +40,7 @@ class RL4COTrainer(Trainer):
         auto_configure_ddp: Automatically configure DDP strategy if multiple GPUs are available.
         reload_dataloaders_every_n_epochs: Set to a value different than 1 to reload dataloaders every n epochs.
         matmul_precision: Set matmul precision for faster inference https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
-        **kwargs: Additional keyword arguments passed to the Lightning Trainer. See :class:`~lightning.pytorch.trainer.Trainer` for details.
+        **kwargs: Additional keyword arguments passed to the Lightning Trainer. See :class:`lightning.pytorch.trainer.Trainer` for details.
     """
 
     def __init__(
@@ -72,7 +73,7 @@ class RL4COTrainer(Trainer):
         if auto_configure_ddp and strategy == "auto":
             if devices == "auto":
                 n_devices = num_cuda_devices()
-            elif isinstance(devices, list):
+            elif isinstance(devices, Iterable):
                 n_devices = len(devices)
             else:
                 n_devices = devices

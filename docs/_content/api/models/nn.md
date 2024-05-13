@@ -1,4 +1,12 @@
-# `nn` Modules
+# Neural Network Modules
+
+## Critic Network
+
+```{eval-rst}
+.. automodule:: rl4co.models.rl.common.critic
+   :members:
+   :undoc-members:
+```
 
 ## Graph Neural Networks
 
@@ -35,14 +43,6 @@
 ```
 
 
-## rl4co.models.nn.flash_attention
-
-```{eval-rst}
-.. automodule:: rl4co.models.nn.flash_attention
-   :members:
-   :undoc-members:
-```
-
 ## rl4co.models.nn.mlp
 
 ```{eval-rst}
@@ -55,14 +55,6 @@
 
 ```{eval-rst}
 .. automodule:: rl4co.models.nn.ops
-   :members:
-   :undoc-members:
-```
-
-## rl4co.models.nn.utils
-
-```{eval-rst}
-.. automodule:: rl4co.models.nn.utils
    :members:
    :undoc-members:
 ```

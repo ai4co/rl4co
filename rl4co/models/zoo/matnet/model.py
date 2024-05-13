@@ -30,7 +30,7 @@ class MatNet(POMO):
         **kwargs,
     ):
         if policy is None:
-            policy = select_matnet_policy(env, **policy_params)
+            policy = select_matnet_policy(env=env, **policy_params)
 
         # Check if using augmentation and the validation of augmentation function
         if kwargs.get("num_augment", 0) != 0:

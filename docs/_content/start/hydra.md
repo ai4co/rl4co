@@ -9,12 +9,17 @@ Train model with default configuration (AM on TSP environment):
 python run.py
 ```
 
+> [!TIP]
+> You may check out [this notebook](examples/advanced/1-hydra-config.ipynb) to get started with Hydra!
+
+
 ### Change experiment
 
-Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/) (e.g. tsp/am, and environment with 42 cities)
+Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 ```bash
-python run.py experiment=tsp/am env.num_loc=42
+python run.py experiment=routing/am env=tsp env.generator_params.num_loc=50 model.optimizer_kwargs.lr=2e-4
 ```
+Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](configs/experiment/routing/am.yaml).
 </details>
 
 
@@ -31,7 +36,8 @@ Note that `~` is used to disable a callback that would need a logger.
 We can use -m for multirun:
 
 ```bash
-python run.py -m experiment=tsp/am  train.optimizer.lr=1e-3,1e-4,1e-5
+python run.py -m experiment=routing/am  model.optimizer_kwargs.lr=1e-3,1e-4,1e-5
+```
 ```
 </details>
 

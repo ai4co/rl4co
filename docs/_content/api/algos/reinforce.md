@@ -8,8 +8,6 @@
    :undoc-members:
 ```
 
----
-
 ## Baselines
 
 ```{eval-rst}

@@ -8,14 +8,16 @@ defaults:
   - override /logger: wandb.yaml
 
 env:
-  num_loc: 50
+  generator_params:
+    num_loc: 50
 
 logger:
   wandb:
     project: "rl4co"
     tags: ["am", "${env.name}"]
-    group: "${env.name}${env.num_loc}"
-    name: "am-xl-${env.name}${env.num_loc}"
+    group: "${env.name}${env.generator_params.num_loc}"
+    name: "am-xl-${env.name}${env.generator_params.num_loc}"
+
 
 model:
   policy_kwargs:

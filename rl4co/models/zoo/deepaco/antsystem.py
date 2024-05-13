@@ -7,8 +7,8 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.zoo.common.nonautoregressive.decoder import (
-    NonAutoregressiveDecoder as NARDecoder,
+from rl4co.models.common.constructive.nonautoregressive.decoder import (
+    NonAutoregressiveDecoder,
 )
 from rl4co.utils.decoding import Sampling
 
@@ -124,7 +124,9 @@ class AntSystem:
         decode_strategy = Sampling(multistart=True, num_starts=self.n_ants)
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
         while not td["done"].all():
-            logits, mask = NARDecoder._get_logits(td, heatmaps_logits, num_starts)
+            logits, mask = NonAutoregressiveDecoder.heatmap_to_logits(
+                td, heatmaps_logits, num_starts
+            )
             td = decode_strategy.step(logits, mask, td)
             td = env.step(td)["next"]
 
@@ -179,7 +181,7 @@ class AntSystem:
         # calculate Δphe
         delta_pheromone = torch.zeros_like(self.pheromone)
         from_node = actions
-        to_node = torch.roll(from_node, 1, -1)
+        to_node = torch.roll(from_node, -1, -1)
         mapped_reward = self._reward_map(reward).detach()
         batch_action_indices = self._batch_action_indices(
             self.batch_size, actions.shape[-1], reward.device

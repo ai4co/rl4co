@@ -15,18 +15,18 @@ class MultiHeadAttentionLayer(nn.Sequential):
     """Multi-Head Attention Layer with normalization and feed-forward layer
 
     Args:
-        num_heads: number of heads in the MHA
         embed_dim: dimension of the embeddings
-        feed_forward_hidden: dimension of the hidden layer in the feed-forward layer
+        num_heads: number of heads in the MHA
+        feedforward_hidden: dimension of the hidden layer in the feed-forward layer
         normalization: type of normalization to use (batch, layer, none)
         sdpa_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
         self,
-        num_heads: int,
         embed_dim: int,
-        feed_forward_hidden: int = 512,
+        num_heads: int = 8,
+        feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
         sdpa_fn: Optional[Callable] = None,
     ):
@@ -35,11 +35,11 @@ class MultiHeadAttentionLayer(nn.Sequential):
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(
-                    nn.Linear(embed_dim, feed_forward_hidden),
+                    nn.Linear(embed_dim, feedforward_hidden),
                     nn.ReLU(),
-                    nn.Linear(feed_forward_hidden, embed_dim),
+                    nn.Linear(feedforward_hidden, embed_dim),
                 )
-                if feed_forward_hidden > 0
+                if feedforward_hidden > 0
                 else nn.Linear(embed_dim, embed_dim)
             ),
             Normalization(embed_dim, normalization),
@@ -52,20 +52,20 @@ class GraphAttentionNetwork(nn.Module):
 
     Args:
         num_heads: number of heads in the MHA
-        embedding_dim: dimension of the embeddings
+        embed_dim: dimension of the embeddings
         num_layers: number of MHA layers
         normalization: type of normalization to use (batch, layer, none)
-        feed_forward_hidden: dimension of the hidden layer in the feed-forward layer
+        feedforward_hidden: dimension of the hidden layer in the feed-forward layer
         sdpa_fn: scaled dot product attention function (SDPA)
     """
 
     def __init__(
         self,
         num_heads: int,
-        embedding_dim: int,
+        embed_dim: int,
         num_layers: int,
         normalization: str = "batch",
-        feed_forward_hidden: int = 512,
+        feedforward_hidden: int = 512,
         sdpa_fn: Optional[Callable] = None,
     ):
         super(GraphAttentionNetwork, self).__init__()
@@ -73,9 +73,9 @@ class GraphAttentionNetwork(nn.Module):
         self.layers = nn.Sequential(
             *(
                 MultiHeadAttentionLayer(
+                    embed_dim,
                     num_heads,
-                    embedding_dim,
-                    feed_forward_hidden=feed_forward_hidden,
+                    feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
                     sdpa_fn=sdpa_fn,
                 )

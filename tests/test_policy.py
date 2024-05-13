@@ -1,30 +1,43 @@
 import pytest
 
-from rl4co.models import AutoregressivePolicy, PointerNetworkPolicy
-from rl4co.utils.test_utils import generate_env_data
+from rl4co.models import AttentionModelPolicy, PointerNetworkPolicy
 from rl4co.utils.ops import select_start_nodes
+from rl4co.utils.test_utils import generate_env_data
 
 
 # Main autorergressive policy: rollout over multiple envs since it is the base
 @pytest.mark.parametrize(
     "env_name",
-    ["tsp", "cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "dpp", "mdpp", "smtwtp"],
+    [
+        "tsp",
+        "cvrp",
+        "cvrptw",
+        "sdvrp",
+        "mtsp",
+        "op",
+        "pctsp",
+        "spctsp",
+        "dpp",
+        "mdpp",
+        "smtwtp",
+    ],
 )
-def test_base_policy(env_name, size=20, batch_size=2):
+def test_am_policy(env_name, size=20, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
     td = env.reset(x)
-    policy = AutoregressivePolicy(env.name)
+    policy = AttentionModelPolicy(env_name=env.name)
     out = policy(td, env, decode_type="greedy")
     assert out["reward"].shape == (batch_size,)
 
 
 @pytest.mark.parametrize(
-    "env_name", ["tsp", "cvrp", "pctsp", "spctsp", "sdvrp", "op", "pdp"]
+    "env_name", ["tsp", "cvrp", "cvrptw", "pctsp", "spctsp", "sdvrp", "op", "pdp"]
 )
-def test_base_policy_multistart(env_name, size=20, batch_size=2):
+@pytest.mark.parametrize("policy_cls", [AttentionModelPolicy])
+def test_policy_multistart(env_name, policy_cls, size=20, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
     td = env.reset(x)
-    policy = AutoregressivePolicy(env.name)
+    policy = policy_cls(env_name=env.name)
     num_starts = size // 2 if env.name in ["pdp"] else size
     out = policy(
         td,
@@ -40,13 +53,13 @@ def test_base_policy_multistart(env_name, size=20, batch_size=2):
 
 @pytest.mark.parametrize(
     "env_name",
-    ["tsp", "cvrp", "pctsp", "spctsp", "sdvrp", "op", "pdp"],
+    ["tsp", "cvrp", "cvrptw", "pctsp", "spctsp", "sdvrp", "op", "pdp"],
 )
 @pytest.mark.parametrize("select_best", [True, False])
-def test_base_policy_beam_search(env_name, select_best, size=20, batch_size=2):
+def test_beam_search(env_name, select_best, size=20, batch_size=2):
     env, x = generate_env_data(env_name, size, batch_size)
     td = env.reset(x)
-    policy = AutoregressivePolicy(env.name)
+    policy = AttentionModelPolicy(env_name=env.name)
     beam_width = size // 2 if env.name in ["pdp"] else size
     out = policy(
         td, env, decode_type="beam_search", beam_width=beam_width, select_best=select_best
@@ -62,6 +75,6 @@ def test_base_policy_beam_search(env_name, select_best, size=20, batch_size=2):
 def test_pointer_network(size=20, batch_size=2):
     env, x = generate_env_data("tsp", size, batch_size)
     td = env.reset(x)
-    policy = PointerNetworkPolicy(env.name)
+    policy = PointerNetworkPolicy(env_name=env.name)
     out = policy(td, env, decode_type="greedy")
     assert out["reward"].shape == (batch_size,)

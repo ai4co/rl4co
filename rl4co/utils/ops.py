@@ -76,6 +76,14 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
     return src.gather(dim, idx).squeeze() if squeeze else src.gather(dim, idx)
 
 
+def unbatchify_and_gather(x: Tensor, idx: Tensor, n: int):
+    """first unbatchify a tensor by n and then gather (usually along the unbatchified dimension)
+    by the specified index
+    """
+    x = unbatchify(x, n)
+    return gather_by_index(x, idx, dim=idx.dim())
+
+
 @torch.jit.script
 def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
@@ -90,7 +98,7 @@ def get_tour_length(ordered_locs):
     Args:
         ordered_locs: Tensor of shape [batch_size, num_nodes, 2] containing the ordered locations of the tour
     """
-    ordered_locs_next = torch.roll(ordered_locs, 1, dims=-2)
+    ordered_locs_next = torch.roll(ordered_locs, -1, dims=-2)
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 @torch.jit.script
@@ -129,6 +137,18 @@ def get_distance_matrix(locs: Tensor):
     return distance
 
 
+def calculate_entropy(logprobs: Tensor):
+    """Calculate the entropy of the log probabilities distribution
+    logprobs: Tensor of shape [batch, decoder_steps, num_actions]
+    """
+    logprobs = torch.nan_to_num(logprobs, nan=0.0)
+    entropy = -(logprobs.exp() * logprobs).sum(dim=-1)  # [batch, decoder steps]
+    entropy = entropy.sum(dim=1)  # [batch] -- sum over decoding steps
+    assert entropy.isfinite().all(), "Entropy is not finite"
+    return entropy
+
+
+# TODO: modularize inside the envs
 def get_num_starts(td, env_name=None):
     """Returns the number of possible start nodes for the environment based on the action mask"""
     num_starts = td["action_mask"].shape[-1]
@@ -136,7 +156,7 @@ def get_num_starts(td, env_name=None):
         num_starts = (
             num_starts - 1
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
-    elif env_name in ["cvrp", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
+    elif env_name in ["cvrp", "cvrptw", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot cannot be a start node
 
     return num_starts
@@ -152,12 +172,14 @@ def select_start_nodes(td, env, num_starts):
         env: Environment may determine the node selection strategy
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
-    num_loc = env.num_loc if hasattr(env, "num_loc") else 0xFFFFFFFF
+    num_loc = env.generator.num_loc if hasattr(env.generator, "num_loc") else 0xFFFFFFFF
     if env.name in ["tsp", "atsp"]:
         selected = (
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
             % num_loc
         )
+    elif env.name == "fjsp":
+        raise NotImplementedError("Multistart not yet supported for FJSP")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (
@@ -224,3 +246,23 @@ def get_full_graph_edge_index(num_node: int, self_loop=False) -> Tensor:
         adj_matrix.fill_diagonal_(0)
     edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
     return edge_index
+
+
+def sample_n_random_actions(td: TensorDict, n: int):
+    """Helper function to sample n random actions from available actions. If
+    number of valid actions is less then n, we sample with replacement from the
+    valid actions
+    """
+    action_mask = td["action_mask"]
+    # check whether to use replacement or not
+    n_valid_actions = torch.sum(action_mask[:, 1:], 1).min()
+    if n_valid_actions < n:
+        replace = True
+    else:
+        replace = False
+    ps = torch.rand((action_mask.shape))
+    ps[~action_mask] = -torch.inf
+    ps = torch.softmax(ps, dim=1)
+    selected = torch.multinomial(ps, n, replacement=replace).squeeze(1)
+    selected = rearrange(selected, "b n -> (n b)")
+    return selected.to(td.device)

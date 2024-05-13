@@ -1,8 +1,9 @@
 <div align="center">
 
 
-<img src="https://github.com/ai4co/rl4co/assets/48984123/01a547b2-9722-4540-b0e1-9c12af094b15" style="width:40%">
-
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
+</div>
 
 </br></br>
 
@@ -11,7 +12,7 @@
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
-![license](https://img.shields.io/badge/license-Apache%202.0-green.svg?) <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
+[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT) <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
 [![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
 
 [**Documentation**](https://rl4co.readthedocs.io/) |  [**Getting Started**](#getting-started) | [**Usage**](#usage) | [**Contributing**](#contributing) | [**Paper**](https://arxiv.org/abs/2306.17100) | [**Join Us**](#join-us)
@@ -82,13 +83,17 @@ python run.py
 > You may check out [this notebook](examples/advanced/1-hydra-config.ipynb) to get started with Hydra!
 
 <details>
-    <summary>Change experiment</summary>
+    <summary>Change experiment settings</summary>
 
-Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/) (e.g. tsp/am, and environment with 42 cities)
+Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 ```bash
-python run.py experiment=routing/am env.num_loc=42
+python run.py experiment=routing/am env=tsp env.num_loc=50 model.optimizer_kwargs.lr=2e-4
 ```
+Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](configs/experiment/routing/am.yaml).
+
 </details>
+
+
 
 
 <details>
@@ -106,7 +111,7 @@ Note that `~` is used to disable a callback that would need a logger.
     <summary>Create a sweep over hyperparameters (-m for multirun)</summary>
 
 ```bash
-python run.py -m experiment=routing/am  train.optimizer.lr=1e-3,1e-4,1e-5
+python run.py -m experiment=routing/am  model.optimizer.lr=1e-3,1e-4,1e-5
 ```
 </details>
 
@@ -122,7 +127,7 @@ from rl4co.models import AttentionModel
 from rl4co.utils import RL4COTrainer
 
 # Environment, Model, and Lightning Module
-env = TSPEnv(num_loc=20)
+env = TSPEnv(generator_params={'num_loc': 50, 'loc_distribution': 'uniform'})
 model = AttentionModel(env,
                        baseline="rollout",
                        train_data_size=100_000,
@@ -195,8 +200,8 @@ We invite you to join our AI4CO community, an open research group in Artificial 
 
 
 
-<p align="center">
-  <img width="30%" src="https://github.com/ai4co/rl4co/assets/48984123/2f1298ef-15e1-4a66-9741-78ee75938789">
-</p>
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/ai4co_animated_full.svg" alt="AI4CO Logo" style="width: 30%; height: auto;">
+</div>
 
 
