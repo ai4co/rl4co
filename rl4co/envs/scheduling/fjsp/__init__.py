@@ -1,2 +1,0 @@
-NO_OP_ID = -1
-INIT_FINISH = 9999.0

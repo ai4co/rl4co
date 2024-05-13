@@ -53,7 +53,7 @@ class REINFORCE(RL4COLitModule):
     ):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
-        out = self.policy(td, self.env, phase=phase, select_best=phase != "train")
+        out = self.policy(td, self.env, phase=phase)
 
         # Compute loss
         if phase == "train":

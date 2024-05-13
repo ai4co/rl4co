@@ -19,7 +19,6 @@ from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.rl.ppo.ppo import PPO
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
-from rl4co.models.zoo import HetGNNModel
 from rl4co.models.zoo.active_search import ActiveSearch
 from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.zoo.amppo import AMPPO

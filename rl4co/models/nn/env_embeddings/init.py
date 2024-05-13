@@ -3,8 +3,6 @@ import torch.nn as nn
 
 from tensordict.tensordict import TensorDict
 
-from rl4co.models.nn.ops import PositionalEncoding
-
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
     """Get environment initial embedding. The init embedding is used to initialize the
@@ -20,11 +18,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "atsp": TSPInitEmbedding,
         "matnet": MatNetInitEmbedding,
         "cvrp": VRPInitEmbedding,
-        "vrpb": VRPInitEmbedding,
-        "vrpl": VRPInitEmbedding,
-        "ovrp": VRPInitEmbedding,
         "cvrptw": VRPTWInitEmbedding,
-        "vrptw": VRPTWInitEmbedding,
         "svrp": SVRPInitEmbedding,
         "sdvrp": VRPInitEmbedding,
         "pctsp": PCTSPInitEmbedding,
@@ -36,7 +30,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
-        "fjsp": FJSPFeatureEmbedding,
+        "mtvrp":MTVRPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -149,6 +143,28 @@ class VRPTWInitEmbedding(VRPInitEmbedding):
                 (cities, td["demand"][..., None], time_windows, durations[..., None]), -1
             )
         )
+        return torch.cat((depot_embedding, node_embeddings), -2)
+    
+
+class MTVRPInitEmbedding(VRPInitEmbedding):
+    def __init__(self, embed_dim, linear_bias=True, node_dim: int = 5):
+        # node_dim = 5: x, y, demand, tw start, tw end
+        super(MTVRPInitEmbedding, self).__init__(embed_dim, linear_bias, node_dim)
+
+    def forward(self, td):
+        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        #durations = td["durations"][..., 1:]
+        time_windows = td["time_windows"][..., 1:, :]
+        # embeddings
+        demands =  td["demand_linehaul"][..., None] - td["demand_backhaul"][..., None]
+
+        depot_embedding = self.init_embed_depot(depot)
+        node_embeddings = self.init_embed(
+            torch.cat(
+                (cities, demands[:,1:], time_windows), -1
+            )
+        )
+
         return torch.cat((depot_embedding, node_embeddings), -2)
 
 
@@ -386,65 +402,3 @@ class MDCPDPInitEmbedding(nn.Module):
         delivery_embeddings = self.init_embed_delivery(delivery_feats)
         # concatenate on graph size dimension
         return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)
-
-
-class FJSPFeatureEmbedding(nn.Module):
-    def __init__(self, embed_dim, linear_bias=True, norm_coef: int = 100):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.norm_coef = norm_coef
-
-        self.init_ope_embed = nn.Linear(4, self.embed_dim, bias=False)
-        self.edge_embed = nn.Linear(1, embed_dim, bias=False)
-
-        self.ope_pos_enc = PositionalEncoding(embed_dim)
-        # TODO allow for reencoding after each step
-        self.stepwise = False
-
-    def forward(self, td: TensorDict):
-        if self.stepwise:
-            ops_emb = self._stepwise_operations_embed(td)
-            ma_emb = self._stepwise_machine_embed(td)
-            edge_emb = None
-        else:
-            ops_emb = self._init_operations_embed(td)
-            ma_emb = self._init_machine_embed(td)
-            edge_emb = self._init_edge_embed(td)
-        return ma_emb, ops_emb, edge_emb
-
-    def _init_operations_embed(self, td: TensorDict):
-        pos = td["ops_sequence_order"]
-
-        features = [
-            td["lbs"].unsqueeze(-1) / self.norm_coef,
-            td["is_ready"].unsqueeze(-1),
-            td["num_eligible"].unsqueeze(-1),
-            td["ops_job_map"].unsqueeze(-1),
-        ]
-        features = torch.cat(features, dim=-1)
-        # (bs, num_ops, emb_dim)
-        ops_embeddings = self.init_ope_embed(features)
-
-        # (bs, num_ops, emb_dim)
-        ops_embeddings = self.ope_pos_enc(ops_embeddings, pos.to(torch.int64))
-        # zero out padded entries
-        ops_embeddings[td["pad_mask"].unsqueeze(-1).expand_as(ops_embeddings)] = 0
-        return ops_embeddings
-
-    def _init_machine_embed(self, td: TensorDict):
-        bs, num_ma = td["busy_until"].shape
-        ma_embeddings = torch.zeros(
-            (bs, num_ma, self.embed_dim), device=td.device, dtype=torch.float32
-        )
-        return ma_embeddings
-
-    def _init_edge_embed(self, td: TensorDict):
-        proc_times = td["proc_times"].unsqueeze(-1) / self.norm_coef
-        edge_embed = self.edge_embed(proc_times)
-        return edge_embed
-
-    def _stepwise_operations_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
-
-    def _stepwise_machine_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
