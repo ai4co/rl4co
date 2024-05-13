@@ -7,7 +7,7 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.models.common.improvement.base import ImprovementDecoder
-from rl4co.models.nn.improvement_attention import MultiHeadCompat
+from rl4co.models.nn.attention import MultiHeadCompat
 from rl4co.models.nn.mlp import MLP
 from rl4co.utils.pylogger import get_pylogger
 

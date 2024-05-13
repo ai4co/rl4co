@@ -222,3 +222,65 @@ class LogitAttention(PointerAttention):
             category=DeprecationWarning,
         )
         super(LogitAttention, self).__init__(*args, **kwargs)
+
+
+# MultiHeadCompat
+class MultiHeadCompat(nn.Module):
+    def __init__(self, n_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None):
+        super(MultiHeadCompat, self).__init__()
+
+        if val_dim is None:
+            # assert embed_dim is not None, "Provide either embed_dim or val_dim"
+            val_dim = embed_dim // n_heads
+        if key_dim is None:
+            key_dim = val_dim
+
+        self.n_heads = n_heads
+        self.input_dim = input_dim
+        self.embed_dim = embed_dim
+        self.val_dim = val_dim
+        self.key_dim = key_dim
+
+        self.W_query = nn.Parameter(torch.Tensor(n_heads, input_dim, key_dim))
+        self.W_key = nn.Parameter(torch.Tensor(n_heads, input_dim, key_dim))
+
+        self.init_parameters()
+
+    # used for init nn.Parameter
+    def init_parameters(self):
+        for param in self.parameters():
+            stdv = 1.0 / math.sqrt(param.size(-1))
+            param.data.uniform_(-stdv, stdv)
+
+    def forward(self, q, h=None, mask=None):
+        """
+
+        :param q: queries (batch_size, n_query, input_dim)
+        :param h: data (batch_size, graph_size, input_dim)
+        :param mask: mask (batch_size, n_query, graph_size) or viewable as that (i.e. can be 2 dim if n_query == 1)
+        Mask should contain 1 if attention is not possible (i.e. mask is negative adjacency)
+        :return:
+        """
+
+        if h is None:
+            h = q  # compute self-attention
+
+        # h should be (batch_size, graph_size, input_dim)
+        batch_size, graph_size, input_dim = h.size()
+        n_query = q.size(1)
+
+        hflat = h.contiguous().view(-1, input_dim)  #################   reshape
+        qflat = q.contiguous().view(-1, input_dim)
+
+        # last dimension can be different for keys and values
+        shp = (self.n_heads, batch_size, graph_size, -1)
+        shp_q = (self.n_heads, batch_size, n_query, -1)
+
+        # Calculate queries, (n_heads, n_query, graph_size, key/val_size)
+        Q = torch.matmul(qflat, self.W_query).view(shp_q)
+        K = torch.matmul(hflat, self.W_key).view(shp)
+
+        # Calculate compatibility (n_heads, batch_size, n_query, graph_size)
+        compatibility_s2n = torch.matmul(Q, K.transpose(2, 3))
+
+        return compatibility_s2n

@@ -27,7 +27,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "dpp": DPPInitEmbedding,
         "mdpp": MDPPInitEmbedding,
         "pdp": PDPInitEmbedding,
-        "pdp_ruin_repair": PDPImproveInitEmbedding,
+        "pdp_ruin_repair": TSPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
@@ -311,20 +311,6 @@ class PDPInitEmbedding(nn.Module):
         # concatenate on graph size dimension
         return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)
 
-
-class PDPImproveInitEmbedding(nn.Module):
-    """Initial embedding for the Pickup and Delivery Problem (PDP) and the improvement method.
-    Embed the following node features to the embedding space:
-        - locs: x, y coordinates of the cities
-    """
-    def __init__(self, embed_dim, linear_bias=True):
-        super(PDPImproveInitEmbedding, self).__init__()
-        node_dim = 2  # x, y
-        self.init_embed = nn.Linear(node_dim, embed_dim, linear_bias)
-
-    def forward(self, td):
-        out = self.init_embed(td["locs"])
-        return out
 
 class MTSPInitEmbedding(nn.Module):
     """Initial embedding for the Multiple Traveling Salesman Problem (mTSP).
