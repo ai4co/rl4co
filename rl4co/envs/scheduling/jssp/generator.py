@@ -1,3 +1,5 @@
+import os
+
 from functools import partial
 from typing import List
 
@@ -5,6 +7,7 @@ import numpy as np
 import torch
 
 from tensordict.tensordict import TensorDict
+from torch.nn.functional import one_hot
 
 from rl4co.envs.common.utils import Generator
 from rl4co.utils.pylogger import get_pylogger
@@ -14,9 +17,10 @@ from .parser import get_max_ops_from_files, read
 log = get_pylogger(__name__)
 
 
-class FJSPGenerator(Generator):
+class JSSPwTimeGenerator(Generator):
 
-    """Data generator for the Flexible Job-Shop Scheduling Problem (FJSP).
+    """Data generator for the Job-Shop Scheduling Problem (JSSP) with time increment method.
+    (see https://arxiv.org/pdf/2104.03760)
 
     Args:
         num_stage: number of stages
@@ -37,24 +41,22 @@ class FJSPGenerator(Generator):
 
     def __init__(
         self,
-        num_jobs: int = 10,
-        num_machines: int = 5,
-        min_ops_per_job: int = 4,
-        max_ops_per_job: int = 6,
+        num_jobs: int = 6,
+        num_machines: int = 6,
+        min_ops_per_job: int = None,
+        max_ops_per_job: int = None,
         min_processing_time: int = 1,
-        max_processing_time: int = 20,
-        min_eligible_ma_per_op: int = 1,
-        max_eligible_ma_per_op: int = None,
+        max_processing_time: int = 99,
         **unused_kwargs,
     ):
         self.num_jobs = num_jobs
         self.num_mas = num_machines
-        self.min_ops_per_job = min_ops_per_job
-        self.max_ops_per_job = max_ops_per_job
+        # quite common in jssp to have as many ops per job as there are machines
+        self.min_ops_per_job = min_ops_per_job or self.num_mas
+        self.max_ops_per_job = max_ops_per_job or self.num_mas
         self.min_processing_time = min_processing_time
         self.max_processing_time = max_processing_time
-        self.min_eligible_ma_per_op = min_eligible_ma_per_op
-        self.max_eligible_ma_per_op = max_eligible_ma_per_op or num_machines
+
         # determines whether to use a fixed number of total operations or let it vary between instances
         # NOTE: due to the way rl4co builds datasets, we need a fixed size here
         self.n_ops_max = max_ops_per_job * num_jobs
@@ -63,39 +65,27 @@ class FJSPGenerator(Generator):
         if len(unused_kwargs) > 0:
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
 
-    def _simulate_processing_times(
-        self, n_eligible_per_ops: torch.Tensor
-    ) -> torch.Tensor:
-        bs, n_ops_max = n_eligible_per_ops.shape
+    def _simulate_processing_times(self, bs, n_ops_max) -> torch.Tensor:
+        ops_machine_ids = torch.randint(
+            low=0,
+            high=self.num_mas,
+            size=(*bs, n_ops_max),
+        )
+        ops_machine_adj = one_hot(ops_machine_ids, num_classes=self.num_mas)
 
         # (bs, max_ops, machines)
-        ma_seq_per_ops = torch.arange(1, self.num_mas + 1)[None, None].expand(
-            bs, n_ops_max, self.num_mas
-        )
-        # generate a matrix of size (ops, mas) per batch, each row having as many ones as the operation eligible machines
-        # E.g. n_eligible_per_ops=[1,3,2]; num_mas=4
-        # [[1,0,0,0],
-        #   1,1,1,0],
-        #   1,1,0,0]]
-        # This will be shuffled randomly to generate a machine-operation mapping
-        ma_ops_edges_unshuffled = torch.Tensor.float(
-            ma_seq_per_ops <= n_eligible_per_ops[..., None]
-        )
-        # random shuffling
-        idx = torch.rand_like(ma_ops_edges_unshuffled).argsort()
-        ma_ops_edges = ma_ops_edges_unshuffled.gather(2, idx).transpose(1, 2)
-
-        # (bs, max_ops, machines)
-        proc_times = torch.ones((bs, n_ops_max, self.num_mas))
+        proc_times = torch.ones((*bs, n_ops_max, self.num_mas))
         proc_times = torch.randint(
             self.min_processing_time,
             self.max_processing_time + 1,
-            size=(bs, self.num_mas, n_ops_max),
+            size=(*bs, self.num_mas, n_ops_max),
         )
 
         # remove proc_times for which there is no corresponding ma-ops connection
-        proc_times = proc_times * ma_ops_edges
-        return proc_times
+        proc_times = proc_times * ops_machine_adj.transpose(1, 2)
+        # in JSSP there is only one machine capable to process an operation
+        assert (proc_times > 0).sum(1).eq(1).all()
+        return proc_times.to(torch.float32)
 
     def _generate(self, batch_size) -> TensorDict:
         # simulate how many operations each job has
@@ -127,17 +117,9 @@ class FJSPGenerator(Generator):
             dim=1,
         )
 
-        # here we simulate the eligible machines per operation and the processing times
-        n_eligible_per_ops = torch.randint(
-            self.min_eligible_ma_per_op,
-            self.max_eligible_ma_per_op + 1,
-            (*batch_size, n_ops_max),
-        )
-        n_eligible_per_ops[pad_mask] = 0
-
         # simulate processing times for machine-operation pairs
         # (bs, num_mas, n_ops_max)
-        proc_times = self._simulate_processing_times(n_eligible_per_ops)
+        proc_times = self._simulate_processing_times(batch_size, n_ops_max)
 
         td = TensorDict(
             {
@@ -152,8 +134,8 @@ class FJSPGenerator(Generator):
         return td
 
 
-class FJSPFileGenerator(Generator):
-    """Data generator for the Flexible Job-Shop Scheduling Problem (FJSP) using instance files
+class JSSPFileGenerator(Generator):
+    """Data generator for the Job-Shop Scheduling Problem (JSSP) using instance files
 
     Args:
         path: path to files
@@ -168,7 +150,9 @@ class FJSPFileGenerator(Generator):
     """
 
     def __init__(self, file_path: str, n_ops_max: int = None, **unused_kwargs):
-        self.files = self.list_files(file_path)
+        self.files = (
+            [file_path] if os.path.isfile(file_path) else self.list_files(file_path)
+        )
         self.num_samples = len(self.files)
 
         if len(unused_kwargs) > 0:
@@ -204,15 +188,10 @@ class FJSPFileGenerator(Generator):
 
     @staticmethod
     def list_files(path):
-        import os
-
         files = [
             os.path.join(path, f)
             for f in os.listdir(path)
             if os.path.isfile(os.path.join(path, f))
         ]
-        assert len(files) > 0
-        files = sorted(
-            files, key=lambda f: int(os.path.splitext(os.path.basename(f))[0][:4])
-        )
+        assert len(files) > 0, "No files found in the specified path"
         return files
