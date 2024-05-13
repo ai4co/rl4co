@@ -76,6 +76,14 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
     return src.gather(dim, idx).squeeze() if squeeze else src.gather(dim, idx)
 
 
+def unbatchify_and_gather(x: Tensor, idx: Tensor, n: int):
+    """first unbatchify a tensor by n and then gather (usually along the unbatchified dimension)
+    by the specified index
+    """
+    x = unbatchify(x, n)
+    return gather_by_index(x, idx, dim=idx.dim())
+
+
 @torch.jit.script
 def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
@@ -146,6 +154,8 @@ def select_start_nodes(td, env, num_starts):
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
             % num_loc
         )
+    elif env.name == "fjsp":
+        raise NotImplementedError("Multistart not yet supported for FJSP")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (
@@ -212,3 +222,23 @@ def get_full_graph_edge_index(num_node: int, self_loop=False) -> Tensor:
         adj_matrix.fill_diagonal_(0)
     edge_index = torch.permute(torch.nonzero(adj_matrix), (1, 0))
     return edge_index
+
+
+def sample_n_random_actions(td: TensorDict, n: int):
+    """Helper function to sample n random actions from available actions. If
+    number of valid actions is less then n, we sample with replacement from the
+    valid actions
+    """
+    action_mask = td["action_mask"]
+    # check whether to use replacement or not
+    n_valid_actions = torch.sum(action_mask[:, 1:], 1).min()
+    if n_valid_actions < n:
+        replace = True
+    else:
+        replace = False
+    ps = torch.rand((action_mask.shape))
+    ps[~action_mask] = -torch.inf
+    ps = torch.softmax(ps, dim=1)
+    selected = torch.multinomial(ps, n, replacement=replace).squeeze(1)
+    selected = rearrange(selected, "b n -> (n b)")
+    return selected.to(td.device)
