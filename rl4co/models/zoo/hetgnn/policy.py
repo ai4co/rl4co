@@ -56,7 +56,6 @@ class HetGNNPolicy(AutoregressivePolicy):
         num_encoder_layers: int = 2,
         env_name: str = "fjsp",
         init_embedding: Optional[nn.Module] = None,
-        linear_bias: bool = True,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "multistart_sampling",
@@ -71,7 +70,6 @@ class HetGNNPolicy(AutoregressivePolicy):
                 embed_dim=embed_dim,
                 num_layers=num_encoder_layers,
                 init_embedding=init_embedding,
-                linear_bias=linear_bias,
             )
 
         # The decoder generates logits given the current td and heatmap
