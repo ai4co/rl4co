@@ -59,7 +59,7 @@ class JSSPwTimeGenerator(Generator):
 
         # determines whether to use a fixed number of total operations or let it vary between instances
         # NOTE: due to the way rl4co builds datasets, we need a fixed size here
-        self.n_ops_max = max_ops_per_job * num_jobs
+        self.n_ops_max = self.max_ops_per_job * self.num_jobs
 
         # FFSP environment doen't have any other kwargs
         if len(unused_kwargs) > 0:
