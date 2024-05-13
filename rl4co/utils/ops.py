@@ -154,8 +154,8 @@ def select_start_nodes(td, env, num_starts):
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
             % num_loc
         )
-    elif env.name == "fjsp":
-        raise NotImplementedError("Multistart not yet supported for FJSP")
+    elif env.name in ["jssp", "fjsp"]:
+        raise NotImplementedError("Multistart not yet supported for FJSP/JSSP")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (

@@ -33,6 +33,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
         "fjsp": FJSPFeatureEmbedding,
+        "jssp": FJSPFeatureEmbedding,
     }
 
     if env_name not in embedding_registry:

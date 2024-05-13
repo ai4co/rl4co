@@ -29,9 +29,10 @@ class HetGNNModel(REINFORCE):
         baseline_kwargs={},
         **kwargs,
     ):
-        assert (
-            env.name == "fjsp"
-        ), "HetGNNModel currently only works for FJSP (Flexible Job-Shop Scheduling Problem)"
+        assert env.name in [
+            "fjsp",
+            "jssp",
+        ], "HetGNNModel currently only works for Job-Shop Scheduling Problems"
         if policy is None:
             policy = HetGNNPolicy(env_name=env.name, **policy_kwargs)
 

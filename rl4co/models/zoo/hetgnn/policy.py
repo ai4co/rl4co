@@ -67,6 +67,7 @@ class HetGNNPolicy(AutoregressivePolicy):
 
         if encoder is None:
             encoder = HetGNNEncoder(
+                env_name=env_name,
                 embed_dim=embed_dim,
                 num_layers=num_encoder_layers,
                 init_embedding=init_embedding,

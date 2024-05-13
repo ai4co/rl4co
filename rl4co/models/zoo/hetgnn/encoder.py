@@ -105,12 +105,12 @@ class HetGNNEncoder(nn.Module):
         init_embedding=None,
         edge_key: str = "ops_ma_adj",
         edge_weights_key: str = "proc_times",
-        linear_bias: bool = False,
+        env_name: str = "fjsp",
     ) -> None:
         super().__init__()
 
         if init_embedding is None:
-            init_embedding = env_init_embedding("fjsp", {"embed_dim": embed_dim})
+            init_embedding = env_init_embedding(env_name, {"embed_dim": embed_dim})
         self.init_embedding = init_embedding
 
         self.edge_key = edge_key
