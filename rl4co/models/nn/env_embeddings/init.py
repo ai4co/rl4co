@@ -386,28 +386,34 @@ class MDCPDPInitEmbedding(nn.Module):
 
 
 class FJSPFeatureEmbedding(nn.Module):
-    def __init__(self, embed_dim, linear_bias=True, norm_coef: int = 100):
+    def __init__(
+        self, embed_dim, linear_bias=False, stepwise: bool = False, norm_coef: int = 100
+    ):
         super().__init__()
         self.embed_dim = embed_dim
         self.norm_coef = norm_coef
 
-        self.init_ope_embed = nn.Linear(4, self.embed_dim, bias=False)
-        self.edge_embed = nn.Linear(1, embed_dim, bias=False)
+        self.init_ope_embed = nn.Linear(4, self.embed_dim, bias=linear_bias)
+        self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
+        self.edge_embed = nn.Linear(1, embed_dim, bias=linear_bias)
 
         self.ope_pos_enc = PositionalEncoding(embed_dim)
-        # TODO allow for reencoding after each step
-        self.stepwise = False
+
+        self.stepwise = stepwise
 
     def forward(self, td: TensorDict):
         if self.stepwise:
             ops_emb = self._stepwise_operations_embed(td)
             ma_emb = self._stepwise_machine_embed(td)
-            edge_emb = None
+            edge_emb = self._stepwise_edge_embed(td)
         else:
             ops_emb = self._init_operations_embed(td)
             ma_emb = self._init_machine_embed(td)
             edge_emb = self._init_edge_embed(td)
-        return ma_emb, ops_emb, edge_emb
+        # get edges between operations and machines
+        # (bs, ma, ops)
+        edges = td["ops_ma_adj"]
+        return ma_emb, ops_emb, edge_emb, edges
 
     def _init_operations_embed(self, td: TensorDict):
         pos = td["ops_sequence_order"]
@@ -441,7 +447,65 @@ class FJSPFeatureEmbedding(nn.Module):
         return edge_embed
 
     def _stepwise_operations_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
+        pos = td["ops_sequence_order"]
+
+        features = [
+            (td["lbs"] - td["time"].unsqueeze(1)).unsqueeze(-1) / self.norm_coef,
+            td["is_ready"].unsqueeze(-1),
+            td["num_eligible"].unsqueeze(-1),
+            td["ops_job_map"].unsqueeze(-1),
+        ]
+        features = torch.cat(features, dim=-1)
+        # (bs, num_ops, emb_dim)
+        ops_embeddings = self.init_ope_embed(features)
+
+        # (bs, num_ops, emb_dim)
+        ops_embeddings = self.ope_pos_enc(ops_embeddings, pos.to(torch.int64))
+
+        # zero out padded entries
+        mask = td["pad_mask"] + td["op_scheduled"]
+        mask = mask.unsqueeze(-1).expand_as(ops_embeddings)
+        ops_embeddings[mask] = 0
+        return ops_embeddings
+
+    def _stepwise_edge_embed(self, td: TensorDict):
+        return self._init_edge_embed(td)
 
     def _stepwise_machine_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.norm_coef
+        ma_embeddings = self.init_ma_embed(busy_for.unsqueeze(2))
+        return ma_embeddings
+
+
+class JSSPInitEmbedding(nn.Module):
+    def __init__(
+        self,
+        embed_dim,
+        linear_bias: bool = False,
+        scaling_factor: int = 1000,
+        use_pos_enc: bool = False,
+    ):
+        super(JSSPInitEmbedding, self).__init__()
+
+        self.init_job_embed = nn.Linear(1, embed_dim, linear_bias)
+        self.init_ma_embed = nn.Linear(1, embed_dim, linear_bias)
+        self.scaling_factor = scaling_factor
+        self.use_pos_enc = use_pos_enc
+        if self.use_pos_enc:
+            self.pos_encoder = PositionalEncoding(embed_dim, dropout=0.0)
+
+    def forward(self, td: TensorDict):
+        # (bs, jobs * ops)
+        # in jssp each op can be processed by one machine only, thus sum over machines here
+        durations = td["proc_times"].sum(1) / self.scaling_factor
+        ops_feat = torch.stack((durations,), dim=-1)
+        ops_emb = self.init_job_embed(ops_feat)
+
+        if self.use_pos_enc:
+            ops_emb = self.pos_encoder(ops_emb, td["ops_sequence_order"])
+
+        # encoding machines
+        # (bs, ma)
+        busy_for = td["busy_until"] - td["time"].unsqueeze(1)
+        ma_emb = self.init_ma_embed(busy_for.unsqueeze(2))
+        return ma_emb, ops_emb

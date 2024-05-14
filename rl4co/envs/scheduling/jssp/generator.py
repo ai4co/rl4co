@@ -29,6 +29,7 @@ class JSSPwTimeGenerator(Generator):
         min_time: minimum running time of each job on each machine
         max_time: maximum running time of each job on each machine
         flatten_stages: whether to flatten the stages
+        one2one_ma_map: whether each machine should have exactly one operation per job (common in jssp benchmark instances)
 
     Returns:
         A TensorDict with the following key:
@@ -47,6 +48,7 @@ class JSSPwTimeGenerator(Generator):
         max_ops_per_job: int = None,
         min_processing_time: int = 1,
         max_processing_time: int = 99,
+        one2one_ma_map: bool = True,
         **unused_kwargs,
     ):
         self.num_jobs = num_jobs
@@ -56,6 +58,9 @@ class JSSPwTimeGenerator(Generator):
         self.max_ops_per_job = max_ops_per_job or self.num_mas
         self.min_processing_time = min_processing_time
         self.max_processing_time = max_processing_time
+        self.one2one_ma_map = one2one_ma_map
+        if self.one2one_ma_map:
+            assert self.min_ops_per_job == self.max_ops_per_job == self.num_mas
 
         # determines whether to use a fixed number of total operations or let it vary between instances
         # NOTE: due to the way rl4co builds datasets, we need a fixed size here
@@ -66,11 +71,18 @@ class JSSPwTimeGenerator(Generator):
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
 
     def _simulate_processing_times(self, bs, n_ops_max) -> torch.Tensor:
-        ops_machine_ids = torch.randint(
-            low=0,
-            high=self.num_mas,
-            size=(*bs, n_ops_max),
-        )
+        if self.one2one_ma_map:
+            ops_machine_ids = (
+                torch.rand((*bs, self.num_jobs, self.num_mas))
+                .argsort(dim=-1)
+                .flatten(1, 2)
+            )
+        else:
+            ops_machine_ids = torch.randint(
+                low=0,
+                high=self.num_mas,
+                size=(*bs, n_ops_max),
+            )
         ops_machine_adj = one_hot(ops_machine_ids, num_classes=self.num_mas)
 
         # (bs, max_ops, machines)

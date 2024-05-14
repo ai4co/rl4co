@@ -73,7 +73,8 @@ def gather_by_index(src, idx, dim=1, squeeze=True):
     expanded_shape = list(src.shape)
     expanded_shape[dim] = -1
     idx = idx.view(idx.shape + (1,) * (src.dim() - idx.dim())).expand(expanded_shape)
-    return src.gather(dim, idx).squeeze() if squeeze else src.gather(dim, idx)
+    squeeze = idx.size(dim) == 1 and squeeze
+    return src.gather(dim, idx).squeeze(dim) if squeeze else src.gather(dim, idx)
 
 
 def unbatchify_and_gather(x: Tensor, idx: Tensor, n: int):

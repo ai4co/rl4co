@@ -7,15 +7,15 @@ from rl4co.models.common.constructive.autoregressive import (
     AutoregressiveEncoder,
     AutoregressivePolicy,
 )
+from rl4co.models.common.constructive.base import NoEncoder
 from rl4co.utils.pylogger import get_pylogger
 
-from .decoder import HetGNNDecoder
-from .encoder import HetGNNEncoder
+from .decoder import L2DDecoder
 
 log = get_pylogger(__name__)
 
 
-class HetGNNPolicy(AutoregressivePolicy):
+class L2DPolicy(AutoregressivePolicy):
     def __init__(
         self,
         encoder: Optional[AutoregressiveEncoder] = None,
@@ -33,23 +33,20 @@ class HetGNNPolicy(AutoregressivePolicy):
             log.warn(f"Unused kwargs: {constructive_policy_kw}")
 
         if encoder is None:
-            encoder = HetGNNEncoder(
-                env_name=env_name,
-                embed_dim=embed_dim,
-                num_layers=num_encoder_layers,
-                init_embedding=init_embedding,
-            )
+            encoder = NoEncoder()
 
         # The decoder generates logits given the current td and heatmap
         if decoder is None:
-            decoder = HetGNNDecoder(
+            decoder = L2DDecoder(
+                env_name="l2d",
                 embed_dim=embed_dim,
-                feed_forward_hidden_dim=embed_dim,
-                feed_forward_layers=2,
+                actor_hidden_dim=embed_dim,
+                num_encoder_layers=num_encoder_layers,
+                init_embedding=init_embedding,
             )
 
         # Pass to constructive policy
-        super(HetGNNPolicy, self).__init__(
+        super(L2DPolicy, self).__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

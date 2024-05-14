@@ -179,7 +179,7 @@ class FJSPEnv(EnvBase):
 
         return td_reset
 
-    def get_action_mask(self, td: TensorDict) -> torch.Tensor:
+    def _get_job_machine_availability(self, td: TensorDict):
         batch_size = td.size(0)
 
         # (bs, jobs, machines)
@@ -200,6 +200,10 @@ class FJSPEnv(EnvBase):
             td["proc_times"], td["next_op"].unsqueeze(1), dim=2, squeeze=False
         ).transpose(1, 2)
         action_mask.add_(next_ops_proc_times == 0)
+        return action_mask
+
+    def get_action_mask(self, td: TensorDict) -> torch.Tensor:
+        action_mask = self._get_job_machine_availability(td)
         if self.mask_no_ops:
             no_op_mask = ~td["done"]
         else:
@@ -209,6 +213,13 @@ class FJSPEnv(EnvBase):
         # NOTE: 1 means feasible action, 0 means infeasible action
         mask = torch.cat((~no_op_mask, ~action_mask), dim=1)
         return mask
+
+    def _translate_action(self, td):
+        """This function translates an action into a machine, job tuple."""
+        selected_job = td["action"] // self.num_mas
+        selected_op = td["next_op"].gather(1, selected_job[:, None]).squeeze(1)
+        selected_machine = td["action"] % self.num_mas
+        return selected_job, selected_op, selected_machine
 
     def _step(self, td: TensorDict):
         # cloning required to avoid inplace operation which avoids gradient backtracking
@@ -225,14 +236,11 @@ class FJSPEnv(EnvBase):
         if no_op.any():
             td, dones = self._transit_to_next_time(no_op, td)
 
+        # select only instances that perform a scheduling action
         td_op = td.masked_select(req_op)
 
-        # (#req_op)
-        selected_job = td_op["action"] // self.num_mas
-        # (#req_op)
-        selected_machine = td_op["action"] % self.num_mas
-        td_op = self._make_step(td_op, selected_job, selected_machine)
-
+        td_op = self._make_step(td_op)
+        # update the tensordict
         td[req_op] = td_op
 
         # action mask
@@ -246,7 +254,6 @@ class FJSPEnv(EnvBase):
 
         # after we have transitioned to a next time step, we determine which operations are ready
         td["is_ready"] = op_is_ready(td)
-
         td["lbs"] = calc_lower_bound(td)
 
         return td
@@ -259,17 +266,18 @@ class FJSPEnv(EnvBase):
         """
         return ~reduce(td["action_mask"], "bs ... -> bs", "any") & ~dones
 
-    def _make_step(self, td: TensorDict, selected_job, selected_machine) -> TensorDict:
+    def _make_step(self, td: TensorDict) -> TensorDict:
         """
         Environment transition function
         """
 
         batch_idx = torch.arange(td.size(0))
 
-        td["job_in_process"][batch_idx, selected_job] = 1
+        # 3*(#req_op)
+        selected_job, selected_op, selected_machine = self._translate_action(td)
 
-        # (#req_op)
-        selected_op = td["next_op"].gather(1, selected_job[:, None]).squeeze(1)
+        # mark job as being processed
+        td["job_in_process"][batch_idx, selected_job] = 1
 
         # mark op as schedules
         td["op_scheduled"][batch_idx, selected_op] = True
@@ -285,6 +293,17 @@ class FJSPEnv(EnvBase):
         td["ma_assignment"][batch_idx, selected_machine, selected_op] = 1
         # update the state of the selected machine
         td["busy_until"][batch_idx, selected_machine] = td["time"] + proc_time_of_action
+        # update adjacency matrices (remove edges)
+        td["proc_times"] = td["proc_times"].scatter(
+            2,
+            selected_op[:, None, None].expand(-1, self.num_mas, 1),
+            torch.zeros_like(td["proc_times"]),
+        )
+        td["ops_ma_adj"] = (td["proc_times"] > 0).to(torch.float32)
+        # update the positions of an operation in the job (subtract 1 from each operation of the selected job)
+        td["ops_sequence_order"] = (
+            td["ops_sequence_order"] - gather_by_index(td["job_ops_adj"], selected_job, 1)
+        ).clip(0)
 
         return td
 

@@ -2,8 +2,8 @@ _target_: rl4co.envs.JSSPEnv
 name: jssp
 
 generator_params:
-  num_jobs: 10
-  num_machines: 10
+  num_jobs: 6
+  num_machines: 6
   min_processing_time: 1
   max_processing_time: 99
 

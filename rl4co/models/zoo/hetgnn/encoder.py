@@ -80,10 +80,10 @@ class HetGNNLayer(nn.Module):
 
 
 class HetGNNBlock(nn.Module):
-    def __init__(self, embed_dim) -> None:
+    def __init__(self, embed_dim, normalization: str = "batch") -> None:
         super().__init__()
-        self.norm1 = Normalization(embed_dim, normalization="batch")
-        self.norm2 = Normalization(embed_dim, normalization="batch")
+        self.norm1 = Normalization(embed_dim, normalization=normalization)
+        self.norm2 = Normalization(embed_dim, normalization=normalization)
         self.hgnn1 = HetGNNLayer(embed_dim)
         self.hgnn2 = HetGNNLayer(embed_dim)
 
@@ -102,9 +102,8 @@ class HetGNNEncoder(nn.Module):
         self,
         embed_dim: int,
         num_layers: int = 2,
+        normalization: str = "batch",
         init_embedding=None,
-        edge_key: str = "ops_ma_adj",
-        edge_weights_key: str = "proc_times",
         env_name: str = "fjsp",
     ) -> None:
         super().__init__()
@@ -113,16 +112,15 @@ class HetGNNEncoder(nn.Module):
             init_embedding = env_init_embedding(env_name, {"embed_dim": embed_dim})
         self.init_embedding = init_embedding
 
-        self.edge_key = edge_key
-        self.edge_weights_key = edge_weights_key
-
         self.num_layers = num_layers
-        self.layers = nn.ModuleList([HetGNNBlock(embed_dim) for _ in range(num_layers)])
+        self.layers = nn.ModuleList(
+            [HetGNNBlock(embed_dim, normalization) for _ in range(num_layers)]
+        )
 
     def forward(self, td):
-        edges = td[self.edge_key]
-        bs, n_rows, n_cols = edges.shape
-        row_emb, col_emb, edge_emb = self.init_embedding(td)
+        row_emb, col_emb, edge_emb, edges = self.init_embedding(td)
+        # perform sanity check to validate correct order of row and col embeddings
+        n_rows, n_cols = edges.shape[1:]
         assert row_emb.size(1) == n_rows, "incorrect number of row embeddings"
         assert col_emb.size(1) == n_cols, "incorrect number of column embeddings"
 
