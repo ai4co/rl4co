@@ -52,6 +52,8 @@ class JSSPEnv(FJSPEnv):
         mask_no_ops: if True, agent may not select waiting operation (unless instance is done)
     """
 
+    name = "jssp"
+
     def __init__(
         self,
         generator: JSSPwTimeGenerator = None,

@@ -464,8 +464,7 @@ class FJSPFeatureEmbedding(nn.Module):
 
         # zero out padded entries
         mask = td["pad_mask"] + td["op_scheduled"]
-        mask = mask.unsqueeze(-1).expand_as(ops_embeddings)
-        ops_embeddings[mask] = 0
+        ops_embeddings[mask.unsqueeze(-1).expand_as(ops_embeddings)] = 0
         return ops_embeddings
 
     def _stepwise_edge_embed(self, td: TensorDict):
@@ -477,7 +476,7 @@ class FJSPFeatureEmbedding(nn.Module):
         return ma_embeddings
 
 
-class JSSPInitEmbedding(nn.Module):
+class JSSPMatNetInitEmbedding(nn.Module):
     def __init__(
         self,
         embed_dim,
@@ -485,7 +484,7 @@ class JSSPInitEmbedding(nn.Module):
         scaling_factor: int = 1000,
         use_pos_enc: bool = False,
     ):
-        super(JSSPInitEmbedding, self).__init__()
+        super(JSSPMatNetInitEmbedding, self).__init__()
 
         self.init_job_embed = nn.Linear(1, embed_dim, linear_bias)
         self.init_ma_embed = nn.Linear(1, embed_dim, linear_bias)
@@ -508,4 +507,4 @@ class JSSPInitEmbedding(nn.Module):
         # (bs, ma)
         busy_for = td["busy_until"] - td["time"].unsqueeze(1)
         ma_emb = self.init_ma_embed(busy_for.unsqueeze(2))
-        return ma_emb, ops_emb
+        return ma_emb, ops_emb, td["proc_times"]
