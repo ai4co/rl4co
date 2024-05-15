@@ -1,7 +1,7 @@
 import abc
 
 from functools import partial
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, List, Union
 
 import torch
 import torch.nn as nn
@@ -26,8 +26,8 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         env: RL4CO environment
         policy: policy network (actor)
         batch_size: batch size (general one, default used for training)
-        val_batch_size: specific batch size for validation
-        test_batch_size: specific batch size for testing
+        val_batch_size: specific batch size for validation. If None, will use `batch_size`. If list, will use one for each dataset
+        test_batch_size: specific batch size for testing. If None, will use `val_batch_size`. If list, will use one for each dataset
         train_data_size: size of training dataset for one epoch
         val_data_size: size of validation dataset for one epoch
         test_data_size: size of testing dataset for one epoch
@@ -50,8 +50,8 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         env: RL4COEnvBase,
         policy: nn.Module,
         batch_size: int = 512,
-        val_batch_size: int = None,
-        test_batch_size: int = None,
+        val_batch_size: Union[List[int], int] = None,
+        test_batch_size: Union[List[int], int] = None,
         train_data_size: int = 100_000,
         val_data_size: int = 10_000,
         test_data_size: int = 10_000,
@@ -301,11 +301,21 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
                 self.dataloader_names = list(dataset.keys())
             else:
                 self.dataloader_names = [f"{i}" for i in range(len(dataset))]
+            # if batch size is int, make it into list
+            if isinstance(batch_size, int):
+                batch_size = [batch_size] * len(self.dataloader_names)
+            assert len(batch_size) == len(
+                self.dataloader_names
+            ), f"Batch size must match number of datasets. \
+                        Found: {len(batch_size)} and {len(self.dataloader_names)}"
             return [
-                self._dataloader_single(ds, batch_size, shuffle)
-                for ds in dataset.values()
+                self._dataloader_single(dset, bsize, shuffle)
+                for dset, bsize in zip(dataset.values(), batch_size)
             ]
         else:
+            assert isinstance(
+                batch_size, int
+            ), f"Batch size must be an integer for a single dataset, found {batch_size}"
             return self._dataloader_single(dataset, batch_size, shuffle)
 
     def _dataloader_single(self, dataset, batch_size, shuffle=False):
