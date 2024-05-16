@@ -441,3 +441,8 @@ class FJSPEnv(EnvBase):
     def get_num_starts(self, td):
         # NOTE in the paper they use N_s = 100
         return 100
+
+    @staticmethod
+    def load_data(fpath, batch_size=[]):
+        g = FJSPFileGenerator(fpath)
+        return g(batch_size=batch_size)

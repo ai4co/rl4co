@@ -88,3 +88,8 @@ class JSSPEnv(FJSPEnv):
         # get the machine that corresponds to the selected operation
         ma = gather_by_index(td["ops_ma_adj"], op, dim=2).nonzero()[:, 1]
         return job, op, ma
+
+    @staticmethod
+    def load_data(fpath, batch_size=[]):
+        g = JSSPFileGenerator(fpath)
+        return g(batch_size=batch_size)

@@ -212,7 +212,4 @@ class FJSPFileGenerator(Generator):
             if os.path.isfile(os.path.join(path, f))
         ]
         assert len(files) > 0
-        files = sorted(
-            files, key=lambda f: int(os.path.splitext(os.path.basename(f))[0][:4])
-        )
         return files
