@@ -7,7 +7,7 @@ from torch._tensor import Tensor
 from rl4co.envs import FJSPEnv
 from rl4co.utils.ops import gather_by_index
 
-from .generator import JSSPFileGenerator, JSSPwTimeGenerator
+from .generator import JSSPFileGenerator, JSSPGenerator
 
 
 class JSSPEnv(FJSPEnv):
@@ -56,7 +56,7 @@ class JSSPEnv(FJSPEnv):
 
     def __init__(
         self,
-        generator: JSSPwTimeGenerator = None,
+        generator: JSSPGenerator = None,
         generator_params: dict = {},
         mask_no_ops: bool = True,
         **kwargs,
@@ -65,7 +65,7 @@ class JSSPEnv(FJSPEnv):
             if generator_params.get("file_path", None) is not None:
                 generator = JSSPFileGenerator(**generator_params)
             else:
-                generator = JSSPwTimeGenerator(**generator_params)
+                generator = JSSPGenerator(**generator_params)
 
         super().__init__(generator, generator_params, mask_no_ops, **kwargs)
 

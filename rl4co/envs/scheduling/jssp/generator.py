@@ -17,10 +17,9 @@ from .parser import get_max_ops_from_files, read
 log = get_pylogger(__name__)
 
 
-class JSSPwTimeGenerator(Generator):
+class JSSPGenerator(Generator):
 
-    """Data generator for the Job-Shop Scheduling Problem (JSSP) with time increment method.
-    (see https://arxiv.org/pdf/2104.03760)
+    """Data generator for the Job-Shop Scheduling Problem (JSSP)
 
     Args:
         num_stage: number of stages
