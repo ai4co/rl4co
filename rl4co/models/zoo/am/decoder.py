@@ -62,6 +62,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         use_graph_context: Whether to use the graph context
         check_nan: Whether to check for nan values during decoding
         sdpa_fn: scaled_dot_product_attention function
+        pointer: Module implementing the pointer logic (defaults to PointerAttention)
     """
 
     def __init__(
@@ -77,6 +78,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         use_graph_context: bool = True,
         check_nan: bool = True,
         sdpa_fn: callable = None,
+        pointer: nn.Module = None,
     ):
         super().__init__()
 
@@ -102,15 +104,18 @@ class AttentionModelDecoder(AutoregressiveDecoder):
             False if isinstance(self.dynamic_embedding, StaticEmbedding) else True
         )
 
-        # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-        self.pointer = PointerAttention(
-            embed_dim,
-            num_heads,
-            mask_inner=mask_inner,
-            out_bias=out_bias_pointer_attn,
-            check_nan=check_nan,
-            sdpa_fn=sdpa_fn,
-        )
+        if pointer is None:
+            # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
+            pointer = PointerAttention(
+                embed_dim,
+                num_heads,
+                mask_inner=mask_inner,
+                out_bias=out_bias_pointer_attn,
+                check_nan=check_nan,
+                sdpa_fn=sdpa_fn,
+            )
+
+        self.pointer = pointer
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embed_dim
         self.project_node_embeddings = nn.Linear(
@@ -190,7 +195,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         self, td, env, embeddings, num_starts: int = 0
     ) -> Tuple[TensorDict, RL4COEnvBase, PrecomputedCache]:
         """Precompute the embeddings cache before the decoder is called"""
-        return td, env, self._precompute_cache(embeddings, num_starts)
+        return td, env, self._precompute_cache(embeddings, num_starts=num_starts)
 
     def _precompute_cache(
         self, embeddings: torch.Tensor, num_starts: int = 0
