@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Tuple, Union
 
 import torch
@@ -26,6 +26,19 @@ class PrecomputedCache:
     glimpse_key: Tensor
     glimpse_val: Tensor
     logit_key: Tensor
+
+    @property
+    def fields(self):
+        return tuple(getattr(self, x.name) for x in fields(self))
+
+    def batchify(self, num_starts):
+        new_embs = []
+        for emb in self.fields:
+            if isinstance(emb, Tensor):
+                new_embs.append(batchify(emb, num_starts))
+            else:
+                new_embs.append(emb)
+        return PrecomputedCache(*new_embs)
 
 
 class AttentionModelDecoder(AutoregressiveDecoder):
@@ -106,6 +119,34 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         self.project_fixed_context = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
         self.use_graph_context = use_graph_context
 
+    def _compute_q(self, cached: PrecomputedCache, td: TensorDict):
+        node_embeds_cache = cached.node_embeddings
+        graph_context_cache = cached.graph_context
+
+        if td.dim() == 2 and isinstance(graph_context_cache, Tensor):
+            graph_context_cache = graph_context_cache.unsqueeze(1)
+
+        step_context = self.context_embedding(node_embeds_cache, td)
+        glimpse_q = step_context + graph_context_cache
+        # add seq_len dim if not present
+        glimpse_q = glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
+
+        return glimpse_q
+
+    def _compute_kvl(self, cached: PrecomputedCache, td: TensorDict):
+        glimpse_k_stat, glimpse_v_stat, logit_k_stat = (
+            cached.glimpse_key,
+            cached.glimpse_val,
+            cached.logit_key,
+        )
+        # Compute dynamic embeddings and add to static embeddings
+        glimpse_k_dyn, glimpse_v_dyn, logit_k_dyn = self.dynamic_embedding(td)
+        glimpse_k = glimpse_k_stat + glimpse_k_dyn
+        glimpse_v = glimpse_v_stat + glimpse_v_dyn
+        logit_k = logit_k_stat + logit_k_dyn
+
+        return glimpse_k, glimpse_v, logit_k
+
     def forward(
         self,
         td: TensorDict,
@@ -120,48 +161,19 @@ class AttentionModelDecoder(AutoregressiveDecoder):
             num_starts: Number of starts for the multi-start decoding
         """
 
-        # Get precomputed (cached) embeddings
-        node_embeds_cache, graph_context_cache = (
-            cached.node_embeddings,
-            cached.graph_context,
-        )
-        glimpse_k_stat, glimpse_v_stat, logit_k_stat = (
-            cached.glimpse_key,
-            cached.glimpse_val,
-            cached.logit_key,
-        )  # [B, N, H]
         has_dyn_emb_multi_start = self.is_dynamic_embedding and num_starts > 1
 
         # Handle efficient multi-start decoding
         if has_dyn_emb_multi_start:
             # if num_starts > 0 and we have some dynamic embeddings, we need to reshape them to [B*S, ...]
             # since keys and values are not shared across starts (i.e. the episodes modify these embeddings at each step)
-            glimpse_k_stat = batchify(glimpse_k_stat, num_starts)
-            glimpse_v_stat = batchify(glimpse_v_stat, num_starts)
-            logit_k_stat = batchify(logit_k_stat, num_starts)
-            node_embeds_cache = batchify(node_embeds_cache, num_starts)
-            graph_context_cache = (
-                batchify(graph_context_cache, num_starts)
-                if isinstance(graph_context_cache, Tensor)
-                else graph_context_cache
-            )
+            cached = cached.batchify(num_starts=num_starts)
+
         elif num_starts > 1:
             td = unbatchify(td, num_starts)
-            if isinstance(graph_context_cache, Tensor):
-                # add a dimension for num_starts (will automatically be broadcasted during addition)
-                graph_context_cache = graph_context_cache.unsqueeze(1)
 
-        step_context = self.context_embedding(node_embeds_cache, td)
-        glimpse_q = step_context + graph_context_cache
-        glimpse_q = (
-            glimpse_q.unsqueeze(1) if glimpse_q.ndim == 2 else glimpse_q
-        )  # add seq_len dim if not present
-
-        # Compute dynamic embeddings and add to static embeddings
-        glimpse_k_dyn, glimpse_v_dyn, logit_k_dyn = self.dynamic_embedding(td)
-        glimpse_k = glimpse_k_stat + glimpse_k_dyn
-        glimpse_v = glimpse_v_stat + glimpse_v_dyn
-        logit_k = logit_k_stat + logit_k_dyn
+        glimpse_q = self._compute_q(cached, td)
+        glimpse_k, glimpse_v, logit_k = self._compute_kvl(cached, td)
 
         # Compute logits
         mask = td["action_mask"]
