@@ -212,6 +212,7 @@ class ConstructivePolicy(nn.Module):
             temperature=decoding_kwargs.pop("temperature", self.temperature),
             tanh_clipping=decoding_kwargs.pop("tanh_clipping", self.tanh_clipping),
             mask_logits=decoding_kwargs.pop("mask_logits", self.mask_logits),
+            only_store_selected_logp=not return_entropy,
             **decoding_kwargs,
         )
 
