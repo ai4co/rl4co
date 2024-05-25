@@ -218,7 +218,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
         select_best: bool = False,
-        only_store_selected_logp: bool = True,
+        store_all_logp: bool = False,
         **kwargs,
     ) -> None:
         self.temperature = temperature
@@ -230,7 +230,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
         self.select_best = select_best
-        self.only_store_selected_logp = only_store_selected_logp
+        self.store_all_logp = store_all_logp
         # initialize buffers
         self.actions = []
         self.logprobs = []
@@ -335,7 +335,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         logprobs, selected_action, td = self._step(
             logprobs, mask, td, action=action, **kwargs
         )
-        if self.only_store_selected_logp:
+        if not self.store_all_logp:
             logprobs = gather_by_index(logprobs, selected_action, dim=1)
         td.set("action", selected_action)
         self.actions.append(selected_action)
@@ -424,7 +424,7 @@ class BeamSearch(DecodingStrategy):
 
     def __init__(self, beam_width=None, select_best=True, **kwargs) -> None:
         # TODO do we really need all logp in beam search?
-        kwargs["only_store_selected_logp"] = False
+        kwargs["store_all_logp"] = True
         super().__init__(**kwargs)
         self.beam_width = beam_width
         self.select_best = select_best
