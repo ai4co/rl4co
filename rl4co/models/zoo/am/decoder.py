@@ -63,6 +63,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         check_nan: Whether to check for nan values during decoding
         sdpa_fn: scaled_dot_product_attention function
         pointer: Module implementing the pointer logic (defaults to PointerAttention)
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -79,6 +80,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         check_nan: bool = True,
         sdpa_fn: callable = None,
         pointer: nn.Module = None,
+        moe_kwargs: dict = None,
     ):
         super().__init__()
 
@@ -113,6 +115,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
                 out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
                 sdpa_fn=sdpa_fn,
+                moe_kwargs=moe_kwargs,
             )
 
         self.pointer = pointer

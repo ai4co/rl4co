@@ -32,6 +32,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "mtsp": MTSPContext,
         "smtwtp": SMTWTPContext,
         "mdcpdp": MDCPDPContext,
+        "mtvrp": MTVRPContext,
     }
 
     if env_name not in embedding_registry:
@@ -313,3 +314,29 @@ class MDCPDPContext(EnvContext):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
         return self.project_context(cur_node_embedding)
+
+
+class MTVRPContext(VRPContext):
+    """Context embedding for Multi-Task VRPEnv.
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining_linehaul_capacity (vehicle_capacity - used_capacity_linehaul)
+        - remaining_backhaul_capacity (vehicle_capacity - used_capacity_backhaul)
+        - current time
+        - current_route_length
+        - open route indicator
+    """
+
+    def __init__(self, embed_dim):
+        super(VRPContext, self).__init__(
+            embed_dim=embed_dim, step_context_dim=embed_dim + 5
+        )
+
+    def _state_embedding(self, embeddings, td):
+        remaining_linehaul_capacity = td["vehicle_capacity"] - td["used_capacity_linehaul"]
+        remaining_backhaul_capacity = td["vehicle_capacity"] - td["used_capacity_backhaul"]
+        current_time = td["current_time"]
+        current_route_length = td["current_route_length"]
+        open_route = td["open_route"]
+        return torch.cat([remaining_linehaul_capacity, remaining_backhaul_capacity, current_time,
+                          current_route_length, open_route], -1)

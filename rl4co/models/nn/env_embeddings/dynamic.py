@@ -30,6 +30,7 @@ def env_dynamic_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": StaticEmbedding,
         "mtsp": StaticEmbedding,
         "smtwtp": StaticEmbedding,
+        "mtvrp": StaticEmbedding,
     }
 
     if env_name not in embedding_registry:

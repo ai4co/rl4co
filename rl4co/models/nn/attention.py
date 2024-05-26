@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+from rl4co.models.nn.moe import MoE
 from rl4co.utils import get_pylogger
 
 log = get_pylogger(__name__)
@@ -145,6 +146,7 @@ class PointerAttention(nn.Module):
         linear_bias: whether to use bias in linear projection
         check_nan: whether to check for NaNs in logits
         sdpa_fn: scaled dot product attention function (SDPA) implementation
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -155,13 +157,21 @@ class PointerAttention(nn.Module):
         out_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: Optional[Callable] = None,
+        moe_kwargs: Optional[dict] = None,
     ):
         super(PointerAttention, self).__init__()
         self.num_heads = num_heads
         self.mask_inner = mask_inner
+        self.moe_kwargs = moe_kwargs
 
         # Projection - query, key, value already include projections
-        self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
+        if self.moe_kwargs is not None:
+            self.project_out_moe = MoE(embed_dim, embed_dim, num_neurons=[], out_bias=out_bias, **moe_kwargs)
+            if self.moe_kwargs["light_version"]:
+                self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
+                self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
+        else:
+            self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
         self.sdpa_fn = sdpa_fn if sdpa_fn is not None else scaled_dot_product_attention
         self.check_nan = check_nan
 
@@ -178,7 +188,7 @@ class PointerAttention(nn.Module):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = self.project_out(heads)
+        glimpse = self._project_out(heads)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
@@ -209,6 +219,20 @@ class PointerAttention(nn.Module):
 
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
+
+    def _project_out(self, out):
+        """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
+        if self.moe_kwargs is not None:
+            if self.moe_kwargs["light_version"]:
+                probs = F.softmax(self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)), dim=-1)
+                selected = probs.multinomial(1).squeeze(0)
+                out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
+                glimpse = out * probs.squeeze(0)[selected]
+            else:
+                glimpse = self.project_out_moe(out)
+        else:
+            glimpse = self.project_out(out)
+        return glimpse
 
 
 # Deprecated
