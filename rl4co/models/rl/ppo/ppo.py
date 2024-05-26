@@ -72,7 +72,7 @@ class PPO(RL4COLitModule):
         normalize_adv: bool = False,  # whether to normalize advantage
         max_grad_norm: float = 0.5,  # max gradient norm
         metrics: dict = {
-            "train": ["loss", "surrogate_loss", "value_loss", "entropy"],
+            "train": ["reward", "loss", "surrogate_loss", "value_loss", "entropy"],
         },
         **kwargs,
     ):
