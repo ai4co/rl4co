@@ -285,7 +285,10 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             td.set("action", action)
             td = env.step(td)["next"]
             # first logprobs is 0, so p = logprobs.exp() = 1
-            logprobs = torch.zeros_like(action, device=td.device)
+            if self.store_all_logp:
+                logprobs = torch.zeros_like(td["action_mask"])  # [B, N]
+            else:
+                logprobs = torch.zeros_like(action, device=td.device)  # [B]
 
             self.logprobs.append(logprobs)
             self.actions.append(action)
