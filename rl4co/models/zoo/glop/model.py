@@ -28,7 +28,7 @@ class GLOP(REINFORCE):
         env: RL4COEnvBase,
         policy: GLOPPolicy = None,
         baseline: Union[REINFORCEBaseline, str] = "shared",
-        revisers: list[Union[callable]] = None,
+        revisers: list = None,
         n_samples: int = 10,
         policy_kwargs={},
         baseline_kwargs={},

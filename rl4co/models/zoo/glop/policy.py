@@ -45,7 +45,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         decoder: NonAutoregressiveDecoder = None,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         n_samples: int = 10,
-        revisers: list[Union[callable]] = None,
+        revisers: list = None,
         **encoder_kwargs,
     ):
         if encoder is None:
