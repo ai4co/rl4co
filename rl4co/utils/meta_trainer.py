@@ -105,6 +105,9 @@ class MetaModelCallback(Callback):
 class RL4COMetaTrainer(Trainer):
     """Wrapper around Lightning Trainer, with some RL4CO magic for efficient training.
 
+    # Meta training framework for addressing the generalization issue
+    # Based on Zhou et al. (2023): https://arxiv.org/abs/2305.19587
+
     Note:
         The most important hyperparameter to use is `reload_dataloaders_every_n_epochs`.
         This allows for datasets to be re-created on the run and distributed by Lightning across
