@@ -328,7 +328,8 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         device = td.device
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
-        current_rec = self.generator._get_initial_solutions(locs)
+        current_rec = self.generator._get_initial_solutions(locs).to(device)
+
         obj = self.get_costs(locs, current_rec)
 
         # get index according to the solutions in the linked list data structure

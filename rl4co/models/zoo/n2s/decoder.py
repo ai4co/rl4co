@@ -143,11 +143,11 @@ class NodePairReinsertionDecoder(ImprovementDecoder):
         assert embed_dim % num_heads == 0
 
         self.compater_insert1 = MultiHeadCompat(
-            num_heads, embed_dim, embed_dim, embed_dim, embed_dim // num_heads
+            num_heads, embed_dim, embed_dim, embed_dim, embed_dim
         )
 
         self.compater_insert2 = MultiHeadCompat(
-            num_heads, embed_dim, embed_dim, embed_dim, embed_dim // num_heads
+            num_heads, embed_dim, embed_dim, embed_dim, embed_dim
         )
 
         self.agg = MLP(input_dim=4 * self.n_heads, output_dim=1, num_neurons=[32, 32])
@@ -215,3 +215,47 @@ class NodePairReinsertionDecoder(ImprovementDecoder):
         ).squeeze()
 
         return compatibility  # (batch_size, graph_size+1, graph_size+1)
+
+
+class CriticDecoder(nn.Module):
+    def __init__(self, input_dim: int) -> None:
+        super().__init__()
+        self.input_dim = input_dim
+
+        self.project_graph = nn.Linear(self.input_dim, self.input_dim // 2)
+        self.project_node = nn.Linear(self.input_dim, self.input_dim // 2)
+
+        self.MLP = MLP(
+            input_dim=input_dim + 1,
+            output_dim=1,
+            num_neurons=[input_dim, input_dim // 2],
+            dropout_probs=[0.01, 0.0],
+        )
+
+    def forward(self, x: torch.Tensor, best_cost: torch.Tensor) -> torch.Tensor:
+        # h_wave: (batch_size, graph_size+1, input_size)
+        mean_pooling = x.mean(1)  # mean Pooling (batch_size, input_size)
+        graph_feature: torch.Tensor = self.project_graph(mean_pooling)[
+            :, None, :
+        ]  # (batch_size, 1, input_dim/2)
+        node_feature: torch.Tensor = self.project_node(
+            x
+        )  # (batch_size, graph_size+1, input_dim/2)
+
+        # pass through value_head, get estimated value
+        fusion = node_feature + graph_feature.expand_as(
+            node_feature
+        )  # (batch_size, graph_size+1, input_dim/2)
+
+        fusion_feature = torch.cat(
+            (
+                fusion.mean(1),
+                fusion.max(1)[0],  # max_pooling
+                best_cost.to(x.device),
+            ),
+            -1,
+        )  # (batch_size, input_dim + 1)
+
+        value = self.MLP(fusion_feature)
+
+        return value

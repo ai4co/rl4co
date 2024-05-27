@@ -29,6 +29,7 @@ class ImprovementEncoder(nn.Module):
         num_layers: int = 3,
         normalization: str = "layer",
         feedforward_hidden: int = 128,
+        linear_bias: bool = False,
     ):
         super(ImprovementEncoder, self).__init__()
 
@@ -36,7 +37,9 @@ class ImprovementEncoder(nn.Module):
             env_name = env_name.name
         self.env_name = env_name
         self.init_embedding = (
-            env_init_embedding(self.env_name, {"embed_dim": embed_dim})
+            env_init_embedding(
+                self.env_name, {"embed_dim": embed_dim, "linear_bias": linear_bias}
+            )
             if init_embedding is None
             else init_embedding
         )

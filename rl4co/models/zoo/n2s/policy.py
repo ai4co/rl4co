@@ -100,6 +100,7 @@ class N2SPolicy(ImprovementPolicy):
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
         return_actions: bool = False,
+        return_embeds: bool = False,
         only_return_embed: bool = False,
         actions=None,
         **decoding_kwargs,
@@ -156,10 +157,9 @@ class N2SPolicy(ImprovementPolicy):
 
         # Perform the decoding
         logits = self.removal_decoder(td, final_h, final_p)
+
         # Get mask
-        mask = torch.ones_like(
-            td["action_record"][:, 0], device=td["action_record"].device
-        ).bool()
+        mask = torch.ones_like(td["action_record"][:, 0], device=td.device).bool()
         if "action" in td.keys():
             mask = mask.scatter(1, td["action"][:, :1], 0)
 
@@ -170,7 +170,8 @@ class N2SPolicy(ImprovementPolicy):
             action=actions[:, 0] if actions is not None else None,
         )
         action_removal = action_removal.unsqueeze(-1)
-        selected_log_ll_action1 = logprob_removal.gather(1, action_removal)
+        if phase == "train":
+            selected_log_ll_action1 = logprob_removal.gather(1, action_removal)
 
         ## action 2
         td.set("action", action_removal)
@@ -178,6 +179,7 @@ class N2SPolicy(ImprovementPolicy):
         # Perform the decoding
         batch_size, seq_length = td["rec_current"].size()
         logits = self.reinsertion_decoder(td, final_h, final_p).view(batch_size, -1)
+
         # Get mask
         mask = env.get_mask(action_removal + 1, td).view(batch_size, -1)
         # Get action and log-likelihood
@@ -189,7 +191,8 @@ class N2SPolicy(ImprovementPolicy):
             else None,
         )
         action_reinsertion = action_reinsertion.unsqueeze(-1)
-        selected_log_ll_action2 = logprob_reinsertion.gather(1, action_reinsertion)
+        if phase == "train":
+            selected_log_ll_action2 = logprob_reinsertion.gather(1, action_reinsertion)
 
         ## return
         N2S_action = torch.cat(
@@ -200,10 +203,17 @@ class N2SPolicy(ImprovementPolicy):
             ),
             -1,
         )
-        log_likelihood = selected_log_ll_action1 + selected_log_ll_action2
+        if phase == "train":
+            log_likelihood = selected_log_ll_action1 + selected_log_ll_action2
+        else:
+            log_likelihood = torch.zeros(batch_size, device=td.device)
 
-        outdict = {"log_likelihood": log_likelihood}
+        outdict = {"log_likelihood": log_likelihood, "cost_bsf": td["cost_bsf"]}
         td.set("action", N2S_action)
+
+        if return_embeds:
+            outdict["embeds"] = h_wave
+
         if return_actions:
             outdict["actions"] = N2S_action
 

@@ -36,6 +36,7 @@ ENV_REGISTRY = {
     "op": OPEnv,
     "pctsp": PCTSPEnv,
     "pdp": PDPEnv,
+    "pdp_ruin_repair": PDPRuinRepairEnv,
     "sdvrp": SDVRPEnv,
     "svrp": SVRPEnv,
     "spctsp": SPCTSPEnv,
