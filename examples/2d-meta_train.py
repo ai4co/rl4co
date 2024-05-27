@@ -1,6 +1,3 @@
-import sys
-sys.path.append("/home/jieyi/rl4co")
-
 import pytz
 import torch
 
