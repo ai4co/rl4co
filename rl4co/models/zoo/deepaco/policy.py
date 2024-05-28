@@ -11,7 +11,7 @@ from rl4co.models.common.constructive.nonautoregressive import (
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.utils import merge_with_defaults
-from rl4co.utils.ops import batchify
+from rl4co.utils.ops import batchify, unbatchify
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
@@ -36,6 +36,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         env_name: str = "tsp",
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
+        train_with_local_search: bool = True,
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
         ls_reward_aug_W: float = 0.95,
@@ -54,6 +55,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
         self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_kwargs = aco_kwargs
+        self.train_with_local_search = train_with_local_search
         self.n_ants = merge_with_defaults(n_ants, train=30, val=48, test=48)
         self.n_iterations = merge_with_defaults(n_iterations, train=1, val=5, test=10)
         self.ls_reward_aug_W = ls_reward_aug_W
@@ -98,13 +100,23 @@ class DeepACOPolicy(NonAutoregressivePolicy):
                 **kwargs,
             )
 
-            if self.ls_reward_aug_W > 0 and self.aco_kwargs.get("use_local_search", False):
+            # manually compute the advantage
+            reward = unbatchify(outdict["reward"], n_ants)
+            advantage = reward - reward.mean(dim=1, keepdim=True)
+
+            if self.ls_reward_aug_W > 0 and self.train_with_local_search:
                 heatmap_logits = outdict["hidden"]
                 aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
                 
                 actions = outdict["actions"]
                 _, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, actions)
-                outdict["reward"] = outdict["reward"] * (1 - self.ls_reward_aug_W) + ls_reward * self.ls_reward_aug_W
+
+                ls_reward = unbatchify(ls_reward, n_ants)
+                ls_advantage = ls_reward - ls_reward.mean(dim=1, keepdim=True)
+                advantage = advantage * (1 - self.ls_reward_aug_W) + ls_advantage * self.ls_reward_aug_W
+
+            outdict["advantage"] = advantage
+            outdict["log_likelihood"] = unbatchify(outdict["log_likelihood"], n_ants)
 
             return outdict
 

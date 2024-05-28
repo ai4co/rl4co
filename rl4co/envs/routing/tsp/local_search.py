@@ -1,4 +1,5 @@
 import concurrent.futures
+
 import numpy as np
 import numba as nb
 import torch
@@ -10,7 +11,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+def local_search(td: TensorDict, actions: torch.Tensor, distances: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
     """
     Improve the solution using local search, especially 2-opt for TSP.
     Implementation credits to: https://github.com/henry-yeh/DeepACO
@@ -19,20 +20,21 @@ def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tenso
         td: TensorDict, td from env with shape [batch_size,]
         actions: torch.Tensor, Tour indices with shape [batch_size, num_loc]
         max_iterations: int, maximum number of iterations for 2-opt
-        distances: torch.Tensor, distance matrix with shape [batch_size, num_loc, num_loc]
+        distances: np.ndarray, distance matrix with shape [batch_size, num_loc, num_loc]
                                     if None, it will be calculated from td["locs"]
     """
     max_iterations = kwargs.get("max_iterations", 1000)
 
-    dists = kwargs.get("distances", None)
-    if dists is None:
-        dists = get_distance_matrix(td["locs"]).detach().cpu().numpy()
-    dists = dists + 1e9 * np.eye(dists.shape[1], dtype=np.float32)[None, :, :]  # fill diagonal with large number
+    if distances is None:
+        distances = get_distance_matrix(td["locs"]).numpy()
+    else:
+        distances = distances.detach().cpu().numpy()
+    distances = distances + 1e9 * np.eye(distances.shape[1], dtype=np.float32)[None, :, :]
 
     tours = actions.detach().cpu().numpy().astype(np.uint16)
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
-        for dist, tour in zip(dists, tours):
+        for dist, tour in zip(distances, tours):
             future = executor.submit(_two_opt_python, distmat=dist, tour=tour, max_iterations=max_iterations)
             futures.append(future)
         return torch.from_numpy(np.stack([f.result() for f in futures]).astype(np.int64)).to(actions.device)

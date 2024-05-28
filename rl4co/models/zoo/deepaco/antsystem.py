@@ -12,6 +12,7 @@ from rl4co.models.common.constructive.nonautoregressive.decoder import (
     NonAutoregressiveDecoder,
 )
 from rl4co.utils.decoding import Sampling
+from rl4co.utils.ops import get_distance_matrix, unbatchify
 
 
 class AntSystem:
@@ -68,7 +69,7 @@ class AntSystem:
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
 
     @cached_property
-    def heuristic_dist(self):
+    def heuristic_dist(self) -> np.ndarray:
         heuristic_numpy = self.log_heuristic.exp().detach().cpu().numpy().astype(np.float32)
         return 1 / (heuristic_numpy / heuristic_numpy.max(-1, keepdims=True) + 1e-5)
 
@@ -132,8 +133,8 @@ class AntSystem:
             actions, reward = self.local_search(td, env, actions)
 
         # reshape from (batch_size * n_ants, ...) to (batch_size, n_ants, ...)
-        reward = reward.view(self.n_ants, self.batch_size).T
-        actions = actions.view(self.n_ants, self.batch_size, -1).transpose(0, 1)
+        reward = unbatchify(reward, self.n_ants)
+        actions = unbatchify(actions, self.n_ants)
 
         # update final actions and rewards
         self._update_results(actions, reward)
@@ -188,25 +189,34 @@ class AntSystem:
             actions: The modified actions
             reward: The modified reward
         """
-        best_actions = env.local_search(td=td, actions=actions, **self.local_search_params)
-        best_rewards = env.get_reward(td, best_actions)
+        td_cpu = td.detach().cpu()
+        distances = get_distance_matrix(td_cpu["locs"])
+        actions = actions.detach().cpu()
+        best_actions = env.local_search(td=td_cpu, actions=actions, distances=distances, **self.local_search_params)
+        best_rewards = env.get_reward(td_cpu, best_actions)
+
         if self.use_nls:
             T_nls = self.local_search_params.get("T_nls", 5)
             T_p = self.local_search_params.get("T_p", 20)
+            new_actions = best_actions.clone()
 
             for _ in range(T_nls):
-                perturbed_paths = env.local_search(
-                    td=td,
-                    actions=best_actions,
+                perturbed_actions = env.local_search(
+                    td=td_cpu,
+                    actions=new_actions,
                     distances=np.tile(self.heuristic_dist, (self.n_ants, 1, 1)),
-                    max_iterations=T_p
+                    max_iterations=T_p,
+                    **self.local_search_params,
                 )
-                new_paths = env.local_search(td=td, actions=perturbed_paths)
-                new_rewards = env.get_reward(td, new_paths)
+                new_actions = env.local_search(td=td_cpu, actions=perturbed_actions, distances=distances, **self.local_search_params)
+                new_rewards = env.get_reward(td_cpu, new_actions)
 
                 improved_indices = new_rewards > best_rewards
-                best_actions[improved_indices] = new_paths[improved_indices]
+                best_actions[improved_indices] = new_actions[improved_indices]
                 best_rewards[improved_indices] = new_rewards[improved_indices]
+        
+        best_actions = best_actions.to(td.device)
+        best_rewards = best_rewards.to(td.device)
 
         return best_actions, best_rewards
 
