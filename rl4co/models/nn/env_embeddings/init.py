@@ -458,7 +458,7 @@ class MTVRPInitEmbedding(VRPInitEmbedding):
         service_time = td["service_time"][..., 1:]
         time_windows = td["time_windows"][..., 1:, :]
         # [!] convert [0, inf] -> [0, 0] if a problem does not include the time window constraint, do not modify in-place
-        time_windows = torch.where(torch.isinf(time_windows), torch.tensor(0.), time_windows)
+        time_windows = torch.nan_to_num(time_windows,  posinf=0.0)
         # embeddings
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(

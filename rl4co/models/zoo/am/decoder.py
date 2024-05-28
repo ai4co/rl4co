@@ -10,7 +10,7 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.autoregressive.decoder import AutoregressiveDecoder
-from rl4co.models.nn.attention import PointerAttention
+from rl4co.models.nn.attention import PointerAttention, PointerAttnMoE
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.utils.ops import batchify, unbatchify
@@ -108,7 +108,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
         if pointer is None:
             # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-            pointer = PointerAttention(
+            pointer = PointerAttnMoE(
                 embed_dim,
                 num_heads,
                 mask_inner=mask_inner,
