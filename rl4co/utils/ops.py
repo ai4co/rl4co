@@ -84,13 +84,11 @@ def unbatchify_and_gather(x: Tensor, idx: Tensor, n: int):
     return gather_by_index(x, idx, dim=idx.dim())
 
 
-@torch.jit.script
 def get_distance(x: Tensor, y: Tensor):
     """Euclidean distance between two tensors of shape `[..., n, dim]`"""
     return (x - y).norm(p=2, dim=-1)
 
 
-@torch.jit.script
 def get_tour_length(ordered_locs):
     """Compute the total tour distance for a batch of ordered tours.
     Computes the L2 norm between each pair of consecutive nodes in the tour and sums them up.
@@ -102,7 +100,6 @@ def get_tour_length(ordered_locs):
     return get_distance(ordered_locs_next, ordered_locs).sum(-1)
 
 
-@torch.jit.script
 def get_distance_matrix(locs: Tensor):
     """Compute the euclidean distance matrix for the given coordinates.
 
