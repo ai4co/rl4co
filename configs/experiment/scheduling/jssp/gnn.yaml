@@ -1,0 +1,21 @@
+# @package _global_
+
+defaults:
+  - scheduling/jssp/base_jssp
+
+logger:
+  wandb:
+    tags: ["gnn", "${env.name}"]
+    name: "gnn-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+
+model:
+  _target_: rl4co.models.REINFORCE
+  policy:
+    _target_: rl4co.models.L2DPolicy
+    env_name: ${env.name}
+    embed_dim: 128
+    num_encoder_layers: 3
+    het_emb: False
+    stepwise_encoding: False
+  batch_size: 256
+  reward_scale: "scale"

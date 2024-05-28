@@ -1,0 +1,37 @@
+# @package _global_
+
+defaults:
+  - scheduling/fjsp/base_fjsp
+
+logger:
+  wandb:
+    tags: ["hgnn", "${env.name}"]
+    name: "hgnn-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+
+# params from Song et al.
+model:
+  _target_: rl4co.models.L2DPPOModel
+  policy_kwargs:
+    embed_dim: 128
+    num_encoder_layers: 2
+    scaling_factor: 20
+    max_grad_norm: 1
+    ppo_epochs: 3
+  batch_size: 128
+  val_batch_size: 512
+  test_batch_size: 64
+  # Song et al use 1000 iterations over batches of 20 = 20_000
+  # We train 10 epochs on a set of 2000 instance = 20_000
+  train_data_size: 2000
+  mini_batch_size: 512
+  reward_scale: scale
+  optimizer_kwargs:
+    lr: 2e-4
+
+trainer:
+  max_epochs: 10
+
+
+env:
+  stepwise_reward: True
+  _torchrl_mode: True
