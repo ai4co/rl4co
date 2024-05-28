@@ -1,14 +1,11 @@
-import pytz
-import torch
-
-from datetime import datetime
 from lightning.pytorch.callbacks import ModelCheckpoint, RichModelSummary
 from lightning.pytorch.loggers import WandbLogger
 
 from rl4co.envs import CVRPEnv
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.zoo.pomo import POMO
-from rl4co.utils.meta_trainer import RL4COMetaTrainer, MetaModelCallback
+from rl4co.utils.trainer import RL4COTrainer
+from rl4co.utils.meta_trainer import ReptileCallback
 
 def main():
     # Set device
@@ -34,7 +31,6 @@ def main():
                  train_data_size=64 * 50,  # each epoch
                  val_data_size=0,
                  optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
-                 # for the task scheduler of size setting, where sch_epoch = 0.9 * epochs
                  )
 
     # Example callbacks
@@ -47,10 +43,10 @@ def main():
         mode="max",  # maximize validation reward
     )
     rich_model_summary = RichModelSummary(max_depth=3)  # model summary callback
+
     # Meta callbacks
-    meta_callback = MetaModelCallback(
+    meta_callback = ReptileCallback(
         meta_params={
-            'meta_method': 'reptile',  # choose from ['maml', 'fomaml', 'maml_fomaml', 'reptile']
             'data_type': 'size',  # choose from ["size", "distribution", "size_distribution"]
             'sch_bar': 0.9,  # for the task scheduler of size setting, where sch_epoch = sch_bar * epochs
             'B': 1,  # the number of tasks in a mini-batch
@@ -64,13 +60,12 @@ def main():
     callbacks = [meta_callback, checkpoint_callback, rich_model_summary]
 
     # Logger
-    process_start_time = datetime.now(pytz.timezone("Asia/Singapore"))
-    logger = WandbLogger(project="rl4co", name=f"{env.name}_{process_start_time.strftime('%Y%m%d_%H%M%S')}")
+    logger = WandbLogger(project="rl4co", name=f"{env.name}_pomo_reptile")
     # logger = None # uncomment this line if you don't want logging
 
     # Adjust your trainer to the number of epochs you want to run
-    trainer = RL4COMetaTrainer(
-        max_epochs=20000,  # (the number of meta-model updates) * (the number of tasks in a mini-batch)
+    trainer = RL4COTrainer(
+        max_epochs=20000,  # (the number of meta_model updates) * (the number of tasks in a mini-batch)
         callbacks=callbacks,
         accelerator="gpu",
         devices=[device_id],
