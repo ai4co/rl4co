@@ -132,11 +132,11 @@ class GLOPPolicy(NonAutoregressivePolicy):
         out = {"log_likelihood": par_log_likelihood}
 
         if calc_reward:
-            best_revised_reward = unbatchify(best_revised_reward, (n_partitions))
+            best_revised_reward = rearrange(best_revised_reward, "(b p) -> b p", b=batch_size, p=n_partitions)
             best_revised_reward = best_revised_reward.sum(dim=-1)
             out["reward"] = best_revised_reward
         if return_actions:
-            final_actions = unbatchify(best_revised_actions, (n_partitions))
+            final_actions = rearrange(best_revised_actions, "(b p) l -> b p l", b=batch_size, p=n_partitions)
             final_actions = final_actions.flatten(start_dim=1)
             out["actions"] = final_actions
         if return_entropy:
