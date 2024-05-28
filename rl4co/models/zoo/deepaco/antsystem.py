@@ -78,9 +78,9 @@ class AntSystem:
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
 
     @cached_property
-    def heuristic_dist(self) -> np.ndarray:
-        heuristic_numpy = self.log_heuristic.exp().detach().cpu().numpy().astype(np.float32)
-        return 1 / (heuristic_numpy / heuristic_numpy.max(-1, keepdims=True) + 1e-5)
+    def heuristic_dist(self) -> torch.Tensor:
+        heuristic = self.log_heuristic.exp().detach().cpu()
+        return 1 / (heuristic / heuristic.max(-1, keepdim=True)[0] + 1e-5)
 
     @staticmethod
     def select_start_node_fn(
@@ -213,7 +213,7 @@ class AntSystem:
                 perturbed_actions = env.local_search(
                     td=td_cpu,
                     actions=new_actions,
-                    distances=np.tile(self.heuristic_dist, (self.n_ants, 1, 1)),
+                    distances=torch.tile(self.heuristic_dist, (self.n_ants, 1, 1)),
                     max_iterations=T_p,
                     **self.local_search_params,
                 )
