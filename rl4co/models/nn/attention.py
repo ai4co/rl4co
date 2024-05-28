@@ -156,6 +156,7 @@ class PointerAttention(nn.Module):
         out_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: Optional[Callable] = None,
+        **kwargs,
     ):
         super(PointerAttention, self).__init__()
         self.num_heads = num_heads
@@ -251,25 +252,21 @@ class PointerAttnMoE(PointerAttention):
         super(PointerAttnMoE, self).__init__(embed_dim, num_heads, mask_inner, out_bias, check_nan, sdpa_fn)
         self.moe_kwargs = moe_kwargs
 
-        if self.moe_kwargs is not None:
-            self.project_out = None
-            self.project_out_moe = MoE(embed_dim, embed_dim, num_neurons=[], out_bias=out_bias, **moe_kwargs)
-            if self.moe_kwargs["light_version"]:
-                self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
-                self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
+        self.project_out = None
+        self.project_out_moe = MoE(embed_dim, embed_dim, num_neurons=[], out_bias=out_bias, **moe_kwargs)
+        if self.moe_kwargs["light_version"]:
+            self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
+            self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
 
     def _project_out(self, out):
         """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
-        if self.moe_kwargs is not None:
-            if self.moe_kwargs["light_version"]:
-                probs = F.softmax(self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)), dim=-1)
-                selected = probs.multinomial(1).squeeze(0)
-                out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
-                glimpse = out * probs.squeeze(0)[selected]
-            else:
-                glimpse = self.project_out_moe(out)
+        if self.moe_kwargs["light_version"]:
+            probs = F.softmax(self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)), dim=-1)
+            selected = probs.multinomial(1).squeeze(0)
+            out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
+            glimpse = out * probs.squeeze(0)[selected]
         else:
-            glimpse = self.project_out(out)
+            glimpse = self.project_out_moe(out)
         return glimpse
 
 

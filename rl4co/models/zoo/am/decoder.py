@@ -108,7 +108,8 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
         if pointer is None:
             # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-            pointer = PointerAttnMoE(
+            pointer_attn_class = PointerAttention if moe_kwargs is None else PointerAttnMoE
+            pointer = pointer_attn_class(
                 embed_dim,
                 num_heads,
                 mask_inner=mask_inner,
