@@ -66,7 +66,6 @@ class n_step_PPO(RL4COLitModule):
             env,
             policy,
             metrics=metrics,
-            optimizer_kwargs={},
             lr_scheduler=lr_scheduler,
             lr_scheduler_kwargs=lr_scheduler_kwargs,
             lr_scheduler_interval=lr_scheduler_interval,

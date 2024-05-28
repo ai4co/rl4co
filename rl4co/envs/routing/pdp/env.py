@@ -117,28 +117,26 @@ class PDPEnv(RL4COEnvBase):
                     *batch_size,
                     self.generator.num_loc // 2 + 1,
                     dtype=torch.bool,
-                    device=device,
-                ),
+                ).to(device),
                 torch.zeros(
                     *batch_size,
                     self.generator.num_loc // 2,
                     dtype=torch.bool,
-                    device=device,
-                ),
+                ).to(device),
             ],
             dim=-1,
         )
 
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
-            (*batch_size, self.generator.num_loc + 1), dtype=torch.bool, device=device
-        )
+            (*batch_size, self.generator.num_loc + 1), dtype=torch.bool
+        ).to(device)
         action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
         action_mask[..., 0] = 1  # First step is always the depot
 
         # Other variables
-        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        current_node = torch.zeros((*batch_size, 1), dtype=torch.int64).to(device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64).to(device)
 
         return TensorDict(
             {
@@ -300,7 +298,7 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         for i in range(gs):
             current_nodes = next_rec[arange, pre]
             visited_time[arange, current_nodes] = i + 1
-            pre = next_rec[arange, pre]
+            pre = current_nodes
         visited_time = visited_time.long()
 
         # update action record
@@ -335,8 +333,8 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         # get index according to the solutions in the linked list data structure
         bs = batch_size[0]
         seq_length = self.generator.num_loc + 1
-        visited_time = torch.zeros((bs, seq_length), device=device)
-        pre = torch.zeros((bs), device=device).long()
+        visited_time = torch.zeros((bs, seq_length)).to(device)
+        pre = torch.zeros((bs)).to(device).long()
         arange = torch.arange(bs)
         for i in range(seq_length):
             current_nodes = current_rec[arange, pre]
@@ -345,7 +343,7 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         visited_time = visited_time.long()
 
         # get action record and step i
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        i = torch.zeros((*batch_size, 1), dtype=torch.int64).to(device)
         action_record = torch.zeros((bs, seq_length // 2, seq_length // 2))
 
         return TensorDict(
