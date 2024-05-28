@@ -34,7 +34,7 @@ class PrecomputedCache:
     def batchify(self, num_starts):
         new_embs = []
         for emb in self.fields:
-            if isinstance(emb, Tensor):
+            if isinstance(emb, Tensor) or isinstance(emb, TensorDict):
                 new_embs.append(batchify(emb, num_starts))
             else:
                 new_embs.append(emb)
