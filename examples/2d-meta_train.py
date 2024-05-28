@@ -46,15 +46,13 @@ def main():
 
     # Meta callbacks
     meta_callback = ReptileCallback(
-        meta_params={
-            'data_type': 'size',  # choose from ["size", "distribution", "size_distribution"]
-            'sch_bar': 0.9,  # for the task scheduler of size setting, where sch_epoch = sch_bar * epochs
-            'B': 1,  # the number of tasks in a mini-batch
-            'alpha': 0.99,  # params for the outer-loop optimization of reptile
-            'alpha_decay': 0.999,  # params for the outer-loop optimization of reptile
-            'min_size': 20,  # minimum of sampled size in meta tasks
-            'max_size': 150,  # maximum of sampled size in meta tasks
-        },
+        num_tasks = 1,  # the number of tasks in a mini-batch
+        alpha = 0.99,  # params for the outer-loop optimization of reptile
+        alpha_decay = 0.999,  # params for the outer-loop optimization of reptile
+        min_size = 20,  # minimum of sampled size in meta tasks
+        max_size= 150,  # maximum of sampled size in meta tasks
+        data_type="size",  # choose from ["size", "distribution", "size_distribution"]
+        sch_bar=0.9,  # for the task scheduler of size setting, where sch_epoch = sch_bar * epochs
         print_log=True # whether to print the sampled tasks in each meta iteration
     )
     callbacks = [meta_callback, checkpoint_callback, rich_model_summary]

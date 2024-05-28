@@ -122,10 +122,10 @@ def test_pomo_reptile():
     policy = AttentionModelPolicy(env_name=env.name, embed_dim=128,
                                   num_encoder_layers=6, num_heads=8,
                                   normalization="instance", use_graph_context=False)
-    model = POMO(env, policy, batch_size=5, train_data_size=5*3, val_data_size=10)
+    model = POMO(env, policy, batch_size=5, train_data_size=5*3, val_data_size=10, test_data_size=10)
     meta_callback = ReptileCallback(
-        meta_params={'data_type': 'size', 'sch_bar': 0.9,  'B': 2,  'alpha': 0.99,
-                     'alpha_decay': 0.999,  'min_size': 20,  'max_size': 50}
+        data_type="size", sch_bar=0.9,  num_tasks=2,  alpha = 0.99,
+        alpha_decay = 0.999,  min_size = 20,  max_size =50
     )
     trainer = RL4COTrainer(max_epochs=2, callbacks=[meta_callback], devices=1, accelerator=accelerator, limit_train_batches=3)
     trainer.fit(model)
