@@ -8,7 +8,7 @@ from einops import einsum
 from torch import Tensor
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.ops import Normalization
+from rl4co.models.nn.ops import TransformerFFN
 
 
 class HetGNNLayer(nn.Module):
@@ -75,24 +75,24 @@ class HetGNNLayer(nn.Module):
         cross_emb = einsum(cross_attn_scores, other_emb_aug, "b m o, b m o e -> b m e")
         self_emb = self_emb * self_attn_scores
         # (bs, n_ma, emb_dim)
-        hidden = torch.sigmoid(cross_emb + self_emb)
+        hidden = cross_emb + self_emb
         return hidden
 
 
 class HetGNNBlock(nn.Module):
     def __init__(self, embed_dim, normalization: str = "batch") -> None:
         super().__init__()
-        self.norm1 = Normalization(embed_dim, normalization=normalization)
-        self.norm2 = Normalization(embed_dim, normalization=normalization)
         self.hgnn1 = HetGNNLayer(embed_dim)
         self.hgnn2 = HetGNNLayer(embed_dim)
+        self.ffn1 = TransformerFFN(embed_dim, embed_dim * 2, normalization=normalization)
+        self.ffn2 = TransformerFFN(embed_dim, embed_dim * 2, normalization=normalization)
 
     def forward(self, x1, x2, edge_emb, edges):
         h1 = self.hgnn1(x1, x2, edge_emb, edges)
-        h1 = self.norm1(h1 + x1)
+        h1 = self.ffn1(h1, x1)
 
         h2 = self.hgnn2(x2, x1, edge_emb.transpose(1, 2), edges.transpose(1, 2))
-        h2 = self.norm2(h2 + x2)
+        h2 = self.ffn2(h2, x2)
 
         return h1, h2
 
