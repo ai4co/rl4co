@@ -2,10 +2,9 @@ _target_: rl4co.envs.TSPEnv
 
 name: tsp
 
-num_loc: 20
-min_loc: 0
-max_loc: 1
+generator_params:
+  num_loc: 20
 
 data_dir: ${paths.root_dir}/data/tsp
-val_file: tsp${env.num_loc}_val_seed4321.npz
-test_file: tsp${env.num_loc}_test_seed1234.npz
+val_file: tsp${env.generator_params.num_loc}_val_seed4321.npz
+test_file: tsp${env.generator_params.num_loc}_test_seed1234.npz

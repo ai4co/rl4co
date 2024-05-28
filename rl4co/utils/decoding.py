@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.utils.ops import batchify
+from rl4co.utils.ops import batchify, gather_by_index, unbatchify, unbatchify_and_gather
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -35,7 +35,7 @@ def get_decoding_strategy(decoding_strategy, **config):
     return strategy_registry.get(decoding_strategy, Sampling)(**config)
 
 
-def get_log_likelihood(logprobs, actions, mask=None, return_sum: bool = True):
+def get_log_likelihood(logprobs, actions=None, mask=None, return_sum: bool = True):
     """Get log likelihood of selected actions.
     Note that mask is a boolean tensor where True means the value should be kept.
 
@@ -45,7 +45,9 @@ def get_log_likelihood(logprobs, actions, mask=None, return_sum: bool = True):
         mask: Action mask. 1 if feasible, 0 otherwise (so we keep if 1 as done in PyTorch).
         return_sum: Whether to return the sum of log probabilities or not. Defaults to True.
     """
-    logprobs = logprobs.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
+    # Optional: select logp when logp.shape = (bs, dec_steps, N)
+    if actions is not None and logprobs.dim() == 3:
+        logprobs = logprobs.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
 
     # Optional: mask out actions irrelevant to objective so they do not get reinforced
     if mask is not None:
@@ -215,6 +217,8 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         multistart: bool = False,
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
+        select_best: bool = False,
+        store_all_logp: bool = False,
         **kwargs,
     ) -> None:
         self.temperature = temperature
@@ -225,6 +229,8 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.multistart = multistart
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
+        self.select_best = select_best
+        self.store_all_logp = store_all_logp
         # initialize buffers
         self.actions = []
         self.logprobs = []
@@ -278,9 +284,11 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
 
             td.set("action", action)
             td = env.step(td)["next"]
-            logprobs = torch.zeros_like(
-                td["action_mask"], device=td.device
-            )  # first logprobs is 0, so p = logprobs.exp() = 1
+            # first logprobs is 0, so p = logprobs.exp() = 1
+            if self.store_all_logp:
+                logprobs = torch.zeros_like(td["action_mask"])  # [B, N]
+            else:
+                logprobs = torch.zeros_like(action, device=td.device)  # [B]
 
             self.logprobs.append(logprobs)
             self.actions.append(action)
@@ -293,8 +301,11 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         assert (
             len(self.logprobs) > 0
         ), "No logprobs were collected because all environments were done. Check your initial state"
-
-        return torch.stack(self.logprobs, 1), torch.stack(self.actions, 1), td, env
+        logprobs = torch.stack(self.logprobs, 1)
+        actions = torch.stack(self.actions, 1)
+        if self.num_starts > 0 and self.select_best:
+            logprobs, actions, td, env = self._select_best(logprobs, actions, td, env)
+        return logprobs, actions, td, env
 
     def step(
         self,
@@ -327,6 +338,8 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         logprobs, selected_action, td = self._step(
             logprobs, mask, td, action=action, **kwargs
         )
+        if not self.store_all_logp:
+            logprobs = gather_by_index(logprobs, selected_action, dim=1)
         td.set("action", selected_action)
         self.actions.append(selected_action)
         self.logprobs.append(logprobs)
@@ -359,6 +372,16 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             ), "infeasible action selected"
 
         return selected
+
+    def _select_best(self, logprobs, actions, td: TensorDict, env: RL4COEnvBase):
+        rewards = env.get_reward(td, actions)
+        _, max_idxs = unbatchify(rewards, self.num_starts).max(dim=-1)
+
+        actions = unbatchify_and_gather(actions, max_idxs, self.num_starts)
+        logprobs = unbatchify_and_gather(logprobs, max_idxs, self.num_starts)
+        td = unbatchify_and_gather(td, max_idxs, self.num_starts)
+
+        return logprobs, actions, td, env
 
 
 class Greedy(DecodingStrategy):
@@ -403,6 +426,8 @@ class BeamSearch(DecodingStrategy):
     name = "beam_search"
 
     def __init__(self, beam_width=None, select_best=True, **kwargs) -> None:
+        # TODO do we really need all logp in beam search?
+        kwargs["store_all_logp"] = True
         super().__init__(**kwargs)
         self.beam_width = beam_width
         self.select_best = select_best

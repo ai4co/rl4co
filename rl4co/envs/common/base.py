@@ -68,10 +68,13 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
             allow_done_after_reset=allow_done_after_reset,
         )
         # if any kwargs are left, we want to warn the user
+        kwargs.pop("name", None)  # we remove the name for checking
         if kwargs:
-            log.warning(
+            log.error(
                 f"Unused keyword arguments: {', '.join(kwargs.keys())}. "
-                "Please check the documentation for the correct keyword arguments"
+                "Please check the base class documentation at https://rl4co.readthedocs.io/en/latest/_content/api/envs/base.html. "
+                "In case you would like to pass data generation arguments, please pass a `generator` method instead "
+                "or for example: `generator_kwargs=dict(num_loc=50)` to the constructor."
             )
         self.data_dir = data_dir
         self.train_file = pjoin(data_dir, train_file) if train_file is not None else None
@@ -129,7 +132,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
             # Since we simplify the syntax
             return self._torchrl_step(td)
 
-    def reset(self, td: Optional[TensorDict] = None, batch_size = None) -> TensorDict:
+    def reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         """Reset function to call at the beginning of each episode"""
         if batch_size is None:
             batch_size = self.batch_size if td is None else td.batch_size
@@ -183,7 +186,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         if self.check_solution:
             self.check_solution_validity(td, actions)
         return self._get_reward(td, actions)
-    
+
     @abc.abstractmethod
     def _get_reward(self, td, actions) -> TensorDict:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state

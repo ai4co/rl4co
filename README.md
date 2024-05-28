@@ -1,8 +1,9 @@
 <div align="center">
 
 
-<img src="https://github.com/ai4co/rl4co/assets/48984123/01a547b2-9722-4540-b0e1-9c12af094b15" style="width:40%">
-
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
+</div>
 
 </br></br>
 
@@ -126,7 +127,7 @@ from rl4co.models import AttentionModel
 from rl4co.utils import RL4COTrainer
 
 # Environment, Model, and Lightning Module
-env = TSPEnv(num_loc=20)
+env = TSPEnv(generator_params={'num_loc': 50, 'loc_distribution': 'uniform'})
 model = AttentionModel(env,
                        baseline="rollout",
                        train_data_size=100_000,
@@ -199,8 +200,8 @@ We invite you to join our AI4CO community, an open research group in Artificial 
 
 
 
-<p align="center">
-  <img width="30%" src="https://github.com/ai4co/rl4co/assets/48984123/2f1298ef-15e1-4a66-9741-78ee75938789">
-</p>
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/ai4co_animated_full.svg" alt="AI4CO Logo" style="width: 30%; height: auto;">
+</div>
 
 

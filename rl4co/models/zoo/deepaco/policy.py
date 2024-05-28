@@ -22,6 +22,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
     Args:
         encoder: Encoder module. Can be passed by sub-classes
         env_name: Name of the environment used to initialize embeddings
+        temperature: Temperature for the softmax during decoding. Defaults to 0.1.
         aco_class: Class representing the ACO algorithm to be used. Defaults to :class:`AntSystem`.
         aco_kwargs: Additional arguments to be passed to the ACO algorithm.
         n_ants: Number of ants to be used in the ACO algorithm. Can be an integer or dictionary. Defaults to 20.
@@ -34,6 +35,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         self,
         encoder: Optional[NonAutoregressiveEncoder] = None,
         env_name: str = "tsp",
+        temperature: float = 0.1,
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
         train_with_local_search: bool = True,
@@ -48,6 +50,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         super(DeepACOPolicy, self).__init__(
             encoder=encoder,
             env_name=env_name,
+            temperature=temperature,
             train_decode_type="multistart_sampling",
             val_decode_type="multistart_sampling",
             test_decode_type="multistart_sampling",
@@ -122,14 +125,17 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
         heatmap_logits, _ = self.encoder(td_initial)
 
-        aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
+        aco = self.aco_class(
+            heatmap_logits,
+            n_ants=self.n_ants[phase],
+            temperature=self.aco_kwargs.get("temperature", self.temperature),
+            **self.aco_kwargs,
+        )
         td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
 
+        out = {}
         if calc_reward:
-            td.set("reward", reward)
-
-        out = {"reward": td["reward"]}
-
+            out["reward"] = reward
         if return_actions:
             out["actions"] = actions
 

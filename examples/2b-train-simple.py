@@ -13,7 +13,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # RL4CO env based on TorchRL
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
 
     # Model: default is AM with REINFORCE and greedy rollout baseline
     # check out `RL4COLitModule` and `REINFORCE` for more details

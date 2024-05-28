@@ -31,7 +31,7 @@ class ATSPEnv(RL4COEnvBase):
         - the current customer
         - the first customer (for calculating the reward)
         - the remaining unvisited customers
-    
+
     Constraints:
         - the tour starts and ends at the same customer.
         - each customer must be visited exactly once.
@@ -152,7 +152,7 @@ class ATSPEnv(RL4COEnvBase):
 
         # Get indexes of tour edges
         nodes_src = actions
-        nodes_tgt = torch.roll(actions, 1, dims=1)
+        nodes_tgt = torch.roll(actions, -1, dims=1)
         batch_idx = torch.arange(
             distance_matrix.shape[0], device=distance_matrix.device
         ).unsqueeze(1)

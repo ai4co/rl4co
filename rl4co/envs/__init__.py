@@ -9,19 +9,20 @@ from rl4co.envs.routing import (
     ATSPEnv,
     CVRPEnv,
     CVRPTWEnv,
+    MDCPDPEnv,
     MTSPEnv,
+    MTVRPEnv,
     OPEnv,
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
-    SVRPEnv,
     SPCTSPEnv,
+    SVRPEnv,
     TSPEnv,
-    MDCPDPEnv,
 )
 
 # Scheduling
-from rl4co.envs.scheduling import FFSPEnv, SMTWTPEnv
+from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, SMTWTPEnv
 
 # Register environments
 ENV_REGISTRY = {
@@ -30,6 +31,7 @@ ENV_REGISTRY = {
     "cvrptw": CVRPTWEnv,
     "dpp": DPPEnv,
     "ffsp": FFSPEnv,
+    "fjsp": FJSPEnv,
     "mdpp": MDPPEnv,
     "mtsp": MTSPEnv,
     "op": OPEnv,
