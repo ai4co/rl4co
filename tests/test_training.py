@@ -3,10 +3,11 @@ import sys
 
 import pytest
 
-from rl4co.envs import ATSPEnv, PDPEnv, TSPEnv
+from rl4co.envs import ATSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
     MDAM,
+    N2S,
     ActiveSearch,
     AttentionModelPolicy,
     DeepACO,
@@ -152,6 +153,27 @@ def test_deepaco():
     model = DeepACO(env, train_data_size=10, val_data_size=10, test_data_size=10)
     trainer = RL4COTrainer(
         max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_N2S():
+    env = PDPRuinRepairEnv(generator_params=dict(num_loc=20))
+    model = N2S(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        n_step=2,
+        T_train=4,
+        T_test=4,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
     )
     trainer.fit(model)
     trainer.test(model)

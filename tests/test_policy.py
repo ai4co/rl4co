@@ -1,6 +1,6 @@
 import pytest
 
-from rl4co.models import AttentionModelPolicy, PointerNetworkPolicy
+from rl4co.models import AttentionModelPolicy, N2SPolicy, PointerNetworkPolicy
 from rl4co.utils.ops import select_start_nodes
 from rl4co.utils.test_utils import generate_env_data
 
@@ -78,3 +78,11 @@ def test_pointer_network(size=20, batch_size=2):
     policy = PointerNetworkPolicy(env_name=env.name)
     out = policy(td, env, decode_type="greedy")
     assert out["reward"].shape == (batch_size,)
+
+
+def test_N2S(size=20, batch_size=2):
+    env, x = generate_env_data("pdp_ruin_repair", size, batch_size)
+    td = env.reset(x)
+    policy = N2SPolicy(env_name=env.name)
+    out = policy(td, env, decode_type="greedy")
+    assert out["cost_bsf"].shape == (batch_size,)

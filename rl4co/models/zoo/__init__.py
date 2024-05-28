@@ -13,6 +13,7 @@ from rl4co.models.zoo.ham import (
 from rl4co.models.zoo.l2d import L2DModel
 from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
+from rl4co.models.zoo.n2s import N2S, N2SPolicy
 from rl4co.models.zoo.nargnn import NARGNNPolicy
 from rl4co.models.zoo.pomo import POMO
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy

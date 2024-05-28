@@ -9,6 +9,7 @@ from rl4co.envs import (
     OPEnv,
     PCTSPEnv,
     PDPEnv,
+    PDPRuinRepairEnv,
     SDVRPEnv,
     SMTWTPEnv,
     SPCTSPEnv,
@@ -41,6 +42,8 @@ def get_env(name, size):
         env = MDPPEnv()
     elif name == "smtwtp":
         env = SMTWTPEnv()
+    elif name == "pdp_ruin_repair":
+        env = PDPRuinRepairEnv()
     else:
         raise ValueError(f"Unknown env_name: {name}")
 

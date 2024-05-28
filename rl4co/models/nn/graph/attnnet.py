@@ -28,10 +28,13 @@ class MultiHeadAttentionLayer(nn.Sequential):
         num_heads: int = 8,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        bias: bool = True,
         sdpa_fn: Optional[Callable] = None,
     ):
         super(MultiHeadAttentionLayer, self).__init__(
-            SkipConnection(MultiHeadAttention(embed_dim, num_heads, sdpa_fn=sdpa_fn)),
+            SkipConnection(
+                MultiHeadAttention(embed_dim, num_heads, bias=bias, sdpa_fn=sdpa_fn)
+            ),
             Normalization(embed_dim, normalization),
             SkipConnection(
                 nn.Sequential(

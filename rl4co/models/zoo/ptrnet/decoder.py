@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rl4co.utils.decoding import decode_logprobs
+from rl4co.utils.ops import gather_by_index
 
 
 class SimpleAttention(nn.Module):
@@ -160,11 +161,12 @@ class Decoder(nn.Module):
                 if eval_tours is None
                 else eval_tours[:, i]
             )
+            # select logp of chosen action
+            log_p = gather_by_index(log_p, idxs, dim=1)
 
             idxs = (
                 idxs.detach()
             )  # Otherwise pytorch complains it want's a reward, todo implement this more properly?
-
             # Gather input embedding of selected
             decoder_input = torch.gather(
                 embedded_inputs,
