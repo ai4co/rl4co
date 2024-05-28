@@ -313,3 +313,16 @@ class MDCPDPContext(EnvContext):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
         return self.project_context(cur_node_embedding)
+
+
+class SchedulingContext(nn.Module):
+    def __init__(self, embed_dim: int, scaling_factor: int = 1000):
+        super().__init__()
+        self.scaling_factor = scaling_factor
+        self.proj_busy = nn.Linear(1, embed_dim, bias=False)
+
+    def forward(self, h, td):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        busy_proj = self.proj_busy(busy_for.unsqueeze(-1))
+        # (b m e)
+        return h + busy_proj
