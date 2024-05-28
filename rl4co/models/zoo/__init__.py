@@ -10,6 +10,7 @@ from rl4co.models.zoo.ham import (
     HeterogeneousAttentionModel,
     HeterogeneousAttentionModelPolicy,
 )
+from rl4co.models.zoo.hetgnn import HetGNNModel
 from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
 from rl4co.models.zoo.n2s import N2S, N2SPolicy

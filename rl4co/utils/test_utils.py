@@ -2,6 +2,7 @@ from torch.utils.data import DataLoader
 
 from rl4co.envs import (
     CVRPEnv,
+    CVRPTWEnv,
     DPPEnv,
     MDPPEnv,
     MTSPEnv,
@@ -21,6 +22,8 @@ def get_env(name, size):
         env = TSPEnv(generator_params=dict(num_loc=size))
     elif name == "cvrp":
         env = CVRPEnv(generator_params=dict(num_loc=size))
+    elif name == "cvrptw":
+        env = CVRPTWEnv(generator_params=dict(num_loc=size))
     elif name == "sdvrp":
         env = SDVRPEnv(generator_params=dict(num_loc=size))
     elif name == "pdp":

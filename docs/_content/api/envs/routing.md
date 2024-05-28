@@ -1,5 +1,9 @@
 # Routing Problems
 
+See also the [Multi-Task VRP](#Multi-Task-Vehicle-Routing-Problem-(MTVRP)) at the bottom of this page, that includes 16 variants!
+
+
+
 ## Asymmetric Traveling Salesman Problem (ATSP)
 
 ```{eval-rst}
@@ -92,11 +96,6 @@
    :members:
    :undoc-members:
 ```
-
-```{eval-rst}
-.. automodule:: rl4co.envs.routing.sdvrp.generator
-   :members:
-   :undoc-members:
 ```
 
 ## Stochastic Prize Collecting Traveling Salesman Problem (SPCTSP)
@@ -106,11 +105,6 @@
    :members:
    :undoc-members:
 ```
-
-```{eval-rst}
-.. automodule:: rl4co.envs.routing.spctsp.generator
-   :members:
-   :undoc-members:
 ```
 
 ## Traveling Salesman Problem (TSP)
@@ -123,6 +117,23 @@
 
 ```{eval-rst}
 .. automodule:: rl4co.envs.routing.tsp.generator
+   :members:
+   :undoc-members:
+```
+
+---
+
+
+## Multi-Task Vehicle Routing Problem (MTVRP)
+<a name="Multi-Task-Vehicle-Routing-Problem-(MTVRP)"></a>
+
+
+```{eval-rst}
+.. automodule:: rl4co.envs.routing.mtvrp.env
+   :members:
+   :undoc-members:
+
+.. automodule:: rl4co.envs.routing.mtvrp.generator
    :members:
    :undoc-members:
 ```

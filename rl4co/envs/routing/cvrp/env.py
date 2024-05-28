@@ -81,7 +81,7 @@ class CVRPEnv(RL4COEnvBase):
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
-        visited = td["visited"].scatter(-1, current_node[..., None], 1)
+        visited = td["visited"].scatter(-1, current_node, 1)
 
         # SECTION: get done
         done = visited.sum(-1) == visited.size(-1)
@@ -119,7 +119,7 @@ class CVRPEnv(RL4COEnvBase):
                     (*batch_size, 1), self.generator.vehicle_capacity, device=device
                 ),
                 "visited": torch.zeros(
-                    (*batch_size, 1, td["locs"].shape[-2] + 1),
+                    (*batch_size, td["locs"].shape[-2] + 1),
                     dtype=torch.uint8,
                     device=device,
                 ),
@@ -133,15 +133,15 @@ class CVRPEnv(RL4COEnvBase):
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
         exceeds_cap = (
-            td["demand"][:, None, :] + td["used_capacity"][..., None] > td["vehicle_capacity"][..., None]
+            td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
         )
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
 
         # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)
-        return ~torch.cat((mask_depot[..., None], mask_loc), -1).squeeze(-2)
+        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[:, None]
+        return ~torch.cat((mask_depot, mask_loc), -1)
 
     def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
         # Gather dataset in order of tour

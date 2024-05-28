@@ -10,3 +10,6 @@ coverage:
         target: 0%
         threshold: 0%
         base: auto
+
+# temporarily avoid comments to PRs and so on
+comment: false
