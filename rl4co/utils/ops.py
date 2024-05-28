@@ -222,6 +222,26 @@ def get_full_graph_edge_index(num_node: int, self_loop=False) -> Tensor:
     return edge_index
 
 
+def adj_to_pyg_edge_index(adj: Tensor) -> Tensor:
+    """transforms an adjacency matrix (boolean) to a Tensor with the respective edge
+    indices (in the format required by the pytorch geometric module).
+
+    :param Tensor adj: shape=(bs, num_nodes, num_nodes)
+    :return Tensor: shape=(2, num_edges)
+    """
+    assert adj.size(1) == adj.size(2), "only symmetric adjacency matrices are supported"
+    num_nodes = adj.size(1)
+    # (num_edges, 3)
+    edge_idx = adj.nonzero()
+    batch_idx = edge_idx[:, 0] * num_nodes
+    # PyG expects a "single, flat graph", in which the graphs of the batch are not connected.
+    # Therefore, add the batch_idx to edge_idx to have unique indices
+    flat_edge_idx = edge_idx[:, 1:] + batch_idx[:, None]
+    # (2, num_edges)
+    flat_edge_idx = torch.permute(flat_edge_idx, (1, 0))
+    return flat_edge_idx
+
+
 def sample_n_random_actions(td: TensorDict, n: int):
     """Helper function to sample n random actions from available actions. If
     number of valid actions is less then n, we sample with replacement from the
