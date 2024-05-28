@@ -195,7 +195,7 @@ def spatial_encoding(td: TensorDict):
     return num_jumps
 
 
-def calc_lower_bound(td: TensorDict):
+def calc_lower_bound(td: TensorDict, min_or_mean_dur: str = "mean"):
     """Here we calculate the lower bound of the operations finish times. In the FJSP case, multiple things need to
     be taken into account due to the usability of the different machines for multiple ops of different jobs:
 
@@ -229,14 +229,23 @@ def calc_lower_bound(td: TensorDict):
     maybe_start_at = torch.bmm(ops_adj[..., 0], finish_times[..., None]).squeeze(2)
     # using the start_time, we can determine if and how long an op needs to wait for a machine to finish
     wait_for_ma_offset = torch.clip(busy_until[..., None] - maybe_start_at[:, None], 0)
-    # we add this required waiting time to the respective processing time - after that we determine the best machine for each operation
-    mask = proc_times == 0
-    proc_times[mask] = torch.inf
-    proc_times += wait_for_ma_offset
-    # select best machine for operation, given the offset
-    min_proc_times = proc_times.min(1).values
-    # min_proc_times.nan_to_num_(posinf=0)
-    min_proc_times[op_scheduled.to(torch.bool)] = 0
+    # we add this required waiting time to the respective processing time
+    proc_time_plus_wait = torch.where(
+        proc_times == 0, proc_times, proc_times + wait_for_ma_offset
+    )
+    if min_or_mean_dur == "min":
+        # after that we determine the best machine for each operation
+        ops_proc_times = (
+            torch.where(proc_times == 0, torch.inf, proc_time_plus_wait).min(1).values
+        )
+    elif min_or_mean_dur == "mean":
+        ops_proc_times = proc_time_plus_wait.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
+    else:
+        raise ValueError(
+            f"choose either 'min' or 'mean' for param min_or_mean_dur, got {min_or_mean_dur}"
+        )
+    # mask proc times for already scheduled ops
+    ops_proc_times[op_scheduled.to(torch.bool)] = 0
 
     ############### REGARDING POINT 2 OF DOCSTRING ###################
     # Now we determine all operations that are not scheduled yet (and thus have no finish_time). We will compute the cumulative
@@ -257,7 +266,7 @@ def calc_lower_bound(td: TensorDict):
 
     # masking the processing time of scheduled operations and add their finish times instead (first diff thereof)
     lb_end_expand = (
-        proc_matrix_not_scheduled * min_proc_times.unsqueeze(1).expand_as(job_ops_adj)
+        proc_matrix_not_scheduled * ops_proc_times.unsqueeze(1).expand_as(job_ops_adj)
         + finish_times_1st_diff
     )
     # (bs, max_ops); lower bound finish time per operation using the cumsum logic

@@ -68,6 +68,8 @@ class FJSPEnv(EnvBase):
         generator: FJSPGenerator = None,
         generator_params: dict = {},
         mask_no_ops: bool = True,
+        check_mask: bool = False,
+        stepwise_reward: bool = False,
         **kwargs,
     ):
         super().__init__(check_solution=False, **kwargs)
@@ -81,6 +83,8 @@ class FJSPEnv(EnvBase):
         self.num_jobs = generator.num_jobs
         self.n_ops_max = generator.max_ops_per_job * self.num_jobs
         self.mask_no_ops = mask_no_ops
+        self.check_mask = check_mask
+        self.stepwise_reward = stepwise_reward
         self._make_spec(self.generator)
 
     def _decode_graph_structure(self, td: TensorDict):
@@ -173,9 +177,10 @@ class FJSPEnv(EnvBase):
             },
         )
 
-        td_reset.set("lbs", calc_lower_bound(td_reset))
-        td_reset.set("is_ready", op_is_ready(td_reset))
         td_reset.set("action_mask", self.get_action_mask(td_reset))
+        # add additional features to tensordict
+        td_reset["lbs"] = calc_lower_bound(td_reset)
+        td_reset = self._get_features(td_reset)
 
         return td_reset
 
@@ -203,15 +208,21 @@ class FJSPEnv(EnvBase):
         return action_mask
 
     def get_action_mask(self, td: TensorDict) -> torch.Tensor:
+        # 1 indicates machine or job is unavailable at current time step
         action_mask = self._get_job_machine_availability(td)
         if self.mask_no_ops:
-            no_op_mask = ~td["done"]
+            # masking is only allowed if instance is finished
+            no_op_mask = td["done"]
         else:
-            no_op_mask = ~td["job_in_process"].any(1, keepdims=True) & ~td["done"]
+            # if no job is currently processed and instance is not finished yet, waiting is not allowed
+            no_op_mask = (
+                td["job_in_process"].any(1, keepdims=True) & (~td["done"])
+            ) | td["done"]
         # flatten action mask to correspond with logit shape
         action_mask = rearrange(action_mask, "bs j m -> bs (j m)")
         # NOTE: 1 means feasible action, 0 means infeasible action
-        mask = torch.cat((~no_op_mask, ~action_mask), dim=1)
+        mask = torch.cat((no_op_mask, ~action_mask), dim=1)
+
         return mask
 
     def _translate_action(self, td):
@@ -251,10 +262,26 @@ class FJSPEnv(EnvBase):
             td, dones = self._transit_to_next_time(step_complete, td)
             td.set("action_mask", self.get_action_mask(td))
             step_complete = self._check_step_complete(td, dones)
+        if self.check_mask:
+            assert reduce(td["action_mask"], "bs ... -> bs", "any").all()
 
+        if self.stepwise_reward:
+            # if we require a stepwise reward, the change in the calculated lower bounds could serve as such
+            lbs = calc_lower_bound(td)
+            td["reward"] = -(lbs.max(1).values - td["lbs"].max(1).values)
+            td["lbs"] = lbs
+        else:
+            td["lbs"] = calc_lower_bound(td)
+
+        # add additional features to tensordict
+        td = self._get_features(td)
+
+        return td
+
+    def _get_features(self, td):
         # after we have transitioned to a next time step, we determine which operations are ready
         td["is_ready"] = op_is_ready(td)
-        td["lbs"] = calc_lower_bound(td)
+        # td["lbs"] = calc_lower_bound(td)
 
         return td
 
@@ -299,11 +326,17 @@ class FJSPEnv(EnvBase):
             selected_op[:, None, None].expand(-1, self.num_mas, 1),
             torch.zeros_like(td["proc_times"]),
         )
-        td["ops_ma_adj"] = (td["proc_times"] > 0).to(torch.float32)
+        td["ops_ma_adj"] = td["proc_times"].contiguous().gt(0).to(torch.float32)
+        td["num_eligible"] = torch.sum(td["ops_ma_adj"], dim=1)
         # update the positions of an operation in the job (subtract 1 from each operation of the selected job)
         td["ops_sequence_order"] = (
             td["ops_sequence_order"] - gather_by_index(td["job_ops_adj"], selected_job, 1)
         ).clip(0)
+        # some checks
+        assert torch.allclose(
+            td["proc_times"].sum(1).gt(0).sum(1),  # num ops with eligible machine
+            (~(td["op_scheduled"] + td["pad_mask"])).sum(1),  # num unscheduled ops
+        )
 
         return td
 
@@ -352,7 +385,15 @@ class FJSPEnv(EnvBase):
         return td, td["done"].squeeze(1)
 
     def _get_reward(self, td, actions=None) -> TensorDict:
-        return -td["finish_times"].masked_fill(td["pad_mask"], -torch.inf).max(1).values
+        if self.stepwise_reward and actions is None:
+            return td["reward"]
+        else:
+            assert td[
+                "done"
+            ].all(), "Set stepwise_reward to True if you want reward prior to completion"
+            return (
+                -td["finish_times"].masked_fill(td["pad_mask"], -torch.inf).max(1).values
+            )
 
     def _make_spec(self, generator: FJSPGenerator):
         self.observation_spec = CompositeSpec(
