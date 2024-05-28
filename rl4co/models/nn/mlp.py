@@ -1,6 +1,10 @@
-from typing import List
+from typing import List, Union
 
 import torch.nn as nn
+
+from rl4co.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class MLP(nn.Module):
@@ -9,6 +13,7 @@ class MLP(nn.Module):
         input_dim: int,
         output_dim: int,
         num_neurons: List[int] = [64, 32],
+        dropout_probs: Union[None, List[float]] = None,
         hidden_act: str = "ReLU",
         out_act: str = "Identity",
         input_norm: str = "None",
@@ -19,11 +24,22 @@ class MLP(nn.Module):
         assert input_norm in ["Batch", "Layer", "None"]
         assert output_norm in ["Batch", "Layer", "None"]
 
+        if dropout_probs is None:
+            dropout_probs = [0.0] * len(num_neurons)
+        elif len(dropout_probs) != len(num_neurons):
+            log.info(
+                "dropout_probs List length should match the num_neurons List length for MLP, dropouts set to False instead"
+            )
+            dropout_probs = [0.0] * len(num_neurons)
+
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_neurons = num_neurons
         self.hidden_act = getattr(nn, hidden_act)()
         self.out_act = getattr(nn, out_act)()
+        self.dropouts = []
+        for i in range(len(dropout_probs)):
+            self.dropouts.append(nn.Dropout(p=dropout_probs[i]))
 
         input_dims = [input_dim] + num_neurons
         output_dims = num_neurons + [output_dim]
@@ -40,6 +56,7 @@ class MLP(nn.Module):
         for i, lin in enumerate(self.lins[:-1]):
             xs = lin(xs)
             xs = self.hidden_act(xs)
+            xs = self.dropouts[i](xs)
         xs = self.lins[-1](xs)
         xs = self.out_act(xs)
         xs = self.output_norm(xs)

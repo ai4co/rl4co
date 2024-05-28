@@ -27,6 +27,7 @@ class CriticNetwork(nn.Module):
         value_head: Optional[nn.Module] = None,
         embed_dim: int = 128,
         hidden_dim: int = 512,
+        customized: bool = False,
     ):
         super(CriticNetwork, self).__init__()
 
@@ -42,8 +43,9 @@ class CriticNetwork(nn.Module):
                 nn.Linear(embed_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
             )
         self.value_head = value_head
+        self.customized = customized
 
-    def forward(self, x: Union[Tensor, TensorDict]) -> Tensor:
+    def forward(self, x: Union[Tensor, TensorDict], hidden=None) -> Tensor:
         """Forward pass of the critic network: encode the imput in embedding space and return the value
 
         Args:
@@ -52,8 +54,12 @@ class CriticNetwork(nn.Module):
         Returns:
             Value of the input state
         """
-        h, _ = self.encoder(x)  # [batch_size, N, embed_dim] -> [batch_size, N]
-        return self.value_head(h).mean(1)  # [batch_size, N] -> [batch_size]
+        if not self.customized:  # fir for most of costructive tasks
+            h, _ = self.encoder(x)  # [batch_size, N, embed_dim] -> [batch_size, N]
+            return self.value_head(h).mean(1)  # [batch_size, N] -> [batch_size]
+        else:  # custimized encoder and value head with hidden input
+            h = self.encoder(x)  # [batch_size, N, embed_dim] -> [batch_size, N]
+            return self.value_head(h, hidden)
 
 
 def create_critic_from_actor(

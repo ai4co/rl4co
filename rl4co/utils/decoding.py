@@ -217,6 +217,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         multistart: bool = False,
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
+        improvement_method_mode: bool = False,
         select_best: bool = False,
         store_all_logp: bool = False,
         **kwargs,
@@ -229,6 +230,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.multistart = multistart
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
+        self.improvement_method_mode = improvement_method_mode
         self.select_best = select_best
         self.store_all_logp = store_all_logp
         # initialize buffers
@@ -258,6 +260,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self, td: TensorDict, env: RL4COEnvBase, action: torch.Tensor = None
     ):
         """Pre decoding hook. This method is called before the main decoding operation."""
+        
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
         if self.multistart:
             if self.num_starts is None:
@@ -311,7 +314,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self,
         logits: torch.Tensor,
         mask: torch.Tensor,
-        td: TensorDict,
+        td: TensorDict = None,
         action: torch.Tensor = None,
         **kwargs,
     ) -> TensorDict:
@@ -338,6 +341,11 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         logprobs, selected_action, td = self._step(
             logprobs, mask, td, action=action, **kwargs
         )
+
+        # directly return for improvement methods, since the action for improvement methods is finalized in its own policy
+        if self.improvement_method_mode:
+            return logprobs, selected_action
+        # for others
         if not self.store_all_logp:
             logprobs = gather_by_index(logprobs, selected_action, dim=1)
         td.set("action", selected_action)
