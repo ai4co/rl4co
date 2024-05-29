@@ -302,10 +302,10 @@ class MTVRPGenerator(Generator):
 
     @staticmethod
     def _default_backhaul(td, remove):
+        # by default, where there is a backhaul, linehaul is 0. therefore, we add backhaul to linehaul
+        # and set backhaul to 0 where we want to remove backhaul
+        td["demand_linehaul"][remove] = td["demand_linehaul"][remove] + td["demand_backhaul"][remove]
         td["demand_backhaul"][remove] = 0
-        # note that for backhauls, we must ensure that linehauls are also 0
-        node_is_backhaul = td["demand_backhaul"] > 0
-        td["demand_linehaul"][node_is_backhaul] = 0
         return td
 
     def generate_locations(self, batch_size, num_loc) -> torch.Tensor:
@@ -346,8 +346,9 @@ class MTVRPGenerator(Generator):
         backhaul_demand = (
             backhaul_demand * ~is_linehaul
         )  # keep only values where they are not linehauls
-        # note that we keep *all* the linehauls, since we may want to subsample problems with them only
-        # if we want to sample backhauls, we will mute the linehauls in the subsample_problems method
+        linehaul_demand = (
+            linehaul_demand * is_linehaul
+        )
         return linehaul_demand, backhaul_demand
 
     def generate_time_windows(
