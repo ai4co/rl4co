@@ -1,10 +1,13 @@
-from typing import Tuple
+import abc
+
+from typing import Any, Tuple
 
 import torch
 import torch.nn as nn
 
 from einops import einsum, rearrange
 from tensordict import TensorDict
+from torch import Tensor
 
 from rl4co.models.common.constructive.autoregressive import AutoregressiveDecoder
 from rl4co.models.nn.attention import PointerAttention
@@ -18,7 +21,55 @@ from rl4co.utils.ops import batchify, gather_by_index
 from .encoder import GCN4JSSP
 
 
-class JSSPActor(nn.Module):
+class L2DActor(nn.Module, metaclass=abc.ABCMeta):
+    """Base decoder model for actor in L2D. The actor is responsible for generating the logits for the action
+    similar to the decoder in autoregressive models. Since the decoder in L2D can have the additional purpose
+    of extracting features (i.e. encoding the environment in ever iteration), we need an additional actor class.
+    This function serves as template for such actor classes in L2D
+    """
+
+    @abc.abstractmethod
+    def forward(
+        self, td: TensorDict, hidden: Any = None, num_starts: int = 0
+    ) -> Tuple[Tensor, Tensor]:
+        """Obtain logits for current action to the next ones
+
+        Args:
+            td: TensorDict containing the input data
+            hidden: Hidden state from the encoder. Can be any type
+            num_starts: Number of starts for multistart decoding
+
+        Returns:
+            Tuple containing the logits and the action mask
+        """
+        raise NotImplementedError("Implement me in subclass!")
+
+    def pre_actor_hook(
+        self, td: TensorDict, hidden: Any = None, num_starts: int = 0
+    ) -> Tuple[TensorDict, Any]:
+        """By default, we only require the input for the actor to be a tuple
+        (in JSSP we only have operation embeddings but in FJSP we have operation
+        and machine embeddings. By expecting a tuple we can generalize things.)
+
+        Args:
+            td: TensorDict containing the input data
+            hidden: Hidden state from the encoder
+            num_starts: Number of starts for multistart decoding
+
+        Returns:
+            Tuple containing the updated hidden state(s) and the input TensorDict
+        """
+
+        hidden = (hidden,) if not isinstance(hidden, tuple) else hidden
+
+        if num_starts > 1:
+            # NOTE: when using pomo, we need this
+            hidden = tuple(map(lambda x: batchify(x, num_starts), hidden))
+
+        return td, hidden
+
+
+class JSSPActor(L2DActor):
     def __init__(
         self,
         embed_dim: int,
@@ -65,10 +116,13 @@ class JSSPActor(nn.Module):
         if self.check_nan:
             assert not torch.isnan(logits).any(), "Logits contain NaNs"
 
-        return logits
+        # (b, 1 + j)
+        mask = td["action_mask"]
+
+        return logits, mask
 
 
-class FJSPActor(nn.Module):
+class FJSPActor(L2DActor):
     def __init__(
         self,
         embed_dim: int,
@@ -107,8 +161,9 @@ class FJSPActor(nn.Module):
 
         if self.check_nan:
             assert not torch.isnan(logits).any(), "Logits contain NaNs"
-
-        return logits
+        # (b, 1 + j)
+        mask = td["action_mask"]
+        return logits, mask
 
 
 class L2DDecoder(AutoregressiveDecoder):
@@ -170,20 +225,17 @@ class L2DDecoder(AutoregressiveDecoder):
 
     def forward(self, td, hidden, num_starts):
         if hidden is None:
+            # NOTE in case we have multiple starts, td is batchified
+            # (through decoding strategy pre decoding hook). Thus the
+            # embeddings from feature_extractor have the correct shape
+            num_starts = 0
             # (bs, n_j * n_ops, e), (bs, n_m, e)
             hidden, _ = self.feature_extractor(td)
 
-        elif num_starts > 1:
-            hidden = (hidden,) if isinstance(hidden, torch.Tensor) else hidden
-            hidden = tuple(map(lambda x: batchify(x, num_starts), hidden))
-
-        else:
-            hidden = (hidden,) if isinstance(hidden, torch.Tensor) else hidden
+        td, hidden = self.actor.pre_actor_hook(td, hidden, num_starts)
 
         # (bs, n_j, e)
-        logits = self.actor(td, *hidden)
-        # (b, 1 + j)
-        mask = td["action_mask"]
+        logits, mask = self.actor(td, *hidden)
 
         return logits, mask
 
@@ -221,7 +273,7 @@ class L2DAttnPointer(PointerAttention):
         return logits
 
 
-class L2DAttnDecoder(AttentionModelDecoder):
+class L2DAttnActor(AttentionModelDecoder):
     def __init__(
         self,
         embed_dim: int = 128,
@@ -288,3 +340,9 @@ class L2DAttnDecoder(AttentionModelDecoder):
             glimpse_val=glimpse_val_fixed,
             logit_key=logit_key,
         )
+
+    def pre_actor_hook(
+        self, td: TensorDict, hidden: Any = None, num_starts: int = 0
+    ) -> Tuple[TensorDict, Any]:
+        cache = self._precompute_cache(hidden, num_starts=num_starts)
+        return td, (cache,)

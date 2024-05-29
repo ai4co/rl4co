@@ -19,7 +19,7 @@ from rl4co.utils.decoding import DecodingStrategy, process_logits
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
-from .decoder import L2DAttnDecoder, L2DDecoder
+from .decoder import L2DAttnActor, L2DDecoder
 from .encoder import GCN4JSSP
 
 log = get_pylogger(__name__)
@@ -129,7 +129,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
 
         # The decoder generates logits given the current td and heatmap
         if decoder is None:
-            decoder = L2DAttnDecoder(
+            decoder = L2DAttnActor(
                 env_name=env_name,
                 embed_dim=embed_dim,
                 num_heads=num_heads,
@@ -195,30 +195,36 @@ class L2DPolicy4PPO(L2DPolicy):
             critic = MLP(input_dim, 1, num_neurons=[embed_dim] * 2)
 
         self.critic = critic
+        assert isinstance(
+            self.encoder, NoEncoder
+        ), "Define a feature extractor for decoder rather than an encoder in stepwise PPO"
 
     def evaluate(self, td):
         # Encoder: get encoder output and initial embeddings from initial state
         hidden, _ = self.decoder.feature_extractor(td)
-        hidden = (hidden,) if isinstance(hidden, torch.Tensor) else hidden
-        pooled = tuple(map(lambda x: x.mean(dim=-2), hidden))
-
+        # pool the embeddings for the critic
+        h_tuple = (hidden,) if isinstance(hidden, torch.Tensor) else hidden
+        pooled = tuple(map(lambda x: x.mean(dim=-2), h_tuple))
+        # potentially cat multiple embeddings (pooled ops and machines)
         h_pooled = torch.cat(pooled, dim=-1)
+        # pred value via the value head
         value_pred = self.critic(h_pooled)
-
-        logits = self.decoder.actor(td, *hidden)
-        mask = td["action_mask"]
+        # pre decoder / actor hook
+        td, _, hidden = self.decoder.actor.pre_decoder_hook(
+            td, None, hidden, num_starts=0
+        )
+        # again ensure the correct input type
+        hidden = (hidden,) if not isinstance(hidden, tuple) else hidden
+        logits, mask = self.decoder.actor(td, *hidden)
+        # get logprobs and entropy over logp distribution
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)
-
         action_logprobs = gather_by_index(logprobs, td["action"], dim=1)
         dist_entropys = Categorical(logprobs.exp()).entropy()
 
         return action_logprobs, value_pred, dist_entropys
 
     def act(self, td, env, phase: str = "train"):
-        # Encoder: get encoder output and initial embeddings from initial state
-        hidden, _ = self.encoder(td)
-
-        logits, mask = self.decoder(td, hidden, num_starts=0)
+        logits, mask = self.decoder(td, hidden=None, num_starts=0)
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)
 
         # DRL-S, sampling actions following \pi
