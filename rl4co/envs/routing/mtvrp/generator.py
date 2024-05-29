@@ -429,3 +429,8 @@ class MTVRPGenerator(Generator):
     def print_presets():
         for key, value in VARIANT_GENERATION_PRESETS.items():
             print(f"{key}: {value}")
+            
+    @staticmethod
+    def available_variants(*args, **kwargs):
+        # remove 'all', 'single_feat' from the list
+        return list(VARIANT_GENERATION_PRESETS.keys())[3:]
