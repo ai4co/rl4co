@@ -113,8 +113,6 @@ class PDPGenerator(Generator):
                 candidates.scatter_(1, next_selected_node, 0)
                 selected_node = next_selected_node
 
-            return rec
-
         elif self.init_sol_type == "greedy":
             candidates = torch.ones(batch_size, self.num_loc + 1).bool()
             candidates[:, order_size + 1 :] = 0

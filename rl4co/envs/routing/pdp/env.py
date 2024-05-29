@@ -10,7 +10,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.envs.common.base import ImprovementEnvBase, RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
 
 from .generator import PDPGenerator
@@ -214,7 +214,7 @@ class PDPEnv(RL4COEnvBase):
         return render(td, actions, ax)
 
 
-class PDPRuinRepairEnv(RL4COEnvBase):
+class PDPRuinRepairEnv(ImprovementEnvBase):
     """Pickup and Delivery Problem (PDP) environment for performing neural rein-repair search.
     The environment is made of num_loc + 1 locations (cities):
         - 1 depot
@@ -271,9 +271,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
     def _step(cls, td: TensorDict) -> TensorDict:
         # get state information from td
         action = td["action"]
-        selected = action[:, 0].view(-1, 1)
-        first = action[:, 1].view(-1, 1)
-        second = action[:, 2].view(-1, 1)
         solution = td["rec_current"]
         solution_best = td["rec_best"]
         locs = td["locs"]
@@ -282,7 +279,7 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         bs, gs = solution.size()
 
         # perform ruin and repair
-        next_rec = cls._insert_operator(solution, selected + 1, first, second)
+        next_rec = cls._local_operator(solution, action)
         new_obj = cls.get_costs(locs, next_rec)
 
         # compute reward and update best-so-far solutions
@@ -327,7 +324,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
         current_rec = self.generator._get_initial_solutions(locs).to(device)
-
         obj = self.get_costs(locs, current_rec)
 
         # get index according to the solutions in the linked list data structure
@@ -339,12 +335,16 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         for i in range(seq_length):
             current_nodes = current_rec[arange, pre]
             visited_time[arange, current_nodes] = i + 1
-            pre = current_rec[arange, pre]
+            pre = current_nodes
         visited_time = visited_time.long()
 
         # get action record and step i
         i = torch.zeros((*batch_size, 1), dtype=torch.int64).to(device)
-        action_record = torch.zeros((bs, seq_length // 2, seq_length // 2))
+        action_record = (
+            torch.zeros((bs, seq_length, seq_length // 2))
+            if self.training
+            else torch.zeros((bs, seq_length // 2, seq_length // 2))
+        )
 
         return TensorDict(
             {
@@ -360,8 +360,43 @@ class PDPRuinRepairEnv(RL4COEnvBase):
             batch_size=batch_size,
         )
 
+    def step_to_bsf(self, td: TensorDict) -> TensorDict:
+        # get state information from td
+        next_rec = td["rec_best"]
+        cost_bsf = td["cost_bsf"]
+        bs, gs = next_rec.size()
+
+        # reset visited_time
+        visited_time = td["visited_time"] * 0
+        pre = torch.zeros((bs), device=visited_time.device).long()
+        arange = torch.arange(bs)
+        for i in range(gs):
+            current_nodes = next_rec[arange, pre]
+            visited_time[arange, current_nodes] = i + 1
+            pre = current_nodes
+        visited_time = visited_time.long()
+
+        # Update step
+        td.update(
+            {
+                "cost_current": cost_bsf,
+                "cost_bsf": cost_bsf,
+                "rec_current": next_rec,
+                "rec_best": next_rec,
+                "visited_time": visited_time,
+                "i": td["i"],
+                "reward": td["reward"] * 0.0,
+            }
+        )
+
+        return td
+
     @staticmethod
-    def _insert_operator(solution, pair_index, first, second):
+    def _local_operator(solution, action):
+        # get info
+        pair_index = action[:, 0].view(-1, 1) + 1
+        first = action[:, 1].view(-1, 1)
+        second = action[:, 2].view(-1, 1)
         rec = solution.clone()
         bs, gs = rec.size()
 
@@ -427,10 +462,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
-                shape=(self.generator.num_loc + 1, self.generator.num_loc + 1),
-                dtype=torch.bool,
-            ),
             shape=(),
         )
         self.action_spec = BoundedTensorSpec(
@@ -441,12 +472,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
-
-    @staticmethod
-    def _get_reward(td, actions) -> TensorDict:
-        raise NotImplementedError(
-            "This function is not used for improvement tasks since the reward is computed per step"
-        )
 
     def check_solution_validity(self, td, actions=None):
         # The function can be called by the agent to check the validity of the best found solution
@@ -494,17 +519,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
 
         return ~mask
 
-    @staticmethod
-    def get_costs(coordinates, rec):
-        batch_size, size = rec.size()
-
-        # calculate the route length value
-        d1 = coordinates.gather(1, rec.long().unsqueeze(-1).expand(batch_size, size, 2))
-        d2 = coordinates
-        length = (d1 - d2).norm(p=2, dim=2).sum(1)
-
-        return length
-
     @classmethod
     def _random_action(cls, td):
         batch_size, graph_size = td["rec_best"].size()
@@ -521,28 +535,6 @@ class PDPRuinRepairEnv(RL4COEnvBase):
         )
         td["action"] = action
         return action
-
-    @staticmethod
-    def _get_real_solution(rec):
-        batch_size, seq_length = rec.size()
-        visited_time = torch.zeros((batch_size, seq_length)).to(rec.device)
-        pre = torch.zeros((batch_size), device=rec.device).long()
-        for i in range(seq_length):
-            visited_time[torch.arange(batch_size), rec[torch.arange(batch_size), pre]] = (
-                i + 1
-            )
-            pre = rec[torch.arange(batch_size), pre]
-
-        visited_time = visited_time % seq_length
-        return visited_time.argsort()
-
-    @classmethod
-    def get_best_solution(cls, td):
-        return cls._get_real_solution(td["rec_best"])
-
-    @classmethod
-    def get_current_solution(cls, td):
-        return cls._get_real_solution(td["rec_current"])
 
     @classmethod
     def render(cls, td: TensorDict, actions: torch.Tensor = None, ax=None):
