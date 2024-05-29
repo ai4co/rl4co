@@ -14,7 +14,7 @@ logger:
     name: ???
 
 trainer:
-  max_epochs: 30
+  max_epochs: 10
   # NOTE for some reason l2d is extremely sensitive to precision
   # ONLY USE 32-true for l2d!
   precision: 32-true
@@ -26,7 +26,7 @@ scaling_factor: 20
 model:
   _target_: ???
   batch_size: ???
-  train_data_size: 30_000
+  train_data_size: 2000
   val_data_size: 10_000
   test_data_size: 10_000
   optimizer_kwargs:

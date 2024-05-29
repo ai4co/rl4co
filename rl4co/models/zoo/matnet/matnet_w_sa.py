@@ -11,7 +11,7 @@ from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.ops import Normalization, TransformerFFN
 
 
-def apply_weights_and_combine(dots, v, tanh_clipping=10):
+def apply_weights_and_combine(dots, v, tanh_clipping=0):
     # scale to avoid numerical underflow
     logits = dots / dots.std()
     if tanh_clipping > 0:

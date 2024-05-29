@@ -17,7 +17,7 @@ model:
     num_encoder_layers: 3
     stepwise_encoding: False
     scaling_factor: ${scaling_factor}
-    het_emb: False
+    het_emb: True
   num_starts: 10
   batch_size: 64
   num_augment: 0

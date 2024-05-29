@@ -470,23 +470,29 @@ class FJSPMatNetInitEmbedding(JSSPInitEmbedding):
         linear_bias: bool = False,
         scaling_factor: int = 1000,
     ):
-        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=4)
+        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=5)
+        self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
 
     def _op_features(self, td):
         feats = [
             td["lbs"] / self.scaling_factor,
             td["is_ready"],
+            td["op_scheduled"],
             td["num_eligible"],
             td["ops_job_map"],
         ]
         return torch.stack(feats, dim=-1)
 
+    def _init_machine_embed(self, td: TensorDict):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        ma_embeddings = self.init_ma_embed(busy_for.unsqueeze(2))
+        return ma_embeddings
+
     def forward(self, td: TensorDict):
         proc_times = td["proc_times"]
-        bs, ma, _ = proc_times.shape
         ops_emb = self._init_ops_embed(td)
         # encoding machines
-        ma_emb = torch.zeros(bs, ma, self.embed_dim, device=td.device)
+        ma_emb = self._init_machine_embed(td)
         # edgeweights for matnet
         matnet_edge_weights = proc_times.transpose(1, 2) / self.scaling_factor
         return ops_emb, ma_emb, matnet_edge_weights

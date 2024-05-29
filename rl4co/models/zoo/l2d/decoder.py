@@ -280,9 +280,17 @@ class L2DAttnActor(AttentionModelDecoder):
         num_heads: int = 8,
         env_name: str = "jssp",
         scaling_factor: int = 1000,
+        stepwise: bool = False,
     ):
         context_embedding = SchedulingContext(embed_dim, scaling_factor=scaling_factor)
-        dynamic_embedding = JSSPDynamicEmbedding(embed_dim, scaling_factor=scaling_factor)
+        if stepwise:
+            # in a stepwise encoding setting, the embeddings contain all current information
+            dynamic_embedding = None
+        else:
+            # otherwise we might want to update the static embeddings using dynamic updates
+            dynamic_embedding = JSSPDynamicEmbedding(
+                embed_dim, scaling_factor=scaling_factor
+            )
         pointer = L2DAttnPointer(env_name, embed_dim, num_heads, check_nan=False)
 
         super().__init__(
