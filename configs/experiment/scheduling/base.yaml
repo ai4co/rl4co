@@ -1,17 +1,10 @@
 # @package _global_
 
 defaults:
-  - override /env: jssp.yaml
+  - override /model: l2d.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   - override /logger: wandb.yaml
-
-env:
-  generator_params:
-    num_jobs: 15
-    num_machines: 15
-    min_processing_time: 1
-    max_processing_time: 99
 
 logger:
   wandb:
@@ -28,10 +21,10 @@ trainer:
 
 seed: 12345678
 
+scaling_factor: 20
 
 model:
   _target_: ???
-  policy: ???
   batch_size: ???
   train_data_size: 30_000
   val_data_size: 10_000

@@ -1,20 +1,20 @@
 # @package _global_
 
 defaults:
-  - scheduling/fjsp/base_fjsp
+  - scheduling/base
 
 logger:
   wandb:
-    tags: ["am", "${env.name}"]
-    name: "am-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+    tags: ["am-pomo", "${env.name}"]
+    name: "am-pomo-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
 
 model:
   _target_: rl4co.models.POMO
   policy:
     _target_: rl4co.models.L2DAttnPolicy
     env_name: ${env.name}
-    scaling_factor: 100
-  batch_size: 256
+    scaling_factor: ${scaling_factor}
+  batch_size: 64
   num_starts: 10
   num_augment: 0
   baseline: "shared"
