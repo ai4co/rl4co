@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/home/jieyi/rl4co")
+
 from lightning.pytorch.callbacks import ModelCheckpoint, RichModelSummary
 from lightning.pytorch.loggers import WandbLogger
 
@@ -9,7 +12,7 @@ from rl4co.utils.meta_trainer import ReptileCallback
 
 def main():
     # Set device
-    device_id = 0
+    device_id = 1
 
     # RL4CO env based on TorchRL
     env = CVRPEnv(generator_params={'num_loc': 50})
@@ -46,13 +49,13 @@ def main():
 
     # Meta callbacks
     meta_callback = ReptileCallback(
-        num_tasks = 1,  # the number of tasks in a mini-batch
-        alpha = 0.99,  # params for the outer-loop optimization of reptile
-        alpha_decay = 0.999,  # params for the outer-loop optimization of reptile
-        min_size = 20,  # minimum of sampled size in meta tasks
-        max_size= 150,  # maximum of sampled size in meta tasks
-        data_type="size",  # choose from ["size", "distribution", "size_distribution"]
-        sch_bar=0.9,  # for the task scheduler of size setting, where sch_epoch = sch_bar * epochs
+        num_tasks = 1,  # the number of tasks in a mini-batch, i.e. `B` in the original paper
+        alpha = 0.99,  # initial weight of the task model for the outer-loop optimization of reptile
+        alpha_decay = 0.999,  # weight decay of the task model for the outer-loop optimization of reptile
+        min_size = 20,  # minimum of sampled size in meta tasks (only supported in cross-size generalization)
+        max_size= 150,  # maximum of sampled size in meta tasks (only supported in cross-size generalization)
+        data_type="size_distribution",  # choose from ["size", "distribution", "size_distribution"]
+        sch_bar=0.9,  # for the task scheduler of size setting, where lr_decay_epoch = sch_bar * epochs, i.e. after this epoch, learning rate will decay with a weight 0.1
         print_log=True # whether to print the sampled tasks in each meta iteration
     )
     callbacks = [meta_callback, checkpoint_callback, rich_model_summary]
