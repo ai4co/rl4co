@@ -1,6 +1,3 @@
-import sys
-sys.path.append("/home/jieyi/rl4co")
-
 from lightning.pytorch.callbacks import ModelCheckpoint, RichModelSummary
 from lightning.pytorch.loggers import WandbLogger
 
@@ -12,7 +9,7 @@ from rl4co.utils.meta_trainer import ReptileCallback
 
 def main():
     # Set device
-    device_id = 1
+    device_id = 0
 
     # RL4CO env based on TorchRL
     env = CVRPEnv(generator_params={'num_loc': 50})
@@ -31,7 +28,7 @@ def main():
     model = POMO(env,
                  policy,
                  batch_size=64,  # meta_batch_size
-                 train_data_size=64 * 50,  # each epoch
+                 train_data_size=64 * 50,  # equals to (meta_batch_size) * (gradient decent steps in the inner-loop optimization of meta-learning method)
                  val_data_size=0,
                  optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
                  )
