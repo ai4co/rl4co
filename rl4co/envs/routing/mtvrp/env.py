@@ -372,7 +372,7 @@ class MTVRPEnv(RL4COEnvBase):
         _check_c1("demand_linehaul")
         _check_c1("demand_backhaul")
 
-    def load_data(fpath, batch_size=[], scale=False):
+    def load_data(self, fpath, batch_size=[], scale=False):
         """Dataset loading from file
         Normalize demand by capacity to be in [0, 1]
         """

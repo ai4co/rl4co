@@ -34,6 +34,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
         "fjsp": FJSPFeatureEmbedding,
+        "mtvrp": MTVRPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -445,3 +446,25 @@ class FJSPFeatureEmbedding(nn.Module):
 
     def _stepwise_machine_embed(self, td: TensorDict):
         raise NotImplementedError("Stepwise encoding not yet implemented")
+
+
+class MTVRPInitEmbedding(VRPInitEmbedding):
+    def __init__(self, embed_dim, linear_bias=True, node_dim: int = 7):
+        # node_dim = 7: x, y, demand_linehaul, demand_backhaul, tw start, tw end, service time
+        super(MTVRPInitEmbedding, self).__init__(embed_dim, linear_bias, node_dim)
+
+    def forward(self, td):
+        depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
+        demand_linehaul, demand_backhaul = td["demand_linehaul"][..., 1:], td["demand_backhaul"][..., 1:]
+        service_time = td["service_time"][..., 1:]
+        time_windows = td["time_windows"][..., 1:, :]
+        # [!] convert [0, inf] -> [0, 0] if a problem does not include the time window constraint, do not modify in-place
+        time_windows = torch.nan_to_num(time_windows,  posinf=0.0)
+        # embeddings
+        depot_embedding = self.init_embed_depot(depot)
+        node_embeddings = self.init_embed(
+            torch.cat(
+                (cities, demand_linehaul[..., None], demand_backhaul[..., None], time_windows, service_time[..., None]), -1
+            )
+        )
+        return torch.cat((depot_embedding, node_embeddings), -2)
