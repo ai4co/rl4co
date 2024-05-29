@@ -10,7 +10,7 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.autoregressive.decoder import AutoregressiveDecoder
-from rl4co.models.nn.attention import PointerAttention
+from rl4co.models.nn.attention import PointerAttention, PointerAttnMoE
 from rl4co.models.nn.env_embeddings import env_context_embedding, env_dynamic_embedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from rl4co.utils.ops import batchify, unbatchify
@@ -63,6 +63,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         check_nan: Whether to check for nan values during decoding
         sdpa_fn: scaled_dot_product_attention function
         pointer: Module implementing the pointer logic (defaults to PointerAttention)
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -79,6 +80,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         check_nan: bool = True,
         sdpa_fn: callable = None,
         pointer: nn.Module = None,
+        moe_kwargs: dict = None,
     ):
         super().__init__()
 
@@ -106,13 +108,17 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
         if pointer is None:
             # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-            pointer = PointerAttention(
+            pointer_attn_class = (
+                PointerAttention if moe_kwargs is None else PointerAttnMoE
+            )
+            pointer = pointer_attn_class(
                 embed_dim,
                 num_heads,
                 mask_inner=mask_inner,
                 out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
                 sdpa_fn=sdpa_fn,
+                moe_kwargs=moe_kwargs,
             )
 
         self.pointer = pointer

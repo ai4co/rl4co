@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+from rl4co.models.nn.moe import MoE
 from rl4co.utils import get_pylogger
 
 log = get_pylogger(__name__)
@@ -247,6 +248,7 @@ class PointerAttention(nn.Module):
         out_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: Optional[Callable] = None,
+        **kwargs,
     ):
         super(PointerAttention, self).__init__()
         self.num_heads = num_heads
@@ -270,7 +272,7 @@ class PointerAttention(nn.Module):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = self.project_out(heads)
+        glimpse = self._project_out(heads)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
@@ -301,6 +303,74 @@ class PointerAttention(nn.Module):
 
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
+
+    def _project_out(self, out):
+        return self.project_out(out)
+
+
+class PointerAttnMoE(PointerAttention):
+    """Calculate logits given query, key and value and logit key.
+    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134),
+        and the MoE gating mechanism of Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>.
+
+    Note:
+        With Flash Attention, masking is not supported
+
+    Performs the following:
+        1. Apply cross attention to get the heads
+        2. Project heads to get glimpse
+        3. Compute attention score between glimpse and logit key
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        mask_inner: whether to mask inner attention
+        linear_bias: whether to use bias in linear projection
+        check_nan: whether to check for NaNs in logits
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
+        moe_kwargs: Keyword arguments for MoE
+    """
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        mask_inner: bool = True,
+        out_bias: bool = False,
+        check_nan: bool = True,
+        sdpa_fn: Optional[Callable] = None,
+        moe_kwargs: Optional[dict] = None,
+    ):
+        super(PointerAttnMoE, self).__init__(
+            embed_dim, num_heads, mask_inner, out_bias, check_nan, sdpa_fn
+        )
+        self.moe_kwargs = moe_kwargs
+
+        self.project_out = None
+        self.project_out_moe = MoE(
+            embed_dim, embed_dim, num_neurons=[], out_bias=out_bias, **moe_kwargs
+        )
+        if self.moe_kwargs["light_version"]:
+            self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
+            self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
+
+    def _project_out(self, out):
+        """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
+        if self.moe_kwargs["light_version"]:
+            probs = F.softmax(
+                self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)),
+                dim=-1,
+            )
+            selected = probs.multinomial(1).squeeze(0)
+            out = (
+                self.project_out_moe(out)
+                if selected.item() == 1
+                else self.project_out(out)
+            )
+            glimpse = out * probs.squeeze(0)[selected]
+        else:
+            glimpse = self.project_out_moe(out)
+        return glimpse
 
 
 # Deprecated

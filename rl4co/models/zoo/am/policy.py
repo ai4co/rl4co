@@ -40,6 +40,9 @@ class AttentionModelPolicy(AutoregressivePolicy):
         train_decode_type: Type of decoding to use during training
         val_decode_type: Type of decoding to use during validation
         test_decode_type: Type of decoding to use during testing
+        moe_kwargs: Keyword arguments for MoE,
+            e.g., {"encoder": {"hidden_act": "ReLU", "num_experts": 4, "k": 2, "noisy_gating": True},
+                   "decoder": {"light_version": True, ...}}
     """
 
     def __init__(
@@ -68,6 +71,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        moe_kwargs: dict = {"encoder": None, "decoder": None},
         **unused_kwargs,
     ):
         if encoder is None:
@@ -81,6 +85,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 net=encoder_network,
                 init_embedding=init_embedding,
                 sdpa_fn=sdpa_fn,
+                moe_kwargs=moe_kwargs["encoder"],
             )
 
         if decoder is None:
@@ -96,6 +101,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 linear_bias=linear_bias_decoder,
                 use_graph_context=use_graph_context,
                 check_nan=check_nan,
+                moe_kwargs=moe_kwargs["decoder"],
             )
 
         super(AttentionModelPolicy, self).__init__(
