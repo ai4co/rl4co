@@ -4,6 +4,7 @@ from rl4co.models.common.transductive import TransductiveModel
 from rl4co.models.zoo.active_search import ActiveSearch
 from rl4co.models.zoo.am import AttentionModel, AttentionModelPolicy
 from rl4co.models.zoo.amppo import AMPPO
+from rl4co.models.zoo.dact import DACT, DACTPolicy
 from rl4co.models.zoo.deepaco import DeepACO, DeepACOPolicy
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay
 from rl4co.models.zoo.ham import (

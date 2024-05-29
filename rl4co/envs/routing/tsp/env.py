@@ -314,13 +314,12 @@ class TSPkoptEnv(ImprovementEnvBase):
         # Update step
         td.update(
             {
-                "cost_current": cost_bsf,
-                "cost_bsf": cost_bsf,
-                "rec_current": next_rec,
-                "rec_best": next_rec,
+                "cost_current": cost_bsf.clone(),
+                "cost_bsf": cost_bsf.clone(),
+                "rec_current": next_rec.clone(),
+                "rec_best": next_rec.clone(),
                 "visited_time": visited_time,
                 "i": td["i"],
-                "reward": td["reward"] * 0.0,
             }
         )
 
