@@ -195,7 +195,7 @@ def spatial_encoding(td: TensorDict):
     return num_jumps
 
 
-def calc_lower_bound(td: TensorDict, min_or_mean_dur: str = "mean"):
+def calc_lower_bound(td: TensorDict):
     """Here we calculate the lower bound of the operations finish times. In the FJSP case, multiple things need to
     be taken into account due to the usability of the different machines for multiple ops of different jobs:
 
@@ -233,17 +233,9 @@ def calc_lower_bound(td: TensorDict, min_or_mean_dur: str = "mean"):
     proc_time_plus_wait = torch.where(
         proc_times == 0, proc_times, proc_times + wait_for_ma_offset
     )
-    if min_or_mean_dur == "min":
-        # after that we determine the best machine for each operation
-        ops_proc_times = (
-            torch.where(proc_times == 0, torch.inf, proc_time_plus_wait).min(1).values
-        )
-    elif min_or_mean_dur == "mean":
-        ops_proc_times = proc_time_plus_wait.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
-    else:
-        raise ValueError(
-            f"choose either 'min' or 'mean' for param min_or_mean_dur, got {min_or_mean_dur}"
-        )
+    # NOTE get the mean processing time over all eligible machines for lb calulation
+    # ops_proc_times = torch.where(proc_times == 0, torch.inf, proc_time_plus_wait).min(1).values)
+    ops_proc_times = proc_time_plus_wait.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
     # mask proc times for already scheduled ops
     ops_proc_times[op_scheduled.to(torch.bool)] = 0
 
