@@ -218,7 +218,7 @@ class NodePairReinsertionDecoder(ImprovementDecoder):
 
 
 class CriticDecoder(nn.Module):
-    def __init__(self, input_dim: int) -> None:
+    def __init__(self, input_dim: int, dropout_rate=0.01) -> None:
         super().__init__()
         self.input_dim = input_dim
 
@@ -229,7 +229,7 @@ class CriticDecoder(nn.Module):
             input_dim=input_dim + 1,
             output_dim=1,
             num_neurons=[input_dim, input_dim // 2],
-            dropout_probs=[0.01, 0.0],
+            dropout_probs=[dropout_rate, 0.0],
         )
 
     def forward(self, x: torch.Tensor, best_cost: torch.Tensor) -> torch.Tensor:

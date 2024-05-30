@@ -186,6 +186,8 @@ class N2SEncoder(ImprovementEncoder):
     ):
         super(N2SEncoder, self).__init__(
             embed_dim=embed_dim,
+            init_embedding=init_embedding,
+            pos_embedding=pos_embedding,
             env_name=env_name,
             pos_type=pos_type,
             num_heads=num_heads,
@@ -194,7 +196,7 @@ class N2SEncoder(ImprovementEncoder):
             feedforward_hidden=feedforward_hidden,
         )
 
-        assert self.env_name in ["pdp_ruin_repair"], NotImplementedError()
+        assert self.env_name in ["pdp_ruin_repair", "tsp_kopt"], NotImplementedError()
 
         self.pos_net = MultiHeadCompat(num_heads, embed_dim, feedforward_hidden)
 

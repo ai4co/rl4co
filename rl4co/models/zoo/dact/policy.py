@@ -18,7 +18,7 @@ log = get_pylogger(__name__)
 class DACTPolicy(ImprovementPolicy):
     """
     DACT Policy based on Ma et al. (2021)
-    This model first encodes the input graph and current solution using a DACT encoder (:class:`N2SEncoder`)
+    This model first encodes the input graph and current solution using a DACT encoder (:class:`DACTEncoder`)
     and then decodes the 2-opt action (:class:`DACTDecoder`)
 
     Args:

@@ -17,6 +17,7 @@ from rl4co.models.zoo import (
     HeterogeneousAttentionModel,
     MatNet,
     NARGNNPolicy,
+    NeuOpt,
     SymNCO,
 )
 from rl4co.utils import RL4COTrainer
@@ -183,6 +184,28 @@ def test_N2S():
 def test_DACT():
     env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=2)
     model = DACT(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        n_step=2,
+        T_train=4,
+        T_test=4,
+        CL_best=True,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_NeuOpt():
+    env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=4)
+    model = NeuOpt(
         env,
         train_data_size=10,
         val_data_size=10,
