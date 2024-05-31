@@ -22,6 +22,7 @@ class OPGenerator(Generator):
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
+        depot_distribution: distribution for the depot location. If None, sample the depot from the locations
         min_prize: minimum value for the prize of each customer
         max_prize: maximum value for the prize of each customer
         prize_distribution: distribution for the prize of each customer
@@ -41,7 +42,7 @@ class OPGenerator(Generator):
         min_loc: float = 0.0,
         max_loc: float = 1.0,
         loc_distribution: Union[int, float, str, type, Callable] = Uniform,
-        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
+        depot_distribution: Union[int, float, str, type, Callable] = None,
         min_prize: float = 1.0,
         max_prize: float = 1.0,
         prize_distribution: Union[int, float, type, Callable] = Uniform,
@@ -71,7 +72,7 @@ class OPGenerator(Generator):
         else:
             self.depot_sampler = get_sampler(
                 "depot", depot_distribution, min_loc, max_loc, **kwargs
-            )
+            ) if depot_distribution is not None else None
 
         # Prize distribution
         if kwargs.get("prize_sampler", None) is not None:
@@ -99,11 +100,15 @@ class OPGenerator(Generator):
             )
 
     def _generate(self, batch_size) -> TensorDict:
-        # Sample locations
-        locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
-
-        # Sample depot
-        depot = self.depot_sampler.sample((*batch_size, 2))
+        # Sample locations: depot and customers
+        if self.depot_sampler is not None:
+            depot = self.depot_sampler.sample((*batch_size, 2))
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
+        else:
+            # if depot_sampler is None, sample the depot from the locations
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc + 1, 2))
+            depot = locs[..., 0, :]
+            locs = locs[..., 1:, :]
 
         locs_with_depot = torch.cat((depot.unsqueeze(1), locs), dim=1)
 

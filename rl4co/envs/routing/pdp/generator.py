@@ -22,7 +22,7 @@ class PDPGenerator(Generator):
         max_loc: maximum value for the location coordinates
         init_sol_type: the method type used for generating initial solutions (random or greedy)
         loc_distribution: distribution for the location coordinates
-        depot_distribution: distribution for the depot location
+        depot_distribution: distribution for the depot location. If None, sample the depot from the locations
 
     Returns:
         A TensorDict with the following keys:
@@ -37,7 +37,7 @@ class PDPGenerator(Generator):
         max_loc: float = 1.0,
         init_sol_type: str = "random",
         loc_distribution: Union[int, float, str, type, Callable] = Uniform,
-        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
+        depot_distribution: Union[int, float, str, type, Callable] = None,
         **kwargs,
     ):
         self.num_loc = num_loc
@@ -66,14 +66,18 @@ class PDPGenerator(Generator):
         else:
             self.depot_sampler = get_sampler(
                 "depot", depot_distribution, min_loc, max_loc, **kwargs
-            )
+            ) if depot_distribution is not None else None
 
     def _generate(self, batch_size) -> TensorDict:
-        # Sample locations
-        locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
-
-        # Sample depot
-        depot = self.depot_sampler.sample((*batch_size, 2))
+        # Sample locations: depot and customers
+        if self.depot_sampler is not None:
+            depot = self.depot_sampler.sample((*batch_size, 2))
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
+        else:
+            # if depot_sampler is None, sample the depot from the locations
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc + 1, 2))
+            depot = locs[..., 0, :]
+            locs = locs[..., 1:, :]
 
         return TensorDict(
             {
