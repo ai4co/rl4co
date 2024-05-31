@@ -15,8 +15,8 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import TSPGenerator
-from .render import render
 from .local_search import local_search
+from .render import render
 
 log = get_pylogger(__name__)
 
@@ -177,9 +177,9 @@ class TSPEnv(RL4COEnvBase):
         return TensorDict({"locs": locs}, batch_size=batch_size)
 
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
-        return render(td, actions, ax)
-
-    @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         return local_search(td, actions, **kwargs)
+
+    @staticmethod
+    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+        return render(td, actions, ax)

@@ -16,6 +16,7 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import CVRPGenerator
+from .local_search import local_search
 from .render import render
 
 log = get_pylogger(__name__)
@@ -229,6 +230,10 @@ class CVRPEnv(RL4COEnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+
+    @staticmethod
+    def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        return local_search(td, actions, **kwargs)
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor=None, ax = None):

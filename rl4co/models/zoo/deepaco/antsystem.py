@@ -30,7 +30,9 @@ class AntSystem:
         require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
         use_nls: Whether to use neural-guided local search provided by the env. Default to False.
-        local_search_params: Arguments to be passed to the local_search function.
+        n_perturbations: Number of perturbations to be used for nls. Defaults to 5.
+        local_search_params: Arguments to be passed to the local_search.
+        perturbation_params: Arguments to be passed to the perturbation used for nls.
     """
 
     def __init__(
@@ -46,7 +48,9 @@ class AntSystem:
         require_logprobs: bool = False,
         use_local_search: bool = False,
         use_nls: bool = False,
+        n_perturbations: int = 5,
         local_search_params: dict = {},
+        perturbation_params: dict = {},
         start_node: Optional[int] = None,
     ):
         self.batch_size = log_heuristic.shape[0]
@@ -72,7 +76,9 @@ class AntSystem:
         self.use_local_search = use_local_search
         assert not (use_nls and not use_local_search), "use_nls requires use_local_search"
         self.use_nls = use_nls
+        self.n_perturbations = n_perturbations
         self.local_search_params = local_search_params
+        self.perturbation_params = perturbation_params
         self.start_node = start_node
 
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
@@ -80,7 +86,9 @@ class AntSystem:
     @cached_property
     def heuristic_dist(self) -> torch.Tensor:
         heuristic = self.log_heuristic.exp().detach().cpu()
-        return 1 / (heuristic / heuristic.max(-1, keepdim=True)[0] + 1e-5)
+        heuristic_dist = 1 / (heuristic / heuristic.max(-1, keepdim=True)[0] + 1e-5)
+        heuristic_dist[:, torch.arange(heuristic_dist.shape[1]), torch.arange(heuristic_dist.shape[2])] = 0
+        return heuristic_dist
 
     @staticmethod
     def select_start_node_fn(
@@ -198,26 +206,23 @@ class AntSystem:
             actions: The modified actions
             reward: The modified reward
         """
-        td_cpu = td.detach().cpu()
-        distances = get_distance_matrix(td_cpu["locs"])
+        td_cpu = td.detach().cpu()  # Convert to CPU in advance to minimize the overhead from device transfer
+        td_cpu["distances"] = get_distance_matrix(td_cpu["locs"])
+        # TODO: avoid or generalize this, e.g., pre-compute for local search in each env
         actions = actions.detach().cpu()
-        best_actions = env.local_search(td=td_cpu, actions=actions, distances=distances, **self.local_search_params)
+        best_actions = env.local_search(td=td_cpu, actions=actions, **self.local_search_params)
         best_rewards = env.get_reward(td_cpu, best_actions)
 
         if self.use_nls:
-            T_nls = self.local_search_params.get("T_nls", 5)
-            T_p = self.local_search_params.get("T_p", 20)
+            td_cpu_perturb = td_cpu.clone()
+            td_cpu_perturb["distances"] = torch.tile(self.heuristic_dist, (self.n_ants, 1, 1))
             new_actions = best_actions.clone()
 
-            for _ in range(T_nls):
+            for _ in range(self.n_perturbations):
                 perturbed_actions = env.local_search(
-                    td=td_cpu,
-                    actions=new_actions,
-                    distances=torch.tile(self.heuristic_dist, (self.n_ants, 1, 1)),
-                    max_iterations=T_p,
-                    **self.local_search_params,
+                    td=td_cpu_perturb, actions=new_actions, **self.perturbation_params
                 )
-                new_actions = env.local_search(td=td_cpu, actions=perturbed_actions, distances=distances, **self.local_search_params)
+                new_actions = env.local_search(td=td_cpu, actions=perturbed_actions, **self.local_search_params)
                 new_rewards = env.get_reward(td_cpu, new_actions)
 
                 improved_indices = new_rewards > best_rewards
