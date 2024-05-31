@@ -2,7 +2,10 @@
 
 <div align="center">
 
-<img src="https://github.com/ai4co/rl4co/assets/34462374/249462ea-b15d-4358-8a11-6508903dae58" style="width:40%">
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
+</div>
+
 </br></br>
 
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.

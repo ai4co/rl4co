@@ -17,7 +17,7 @@ python run.py
 
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 ```bash
-python run.py experiment=routing/am env=tsp env.num_loc=50 model.optimizer_kwargs.lr=2e-4
+python run.py experiment=routing/am env=tsp env.generator_params.num_loc=50 model.optimizer_kwargs.lr=2e-4
 ```
 Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](configs/experiment/routing/am.yaml).
 </details>

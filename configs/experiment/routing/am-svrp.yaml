@@ -14,8 +14,8 @@ logger:
   wandb:
     project: "rl4co"
     tags: ["am", "${env.name}"]
-    group: ${env.name}${env.num_loc}
-    name: am-${env.name}${env.num_loc}
+    group: ${env.name}${env.generator_params.num_loc}
+    name: am-${env.name}${env.generator_params.num_loc}
 
 model:
   batch_size: 512

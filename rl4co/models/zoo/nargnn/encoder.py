@@ -55,7 +55,7 @@ class EdgeHeatmapGenerator(nn.Module):
         edge_attr = graph.edge_attr  # type: ignore
         for layer in self.linears:
             edge_attr = self.act(layer(edge_attr))
-        graph.edge_attr = torch.sigmoid(self.output(edge_attr)) * 10  # type: ignore
+        graph.edge_attr = torch.sigmoid(self.output(edge_attr))  # type: ignore
 
         heatmaps_logits = self._make_heatmaps(graph)
         return heatmaps_logits
@@ -71,6 +71,7 @@ class EdgeHeatmapGenerator(nn.Module):
             device=device,
             dtype=graphs[0].edge_attr.dtype,
         )
+        heatmaps_logits.fill_(-1)
 
         for index, graph in enumerate(graphs):
             edge_index, edge_attr = graph.edge_index, graph.edge_attr

@@ -16,15 +16,16 @@ defaults:
 # Note that here we load by default the `.npz` files for the TSP environment
 # that are automatically generated with seed following Kool et al. (2019).
 env:
-  num_loc: 50
+  generator_params:
+    num_loc: 50
 
 # Logging: we use Wandb in this case
 logger:
   wandb:
     project: "rl4co"
     tags: ["am", "tsp"]
-    group: "tsp${env.num_loc}"
-    name: "am-tsp${env.num_loc}"
+    group: "tsp${env.generator_params.num_loc}"
+    name: "am-tsp${env.generator_params.num_loc}"
 
 # Model: this contains the environment (which gets automatically passed to the model on
 # initialization), the policy network and other hyperparameters.

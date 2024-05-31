@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+from rl4co.models.nn.moe import MoE
 from rl4co.utils import get_pylogger
 
 log = get_pylogger(__name__)
@@ -156,6 +157,7 @@ class PointerAttention(nn.Module):
         out_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: Optional[Callable] = None,
+        **kwargs,
     ):
         super(PointerAttention, self).__init__()
         self.num_heads = num_heads
@@ -179,7 +181,7 @@ class PointerAttention(nn.Module):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = self.project_out(heads)
+        glimpse = self._project_out(heads)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
@@ -211,6 +213,63 @@ class PointerAttention(nn.Module):
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
 
+    def _project_out(self, out):
+        return self.project_out(out)
+
+
+class PointerAttnMoE(PointerAttention):
+    """Calculate logits given query, key and value and logit key.
+    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134),
+        and the MoE gating mechanism of Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>.
+
+    Note:
+        With Flash Attention, masking is not supported
+
+    Performs the following:
+        1. Apply cross attention to get the heads
+        2. Project heads to get glimpse
+        3. Compute attention score between glimpse and logit key
+
+    Args:
+        embed_dim: total dimension of the model
+        num_heads: number of heads
+        mask_inner: whether to mask inner attention
+        linear_bias: whether to use bias in linear projection
+        check_nan: whether to check for NaNs in logits
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
+        moe_kwargs: Keyword arguments for MoE
+    """
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        mask_inner: bool = True,
+        out_bias: bool = False,
+        check_nan: bool = True,
+        sdpa_fn: Optional[Callable] = None,
+        moe_kwargs: Optional[dict] = None,
+    ):
+        super(PointerAttnMoE, self).__init__(embed_dim, num_heads, mask_inner, out_bias, check_nan, sdpa_fn)
+        self.moe_kwargs = moe_kwargs
+
+        self.project_out = None
+        self.project_out_moe = MoE(embed_dim, embed_dim, num_neurons=[], out_bias=out_bias, **moe_kwargs)
+        if self.moe_kwargs["light_version"]:
+            self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
+            self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
+
+    def _project_out(self, out):
+        """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
+        if self.moe_kwargs["light_version"]:
+            probs = F.softmax(self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)), dim=-1)
+            selected = probs.multinomial(1).squeeze(0)
+            out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
+            glimpse = out * probs.squeeze(0)[selected]
+        else:
+            glimpse = self.project_out_moe(out)
+        return glimpse
+
 
 # Deprecated
 class LogitAttention(PointerAttention):
@@ -224,6 +283,67 @@ class LogitAttention(PointerAttention):
         )
         super(LogitAttention, self).__init__(*args, **kwargs)
 
+
+# MultiHeadCompat
+class MultiHeadCompat(nn.Module):
+    def __init__(self, n_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None):
+        super(MultiHeadCompat, self).__init__()
+
+        if val_dim is None:
+            # assert embed_dim is not None, "Provide either embed_dim or val_dim"
+            val_dim = embed_dim // n_heads
+        if key_dim is None:
+            key_dim = val_dim
+
+        self.n_heads = n_heads
+        self.input_dim = input_dim
+        self.embed_dim = embed_dim
+        self.val_dim = val_dim
+        self.key_dim = key_dim
+
+        self.W_query = nn.Parameter(torch.Tensor(n_heads, input_dim, key_dim))
+        self.W_key = nn.Parameter(torch.Tensor(n_heads, input_dim, key_dim))
+
+        self.init_parameters()
+
+    # used for init nn.Parameter
+    def init_parameters(self):
+        for param in self.parameters():
+            stdv = 1.0 / math.sqrt(param.size(-1))
+            param.data.uniform_(-stdv, stdv)
+
+    def forward(self, q, h=None, mask=None):
+        """
+
+        :param q: queries (batch_size, n_query, input_dim)
+        :param h: data (batch_size, graph_size, input_dim)
+        :param mask: mask (batch_size, n_query, graph_size) or viewable as that (i.e. can be 2 dim if n_query == 1)
+        Mask should contain 1 if attention is not possible (i.e. mask is negative adjacency)
+        :return:
+        """
+
+        if h is None:
+            h = q  # compute self-attention
+
+        # h should be (batch_size, graph_size, input_dim)
+        batch_size, graph_size, input_dim = h.size()
+        n_query = q.size(1)
+
+        hflat = h.contiguous().view(-1, input_dim)  #################   reshape
+        qflat = q.contiguous().view(-1, input_dim)
+
+        # last dimension can be different for keys and values
+        shp = (self.n_heads, batch_size, graph_size, -1)
+        shp_q = (self.n_heads, batch_size, n_query, -1)
+
+        # Calculate queries, (n_heads, n_query, graph_size, key/val_size)
+        Q = torch.matmul(qflat, self.W_query).view(shp_q)
+        K = torch.matmul(hflat, self.W_key).view(shp)
+
+        # Calculate compatibility (n_heads, batch_size, n_query, graph_size)
+        compatibility_s2n = torch.matmul(Q, K.transpose(2, 3))
+
+        return compatibility_s2n
 
 class PolyNetAttention(PointerAttention):
     """Calculate logits given query, key and value and logit key.

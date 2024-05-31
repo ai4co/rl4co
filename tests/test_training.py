@@ -3,10 +3,11 @@ import sys
 
 import pytest
 
-from rl4co.envs import ATSPEnv, PDPEnv, TSPEnv
+from rl4co.envs import ATSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
     MDAM,
+    N2S,
     ActiveSearch,
     AttentionModelPolicy,
     DeepACO,
@@ -29,7 +30,7 @@ else:
 # Test out simple training loop and test with multiple baselines
 @pytest.mark.parametrize("baseline", ["rollout", "exponential", "mean", "no", "critic"])
 def test_reinforce(baseline):
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     policy = AttentionModelPolicy(env_name=env.name)
     model = REINFORCE(
         env,
@@ -45,7 +46,7 @@ def test_reinforce(baseline):
 
 
 def test_a2c():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     policy = AttentionModelPolicy(env_name=env.name)
     model = A2C(env, policy, train_data_size=10, val_data_size=10, test_data_size=10)
     trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
@@ -54,7 +55,7 @@ def test_a2c():
 
 
 def test_ppo():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     policy = AttentionModelPolicy(env_name=env.name)
     model = PPO(env, policy, train_data_size=10, val_data_size=10, test_data_size=10)
     trainer = RL4COTrainer(
@@ -65,7 +66,7 @@ def test_ppo():
 
 
 def test_symnco():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     model = SymNCO(
         env,
         train_data_size=10,
@@ -80,7 +81,7 @@ def test_symnco():
 
 
 def test_ham():
-    env = PDPEnv(num_loc=20)
+    env = PDPEnv(generator_params=dict(num_loc=20))
     model = HeterogeneousAttentionModel(
         env, train_data_size=10, val_data_size=10, test_data_size=10
     )
@@ -90,7 +91,7 @@ def test_ham():
 
 
 def test_matnet():
-    env = ATSPEnv(num_loc=20)
+    env = ATSPEnv(generator_params=dict(num_loc=20))
     model = MatNet(
         env,
         baseline="shared",
@@ -104,7 +105,7 @@ def test_matnet():
 
 
 def test_mdam():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     model = MDAM(
         env,
         train_data_size=10,
@@ -118,7 +119,7 @@ def test_mdam():
 
 @pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
 def test_search_methods(SearchMethod):
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     batch_size = 2 if SearchMethod not in [ActiveSearch] else 1
     dataset = env.dataset(2)
     policy = AttentionModelPolicy(env_name=env.name)
@@ -132,7 +133,7 @@ def test_search_methods(SearchMethod):
     "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
 )
 def test_nargnn():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     policy = NARGNNPolicy(env_name=env.name)
     model = REINFORCE(
         env, policy=policy, train_data_size=10, val_data_size=10, test_data_size=10
@@ -148,10 +149,31 @@ def test_nargnn():
     "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
 )
 def test_deepaco():
-    env = TSPEnv(num_loc=20)
+    env = TSPEnv(generator_params=dict(num_loc=20))
     model = DeepACO(env, train_data_size=10, val_data_size=10, test_data_size=10)
     trainer = RL4COTrainer(
         max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_N2S():
+    env = PDPRuinRepairEnv(generator_params=dict(num_loc=20))
+    model = N2S(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        n_step=2,
+        T_train=4,
+        T_test=4,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
     )
     trainer.fit(model)
     trainer.test(model)

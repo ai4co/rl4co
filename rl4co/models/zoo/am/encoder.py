@@ -25,6 +25,7 @@ class AttentionModelEncoder(AutoregressiveEncoder):
         feedforward_hidden: Hidden dimension in the feedforward layers
         net: Graph Attention Network to use
         sdpa_fn: Function to use for the scaled dot product attention
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -37,7 +38,8 @@ class AttentionModelEncoder(AutoregressiveEncoder):
         normalization: str = "batch",
         feedforward_hidden: int = 512,
         net: nn.Module = None,
-        sdpa_fn=None,
+        sdpa_fn = None,
+        moe_kwargs: dict = None,
     ):
         super(AttentionModelEncoder, self).__init__()
 
@@ -59,6 +61,7 @@ class AttentionModelEncoder(AutoregressiveEncoder):
                 normalization,
                 feedforward_hidden,
                 sdpa_fn=sdpa_fn,
+                moe_kwargs=moe_kwargs,
             )
             if net is None
             else net

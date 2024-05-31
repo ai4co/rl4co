@@ -22,6 +22,8 @@ class AntSystem:
         alpha: Importance of pheromone in the decision-making process. Defaults to 1.0.
         beta: Importance of heuristic information in the decision-making process. Defaults to 1.0.
         decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
+        Q: Rate at which pheromone deposits. Defaults to `1 / n_ants`.
+        temperature: Temperature for the softmax during decoding. Defaults to 0.1.
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
         require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
@@ -35,6 +37,8 @@ class AntSystem:
         alpha: float = 1.0,
         beta: float = 1.0,
         decay: float = 0.95,
+        Q: Optional[float] = None,
+        temperature: float = 0.1,
         pheromone: Optional[Tensor] = None,
         require_logprobs: bool = False,
         use_local_search: bool = False,
@@ -45,11 +49,16 @@ class AntSystem:
         self.alpha = alpha
         self.beta = beta
         self.decay = decay
+        self.Q = 1 / self.n_ants if Q is None else Q
+        self.temperature = temperature
 
-        self.log_heuristic = log_heuristic
-        self.pheromone = (
-            torch.ones_like(log_heuristic) if pheromone is None else pheromone
-        )
+        self.log_heuristic = log_heuristic / self.temperature
+
+        if pheromone is None:
+            self.pheromone = torch.ones_like(log_heuristic)
+            self.pheromone.fill_(0.0005)
+        else:
+            self.pheromone = pheromone
 
         self.final_actions = self.final_reward = None
         self.require_logprobs = require_logprobs
@@ -181,7 +190,7 @@ class AntSystem:
         # calculate Δphe
         delta_pheromone = torch.zeros_like(self.pheromone)
         from_node = actions
-        to_node = torch.roll(from_node, 1, -1)
+        to_node = torch.roll(from_node, -1, -1)
         mapped_reward = self._reward_map(reward).detach()
         batch_action_indices = self._batch_action_indices(
             self.batch_size, actions.shape[-1], reward.device
@@ -198,9 +207,12 @@ class AntSystem:
         self.pheromone *= self.decay
         self.pheromone += delta_pheromone
 
-    def _reward_map(self, x):
+    def _reward_map(self, x: Tensor):
         """Map reward :math:`f: \\mathbb{R} \\rightarrow \\mathbb{R}^+`"""
-        return torch.where(x >= -2, 0.25 * x + 1, -1 / x)
+        M, _ = x.max(-1, keepdim=True)
+        m, _ = x.min(-1, keepdim=True)
+        v = ((x - m) / (M - m)) ** 2 * self.Q
+        return v
 
     def _recreate_final_routes(self, td, env, action_matrix):
         for action_index in range(action_matrix.shape[-1]):
