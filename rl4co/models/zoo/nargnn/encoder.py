@@ -80,7 +80,8 @@ class EdgeHeatmapGenerator(nn.Module):
         # if self.undirected_graph:
         #     heatmap = (heatmap + heatmap.transpose(1, 2)) * 0.5
 
-        heatmap += 1e-10
+        heatmap += 1e-10 if heatmap.dtype != torch.float16 else 3e-8
+        # 3e-8 is the smallest positive number such that log(3e-8) is not -inf
         heatmap_logits = torch.log(heatmap)
 
         return heatmap_logits
