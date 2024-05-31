@@ -35,7 +35,7 @@ model:
   max_grad_norm: 0.5
   optimizer_kwargs:
     lr: 1e-4
-    weight_decay: 0
+    weight_decay: 1e-6
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
@@ -49,5 +49,4 @@ trainer:
 
 seed: 1234
 
-metrics:
-  train: ["loss", "reward", "surrogate_loss", "value_loss", "entropy_bonus"]
+
