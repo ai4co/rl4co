@@ -46,6 +46,7 @@ ENV_REGISTRY = {
     "tsp": TSPEnv,
     "smtwtp": SMTWTPEnv,
     "mdcpdp": MDCPDPEnv,
+    "mtvrp": MTVRPEnv,
     "tsp_kopt": TSPkoptEnv,
 }
 
