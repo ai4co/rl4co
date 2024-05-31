@@ -35,7 +35,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         self,
         encoder: Optional[NonAutoregressiveEncoder] = None,
         env_name: str = "tsp",
-        temperature: float = 0.1,
+        temperature: float = 1.0,
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
         train_with_local_search: bool = True,
@@ -109,7 +109,12 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
             if self.ls_reward_aug_W > 0 and self.train_with_local_search:
                 heatmap_logits = outdict["hidden"]
-                aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
+                aco = self.aco_class(
+                    heatmap_logits,
+                    n_ants=n_ants,
+                    temperature=self.aco_kwargs.get("temperature", self.temperature),
+                    **self.aco_kwargs,
+                )
                 
                 actions = outdict["actions"]
                 _, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, actions)
