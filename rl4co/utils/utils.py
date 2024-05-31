@@ -16,7 +16,7 @@ from lightning.pytorch.trainer.connectors.accelerator_connector import (
     _AcceleratorConnector,
 )
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from rl4co.utils import pylogger, rich_utils
 
@@ -141,7 +141,7 @@ def log_hyperparameters(object_dict: dict) -> None:
 
     hparams = {}
 
-    cfg = object_dict["cfg"]
+    cfg = OmegaConf.to_container(object_dict["cfg"])
     model = object_dict["model"]
     trainer = object_dict["trainer"]
 
