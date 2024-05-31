@@ -38,9 +38,6 @@ def task_wrapper(task_func: Callable) -> Callable:
     def wrap(cfg: DictConfig):
         # execute the task
         try:
-            # apply extra utilities
-            extras(cfg)
-
             metric_dict, object_dict = task_func(cfg=cfg)
 
         # things to do if exception occurs
@@ -48,8 +45,9 @@ def task_wrapper(task_func: Callable) -> Callable:
             # save exception to `.log` file
             log.exception("")
 
-            # when using hydra plugins like Optuna, you might want to disable raising exception
-            # to avoid multirun failure
+            # some hyperparameter combinations might be invalid or cause out-of-memory errors
+            # so when using hparam search plugins like Optuna, you might want to disable
+            # raising the below exception to avoid multirun failure
             raise ex
 
         # things to always do after either success or exception
