@@ -4,6 +4,7 @@
 # Replace below only the values that you want to change compared to the default values
 defaults:
   - routing/am.yaml
+  - _self_
 
 logger:
   wandb:
@@ -14,6 +15,7 @@ model:
   _target_: rl4co.models.A2C
   policy:
     _target_: rl4co.models.AttentionModelPolicy
+    env_name: ${env.name}
   actor_optimizer_kwargs:
     lr: 1e-4
     weight_decay: 1e-6
