@@ -44,8 +44,8 @@ class L2DActor(nn.Module, metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Implement me in subclass!")
 
-    def pre_actor_hook(
-        self, td: TensorDict, hidden: Any = None, num_starts: int = 0
+    def pre_decoder_hook(
+        self, td: TensorDict, env=None, hidden: Any = None, num_starts: int = 0
     ) -> Tuple[TensorDict, Any]:
         """By default, we only require the input for the actor to be a tuple
         (in JSSP we only have operation embeddings but in FJSP we have operation
@@ -66,7 +66,7 @@ class L2DActor(nn.Module, metaclass=abc.ABCMeta):
             # NOTE: when using pomo, we need this
             hidden = tuple(map(lambda x: batchify(x, num_starts), hidden))
 
-        return td, hidden
+        return td, env, hidden
 
 
 class JSSPActor(L2DActor):
@@ -232,7 +232,7 @@ class L2DDecoder(AutoregressiveDecoder):
             # (bs, n_j * n_ops, e), (bs, n_m, e)
             hidden, _ = self.feature_extractor(td)
 
-        td, hidden = self.actor.pre_actor_hook(td, hidden, num_starts)
+        td, _, hidden = self.actor.pre_decoder_hook(td, None, hidden, num_starts)
 
         # (bs, n_j, e)
         logits, mask = self.actor(td, *hidden)
@@ -271,6 +271,46 @@ class L2DAttnPointer(PointerAttention):
             logits = torch.cat((no_op_logits, logits), dim=1)
 
         return logits
+
+
+class AttnActor(AttentionModelDecoder):
+    def __init__(
+        self,
+        embed_dim: int = 128,
+        num_heads: int = 8,
+        env_name: str = "tsp",
+        context_embedding: nn.Module = None,
+        dynamic_embedding: nn.Module = None,
+        mask_inner: bool = True,
+        out_bias_pointer_attn: bool = False,
+        linear_bias: bool = False,
+        use_graph_context: bool = True,
+        check_nan: bool = True,
+        sdpa_fn: callable = None,
+        pointer: nn.Module = None,
+        moe_kwargs: dict = None,
+    ):
+        super().__init__(
+            embed_dim,
+            num_heads,
+            env_name,
+            context_embedding,
+            dynamic_embedding,
+            mask_inner,
+            out_bias_pointer_attn,
+            linear_bias,
+            use_graph_context,
+            check_nan,
+            sdpa_fn,
+            pointer,
+            moe_kwargs,
+        )
+
+    def pre_decoder_hook(
+        self, td: TensorDict, env=None, hidden: Any = None, num_starts: int = 0
+    ) -> Tuple[TensorDict, Any]:
+        cache = self._precompute_cache(hidden, num_starts=num_starts)
+        return td, env, (cache,)
 
 
 class L2DAttnActor(AttentionModelDecoder):
@@ -348,9 +388,3 @@ class L2DAttnActor(AttentionModelDecoder):
             glimpse_val=glimpse_val_fixed,
             logit_key=logit_key,
         )
-
-    def pre_actor_hook(
-        self, td: TensorDict, hidden: Any = None, num_starts: int = 0
-    ) -> Tuple[TensorDict, Any]:
-        cache = self._precompute_cache(hidden, num_starts=num_starts)
-        return td, (cache,)

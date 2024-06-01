@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from torchrl.data.replay_buffers import (
     LazyTensorStorage,
+    ListStorage,
     SamplerWithoutReplacement,
     TensorDictReplayBuffer,
 )
@@ -20,9 +21,13 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def make_replay_buffer(buffer_size, batch_size):
+def make_replay_buffer(buffer_size, batch_size, device="cpu"):
+    if device == "cpu":
+        storage = LazyTensorStorage(buffer_size, device="cpu")
+    else:
+        storage = ListStorage(buffer_size)
     return TensorDictReplayBuffer(
-        storage=LazyTensorStorage(buffer_size),
+        storage=storage,
         batch_size=batch_size,
         sampler=SamplerWithoutReplacement(drop_last=True),
     )
@@ -42,6 +47,7 @@ class StepwisePPO(RL4COLitModule):
         vf_lambda: float = 0.5,  # lambda of Value function fitting
         entropy_lambda: float = 0.01,  # lambda of entropy bonus
         max_grad_norm: float = 0.5,  # max gradient norm
+        buffer_storage_device: str = "gpu",
         metrics: dict = {
             "train": ["loss", "surrogate_loss", "value_loss", "entropy"],
         },
@@ -52,7 +58,7 @@ class StepwisePPO(RL4COLitModule):
 
         self.policy_old = copy.deepcopy(self.policy)
         self.automatic_optimization = False  # PPO uses custom optimization routine
-        self.rb = make_replay_buffer(buffer_size, mini_batch_size)
+        self.rb = make_replay_buffer(buffer_size, mini_batch_size, buffer_storage_device)
         self.scaler = RewardScaler(reward_scale)
 
         self.ppo_cfg = {

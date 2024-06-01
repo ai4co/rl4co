@@ -211,7 +211,9 @@ class L2DPolicy4PPO(L2DPolicy):
         # pred value via the value head
         value_pred = self.critic(h_pooled)
         # pre decoder / actor hook
-        td, hidden = self.decoder.actor.pre_actor_hook(td, hidden, num_starts=0)
+        td, _, hidden = self.decoder.actor.pre_decoder_hook(
+            td, None, hidden, num_starts=0
+        )
         logits, mask = self.decoder.actor(td, *hidden)
         # get logprobs and entropy over logp distribution
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)

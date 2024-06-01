@@ -5,8 +5,8 @@ defaults:
 
 logger:
   wandb:
-    tags: ["hgnnpomo", "${env.name}"]
-    name: "hgnnpomo-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+    tags: ["hgnn-pomo", "${env.name}"]
+    name: "hgnn-pomo-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
 
 model:
   _target_: rl4co.models.POMO

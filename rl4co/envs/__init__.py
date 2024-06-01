@@ -20,6 +20,7 @@ from rl4co.envs.routing import (
     SPCTSPEnv,
     SVRPEnv,
     TSPEnv,
+    TSPEnv4PPO,
 )
 
 # Scheduling
