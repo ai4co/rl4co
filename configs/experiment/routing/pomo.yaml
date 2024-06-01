@@ -30,7 +30,7 @@ model:
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [95]
+    milestones: [80, 95]
     gamma: 0.1
 
 trainer:
