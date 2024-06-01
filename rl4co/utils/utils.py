@@ -16,7 +16,7 @@ from lightning.pytorch.trainer.connectors.accelerator_connector import (
     _AcceleratorConnector,
 )
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from rl4co.utils import pylogger, rich_utils
 
@@ -38,9 +38,6 @@ def task_wrapper(task_func: Callable) -> Callable:
     def wrap(cfg: DictConfig):
         # execute the task
         try:
-            # apply extra utilities
-            extras(cfg)
-
             metric_dict, object_dict = task_func(cfg=cfg)
 
         # things to do if exception occurs
@@ -48,8 +45,9 @@ def task_wrapper(task_func: Callable) -> Callable:
             # save exception to `.log` file
             log.exception("")
 
-            # when using hydra plugins like Optuna, you might want to disable raising exception
-            # to avoid multirun failure
+            # some hyperparameter combinations might be invalid or cause out-of-memory errors
+            # so when using hparam search plugins like Optuna, you might want to disable
+            # raising the below exception to avoid multirun failure
             raise ex
 
         # things to always do after either success or exception
@@ -143,7 +141,7 @@ def log_hyperparameters(object_dict: dict) -> None:
 
     hparams = {}
 
-    cfg = object_dict["cfg"]
+    cfg = OmegaConf.to_container(object_dict["cfg"])
     model = object_dict["model"]
     trainer = object_dict["trainer"]
 

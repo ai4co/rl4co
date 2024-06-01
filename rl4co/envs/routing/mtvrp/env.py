@@ -79,9 +79,10 @@ class MTVRPEnv(RL4COEnvBase):
     | OVRPBLTW     || ✔            | ✔              | ✔            | ✔                  | ✔                |
     +--------------++--------------+----------------+--------------+--------------------+------------------+
 
-    You may also check out `"Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al., 2024) <https://arxiv.org/abs/2402.16891>`_
-    and `"MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024) <https://arxiv.org/abs/2405.01029>`_.
-
+    You may also check out the following papers as reference:
+    - `"Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024) <https://arxiv.org/abs/2402.16891>`_
+    - `"MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024) <https://arxiv.org/abs/2405.01029>`_.
+    - `"RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024) <https://arxiv.org/abs/24comingsoon>`_.
 
     Note:
         Have a look at https://pyvrp.org/ for more information about VRP and its variants and their solutions. Kudos to their help and great job!
@@ -97,9 +98,17 @@ class MTVRPEnv(RL4COEnvBase):
         self,
         generator: MTVRPGenerator = None,
         generator_params: dict = {},
+        check_solution: bool = False,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        if check_solution:
+            log.warning(
+                "Solution checking is enabled. This may slow down the environment."
+                " We recommend disabling this for training by passing `check_solution=False`."
+            )
+                        
+        super().__init__(check_solution=check_solution, **kwargs)
+
         if generator is None:
             generator = MTVRPGenerator(**generator_params)
         self.generator = generator
@@ -394,7 +403,17 @@ class MTVRPEnv(RL4COEnvBase):
         from .render import render
 
         return render(*args, **kwargs)
-
+    
+    def select_start_nodes(self, td, num_starts):
+        """Select available start nodes for the environment (e.g. for POMO-based training)"""
+        num_loc = td["locs"].shape[-2] - 1
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc
+            + 1
+        )
+        return selected
+    
     def _make_spec(self, td_params: TensorDict):
         # TODO: include extra vars (but we don't really need them for now)
         """Make the observation and action specs from the parameters."""
