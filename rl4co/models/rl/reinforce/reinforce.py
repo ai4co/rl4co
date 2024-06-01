@@ -41,6 +41,11 @@ class REINFORCE(RL4COLitModule):
 
         self.save_hyperparameters(logger=False)
 
+        if baseline == "critic":
+            log.warning(
+                "Using critic as baseline. If you want more granular support, use the A2C module instead."
+            )
+
         if isinstance(baseline, str):
             baseline = get_reinforce_baseline(baseline, **baseline_kwargs)
         else:
