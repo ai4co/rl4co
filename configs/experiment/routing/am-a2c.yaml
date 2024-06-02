@@ -4,6 +4,7 @@
 # Replace below only the values that you want to change compared to the default values
 defaults:
   - routing/am.yaml
+  - _self_
 
 logger:
   wandb:
