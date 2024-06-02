@@ -5,7 +5,7 @@ depot_mode: multiple
 
 generator_params:
   num_loc: 20
-  distribution: uniform
+  loc_distribution: uniform
   num_depot: 4
   min_loc: 0
   max_loc: 1

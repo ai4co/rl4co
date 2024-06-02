@@ -3,7 +3,7 @@ name: cvrp
 
 generator_params:
   num_loc: 20
-  distribution: uniform
+  loc_distribution: uniform
 
 data_dir: ${paths.root_dir}/data/vrp
 val_file: vrp${env.generator_params.num_loc}_val_seed4321.npz

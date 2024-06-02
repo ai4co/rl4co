@@ -155,8 +155,8 @@ class CriticBaseline(REINFORCEBaseline):
 
     def eval(self, x, c, env=None):
         v = self.critic(x).squeeze(-1)
-        # detach v since actor should not backprop through baseline, only for neg_loss
-        return v.detach(), -F.mse_loss(v, c.detach())
+        # detach v since actor should not backprop through baseline, only for loss
+        return v.detach(), F.mse_loss(v, c.detach())
 
 
 class RolloutBaseline(REINFORCEBaseline):
