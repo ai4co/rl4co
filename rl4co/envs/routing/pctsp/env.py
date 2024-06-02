@@ -16,6 +16,7 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import PCTSPGenerator
+from .render import render
 
 log = get_pylogger(__name__)
 
@@ -279,3 +280,7 @@ class PCTSPEnv(RL4COEnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+
+    @staticmethod
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
+        return render(td, actions, ax)
