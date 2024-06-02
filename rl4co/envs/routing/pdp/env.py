@@ -215,6 +215,20 @@ class PDPEnv(RL4COEnvBase):
             < visited_time[:, actions.size(1) // 2 + 1 :]
         ).all(), "Deliverying without pick-up"
 
+    def get_num_starts(self, td):
+        """Only half of the nodes (i.e. pickup nodes) can be start nodes"""
+        return (td["locs"].shape[-2] - 1) // 2
+
+    def select_start_nodes(self, td, num_starts):
+        """Only nodes from [1 : num_loc // 2 +1] (i.e. pickups) can be selected"""
+        num_possible_starts = (td["locs"].shape[-2] - 1) // 2
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_possible_starts
+            + 1
+        )
+        return selected
+
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)
