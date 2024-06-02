@@ -16,7 +16,6 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import PCTSPGenerator
-from .render import render
 
 log = get_pylogger(__name__)
 
@@ -170,8 +169,14 @@ class PCTSPEnv(RL4COEnvBase):
             assert (actions == 0).all(), "If all length 1 tours, they should be zero"
             return torch.zeros(actions.size(0), dtype=torch.float, device=actions.device)
 
-        # Gather locations in order of tour and get the length of tours
-        locs_ordered = gather_by_index(td["locs"], actions)
+        # Gather locations in order of tour (add depot since we start and end there)
+        locs_ordered = torch.cat(
+            [
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
+            ],
+            dim=1,
+        )
         length = get_tour_length(locs_ordered)
 
         # Reward is saved penalties - (total length + penalty)

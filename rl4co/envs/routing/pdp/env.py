@@ -188,8 +188,14 @@ class PDPEnv(RL4COEnvBase):
 
     @staticmethod
     def _get_reward(td, actions) -> TensorDict:
-        # Gather locations in the order of actions and get reward = -(total distance)
-        locs_ordered = gather_by_index(td["locs"], actions)  # [batch, graph_size+1, 2]
+        # Gather locations in order of tour (add depot since we start and end there)
+        locs_ordered = torch.cat(
+            [
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
+            ],
+            dim=1,
+        )
         return -get_tour_length(locs_ordered)
 
     def check_solution_validity(self, td, actions):
