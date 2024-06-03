@@ -313,7 +313,7 @@ class AttnActor(AttentionModelDecoder):
         return td, env, (cache,)
 
 
-class L2DAttnActor(AttentionModelDecoder):
+class L2DAttnActor(AttnActor):
     def __init__(
         self,
         embed_dim: int = 128,
