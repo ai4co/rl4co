@@ -1,5 +1,7 @@
 from typing import Union
 
+import torch.nn as nn
+
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
 from rl4co.models.zoo.am.encoder import AttentionModelEncoder
@@ -38,7 +40,8 @@ class PolyNetPolicy(AutoregressivePolicy):
     def __init__(
         self,
         k: int,
-        encoder_type: str,
+        encoder: nn.Module = None,
+        encoder_type: str = "AM",
         embed_dim: int = 128,
         num_encoder_layers: int = 6,
         num_heads: int = 8,
@@ -53,26 +56,27 @@ class PolyNetPolicy(AutoregressivePolicy):
         test_decode_type: str = "sampling",
         **kwargs,
     ):
-        if encoder_type == "AM":
-            encoder = AttentionModelEncoder(
-                embed_dim=embed_dim,
-                num_heads=num_heads,
-                num_layers=num_encoder_layers,
-                env_name=env_name,
-                normalization=normalization,
-                feedforward_hidden=feedforward_hidden,
-                **kwargs,
-            )
-        elif encoder_type == "MatNet":
-            kwargs_with_defaults = {"init_embedding_kwargs": {"mode": "RandomOneHot"}}
-            kwargs_with_defaults.update(kwargs)
-            encoder = MatNetEncoder(
-                embed_dim=embed_dim,
-                num_heads=num_heads,
-                num_layers=num_encoder_layers,
-                normalization=normalization,
-                **kwargs_with_defaults,
-            )
+        if encoder is None:
+            if encoder_type == "AM":
+                encoder = AttentionModelEncoder(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    num_layers=num_encoder_layers,
+                    env_name=env_name,
+                    normalization=normalization,
+                    feedforward_hidden=feedforward_hidden,
+                    **kwargs,
+                )
+            elif encoder_type == "MatNet":
+                kwargs_with_defaults = {"init_embedding_kwargs": {"mode": "RandomOneHot"}}
+                kwargs_with_defaults.update(kwargs)
+                encoder = MatNetEncoder(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    num_layers=num_encoder_layers,
+                    normalization=normalization,
+                    **kwargs_with_defaults,
+                )
 
         decoder = PolyNetDecoder(
             k=k,
