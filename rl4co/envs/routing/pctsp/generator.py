@@ -8,13 +8,7 @@ from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
-# For the penalty to make sense it should be not too large (in which case all nodes will be visited) nor too small
-# so we want the objective term to be approximately equal to the length of the tour, which we estimate with half
-# of the nodes by half of the tour length (which is very rough but similar to op)
-# This means that the sum of penalties for all nodes will be approximately equal to the tour length (on average)
-# The expected total (uniform) penalty of half of the nodes (since approx half will be visited by the constraint)
-# is (n / 2) / 2 = n / 4 so divide by this means multiply by 4 / n,
-# However instead of 4 we use penalty_factor (3 works well) so we can make them larger or smaller
+
 MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0}
 
 
@@ -81,7 +75,13 @@ class PCTSPGenerator(Generator):
             "stochastic_prize", "uniform", 0.0, 8.0 / self.num_loc, **kwargs
         )
 
-        # Penalty
+        # For the penalty to make sense it should be not too large (in which case all nodes will be visited) nor too small
+        # so we want the objective term to be approximately equal to the length of the tour, which we estimate with half
+        # of the nodes by half of the tour length (which is very rough but similar to op)
+        # This means that the sum of penalties for all nodes will be approximately equal to the tour length (on average)
+        # The expected total (uniform) penalty of half of the nodes (since approx half will be visited by the constraint)
+        # is (n / 2) / 2 = n / 4 so divide by this means multiply by 4 / n,
+        # However instead of 4 we use penalty_factor (3 works well) so we can make them larger or smaller        
         self.max_penalty = kwargs.get("max_penalty", None)
         if self.max_penalty is None:  # If not provided, use the default max penalty
             self.max_penalty = MAX_LENGTHS.get(num_loc, None)
@@ -94,6 +94,9 @@ class PCTSPGenerator(Generator):
                 f"The max penalty for {num_loc} locations is not defined. Using the closest max penalty: {self.max_penalty}\
                     with {closest_num_loc} locations."
             )
+            
+        # Adjust as in Kool et al. (2019)
+        self.max_penalty *= penalty_factor / self.num_loc
         self.penalty_sampler = get_sampler(
             "penalty", "uniform", 0.0, self.max_penalty, **kwargs
         )
@@ -112,13 +115,21 @@ class PCTSPGenerator(Generator):
         # Sample penalty
         penalty = self.penalty_sampler.sample((*batch_size, self.num_loc))
 
-        # Sampel prize
+        # Take uniform prizes
+        # Now expectation is 0.5 so expected total prize is n / 2, we want to force to visit approximately half of the nodes
+        # so the constraint will be that total prize >= (n / 2) / 2 = n / 4
+        # equivalently, we divide all prizes by n / 4 and the total prize should be >= 1        
         deterministic_prize = self.deterministic_prize_sampler.sample(
             (*batch_size, self.num_loc)
         )
+        
+        # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
+        # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
+        # stochastic prize is only revealed once the node is visited
+        # Stochastic prize is between (0, 2 * expected_prize) such that E(stochastic prize) = E(deterministic_prize)
         stochastic_prize = self.stochastic_prize_sampler.sample(
             (*batch_size, self.num_loc)
-        )
+        ) * deterministic_prize
 
         return TensorDict(
             {
