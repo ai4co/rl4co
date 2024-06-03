@@ -171,10 +171,13 @@ class TSPEnv(RL4COEnvBase):
         return render(td, actions, ax)
 
 
-# NOTE Experimental TSP class for stepwise PPO
+class DenseRewardTSPEnv(TSPEnv):
+    """
+    This is an experimental version of the TSPEnv to be used with stepwise PPO. That is
+    this environment defines a stepwise reward function for the TSP which is the distance added
+    to the current tour by the given action.
+    """
 
-
-class TSPEnv4PPO(TSPEnv):
     def __init__(
         self, generator: TSPGenerator = None, generator_params: dict = {}, **kwargs
     ):
