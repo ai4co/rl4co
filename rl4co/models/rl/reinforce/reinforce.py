@@ -197,7 +197,7 @@ class REINFORCE(RL4COLitModule):
             loaded.setup()
             loaded.post_setup_hook()
             # load baseline state dict
-            state_dict = torch.load(checkpoint_path)["state_dict"]
+            state_dict = torch.load(checkpoint_path, map_location=map_location)["state_dict"]
             # get only baseline parameters
             state_dict = {k: v for k, v in state_dict.items() if "baseline" in k}
             state_dict = {k.replace("baseline.", "", 1): v for k, v in state_dict.items()}
