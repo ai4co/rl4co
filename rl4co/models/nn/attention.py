@@ -376,6 +376,7 @@ class PolyNetAttention(PointerAttention):
     ):
         super(PolyNetAttention, self).__init__(embed_dim, num_heads, **kwargs)
 
+        self.k = k
         self.binary_vector_dim = math.ceil(math.log2(k))
         self.binary_vectors = torch.nn.Parameter(
             torch.Tensor(
@@ -404,7 +405,7 @@ class PolyNetAttention(PointerAttention):
 
         num_solutions = glimpse.shape[1]
         z = self.binary_vectors.repeat(
-            math.ceil(num_solutions / (2**self.binary_vector_dim)), 1
+            math.ceil(num_solutions / self.k), 1
         )[:num_solutions]
         z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
 
