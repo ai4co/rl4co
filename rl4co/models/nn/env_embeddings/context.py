@@ -118,9 +118,14 @@ class TSPContext(EnvContext):
             (-1,) if td["first_node"].dim() == 1 else (td["first_node"].size(-1), -1)
         )
         if td["i"][(0,) * td["i"].dim()].item() < 1:  # get first item fast
-            context_embedding = self.W_placeholder[None, :].expand(
-                batch_size, self.W_placeholder.size(-1)
-            )
+            if len(td.batch_size) < 2:
+                context_embedding = self.W_placeholder[None, :].expand(
+                    batch_size, self.W_placeholder.size(-1)
+                )
+            else:
+                context_embedding = self.W_placeholder[None, None, :].expand(
+                    batch_size, td.batch_size[1], self.W_placeholder.size(-1)
+                )
         else:
             context_embedding = gather_by_index(
                 embeddings,
