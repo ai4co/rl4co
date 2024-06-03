@@ -337,8 +337,10 @@ def evaluate_policy(
     max_batch_size=4096,
     start_batch_size=8192,
     auto_batch_size=True,
-    save_results=False,
-    save_fname="results.npz",
+    samples=1280,
+    softmax_temp=1.0,
+    num_augment=8,
+    force_dihedral_8=True,
     **kwargs,
 ):
     num_loc = getattr(env.generator, "num_loc", None)
@@ -347,7 +349,7 @@ def evaluate_policy(
         "greedy": {"func": GreedyEval, "kwargs": {}},
         "sampling": {
             "func": SamplingEval,
-            "kwargs": {"samples": 1280, "softmax_temp": 1.0},
+            "kwargs": {"samples": samples, "softmax_temp": softmax_temp},
         },
         "multistart_greedy": {
             "func": GreedyMultiStartEval,
@@ -355,20 +357,20 @@ def evaluate_policy(
         },
         "augment_dihedral_8": {
             "func": AugmentationEval,
-            "kwargs": {"num_augment": 8, "force_dihedral_8": True},
+            "kwargs": {"num_augment": num_augment, "force_dihedral_8": force_dihedral_8},
         },
-        "augment": {"func": AugmentationEval, "kwargs": {"num_augment": 8}},
+        "augment": {"func": AugmentationEval, "kwargs": {"num_augment": num_augment}},
         "multistart_greedy_augment_dihedral_8": {
             "func": GreedyMultiStartAugmentEval,
             "kwargs": {
-                "num_augment": 8,
-                "force_dihedral_8": True,
+                "num_augment": num_augment,
+                "force_dihedral_8": force_dihedral_8,
                 "num_starts": num_loc,
             },
         },
         "multistart_greedy_augment": {
             "func": GreedyMultiStartAugmentEval,
-            "kwargs": {"num_augment": 8, "num_starts": num_loc},
+            "kwargs": {"num_augment": num_augment, "num_starts": num_loc},
         },
     }
 
@@ -403,11 +405,6 @@ def evaluate_policy(
     # Run evaluation
     retvals = eval_fn(policy, dataloader)
 
-    # Save results
-    if save_results:
-        print("Saving results to {}".format(save_fname))
-        np.savez(save_fname, **retvals)
-
     return retvals
 
 
@@ -441,6 +438,11 @@ if __name__ == "__main__":
     parser.add_argument("--save_results", type=bool, default=True, help="Whether to save the evaluation results")
     parser.add_argument("--save_path", type=str, default="results", help="The root path to save the results")
 
+    parser.add_argument("--samples", type=int, default=1280, help="Number of samples for sampling method")
+    parser.add_argument("--softmax_temp", type=float, default=1.0, help="Temperature for softmax in the sampling method")
+    parser.add_argument("--num_augment", type=int, default=8, help="Number of augmentations for augmentation method")
+    parser.add_argument("--force_dihedral_8", type=bool, default=True, help="Force the use of 8 augmentations for augmentation method")
+
     opts = parser.parse_args()
 
     # Init the environment
@@ -464,6 +466,10 @@ if __name__ == "__main__":
         temperature=opts.temperature,
         top_p=opts.top_p,
         top_k=opts.top_k,
+        samples=opts.samples,
+        softmax_temp=opts.softmax_temp,
+        num_augment=opts.num_augment,
+        force_dihedral_8=opts.force_dihedral_8,
     )
 
     # Save the results
