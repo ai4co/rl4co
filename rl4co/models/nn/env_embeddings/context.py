@@ -321,6 +321,19 @@ class MDCPDPContext(EnvContext):
         return self.project_context(cur_node_embedding)
 
 
+class SchedulingContext(nn.Module):
+    def __init__(self, embed_dim: int, scaling_factor: int = 1000):
+        super().__init__()
+        self.scaling_factor = scaling_factor
+        self.proj_busy = nn.Linear(1, embed_dim, bias=False)
+
+    def forward(self, h, td):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        busy_proj = self.proj_busy(busy_for.unsqueeze(-1))
+        # (b m e)
+        return h + busy_proj
+
+
 class MTVRPContext(VRPContext):
     """Context embedding for Multi-Task VRPEnv.
     Project the following to the embedding space:
@@ -338,10 +351,22 @@ class MTVRPContext(VRPContext):
         )
 
     def _state_embedding(self, embeddings, td):
-        remaining_linehaul_capacity = td["vehicle_capacity"] - td["used_capacity_linehaul"]
-        remaining_backhaul_capacity = td["vehicle_capacity"] - td["used_capacity_backhaul"]
+        remaining_linehaul_capacity = (
+            td["vehicle_capacity"] - td["used_capacity_linehaul"]
+        )
+        remaining_backhaul_capacity = (
+            td["vehicle_capacity"] - td["used_capacity_backhaul"]
+        )
         current_time = td["current_time"]
         current_route_length = td["current_route_length"]
         open_route = td["open_route"]
-        return torch.cat([remaining_linehaul_capacity, remaining_backhaul_capacity, current_time,
-                          current_route_length, open_route], -1)
+        return torch.cat(
+            [
+                remaining_linehaul_capacity,
+                remaining_backhaul_capacity,
+                current_time,
+                current_route_length,
+                open_route,
+            ],
+            -1,
+        )

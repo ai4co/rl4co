@@ -1,3 +1,0 @@
-_target_: rl4co.models.HetGNNModel
-
-baseline: "rollout"

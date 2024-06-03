@@ -2,6 +2,6 @@ _target_: rl4co.models.MatNet
 
 metrics:
   train: ["loss", "reward", "max_reward"]
-  val: ["max_reward"]
+  val: ["reward", "max_reward"]
   test: ["max_reward"]
   log_on_step: True
