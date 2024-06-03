@@ -47,7 +47,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
     log.info("Instantiating loggers...")
-    logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
+    logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"), model)
 
     log.info("Instantiating trainer...")
     trainer: RL4COTrainer = hydra.utils.instantiate(

@@ -198,6 +198,8 @@ class FJSPFileGenerator(Generator):
         end_idx = self.start_idx + batch_size
         td = self.td[self.start_idx : end_idx]
         self.start_idx += batch_size
+        if self.start_idx >= self.num_samples:
+            self.start_idx = 0
         return td
 
     @staticmethod
@@ -210,7 +212,4 @@ class FJSPFileGenerator(Generator):
             if os.path.isfile(os.path.join(path, f))
         ]
         assert len(files) > 0
-        files = sorted(
-            files, key=lambda f: int(os.path.splitext(os.path.basename(f))[0][:4])
-        )
         return files

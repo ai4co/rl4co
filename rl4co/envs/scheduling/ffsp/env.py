@@ -13,10 +13,9 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
-from .generator import FFSPGenerator
-from .render import render
-
 from rl4co.envs.common.base import RL4COEnvBase
+
+from .generator import FFSPGenerator
 
 
 class FFSPEnv(RL4COEnvBase):
@@ -58,7 +57,7 @@ class FFSPEnv(RL4COEnvBase):
         generator_params: dict = {},
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(check_solution=False, **kwargs)
         if generator is None:
             generator = FFSPGenerator(**generator_params)
         self.generator = generator
@@ -283,9 +282,7 @@ class FFSPEnv(RL4COEnvBase):
 
         # Init index record tensor
         time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=device)
-        sub_time_idx = torch.zeros(
-            size=(*batch_size,), dtype=torch.long, device=device
-        )
+        sub_time_idx = torch.zeros(size=(*batch_size,), dtype=torch.long, device=device)
 
         # Scheduling status information
         schedule = torch.full(
@@ -412,7 +409,10 @@ class FFSPEnv(RL4COEnvBase):
                 dtype=torch.int64,
             ),
             job_duration=UnboundedDiscreteTensorSpec(
-                shape=(generator.num_job + 1, generator.num_machine * generator.num_stage),
+                shape=(
+                    generator.num_job + 1,
+                    generator.num_machine * generator.num_stage,
+                ),
                 dtype=torch.int64,
             ),
             shape=(),

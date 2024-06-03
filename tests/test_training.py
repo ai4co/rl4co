@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from rl4co.envs import ATSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv
+from rl4co.envs import ATSPEnv, FJSPEnv, JSSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
     MDAM,
@@ -14,6 +14,7 @@ from rl4co.models.zoo import (
     EASEmb,
     EASLay,
     HeterogeneousAttentionModel,
+    L2DPPOModel,
     MatNet,
     NARGNNPolicy,
     SymNCO,
@@ -168,6 +169,22 @@ def test_N2S():
         n_step=2,
         T_train=4,
         T_test=4,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.parametrize("env_cls", [FJSPEnv, JSSPEnv])
+def test_l2d_ppo(env_cls):
+    env = env_cls(stepwise_reward=True, _torchrl_mode=True)
+    model = L2DPPOModel(
+        env, train_data_size=10, val_data_size=10, test_data_size=10, buffer_size=1000
     )
     trainer = RL4COTrainer(
         max_epochs=1,
