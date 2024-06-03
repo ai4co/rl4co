@@ -161,19 +161,25 @@ class SamplingEval(EvalBase):
 
     name = "sampling"
 
-    def __init__(self, env, samples, softmax_temp=None, **kwargs):
+    def __init__(self, env, samples, softmax_temp=None, temperature=1.0, top_p=0.0, top_k=0, **kwargs):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
 
         self.samples = samples
         self.softmax_temp = softmax_temp
+        self.temperature = temperature
+        self.top_p = top_p
+        self.top_k = top_k
 
     def _inner(self, policy, td):
         out = policy(
             td.clone(),
             decode_type="sampling",
             num_starts=self.samples,
-            multistart=True,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            top_k=self.top_k,
+            multisample=True,
             return_actions=True,
             softmax_temp=self.softmax_temp,
             select_best=True,
@@ -341,7 +347,7 @@ def evaluate_policy(
         "greedy": {"func": GreedyEval, "kwargs": {}},
         "sampling": {
             "func": SamplingEval,
-            "kwargs": {"samples": 100, "softmax_temp": 1.0},
+            "kwargs": {"samples": 1280, "softmax_temp": 1.0},
         },
         "multistart_greedy": {
             "func": GreedyMultiStartEval,
@@ -403,3 +409,68 @@ def evaluate_policy(
         np.savez(save_fname, **retvals)
 
     return retvals
+
+
+if __name__ == "__main__":
+    import os
+    import pickle
+    import argparse
+    import importlib
+    import torch
+    from rl4co.envs import get_env
+
+    parser = argparse.ArgumentParser()
+
+    # Environment
+    parser.add_argument("--problem", type=str, default="tsp", help="Problem to solve")
+    parser.add_argument("--generator_params", type=dict, default={"num_loc": 50}, help="Generator parameters for the environment")
+    parser.add_argument("--data_path", type=str, default="data/tsp/tsp50_test_seed1234.npz", help="Path of the test data npz file")
+
+    # Model
+    parser.add_argument("--model", type=str, default="AttentionModel", help="The class name of the valid model")
+    parser.add_argument("--ckpt_path", type=str, default="checkpoints/am-tsp50.ckpt", help="The path of the checkpoint file")
+    parser.add_argument("--device", type=str, default="cuda:1", help="Device to run the evaluation")
+
+    # Evaluation
+    parser.add_argument("--method", type=str, default="greedy", help="Evaluation method, support 'greedy', 'sampling',\
+                        'multistart_greedy', 'augment_dihedral_8', 'augment', 'multistart_greedy_augment_dihedral_8',\
+                        'multistart_greedy_augment'")
+    parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling")
+    parser.add_argument("--top_p", type=float, default=0.0, help="Top-p for sampling, from 0.0 to 1.0, 0.0 means not activated")
+    parser.add_argument("--top_k", type=int, default=0, help="Top-k for sampling")
+    parser.add_argument("--save_results", type=bool, default=True, help="Whether to save the evaluation results")
+    parser.add_argument("--save_path", type=str, default="results", help="The root path to save the results")
+
+    opts = parser.parse_args()
+
+    # Init the environment
+    env = get_env(opts.problem, generator_params=opts.generator_params)
+
+    # Load the test data
+    dataset = env.dataset(filename=opts.data_path)
+
+    # Load the model from checkpoint
+    model_root = importlib.import_module("rl4co.models.zoo")
+    model_cls = getattr(model_root, opts.model)
+    model = model_cls.load_from_checkpoint(opts.ckpt_path, load_baseline=False)
+    model = model.to(opts.device)
+
+    # Evaluate
+    result = evaluate_policy(
+        env=env,
+        policy=model.policy,
+        dataset=dataset,
+        method=opts.method,
+        temperature=opts.temperature,
+        top_p=opts.top_p,
+        top_k=opts.top_k,
+    )
+
+    # Save the results
+    if opts.save_results:
+        if not os.path.exists(opts.save_path): 
+            os.makedirs(opts.save_path)
+        save_fname = f"{env.name}{env.generator.num_loc}-{opts.model}-{opts.method}-temp-{opts.temperature}-top_p-{opts.top_p}-top_k-{opts.top_k}.pkl"
+        save_path = os.path.join(opts.save_path, save_fname)
+        with open(save_path, "wb") as f:
+            pickle.dump(result, f)
