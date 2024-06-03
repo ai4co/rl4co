@@ -43,6 +43,11 @@ class REINFORCE(RL4COLitModule):
 
         self.save_hyperparameters(logger=False)
 
+        if baseline == "critic":
+            log.warning(
+                "Using critic as baseline. If you want more granular support, use the A2C module instead."
+            )
+
         if isinstance(baseline, str):
             baseline = get_reinforce_baseline(baseline, **baseline_kwargs)
         else:
@@ -196,7 +201,7 @@ class REINFORCE(RL4COLitModule):
             loaded.setup()
             loaded.post_setup_hook()
             # load baseline state dict
-            state_dict = torch.load(checkpoint_path)["state_dict"]
+            state_dict = torch.load(checkpoint_path, map_location=map_location)["state_dict"]
             # get only baseline parameters
             state_dict = {k: v for k, v in state_dict.items() if "baseline" in k}
             state_dict = {k.replace("baseline.", "", 1): v for k, v in state_dict.items()}
