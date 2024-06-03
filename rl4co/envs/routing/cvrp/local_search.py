@@ -81,6 +81,7 @@ def local_search(
     )
     return torch.from_numpy(new_actions.astype(np.int64)).to(td.device)
 
+
 def local_search_single(
     path: np.ndarray,
     positions: np.ndarray,
@@ -117,7 +118,7 @@ def make_data(positions: np.ndarray, demands: np.ndarray, distances: np.ndarray)
     distances = (distances * C).astype(int)
 
     capacity = C
-    demands = np.ceil(demands * capacity).astype(int)
+    demands = np.round(demands * capacity).astype(int)
 
     return ProblemData(
         clients=[
@@ -153,7 +154,7 @@ def perform_local_search(
         ls_operator: LocalSearch, solution: Solution, load_penalty: int, remaining_trials: int = 5
     ) -> Tuple[Solution, bool]:
     cost_evaluator = CostEvaluator(load_penalty=load_penalty, tw_penalty=0, dist_penalty=0)
-    improved_solution = ls_operator.search(solution, cost_evaluator)
+    improved_solution = ls_operator(solution, cost_evaluator)
     remaining_trials -= 1
     if is_feasible := improved_solution.is_feasible() or remaining_trials == 0:
         return improved_solution, is_feasible
