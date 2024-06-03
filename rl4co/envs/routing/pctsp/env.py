@@ -122,9 +122,7 @@ class PCTSPEnv(RL4COEnvBase):
         # Initialize the current node and  prize / penalty
         current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
         cur_total_prize = torch.zeros(*batch_size, device=device)
-        cur_total_penalty = penalty.sum(-1)[
-            :, None
-        ]  # Sum penalties (all when nothing is visited), add step dim
+        cur_total_penalty = penalty.sum(-1)  # Sum penalties (all when nothing is visited)
 
         # Init the action mask (all nodes are available)
         visited = torch.zeros(
