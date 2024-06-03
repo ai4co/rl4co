@@ -10,6 +10,7 @@ from typing_extensions import Self
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.common.base import RL4COLitModule
+from rl4co.models.rl.common.utils import RewardScaler
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.pylogger import get_pylogger
@@ -35,6 +36,7 @@ class REINFORCE(RL4COLitModule):
         policy: nn.Module,
         baseline: Union[REINFORCEBaseline, str] = "rollout",
         baseline_kwargs: dict = {},
+        reward_scale: str = None,
         **kwargs,
     ):
         super().__init__(env, policy, **kwargs)
@@ -52,6 +54,7 @@ class REINFORCE(RL4COLitModule):
             if baseline_kwargs != {}:
                 log.warning("baseline_kwargs is ignored when baseline is not a string")
         self.baseline = baseline
+        self.advantage_scaler = RewardScaler(reward_scale)
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -98,6 +101,7 @@ class REINFORCE(RL4COLitModule):
 
         # Main loss function
         advantage = reward - bl_val  # advantage = reward - baseline
+        advantage = self.advantage_scaler(advantage)
         reinforce_loss = -(advantage * log_likelihood).mean()
         loss = reinforce_loss + bl_loss
         policy_out.update(

@@ -1,7 +1,11 @@
+import math
+
 from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
+
+from rl4co.utils.ops import gather_by_index
 
 
 class SkipConnection(nn.Module):
@@ -79,3 +83,55 @@ class PositionalEncoding(nn.Module):
         )
         hidden = hidden + pes
         return self.dropout(hidden)
+
+
+class TransformerFFN(nn.Module):
+    def __init__(self, embed_dim, feed_forward_hidden, normalization="batch") -> None:
+        super().__init__()
+
+        self.ops = nn.ModuleDict(
+            {
+                "norm1": Normalization(embed_dim, normalization),
+                "ffn": nn.Sequential(
+                    nn.Linear(embed_dim, feed_forward_hidden),
+                    nn.ReLU(),
+                    nn.Linear(feed_forward_hidden, embed_dim),
+                ),
+                "norm2": Normalization(embed_dim, normalization),
+            }
+        )
+
+    def forward(self, x, x_old):
+        x = self.ops["norm1"](x_old + x)
+        x = self.ops["norm2"](x + self.ops["ffn"](x))
+
+        return x
+
+
+class RandomEncoding(nn.Module):
+    """This is like torch.nn.Embedding but with rows of embeddings are randomly
+    permuted in each forward pass before lookup operation. This might be useful
+    in cases where classes have no fixed meaning but rather indicate a connection
+    between different elements in a sequence. Reference is the MatNet model.
+    """
+
+    def __init__(self, embed_dim: int, max_classes: int = 100):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.max_classes = max_classes
+        rand_emb = torch.rand(max_classes, self.embed_dim)
+        self.register_buffer("emb", rand_emb)
+
+    def forward(self, hidden: torch.Tensor, classes=None) -> torch.Tensor:
+        b, s, _ = hidden.shape
+        if classes is None:
+            classes = torch.eye(s).unsqueeze(0).expand(b, s)
+        assert (
+            classes.max() < self.max_classes
+        ), "number of classes larger than embedding table"
+        classes = classes.unsqueeze(-1).expand(-1, -1, self.embed_dim)
+        rand_idx = torch.rand(b, self.max_classes).argsort(dim=1)
+        embs_permuted = self.emb[rand_idx]
+        rand_emb = gather_by_index(embs_permuted, classes, dim=1)
+        hidden = hidden + rand_emb
+        return hidden

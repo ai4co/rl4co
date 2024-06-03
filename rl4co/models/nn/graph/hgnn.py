@@ -8,7 +8,7 @@ from einops import einsum
 from torch import Tensor
 
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.ops import Normalization
+from rl4co.models.nn.ops import TransformerFFN
 
 
 class HetGNNLayer(nn.Module):
@@ -75,24 +75,24 @@ class HetGNNLayer(nn.Module):
         cross_emb = einsum(cross_attn_scores, other_emb_aug, "b m o, b m o e -> b m e")
         self_emb = self_emb * self_attn_scores
         # (bs, n_ma, emb_dim)
-        hidden = torch.sigmoid(cross_emb + self_emb)
+        hidden = cross_emb + self_emb
         return hidden
 
 
 class HetGNNBlock(nn.Module):
-    def __init__(self, embed_dim) -> None:
+    def __init__(self, embed_dim, normalization: str = "batch") -> None:
         super().__init__()
-        self.norm1 = Normalization(embed_dim, normalization="batch")
-        self.norm2 = Normalization(embed_dim, normalization="batch")
         self.hgnn1 = HetGNNLayer(embed_dim)
         self.hgnn2 = HetGNNLayer(embed_dim)
+        self.ffn1 = TransformerFFN(embed_dim, embed_dim * 2, normalization=normalization)
+        self.ffn2 = TransformerFFN(embed_dim, embed_dim * 2, normalization=normalization)
 
     def forward(self, x1, x2, edge_emb, edges):
         h1 = self.hgnn1(x1, x2, edge_emb, edges)
-        h1 = self.norm1(h1 + x1)
+        h1 = self.ffn1(h1, x1)
 
         h2 = self.hgnn2(x2, x1, edge_emb.transpose(1, 2), edges.transpose(1, 2))
-        h2 = self.norm2(h2 + x2)
+        h2 = self.ffn2(h2, x2)
 
         return h1, h2
 
@@ -102,27 +102,28 @@ class HetGNNEncoder(nn.Module):
         self,
         embed_dim: int,
         num_layers: int = 2,
+        normalization: str = "batch",
         init_embedding=None,
-        edge_key: str = "ops_ma_adj",
-        edge_weights_key: str = "proc_times",
-        linear_bias: bool = False,
+        env_name: str = "fjsp",
+        **init_embedding_kwargs,
     ) -> None:
         super().__init__()
 
         if init_embedding is None:
-            init_embedding = env_init_embedding("fjsp", {"embed_dim": embed_dim})
+            init_embedding_kwargs["embed_dim"] = embed_dim
+            init_embedding = env_init_embedding(env_name, init_embedding_kwargs)
+
         self.init_embedding = init_embedding
 
-        self.edge_key = edge_key
-        self.edge_weights_key = edge_weights_key
-
         self.num_layers = num_layers
-        self.layers = nn.ModuleList([HetGNNBlock(embed_dim) for _ in range(num_layers)])
+        self.layers = nn.ModuleList(
+            [HetGNNBlock(embed_dim, normalization) for _ in range(num_layers)]
+        )
 
     def forward(self, td):
-        edges = td[self.edge_key]
-        bs, n_rows, n_cols = edges.shape
-        row_emb, col_emb, edge_emb = self.init_embedding(td)
+        row_emb, col_emb, edge_emb, edges = self.init_embedding(td)
+        # perform sanity check to validate correct order of row and col embeddings
+        n_rows, n_cols = edges.shape[1:]
         assert row_emb.size(1) == n_rows, "incorrect number of row embeddings"
         assert col_emb.size(1) == n_cols, "incorrect number of column embeddings"
 

@@ -1,41 +1,28 @@
-import math
-
 from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from einops import rearrange
-
+from rl4co.models.nn.attention import MultiHeadCrossAttention
 from rl4co.models.nn.env_embeddings import env_init_embedding
 from rl4co.models.nn.ops import Normalization
 
 
-class MatNetCrossMHA(nn.Module):
+class MixedScoresSDPA(nn.Module):
     def __init__(
         self,
-        embed_dim: int,
         num_heads: int,
-        bias: bool = False,
+        num_scores: int = 1,
         mixer_hidden_dim: int = 16,
         mix1_init: float = (1 / 2) ** (1 / 2),
         mix2_init: float = (1 / 16) ** (1 / 2),
     ):
         super().__init__()
-        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        assert self.embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
-        self.head_dim = self.embed_dim // num_heads
-
-        self.Wq = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias)
-
-        # Score mixer
-        # Taken from the official MatNet implementation
-        # https://github.com/yd-kwon/MatNet/blob/main/ATSP/ATSP_MatNet/ATSPModel_LIB.py#L72
+        self.num_scores = num_scores
         mix_W1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
-            (num_heads, 2, mixer_hidden_dim)
+            (num_heads, self.num_scores + 1, mixer_hidden_dim)
         )
         mix_b1 = torch.torch.distributions.Uniform(low=-mix1_init, high=mix1_init).sample(
             (num_heads, mixer_hidden_dim)
@@ -52,38 +39,23 @@ class MatNetCrossMHA(nn.Module):
         self.mix_W2 = nn.Parameter(mix_W2)
         self.mix_b2 = nn.Parameter(mix_b2)
 
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+    def forward(self, q, k, v, attn_mask=None, dmat=None, dropout_p=0.0):
+        """Scaled Dot-Product Attention with MatNet Scores Mixer"""
+        assert dmat is not None
+        b, m, n = dmat.shape[:3]
+        dmat = dmat.reshape(b, m, n, self.num_scores)
 
-    def forward(self, q_input, kv_input, dmat):
-        """
+        # Calculate scaled dot product
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
+        mix_attn_scores = torch.cat(
+            [
+                attn_scores.unsqueeze(-1),
+                dmat[:, None, ...].expand(b, self.num_heads, m, n, self.num_scores),
+            ],
+            dim=-1,
+        )  # [b, h, m, n, num_scores+1]
 
-        Args:
-            q_input (Tensor): [b, m, d]
-            kv_input (Tensor): [b, n, d]
-            dmat (Tensor): [b, m, n]
-
-        Returns:
-            Tensor: [b, m, d]
-        """
-
-        b, m, n = dmat.shape
-
-        q = rearrange(
-            self.Wq(q_input), "b m (h d) -> b h m d", h=self.num_heads
-        )  # [b, h, m, d]
-        k, v = rearrange(
-            self.Wkv(kv_input), "b n (two h d) -> two b h n d", two=2, h=self.num_heads
-        ).unbind(
-            dim=0
-        )  # [b, h, n, d]
-
-        scale = math.sqrt(q.size(-1))  # scale factor
-        attn_scores = torch.matmul(q, k.transpose(2, 3)) / scale  # [b, h, m, n]
-        mix_attn_scores = torch.stack(
-            [attn_scores, dmat[:, None, :, :].expand(b, self.num_heads, m, n)], dim=-1
-        )  # [b, h, m, n, 2]
-
-        mix_attn_scores = (
+        attn_scores = (
             (
                 torch.matmul(
                     F.relu(
@@ -98,9 +70,45 @@ class MatNetCrossMHA(nn.Module):
             .squeeze(-1)
         )  # [b, h, m, n]
 
-        attn_probs = F.softmax(mix_attn_scores, dim=-1)
-        out = torch.matmul(attn_probs, v)
-        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))
+        # Apply the provided attention mask
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_mask[~attn_mask.any(-1)] = True
+                attn_scores.masked_fill_(~attn_mask, float("-inf"))
+            else:
+                attn_scores += attn_mask
+
+        # Softmax to get attention weights
+        attn_weights = F.softmax(attn_scores, dim=-1)
+
+        # Apply dropout
+        if dropout_p > 0.0:
+            attn_weights = F.dropout(attn_weights, p=dropout_p)
+
+        # Compute the weighted sum of values
+        return torch.matmul(attn_weights, v)
+
+
+class MatNetCrossMHA(MultiHeadCrossAttention):
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        bias: bool = False,
+        mixer_hidden_dim: int = 16,
+        mix1_init: float = (1 / 2) ** (1 / 2),
+        mix2_init: float = (1 / 16) ** (1 / 2),
+    ):
+        attn_fn = MixedScoresSDPA(
+            num_heads=num_heads,
+            mixer_hidden_dim=mixer_hidden_dim,
+            mix1_init=mix1_init,
+            mix2_init=mix2_init,
+        )
+
+        super().__init__(
+            embed_dim=embed_dim, num_heads=num_heads, bias=bias, sdpa_fn=attn_fn
+        )
 
 
 class MatNetMHA(nn.Module):
@@ -109,7 +117,7 @@ class MatNetMHA(nn.Module):
         self.row_encoding_block = MatNetCrossMHA(embed_dim, num_heads, bias)
         self.col_encoding_block = MatNetCrossMHA(embed_dim, num_heads, bias)
 
-    def forward(self, row_emb, col_emb, dmat):
+    def forward(self, row_emb, col_emb, dmat, attn_mask=None):
         """
         Args:
             row_emb (Tensor): [b, m, d]
@@ -120,10 +128,15 @@ class MatNetMHA(nn.Module):
             Updated row_emb (Tensor): [b, m, d]
             Updated col_emb (Tensor): [b, n, d]
         """
-
-        updated_row_emb = self.row_encoding_block(row_emb, col_emb, dmat)
+        updated_row_emb = self.row_encoding_block(
+            row_emb, col_emb, dmat=dmat, cross_attn_mask=attn_mask
+        )
+        attn_mask_t = attn_mask.transpose(-2, -1) if attn_mask is not None else None
         updated_col_emb = self.col_encoding_block(
-            col_emb, row_emb, dmat.transpose(-2, -1)
+            col_emb,
+            row_emb,
+            dmat=dmat.transpose(-2, -1),
+            cross_attn_mask=attn_mask_t,
         )
         return updated_row_emb, updated_col_emb
 
@@ -164,7 +177,7 @@ class MatNetMHALayer(nn.Module):
             }
         )
 
-    def forward(self, row_emb, col_emb, dmat):
+    def forward(self, row_emb, col_emb, dmat, attn_mask=None):
         """
         Args:
             row_emb (Tensor): [b, m, d]
@@ -176,7 +189,7 @@ class MatNetMHALayer(nn.Module):
             Updated col_emb (Tensor): [b, n, d]
         """
 
-        row_emb_out, col_emb_out = self.MHA(row_emb, col_emb, dmat)
+        row_emb_out, col_emb_out = self.MHA(row_emb, col_emb, dmat, attn_mask)
 
         row_emb_out = self.F_a["norm1"](row_emb + row_emb_out)
         row_emb_out = self.F_a["norm2"](row_emb_out + self.F_a["ffn"](row_emb_out))
@@ -210,7 +223,7 @@ class MatNetMHANetwork(nn.Module):
             ]
         )
 
-    def forward(self, row_emb, col_emb, dmat):
+    def forward(self, row_emb, col_emb, dmat, attn_mask=None):
         """
         Args:
             row_emb (Tensor): [b, m, d]
@@ -223,7 +236,7 @@ class MatNetMHANetwork(nn.Module):
         """
 
         for layer in self.layers:
-            row_emb, col_emb = layer(row_emb, col_emb, dmat)
+            row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
         return row_emb, col_emb
 
 
@@ -236,8 +249,9 @@ class MatNetEncoder(nn.Module):
         normalization: str = "instance",
         feedforward_hidden: int = 512,
         init_embedding: nn.Module = None,
-        init_embedding_kwargs: dict = None,
+        init_embedding_kwargs: dict = {},
         bias: bool = False,
+        mask_non_neighbors: bool = False,
     ):
         super().__init__()
 
@@ -255,10 +269,16 @@ class MatNetEncoder(nn.Module):
             feedforward_hidden=feedforward_hidden,
             bias=bias,
         )
+        self.mask_non_neighbors = mask_non_neighbors
 
-    def forward(self, td):
+    def forward(self, td, attn_mask: torch.Tensor = None):
         row_emb, col_emb, dmat = self.init_embedding(td)
-        row_emb, col_emb = self.net(row_emb, col_emb, dmat)
+
+        if self.mask_non_neighbors and attn_mask is None:
+            # attn_mask (keep 1s discard 0s) to only attend on neighborhood
+            attn_mask = dmat.ne(0)
+
+        row_emb, col_emb = self.net(row_emb, col_emb, dmat, attn_mask)
 
         embedding = (row_emb, col_emb)
         init_embedding = None
