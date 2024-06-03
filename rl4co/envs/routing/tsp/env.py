@@ -15,7 +15,11 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import TSPGenerator
-from .local_search import local_search
+try:
+    from .local_search import local_search
+except:
+    # In case some dependencies are not installed (e.g., numba)
+    local_search = None
 from .render import render
 
 log = get_pylogger(__name__)
@@ -178,6 +182,7 @@ class TSPEnv(RL4COEnvBase):
 
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        assert local_search is not None, "Cannot import local_search module. Check if `numba` is installed."
         return local_search(td, actions, **kwargs)
 
     @staticmethod

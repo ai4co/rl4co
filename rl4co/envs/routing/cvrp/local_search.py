@@ -15,6 +15,9 @@ from pyvrp.search import LocalSearch, NODE_OPERATORS, ROUTE_OPERATORS, compute_n
 log = get_pylogger(__name__)
 
 
+C = 10**4  # Scaling factor for the data, to convert the float values to integers as required by PyVRP
+
+
 def local_search(
     td: TensorDict,
     actions: torch.Tensor,
@@ -96,7 +99,7 @@ def local_search_single(
     improved_solution, is_feasible = perform_local_search(
         ls_operator,
         solution,
-        int(load_penalty * 10**4),  # * 10**4 as we scale the data by 10**4 in `make_data`
+        int(load_penalty * C),  # * C as we scale the data in `make_data`
         remaining_trials=max_trials
     )
 
@@ -110,10 +113,10 @@ def local_search_single(
 
 
 def make_data(positions: np.ndarray, demands: np.ndarray, distances: np.ndarray) -> ProblemData:
-    positions = (positions * 10**4).astype(int)
-    distances = (distances * 10**4).astype(int)
+    positions = (positions * C).astype(int)
+    distances = (distances * C).astype(int)
 
-    capacity = 10**4
+    capacity = C
     demands = np.ceil(demands * capacity).astype(int)
 
     return ProblemData(
