@@ -122,9 +122,7 @@ class PCTSPEnv(RL4COEnvBase):
         # Initialize the current node and  prize / penalty
         current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
         cur_total_prize = torch.zeros(*batch_size, device=device)
-        cur_total_penalty = penalty.sum(-1)[
-            :, None
-        ]  # Sum penalties (all when nothing is visited), add step dim
+        cur_total_penalty = penalty.sum(-1)  # Sum penalties (all when nothing is visited)
 
         # Init the action mask (all nodes are available)
         visited = torch.zeros(
@@ -170,8 +168,14 @@ class PCTSPEnv(RL4COEnvBase):
             assert (actions == 0).all(), "If all length 1 tours, they should be zero"
             return torch.zeros(actions.size(0), dtype=torch.float, device=actions.device)
 
-        # Gather locations in order of tour and get the length of tours
-        locs_ordered = gather_by_index(td["locs"], actions)
+        # Gather locations in order of tour (add depot since we start and end there)
+        locs_ordered = torch.cat(
+            [
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
+            ],
+            dim=1,
+        )
         length = get_tour_length(locs_ordered)
 
         # Reward is saved penalties - (total length + penalty)
@@ -274,3 +278,7 @@ class PCTSPEnv(RL4COEnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+
+    @staticmethod
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
+        return render(td, actions, ax)

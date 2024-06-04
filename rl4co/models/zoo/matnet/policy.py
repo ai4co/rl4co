@@ -141,7 +141,7 @@ class MultiStageFFSPPolicy(nn.Module):
             encoder = self.encoders[stage_idx]
             embeddings, _ = encoder(td)
             decoder = self.decoders[stage_idx]
-            decoder._precompute_cache(embeddings, td)
+            decoder._precompute_cache(embeddings)
 
         if num_starts > 1:
             # repeat num_start times

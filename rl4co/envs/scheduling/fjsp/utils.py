@@ -152,8 +152,8 @@ def first_diff(x: Tensor, dim: int):
     shape = x.shape
     shape = (*shape[:dim], 1, *shape[dim + 1 :])
     seq_cutoff = x.index_select(dim, torch.arange(x.size(dim) - 1, device=x.device))
-    lagged_seq = x - torch.cat((seq_cutoff.new_zeros(*shape), seq_cutoff), dim=dim)
-    return lagged_seq
+    first_diff_seq = x - torch.cat((seq_cutoff.new_zeros(*shape), seq_cutoff), dim=dim)
+    return first_diff_seq
 
 
 def spatial_encoding(td: TensorDict):
@@ -205,7 +205,7 @@ def calc_lower_bound(td: TensorDict):
     We detect this offset by detecting ops-machine pairs, where the first possible start point of the operation is before
     the machine becomes idle again - Therefore, we add this discrepancy to the proc_time of the respective ops-ma combination
 
-    2.) If an operation has been scheduled, we use its real finishing time as lower bound. In this case, using the cumulative sum
+    2.) If an operation has been scheduled, we use its actual finishing time as lower bound. In this case, using the cumulative sum
     of all peedecessors of a job does not make sense, since it is likely to differ from the real finishing time of its direct
     predecessor (its only a lower bound). Therefore, we add the finish time to the cumulative sum of processing time of all
     UNSCHEDULED operations, to obtain the lower bound.
@@ -213,8 +213,6 @@ def calc_lower_bound(td: TensorDict):
     add them to the matrix of processing times, where already processed operations are masked (with zero)
 
 
-    :param TensorDict td: _description_
-    :return _type_: _description_
     """
 
     proc_times = td["proc_times"].clone()  # (bs, ma, ops)
@@ -231,12 +229,15 @@ def calc_lower_bound(td: TensorDict):
     maybe_start_at = torch.bmm(ops_adj[..., 0], finish_times[..., None]).squeeze(2)
     # using the start_time, we can determine if and how long an op needs to wait for a machine to finish
     wait_for_ma_offset = torch.clip(busy_until[..., None] - maybe_start_at[:, None], 0)
-    # we add this required waiting time to the respective processing time - after that we determine the best machine for each operation
-    mask = proc_times == 0
-    proc_times[mask] = torch.inf
-    proc_times += wait_for_ma_offset
-    # select best machine for operation, given the offset
-    min_proc_times = proc_times.min(1).values
+    # we add this required waiting time to the respective processing time
+    proc_time_plus_wait = torch.where(
+        proc_times == 0, proc_times, proc_times + wait_for_ma_offset
+    )
+    # NOTE get the mean processing time over all eligible machines for lb calulation
+    # ops_proc_times = torch.where(proc_times == 0, torch.inf, proc_time_plus_wait).min(1).values)
+    ops_proc_times = proc_time_plus_wait.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
+    # mask proc times for already scheduled ops
+    ops_proc_times[op_scheduled.to(torch.bool)] = 0
 
     ############### REGARDING POINT 2 OF DOCSTRING ###################
     # Now we determine all operations that are not scheduled yet (and thus have no finish_time). We will compute the cumulative
@@ -257,7 +258,7 @@ def calc_lower_bound(td: TensorDict):
 
     # masking the processing time of scheduled operations and add their finish times instead (first diff thereof)
     lb_end_expand = (
-        proc_matrix_not_scheduled * min_proc_times.unsqueeze(1).expand_as(job_ops_adj)
+        proc_matrix_not_scheduled * ops_proc_times.unsqueeze(1).expand_as(job_ops_adj)
         + finish_times_1st_diff
     )
     # (bs, max_ops); lower bound finish time per operation using the cumsum logic

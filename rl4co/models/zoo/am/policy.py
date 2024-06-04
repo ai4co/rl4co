@@ -30,7 +30,9 @@ class AttentionModelPolicy(AutoregressivePolicy):
         dynamic_embedding: Module to use for the dynamic embedding
         use_graph_context: Whether to use the graph context
         linear_bias_decoder: Whether to use a bias in the linear layer of the decoder
-        sdpa_fn: Function to use for the scaled dot product attention
+        sdpa_fn_encoder: Function to use for the scaled dot product attention in the encoder
+        sdpa_fn_decoder: Function to use for the scaled dot product attention in the decoder
+        sdpa_fn: (deprecated) Function to use for the scaled dot product attention
         mask_inner: Whether to mask the inner product
         out_bias_pointer_attn: Whether to use a bias in the pointer attention
         check_nan: Whether to check for nan values during decoding
@@ -62,6 +64,8 @@ class AttentionModelPolicy(AutoregressivePolicy):
         use_graph_context: bool = True,
         linear_bias_decoder: bool = False,
         sdpa_fn: Callable = None,
+        sdpa_fn_encoder: Callable = None,
+        sdpa_fn_decoder: Callable = None,
         mask_inner: bool = True,
         out_bias_pointer_attn: bool = False,
         check_nan: bool = True,
@@ -84,7 +88,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
                 init_embedding=init_embedding,
-                sdpa_fn=sdpa_fn,
+                sdpa_fn=sdpa_fn if sdpa_fn_encoder is None else sdpa_fn_encoder,
                 moe_kwargs=moe_kwargs["encoder"],
             )
 
@@ -95,7 +99,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
-                sdpa_fn=sdpa_fn,
+                sdpa_fn=sdpa_fn if sdpa_fn_decoder is None else sdpa_fn_decoder,
                 mask_inner=mask_inner,
                 out_bias_pointer_attn=out_bias_pointer_attn,
                 linear_bias=linear_bias_decoder,

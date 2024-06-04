@@ -34,7 +34,7 @@ class PrecomputedCache:
     def batchify(self, num_starts):
         new_embs = []
         for emb in self.fields:
-            if isinstance(emb, Tensor):
+            if isinstance(emb, Tensor) or isinstance(emb, TensorDict):
                 new_embs.append(batchify(emb, num_starts))
             else:
                 new_embs.append(emb)
@@ -108,7 +108,9 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
         if pointer is None:
             # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-            pointer_attn_class = PointerAttention if moe_kwargs is None else PointerAttnMoE
+            pointer_attn_class = (
+                PointerAttention if moe_kwargs is None else PointerAttnMoE
+            )
             pointer = pointer_attn_class(
                 embed_dim,
                 num_heads,

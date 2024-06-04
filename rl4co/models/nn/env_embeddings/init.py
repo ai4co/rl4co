@@ -34,7 +34,8 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
-        "fjsp": FJSPFeatureEmbedding,
+        "fjsp": FJSPInitEmbedding,
+        "jssp": FJSPInitEmbedding,
         "mtvrp": MTVRPInitEmbedding,
     }
 
@@ -64,7 +65,7 @@ class TSPInitEmbedding(nn.Module):
 
 class MatNetInitEmbedding(nn.Module):
     """
-    Preparing the initial row and column embeddings for FFSP.
+    Preparing the initial row and column embeddings for MatNet.
 
     Reference:
     https://github.com/yd-kwon/MatNet/blob/782698b60979effe2e7b61283cca155b7cdb727f/ATSP/ATSP_MatNet/ATSPModel.py#L51
@@ -99,7 +100,7 @@ class MatNetInitEmbedding(nn.Module):
             col_emb[b_idx, n_idx, rand_idx] = 1.0
 
         elif self.mode == "Random":
-            col_emb = torch.rand(b, r, self.embed_dim, device=dmat.device)
+            col_emb = torch.rand(b, c, self.embed_dim, device=dmat.device)
         else:
             raise NotImplementedError
 
@@ -387,66 +388,115 @@ class MDCPDPInitEmbedding(nn.Module):
         return torch.cat([depot_embeddings, pick_embeddings, delivery_embeddings], -2)
 
 
-class FJSPFeatureEmbedding(nn.Module):
-    def __init__(self, embed_dim, linear_bias=True, norm_coef: int = 100):
-        super().__init__()
+class JSSPInitEmbedding(nn.Module):
+    def __init__(
+        self,
+        embed_dim,
+        linear_bias: bool = True,
+        scaling_factor: int = 1000,
+        num_op_feats=5,
+    ):
+        super(JSSPInitEmbedding, self).__init__()
         self.embed_dim = embed_dim
-        self.norm_coef = norm_coef
+        self.scaling_factor = scaling_factor
+        self.init_ops_embed = nn.Linear(num_op_feats, embed_dim, linear_bias)
+        self.pos_encoder = PositionalEncoding(embed_dim, dropout=0.0)
 
-        self.init_ope_embed = nn.Linear(4, self.embed_dim, bias=False)
-        self.edge_embed = nn.Linear(1, embed_dim, bias=False)
+    def _op_features(self, td):
+        proc_times = td["proc_times"]
+        mean_durations = proc_times.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
+        feats = [
+            mean_durations / self.scaling_factor,
+            td["is_ready"],
+            td["num_eligible"],
+            td["ops_job_map"],
+            td["op_scheduled"],
+        ]
+        return torch.stack(feats, dim=-1)
 
-        self.ope_pos_enc = PositionalEncoding(embed_dim)
-        # TODO allow for reencoding after each step
-        self.stepwise = False
+    def _init_ops_embed(self, td: TensorDict):
+        ops_feat = self._op_features(td)
+        ops_emb = self.init_ops_embed(ops_feat)
+        ops_emb = self.pos_encoder(ops_emb, td["ops_sequence_order"])
+
+        # zero out padded and finished ops
+        mask = td["pad_mask"]  # NOTE dont mask scheduled - leads to instable training
+        ops_emb[mask.unsqueeze(-1).expand_as(ops_emb)] = 0
+        return ops_emb
+
+    def forward(self, td):
+        return self._init_ops_embed(td)
+
+
+class FJSPInitEmbedding(JSSPInitEmbedding):
+    def __init__(self, embed_dim, linear_bias=False, scaling_factor: int = 100):
+        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=5)
+        self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
+        self.edge_embed = nn.Linear(1, embed_dim, bias=linear_bias)
+
+    def _op_features(self, td):
+        feats = [
+            td["lbs"] / self.scaling_factor,
+            td["is_ready"],
+            td["num_eligible"],
+            td["op_scheduled"],
+            td["ops_job_map"],
+        ]
+        return torch.stack(feats, dim=-1)
 
     def forward(self, td: TensorDict):
-        if self.stepwise:
-            ops_emb = self._stepwise_operations_embed(td)
-            ma_emb = self._stepwise_machine_embed(td)
-            edge_emb = None
-        else:
-            ops_emb = self._init_operations_embed(td)
-            ma_emb = self._init_machine_embed(td)
-            edge_emb = self._init_edge_embed(td)
-        return ma_emb, ops_emb, edge_emb
-
-    def _init_operations_embed(self, td: TensorDict):
-        pos = td["ops_sequence_order"]
-
-        features = [
-            td["lbs"].unsqueeze(-1) / self.norm_coef,
-            td["is_ready"].unsqueeze(-1),
-            td["num_eligible"].unsqueeze(-1),
-            td["ops_job_map"].unsqueeze(-1),
-        ]
-        features = torch.cat(features, dim=-1)
-        # (bs, num_ops, emb_dim)
-        ops_embeddings = self.init_ope_embed(features)
-
-        # (bs, num_ops, emb_dim)
-        ops_embeddings = self.ope_pos_enc(ops_embeddings, pos.to(torch.int64))
-        # zero out padded entries
-        ops_embeddings[td["pad_mask"].unsqueeze(-1).expand_as(ops_embeddings)] = 0
-        return ops_embeddings
-
-    def _init_machine_embed(self, td: TensorDict):
-        bs, num_ma = td["busy_until"].shape
-        ma_embeddings = torch.zeros(
-            (bs, num_ma, self.embed_dim), device=td.device, dtype=torch.float32
-        )
-        return ma_embeddings
+        ops_emb = self._init_ops_embed(td)
+        ma_emb = self._init_machine_embed(td)
+        edge_emb = self._init_edge_embed(td)
+        # get edges between operations and machines
+        # (bs, ops, ma)
+        edges = td["ops_ma_adj"].transpose(1, 2)
+        return ops_emb, ma_emb, edge_emb, edges
 
     def _init_edge_embed(self, td: TensorDict):
-        proc_times = td["proc_times"].unsqueeze(-1) / self.norm_coef
-        edge_embed = self.edge_embed(proc_times)
+        proc_times = td["proc_times"].transpose(1, 2) / self.scaling_factor
+        edge_embed = self.edge_embed(proc_times.unsqueeze(-1))
         return edge_embed
 
-    def _stepwise_operations_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
+    def _init_machine_embed(self, td: TensorDict):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        ma_embeddings = self.init_ma_embed(busy_for.unsqueeze(2))
+        return ma_embeddings
 
-    def _stepwise_machine_embed(self, td: TensorDict):
-        raise NotImplementedError("Stepwise encoding not yet implemented")
+
+class FJSPMatNetInitEmbedding(JSSPInitEmbedding):
+    def __init__(
+        self,
+        embed_dim,
+        linear_bias: bool = False,
+        scaling_factor: int = 1000,
+    ):
+        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=5)
+        self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
+
+    def _op_features(self, td):
+        feats = [
+            td["lbs"] / self.scaling_factor,
+            td["is_ready"],
+            td["op_scheduled"],
+            td["num_eligible"],
+            td["ops_job_map"],
+        ]
+        return torch.stack(feats, dim=-1)
+
+    def _init_machine_embed(self, td: TensorDict):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        ma_embeddings = self.init_ma_embed(busy_for.unsqueeze(2))
+        return ma_embeddings
+
+    def forward(self, td: TensorDict):
+        proc_times = td["proc_times"]
+        ops_emb = self._init_ops_embed(td)
+        # encoding machines
+        ma_emb = self._init_machine_embed(td)
+        # edgeweights for matnet
+        matnet_edge_weights = proc_times.transpose(1, 2) / self.scaling_factor
+        return ops_emb, ma_emb, matnet_edge_weights
 
 
 class MTVRPInitEmbedding(VRPInitEmbedding):
@@ -456,16 +506,26 @@ class MTVRPInitEmbedding(VRPInitEmbedding):
 
     def forward(self, td):
         depot, cities = td["locs"][:, :1, :], td["locs"][:, 1:, :]
-        demand_linehaul, demand_backhaul = td["demand_linehaul"][..., 1:], td["demand_backhaul"][..., 1:]
+        demand_linehaul, demand_backhaul = (
+            td["demand_linehaul"][..., 1:],
+            td["demand_backhaul"][..., 1:],
+        )
         service_time = td["service_time"][..., 1:]
         time_windows = td["time_windows"][..., 1:, :]
         # [!] convert [0, inf] -> [0, 0] if a problem does not include the time window constraint, do not modify in-place
-        time_windows = torch.nan_to_num(time_windows,  posinf=0.0)
+        time_windows = torch.nan_to_num(time_windows, posinf=0.0)
         # embeddings
         depot_embedding = self.init_embed_depot(depot)
         node_embeddings = self.init_embed(
             torch.cat(
-                (cities, demand_linehaul[..., None], demand_backhaul[..., None], time_windows, service_time[..., None]), -1
+                (
+                    cities,
+                    demand_linehaul[..., None],
+                    demand_backhaul[..., None],
+                    time_windows,
+                    service_time[..., None],
+                ),
+                -1,
             )
         )
         return torch.cat((depot_embedding, node_embeddings), -2)

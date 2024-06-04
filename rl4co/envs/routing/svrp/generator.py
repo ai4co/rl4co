@@ -18,7 +18,7 @@ class SVRPGenerator(Generator):
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates
         loc_distribution: distribution for the location coordinates
-        min_skill: minimum value for the technic skill
+        depot_distribution: distribution for the depot location. If None, sample the depot from the locations        min_skill: minimum value for the technic skill
         max_skill: maximum value for the technic skill
         skill_distribution: distribution for the technic skill
         tech_costs: list of the technic costs
@@ -40,7 +40,7 @@ class SVRPGenerator(Generator):
         ] = Uniform,
         depot_distribution: Union[
             int, float, str, type, Callable
-        ] = Uniform,
+        ] = None,
         min_skill: float = 1.0,
         max_skill: float = 10.0,
         tech_costs: list = [1, 2, 3],
@@ -64,17 +64,21 @@ class SVRPGenerator(Generator):
         if kwargs.get("depot_sampler", None) is not None:
             self.depot_sampler = kwargs["depot_sampler"]
         else:
-            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs)
+            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs) if depot_distribution is not None else None
 
     def _generate(self, batch_size) -> TensorDict:
         """Generate data for the basic Skill-VRP. The data consists of the locations of the customers,
         the skill-levels of the technicians and the required skill-levels of the customers.
         The data is generated randomly within the given bounds."""
-        # Sample locations
-        locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
-
-        # Sample depot
-        depot = self.depot_sampler.sample((*batch_size, 2))
+        # Sample locations: depot and customers
+        if self.depot_sampler is not None:
+            depot = self.depot_sampler.sample((*batch_size, 2))
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
+        else:
+            # if depot_sampler is None, sample the depot from the locations
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc + 1, 2))
+            depot = locs[..., 0, :]
+            locs = locs[..., 1:, :]
 
         locs_with_depot = torch.cat((depot[:, None, :], locs), dim=1)
 
