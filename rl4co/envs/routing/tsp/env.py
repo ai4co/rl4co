@@ -216,17 +216,20 @@ class TSPkoptEnv(ImprovementEnvBase):
         self.two_opt_mode = k_max == 2
         self._make_spec(self.generator)
 
-    def _step(self, td: TensorDict) -> TensorDict:
+    def _step(self, td: TensorDict, solution_to=None) -> TensorDict:
         # get state information from td
-        action = td["action"]
-        solution = td["rec_current"]
         solution_best = td["rec_best"]
         locs = td["locs"]
         cost_bsf = td["cost_bsf"]
-        bs, gs = solution.size()
+        bs, gs = solution_best.size()
 
-        # perform ruin and repair
-        next_rec = self._local_operator(solution, action)
+        # perform loca_operator
+        if solution_to is None:
+            action = td["action"]
+            solution = td["rec_current"]
+            next_rec = self._local_operator(solution, action)
+        else:
+            next_rec = solution_to.clone()
         new_obj = self.get_costs(locs, next_rec)
 
         # compute reward and update best-so-far solutions
@@ -253,7 +256,7 @@ class TSPkoptEnv(ImprovementEnvBase):
                 "rec_current": next_rec,
                 "rec_best": solution_best,
                 "visited_time": visited_time,
-                "i": td["i"] + 1,
+                "i": td["i"] + 1 if solution_to is None else td["i"],
                 "reward": reward,
             }
         )
@@ -294,36 +297,6 @@ class TSPkoptEnv(ImprovementEnvBase):
             },
             batch_size=batch_size,
         )
-
-    def step_to_bsf(self, td: TensorDict) -> TensorDict:
-        # get state information from td
-        next_rec = td["rec_best"]
-        cost_bsf = td["cost_bsf"]
-        bs, gs = next_rec.size()
-
-        # reset visited_time
-        visited_time = td["visited_time"] * 0
-        pre = torch.zeros((bs), device=visited_time.device).long()
-        arange = torch.arange(bs)
-        for i in range(gs):
-            current_nodes = next_rec[arange, pre]
-            visited_time[arange, current_nodes] = i + 1
-            pre = current_nodes
-        visited_time = visited_time.long()
-
-        # Update step
-        td.update(
-            {
-                "cost_current": cost_bsf.clone(),
-                "cost_bsf": cost_bsf.clone(),
-                "rec_current": next_rec.clone(),
-                "rec_best": next_rec.clone(),
-                "visited_time": visited_time,
-                "i": td["i"],
-            }
-        )
-
-        return td
 
     def _local_operator(self, solution, action):
         rec = solution.clone()

@@ -123,6 +123,7 @@ class n_step_PPO(RL4COLitModule):
                 for i in range(self.ppo_cfg["T_test"]):
                     out = self.policy(td, self.env, phase=phase)
                     self.env.step(td)
+                out["cost_bsf"] = td["cost_bsf"]
 
         else:
             # init the training
@@ -135,7 +136,7 @@ class n_step_PPO(RL4COLitModule):
                     out = self.policy(td, self.env, phase=phase)
                     self.env.step(td)
             if self.CL_best:
-                td = self.env.step_to_bsf(td)
+                td = self.env.step_to_solution(td, td["rec_best"])
             cost_init = td["cost_current"]
 
             # perform gradiant updates every n_step untill reaching T_max

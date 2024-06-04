@@ -307,6 +307,13 @@ class ImprovementEnvBase(RL4COEnvBase, metaclass=abc.ABCMeta):
     ):
         super().__init__(**kwargs)
 
+    @abc.abstractmethod
+    def _step(self, td: TensorDict, solution_to=None) -> TensorDict:
+        raise NotImplementedError
+
+    def step_to_solution(self, td, solution) -> TensorDict:
+        return self._step(td, solution_to=solution)
+
     @staticmethod
     def _get_reward(td, actions) -> TensorDict:
         raise NotImplementedError(
@@ -337,6 +344,15 @@ class ImprovementEnvBase(RL4COEnvBase, metaclass=abc.ABCMeta):
 
         visited_time = visited_time % seq_length
         return visited_time.argsort()
+
+    @staticmethod
+    def _get_linked_list_solution(solution):
+        solution_pre = solution
+        solution_post = torch.cat((solution[:, 1:], solution[:, :1]), 1)
+
+        rec = solution.clone()
+        rec.scatter_(1, solution_pre, solution_post)
+        return rec
 
     @classmethod
     def get_best_solution(cls, td):

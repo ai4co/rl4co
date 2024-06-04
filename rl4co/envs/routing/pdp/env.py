@@ -267,20 +267,22 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
         self.generator = generator
         self._make_spec(self.generator)
 
-    @classmethod
-    def _step(cls, td: TensorDict) -> TensorDict:
+    def _step(self, td: TensorDict, solution_to=None) -> TensorDict:
         # get state information from td
-        action = td["action"]
-        solution = td["rec_current"]
         solution_best = td["rec_best"]
         locs = td["locs"]
         cost_bsf = td["cost_bsf"]
         action_record = td["action_record"]
-        bs, gs = solution.size()
+        bs, gs = solution_best.size()
 
-        # perform ruin and repair
-        next_rec = cls._local_operator(solution, action)
-        new_obj = cls.get_costs(locs, next_rec)
+        # perform local_operator
+        if solution_to is None:
+            action = td["action"]
+            solution = td["rec_current"]
+            next_rec = self._local_operator(solution, action)
+        else:
+            next_rec = solution_to.clone()
+        new_obj = self.get_costs(locs, next_rec)
 
         # compute reward and update best-so-far solutions
         now_bsf = torch.where(new_obj < cost_bsf, new_obj, cost_bsf)
@@ -299,9 +301,10 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
         visited_time = visited_time.long()
 
         # update action record
-        action_record[:, :-1] = action_record[:, 1:]
-        action_record[:, -1] *= 0
-        action_record[torch.arange(bs), -1, action[:, 0]] = 1
+        if solution_to is None:
+            action_record[:, :-1] = action_record[:, 1:]
+            action_record[:, -1] *= 0
+            action_record[torch.arange(bs), -1, action[:, 0]] = 1
 
         # Update step
         td.update(
@@ -312,7 +315,7 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
                 "rec_best": solution_best,
                 "visited_time": visited_time,
                 "action_record": action_record,
-                "i": td["i"] + 1,
+                "i": td["i"] + 1 if solution_to is None else td["i"],
                 "reward": reward,
             }
         )
@@ -359,36 +362,6 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
             },
             batch_size=batch_size,
         )
-
-    def step_to_bsf(self, td: TensorDict) -> TensorDict:
-        # get state information from td
-        next_rec = td["rec_best"]
-        cost_bsf = td["cost_bsf"]
-        bs, gs = next_rec.size()
-
-        # reset visited_time
-        visited_time = td["visited_time"] * 0
-        pre = torch.zeros((bs), device=visited_time.device).long()
-        arange = torch.arange(bs)
-        for i in range(gs):
-            current_nodes = next_rec[arange, pre]
-            visited_time[arange, current_nodes] = i + 1
-            pre = current_nodes
-        visited_time = visited_time.long()
-
-        # Update step
-        td.update(
-            {
-                "cost_current": cost_bsf.clone(),
-                "cost_bsf": cost_bsf.clone(),
-                "rec_current": next_rec.clone(),
-                "rec_best": next_rec.clone(),
-                "visited_time": visited_time,
-                "i": td["i"],
-            }
-        )
-
-        return td
 
     @staticmethod
     def _local_operator(solution, action):
