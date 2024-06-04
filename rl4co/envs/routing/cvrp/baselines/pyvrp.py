@@ -1,16 +1,65 @@
+from functools import partial
+from multiprocessing import Pool
+
 import numpy as np
 import pyvrp as pyvrp
 
 from pyvrp import Client, Depot, ProblemData, VehicleType, solve as _solve
-from pyvrp.constants import MAX_VALUE
 from pyvrp.stop import MaxRuntime
 from tensordict.tensordict import TensorDict
 from torch import Tensor
 
+from rl4co.utils.ops import get_distance_matrix
+
 PYVRP_SCALING_FACTOR = 1_000
 
 
-def solve(instance: TensorDict, max_runtime: float) -> tuple[Tensor, Tensor]:
+def solve_multipr(
+    instances: TensorDict,
+    max_runtime: float,
+    num_procs: int = 1,
+    **kwargs,
+) -> tuple[Tensor, Tensor]:
+    """
+    Solves the AnyVRP instances with PyVRP.
+
+    Parameters
+    ----------
+    instances
+        TensorDict containing the AnyVRP instances to solve.
+    max_runtime
+        Maximum runtime for the solver.
+    num_procs
+        Number of processers to use to solve instances in parallel.
+    data_type
+        Environment mode. If "mtvrp", the instance data will be converted first.
+    solver
+        The solver to use. One of ["pyvrp"].
+
+    Returns
+    -------
+    tuple[Tensor, Tensor]
+        A Tensor containing the actions for each instance and a Tensor
+        containing the corresponding costs.
+    """
+    func = partial(solve_instance, max_runtime=max_runtime, **kwargs)
+    inst = instances.clone()
+    if num_procs > 1:
+        with Pool(processes=num_procs) as pool:
+            results = pool.map(func, inst)
+    else:
+        results = [func(instance) for instance in inst]
+
+    actions, costs = zip(*results)
+
+    # Pad to ensure all actions have the same length.
+    max_len = max(len(action) for action in actions)
+    actions = [action + [0] * (max_len - len(action)) for action in actions]
+
+    return Tensor(actions).long(), Tensor(costs)
+
+
+def solve_instance(instance: TensorDict, max_runtime: float) -> tuple[Tensor, Tensor]:
     """
     Solves the AnyVRP instance with PyVRP.
 
@@ -68,6 +117,7 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
     num_locs = instance["demand"].size()[0]
 
     coords = _scale(instance["locs"], scaling_factor)
+    matrix = _scale(get_distance_matrix(instance["locs"]), scaling_factor)
 
     capacity = _scale(instance["capacity"], scaling_factor)
     demand = _scale(instance["demand"], scaling_factor)
@@ -88,8 +138,6 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
         num_available=num_locs - 1,  # one vehicle per client
         capacity=capacity,
     )
-
-    matrix = _scale(instance["cost_matrix"], scaling_factor)
 
     return ProblemData(clients, [depot], [vehicle_type], matrix, matrix)
 

@@ -1,11 +1,24 @@
-# load cvrp test instances
 import os
+import timeit
+
+from functools import partial
+from multiprocessing import Pool
+
+import numpy as np
 
 from tensordict import TensorDict
+from torch import Tensor
 
 from rl4co.data.utils import load_npz_to_tensordict
-from rl4co.envs.routing.cvrp.baselines.pyvrp import solve as solve_pyvrp
-from rl4co.utils.ops import get_distance_matrix
+from rl4co.envs.routing.cvrp.baselines.pyvrp import solve_multipr
+
+N_INSTANCES = 1_000
+
+baselines = {
+    # "pdp": "lkh",
+    # "tsp": "lkh",
+    "vrp": solve_multipr,
+}
 
 
 def shorten_tensordict(td, new_size):
@@ -22,26 +35,32 @@ def select_instance_from_batch(td, idx):
     return TensorDict(new_dict)
 
 
-N_INSTANCES = 1_0
+def main():
+    for name in baselines:
+        data_filepath = f"data/{name}/"
+        files = os.listdir(data_filepath)
+        print("files", files)
+        for filename in files:
+            if filename.endswith(".npz"):
+                start_time = timeit.default_timer()
+                data = load_npz_to_tensordict(f"{data_filepath}{filename}")
+                instances = shorten_tensordict(data, N_INSTANCES)
+                print("Run baseline for", filename)
+                actions, costs = solve_multipr(
+                    instances=instances, max_runtime=1, num_procs=24
+                )
+                duration = timeit.default_timer() - start_time
+                print(f"Real runtime: {duration}")
+                print(f"Average cost: {costs.mean()}")
+                np.savez(
+                    f"data/{name}/sol_{filename}.npz",
+                    actions=actions.numpy(),
+                    costs=costs.numpy(),
+                )
+                # If not exist, create a file to log the real running time
+                with open(f"data/{name}/sol_{filename}.txt", "a") as f:
+                    f.write(f"real_time\n{duration}")
 
-baselines = {
-    # "pdp": "lkh",
-    # "tsp": "lkh",
-    "vrp": "pyvrp",
-}
-for name in baselines:
-    data_filepath = f"data/{name}/"
-    files = os.listdir(data_filepath)
-    print("files", files)
-    for filename in files:
-        if filename.endswith(".npz"):
-            data = load_npz_to_tensordict(f"{data_filepath}{filename}")
-            data = shorten_tensordict(data, N_INSTANCES)
-            print("Run baseline for", filename)
-            # solve baseline for all instances
-            for idx in range(N_INSTANCES):
-                print("solve instance", idx)
-                instance = select_instance_from_batch(data, idx)
-                # cost matrix
-                instance["cost_matrix"] = get_distance_matrix(instance["locs"])
-                action, cost = solve_pyvrp(instance, 1000)
+
+if __name__ == "__main__":
+    main()
