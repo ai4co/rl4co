@@ -32,6 +32,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "mtsp": MTSPContext,
         "smtwtp": SMTWTPContext,
         "mdcpdp": MDCPDPContext,
+        "mtvrp": MTVRPContext,
     }
 
     if env_name not in embedding_registry:
@@ -117,9 +118,14 @@ class TSPContext(EnvContext):
             (-1,) if td["first_node"].dim() == 1 else (td["first_node"].size(-1), -1)
         )
         if td["i"][(0,) * td["i"].dim()].item() < 1:  # get first item fast
-            context_embedding = self.W_placeholder[None, :].expand(
-                batch_size, self.W_placeholder.size(-1)
-            )
+            if len(td.batch_size) < 2:
+                context_embedding = self.W_placeholder[None, :].expand(
+                    batch_size, self.W_placeholder.size(-1)
+                )
+            else:
+                context_embedding = self.W_placeholder[None, None, :].expand(
+                    batch_size, td.batch_size[1], self.W_placeholder.size(-1)
+                )
         else:
             context_embedding = gather_by_index(
                 embeddings,
@@ -313,3 +319,54 @@ class MDCPDPContext(EnvContext):
     def forward(self, embeddings, td):
         cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
         return self.project_context(cur_node_embedding)
+
+
+class SchedulingContext(nn.Module):
+    def __init__(self, embed_dim: int, scaling_factor: int = 1000):
+        super().__init__()
+        self.scaling_factor = scaling_factor
+        self.proj_busy = nn.Linear(1, embed_dim, bias=False)
+
+    def forward(self, h, td):
+        busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor
+        busy_proj = self.proj_busy(busy_for.unsqueeze(-1))
+        # (b m e)
+        return h + busy_proj
+
+
+class MTVRPContext(VRPContext):
+    """Context embedding for Multi-Task VRPEnv.
+    Project the following to the embedding space:
+        - current node embedding
+        - remaining_linehaul_capacity (vehicle_capacity - used_capacity_linehaul)
+        - remaining_backhaul_capacity (vehicle_capacity - used_capacity_backhaul)
+        - current time
+        - current_route_length
+        - open route indicator
+    """
+
+    def __init__(self, embed_dim):
+        super(VRPContext, self).__init__(
+            embed_dim=embed_dim, step_context_dim=embed_dim + 5
+        )
+
+    def _state_embedding(self, embeddings, td):
+        remaining_linehaul_capacity = (
+            td["vehicle_capacity"] - td["used_capacity_linehaul"]
+        )
+        remaining_backhaul_capacity = (
+            td["vehicle_capacity"] - td["used_capacity_backhaul"]
+        )
+        current_time = td["current_time"]
+        current_route_length = td["current_route_length"]
+        open_route = td["open_route"]
+        return torch.cat(
+            [
+                remaining_linehaul_capacity,
+                remaining_backhaul_capacity,
+                current_time,
+                current_route_length,
+                open_route,
+            ],
+            -1,
+        )

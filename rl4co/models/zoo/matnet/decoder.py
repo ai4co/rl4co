@@ -127,8 +127,8 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         self.cached_embs: PrecomputedCache = None
         # self.encoded_wait_op = nn.Parameter(torch.rand((1, 1, embed_dim)))
 
-    def _precompute_cache(self, embeddings: Tuple[Tensor], td: TensorDict = None):
-        self.cached_embs = super()._precompute_cache(embeddings, td)
+    def _precompute_cache(self, embeddings: Tuple[Tensor], **kwargs):
+        self.cached_embs = super()._precompute_cache(embeddings, **kwargs)
 
     def forward(
         self,
@@ -141,7 +141,7 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         batch_size = td.size(0)
 
         # TODO: we need to insert precompute cache inside the decoder
-        logits, mask = super().forward(self.cached_embs, td, num_starts)
+        logits, mask = super().forward(td, self.cached_embs, num_starts)
         logprobs = process_logits(
             logits,
             mask,

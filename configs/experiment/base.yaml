@@ -18,6 +18,7 @@ defaults:
 env:
   generator_params:
     num_loc: 50
+  check_solution: False # optimization
 
 # Logging: we use Wandb in this case
 logger:

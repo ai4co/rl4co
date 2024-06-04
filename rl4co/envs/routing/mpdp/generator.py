@@ -18,7 +18,7 @@ class MPDPGenerator(Generator):
         min_loc: minimum location value
         max_loc: maximum location value
         loc_distribution: distribution for the locations
-        depot_distribution: distribution for the depot
+        depot_distribution: distribution for the depot location. If None, sample the depot from the locations
         min_num_agents: minimum number of agents
         max_num_agents: maximum number of agents
     
@@ -38,7 +38,7 @@ class MPDPGenerator(Generator):
         ] = Uniform,
         depot_distribution: Union[
             int, float, str, type, Callable
-        ] = Uniform,
+        ] = None,
         min_num_agents: int = 2,
         max_num_agents: int = 10,
         **kwargs
@@ -64,14 +64,19 @@ class MPDPGenerator(Generator):
         if kwargs.get("depot_sampler", None) is not None:
             self.depot_sampler = kwargs["depot_sampler"]
         else:
-            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs)
+            self.depot_sampler = get_sampler("depot", depot_distribution, min_loc, max_loc, **kwargs) if depot_distribution is not None else None
+
 
     def _generate(self, batch_size) -> TensorDict:
-        # Sample locations
-        locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
-
-        # Sample depot
-        depot = self.depot_sampler.sample((*batch_size, 2))
+        # Sample locations: depot and customers
+        if self.depot_sampler is not None:
+            depot = self.depot_sampler.sample((*batch_size, 2))
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc, 2))
+        else:
+            # if depot_sampler is None, sample the depot from the locations
+            locs = self.loc_sampler.sample((*batch_size, self.num_loc + 1, 2))
+            depot = locs[..., 0, :]
+            locs = locs[..., 1:, :]
 
         # Sample the number of agents
         num_agents = torch.randint(

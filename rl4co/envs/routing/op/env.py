@@ -139,7 +139,7 @@ class OPEnv(RL4COEnvBase):
                     device=device,
                 ),
                 "current_total_prize": torch.zeros(
-                    *batch_size, 1, dtype=torch.float, device=device
+                    *batch_size, dtype=torch.float, device=device
                 ),
                 "i": torch.zeros(
                     (*batch_size,), dtype=torch.int64, device=device

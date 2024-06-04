@@ -188,8 +188,14 @@ class PDPEnv(RL4COEnvBase):
 
     @staticmethod
     def _get_reward(td, actions) -> TensorDict:
-        # Gather locations in the order of actions and get reward = -(total distance)
-        locs_ordered = gather_by_index(td["locs"], actions)  # [batch, graph_size+1, 2]
+        # Gather locations in order of tour (add depot since we start and end there)
+        locs_ordered = torch.cat(
+            [
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
+            ],
+            dim=1,
+        )
         return -get_tour_length(locs_ordered)
 
     def check_solution_validity(self, td, actions):
@@ -208,6 +214,20 @@ class PDPEnv(RL4COEnvBase):
             visited_time[:, 1 : actions.size(1) // 2 + 1]
             < visited_time[:, actions.size(1) // 2 + 1 :]
         ).all(), "Deliverying without pick-up"
+
+    def get_num_starts(self, td):
+        """Only half of the nodes (i.e. pickup nodes) can be start nodes"""
+        return (td["locs"].shape[-2] - 1) // 2
+
+    def select_start_nodes(self, td, num_starts):
+        """Only nodes from [1 : num_loc // 2 +1] (i.e. pickups) can be selected"""
+        num_possible_starts = (td["locs"].shape[-2] - 1) // 2
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_possible_starts
+            + 1
+        )
+        return selected
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):

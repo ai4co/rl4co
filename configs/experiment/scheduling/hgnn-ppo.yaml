@@ -1,0 +1,35 @@
+# @package _global_
+
+defaults:
+  - scheduling/base
+
+logger:
+  wandb:
+    tags: ["hgnn-ppo", "${env.name}"]
+    name: "hgnn-ppo-${env.name}-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+
+# params from Song et al.
+model:
+  _target_: rl4co.models.L2DPPOModel
+  policy_kwargs:
+    embed_dim: 128
+    num_encoder_layers: 3
+    scaling_factor: ${scaling_factor}
+    max_grad_norm: 1
+    ppo_epochs: 3
+    het_emb: True
+  batch_size: 128
+  val_batch_size: 512
+  test_batch_size: 64
+  mini_batch_size: 512
+  reward_scale: scale
+  optimizer_kwargs:
+    lr: 1e-4
+
+trainer:
+  max_epochs: 10
+
+
+env:
+  stepwise_reward: True
+  _torchrl_mode: True
