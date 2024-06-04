@@ -118,8 +118,8 @@ class PolyNet(REINFORCE):
             self.augment = None
 
         # Add `_multistart` to decode type for train, val and test in policy
-        for phase in ["train", "val", "test"]:
-            self.set_decode_type_multistart(phase)
+        # for phase in ["train", "val", "test"]:
+        #    self.set_decode_type_multistart(phase)
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -144,8 +144,8 @@ class PolyNet(REINFORCE):
             self.env,
             phase=phase,
             num_starts=n_start,
+            multisample=True,
             return_actions=True,
-            select_start_nodes_fn=(lambda *args: None),
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
