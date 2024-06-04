@@ -3,7 +3,15 @@ import sys
 
 import pytest
 
-from rl4co.envs import ATSPEnv, FJSPEnv, JSSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv, TSPkoptEnv
+from rl4co.envs import (
+    ATSPEnv,
+    FJSPEnv,
+    JSSPEnv,
+    PDPEnv,
+    PDPRuinRepairEnv,
+    TSPEnv,
+    TSPkoptEnv,
+)
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
     DACT,
@@ -161,7 +169,7 @@ def test_deepaco():
     trainer.test(model)
 
 
-def test_N2S():
+def test_n2s():
     env = PDPRuinRepairEnv(generator_params=dict(num_loc=20))
     model = N2S(
         env,
@@ -182,7 +190,7 @@ def test_N2S():
     trainer.test(model)
 
 
-def test_DACT():
+def test_dact():
     env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=2)
     model = DACT(
         env,
@@ -204,7 +212,7 @@ def test_DACT():
     trainer.test(model)
 
 
-def test_NeuOpt():
+def test_neuopt():
     env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=4)
     model = NeuOpt(
         env,
@@ -214,7 +222,7 @@ def test_NeuOpt():
         n_step=2,
         T_train=4,
         T_test=4,
-        CL_best=True,    
+        CL_best=True,
     )
     trainer = RL4COTrainer(
         max_epochs=1,
@@ -224,7 +232,7 @@ def test_NeuOpt():
     )
     trainer.fit(model)
     trainer.test(model)
-    
+
 
 @pytest.mark.parametrize("env_cls", [FJSPEnv, JSSPEnv])
 def test_l2d_ppo(env_cls):

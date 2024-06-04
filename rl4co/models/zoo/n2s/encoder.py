@@ -196,8 +196,6 @@ class N2SEncoder(ImprovementEncoder):
             feedforward_hidden=feedforward_hidden,
         )
 
-        assert self.env_name in ["pdp_ruin_repair", "tsp_kopt"], NotImplementedError()
-
         self.pos_net = MultiHeadCompat(num_heads, embed_dim, feedforward_hidden)
 
         self.net = AdaptiveSequential(

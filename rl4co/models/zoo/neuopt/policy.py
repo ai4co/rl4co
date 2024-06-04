@@ -145,9 +145,9 @@ class NeuOptPolicy(ImprovementPolicy):
         """
 
         # Encoder: get encoder output and initial embeddings from initial state
-        NFE, _ = self.encoder(td)
+        nfe, _ = self.encoder(td)
         if only_return_embed:
-            return {"embeds": NFE.detach()}
+            return {"embeds": nfe.detach()}
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -176,7 +176,7 @@ class NeuOptPolicy(ImprovementPolicy):
 
         # Perform the decoding
         bs, gs, _, ll, action_sampled, rec, visited_time = (
-            *NFE.size(),
+            *nfe.size(),
             0.0,
             None,
             td["rec_current"],
@@ -193,7 +193,7 @@ class NeuOptPolicy(ImprovementPolicy):
         zeros = torch.zeros((bs, 1), device=td.device)
 
         # init queries
-        h_mean = NFE.mean(1)
+        h_mean = nfe.mean(1)
         init_query = self.init_query_learnable.repeat(bs, 1)
         input_q1 = input_q2 = init_query.clone()
         init_hidden = self.init_hidden_W(h_mean)
@@ -201,7 +201,7 @@ class NeuOptPolicy(ImprovementPolicy):
 
         for i in range(env.k_max):
             # Pass RDS decoder
-            logits, q1, q2 = self.decoder(NFE, q1, q2, input_q1, input_q2)
+            logits, q1, q2 = self.decoder(nfe, q1, q2, input_q1, input_q2)
 
             # Calc probs
             if i == 0 and "action" in td.keys():
@@ -236,13 +236,13 @@ class NeuOptPolicy(ImprovementPolicy):
             k_action_left[:, i + 1] = next_of_new_action.squeeze().clone()
 
             # Prepare next RNN input
-            input_q1 = NFE.gather(
+            input_q1 = nfe.gather(
                 1, action_sampled.view(bs, 1, 1).expand(bs, 1, self.embed_dim)
             ).squeeze(1)
             input_q2 = torch.where(
                 stopped.view(bs, 1).expand(bs, self.embed_dim),
                 input_q1.clone(),
-                NFE.gather(
+                nfe.gather(
                     1,
                     (next_of_last_action % gs)
                     .view(bs, 1, 1)
@@ -292,7 +292,7 @@ class NeuOptPolicy(ImprovementPolicy):
         td.set("action", action_all)
 
         if return_embeds:
-            outdict["embeds"] = NFE.detach()
+            outdict["embeds"] = nfe.detach()
 
         if return_actions:
             outdict["actions"] = action_all

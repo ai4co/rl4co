@@ -1,5 +1,3 @@
-import math
-
 import torch
 import torch.nn as nn
 
@@ -44,13 +42,6 @@ class RDSDecoder(ImprovementDecoder):
 
         self.rnn1 = nn.GRUCell(self.embed_dim, self.embed_dim)
         self.rnn2 = nn.GRUCell(self.embed_dim, self.embed_dim)
-
-        self.init_parameters()
-
-    def init_parameters(self) -> None:
-        for param in self.parameters():
-            stdv = 1.0 / math.sqrt(param.size(-1))
-            param.data.uniform_(-stdv, stdv)
 
     def forward(self, h, q1, q2, input_q1, input_q2) -> Tensor:
         bs = h.size(0)
