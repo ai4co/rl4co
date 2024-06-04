@@ -421,12 +421,12 @@ if __name__ == "__main__":
 
     # Environment
     parser.add_argument("--problem", type=str, default="tsp", help="Problem to solve")
-    parser.add_argument("--generator_params", type=dict, default={"num_loc": 50}, help="Generator parameters for the environment")
-    parser.add_argument("--data_path", type=str, default="data/tsp/tsp50_test_seed1234.npz", help="Path of the test data npz file")
+    parser.add_argument("--generator-params", type=dict, default={"num_loc": 50}, help="Generator parameters for the environment")
+    parser.add_argument("--data-path", type=str, default="data/tsp/tsp50_test_seed1234.npz", help="Path of the test data npz file")
 
     # Model
     parser.add_argument("--model", type=str, default="AttentionModel", help="The class name of the valid model")
-    parser.add_argument("--ckpt_path", type=str, default="checkpoints/am-tsp50.ckpt", help="The path of the checkpoint file")
+    parser.add_argument("--ckpt-path", type=str, default="checkpoints/am-tsp50.ckpt", help="The path of the checkpoint file")
     parser.add_argument("--device", type=str, default="cuda:1", help="Device to run the evaluation")
 
     # Evaluation
@@ -434,24 +434,54 @@ if __name__ == "__main__":
                         'multistart_greedy', 'augment_dihedral_8', 'augment', 'multistart_greedy_augment_dihedral_8',\
                         'multistart_greedy_augment'")
     parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling")
-    parser.add_argument("--top_p", type=float, default=0.0, help="Top-p for sampling, from 0.0 to 1.0, 0.0 means not activated")
-    parser.add_argument("--top_k", type=int, default=0, help="Top-k for sampling")
-    parser.add_argument("--select_best", type=bool, default=True, help="During sampling, whether to select the best action")
-    parser.add_argument("--save_results", type=bool, default=True, help="Whether to save the evaluation results")
-    parser.add_argument("--save_path", type=str, default="results", help="The root path to save the results")
+    parser.add_argument("--top-p", type=float, default=0.0, help="Top-p for sampling, from 0.0 to 1.0, 0.0 means not activated")
+    parser.add_argument("--top-k", type=int, default=0, help="Top-k for sampling")
+    parser.add_argument("--select-best", default=True, action=argparse.BooleanOptionalAction, help="During sampling, whether to select the best action, use --no-select_best to disable")
+    parser.add_argument("--save-results", default=True, action=argparse.BooleanOptionalAction, help="Whether to save the evaluation results")
+    parser.add_argument("--save-path", type=str, default="results", help="The root path to save the results")
+    parser.add_argument("--num-instances", type=int, default=1000, help="Number of instances to test, maximum 10000")
 
     parser.add_argument("--samples", type=int, default=1280, help="Number of samples for sampling method")
-    parser.add_argument("--softmax_temp", type=float, default=1.0, help="Temperature for softmax in the sampling method")
-    parser.add_argument("--num_augment", type=int, default=8, help="Number of augmentations for augmentation method")
-    parser.add_argument("--force_dihedral_8", type=bool, default=True, help="Force the use of 8 augmentations for augmentation method")
+    parser.add_argument("--softmax-temp", type=float, default=1.0, help="Temperature for softmax in the sampling method")
+    parser.add_argument("--num-augment", type=int, default=8, help="Number of augmentations for augmentation method")
+    parser.add_argument("--force-dihedral-8", default=True, action=argparse.BooleanOptionalAction, help="Force the use of 8 augmentations for augmentation method")
 
     opts = parser.parse_args()
+
+    # Log the evaluation setting information
+    print(f"Problem: {opts.problem}-{opts.generator_params['num_loc']}")
+    print(f"Model: {opts.model}")
+    print(f"Loading test instances from: {opts.data_path}")
+    print(f"Loading model checkpoint from: {opts.ckpt_path}")
+    print(f"Using the device: {opts.device}")
+    print(f"Evaluation method: {opts.method}")
+    print(f"Number of instances to test: {opts.num_instances}")
+
+    if opts.method == "sampling":
+        print(f"[Sampling] Number of samples: {opts.samples}")
+        print(f"[Sampling] Temperature: {opts.temperature}")
+        print(f"[Sampling] Top-p: {opts.top_p}")
+        print(f"[Sampling] Top-k: {opts.top_k}")
+        print(f"[Sampling] Softmax temperature: {opts.softmax_temp}")
+        print(f"[Sampling] Select best: {opts.select_best}")
+
+    if opts.method == "augment" or opts.method == "augment_dihedral_8":
+        print(f"[Augmentation] Number of augmentations: {opts.num_augment}")
+        print(f"[Augmentation] Force dihedral 8: {opts.force_dihedral_8}")
+
+    if opts.save_results:
+        print(f"Saving the results to: {opts.save_path}")
+    else:
+        print("[Warning] The result will not be saved!")
 
     # Init the environment
     env = get_env(opts.problem, generator_params=opts.generator_params)
 
     # Load the test data
     dataset = env.dataset(filename=opts.data_path)
+
+    # Restrict the instances of testing
+    dataset.data_len = min(opts.num_instances, len(dataset))
 
     # Load the model from checkpoint
     model_root = importlib.import_module("rl4co.models.zoo")
@@ -471,13 +501,13 @@ if __name__ == "__main__":
         samples=opts.samples,
         softmax_temp=opts.softmax_temp,
         num_augment=opts.num_augment,
-        select_best=True if opts.select_best == "True" else False,
-        force_dihedral_8=True if opts.force_dihedral_8 == "True" else False,
+        select_best=True,
+        force_dihedral_8=True,
     )
 
     # Save the results
-    if opts.save_results == "True":
-        if not os.path.exists(opts.save_path): 
+    if opts.save_results:
+        if not os.path.exists(opts.save_path):
             os.makedirs(opts.save_path)
         save_fname = f"{env.name}{env.generator.num_loc}-{opts.model}-{opts.method}-temp-{opts.temperature}-top_p-{opts.top_p}-top_k-{opts.top_k}.pkl"
         save_path = os.path.join(opts.save_path, save_fname)
