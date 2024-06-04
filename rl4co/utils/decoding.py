@@ -202,6 +202,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         mask_logits: Whether to mask logits of infeasible actions. Defaults to True.
         tanh_clipping: Tanh clipping (https://arxiv.org/abs/1611.09940). Defaults to 0.
         multistart: Whether to use multistart decoding. Defaults to False.
+        multisample: Whether to use sampling decoding. Defaults to False.
         num_starts: Number of starts for multistart decoding. Defaults to None.
     """
 
@@ -215,6 +216,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         mask_logits: bool = True,
         tanh_clipping: float = 0,
         multistart: bool = False,
+        multisample: bool = False,
         num_starts: Optional[int] = None,
         select_start_nodes_fn: Optional[callable] = None,
         improvement_method_mode: bool = False,
@@ -228,6 +230,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.mask_logits = mask_logits
         self.tanh_clipping = tanh_clipping
         self.multistart = multistart
+        self.multisample = multisample
         self.num_starts = num_starts
         self.select_start_nodes_fn = select_start_nodes_fn
         self.improvement_method_mode = improvement_method_mode
@@ -262,9 +265,13 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         """Pre decoding hook. This method is called before the main decoding operation."""
 
         # Multi-start decoding. If num_starts is None, we use the number of actions in the action mask
-        if self.multistart:
+        if self.multistart or self.multisample:
             if self.num_starts is None:
                 self.num_starts = env.get_num_starts(td)
+                if self.multisample:
+                    log.warn(
+                        f"num_starts is not provided for sampling, using num_starts={self.num_starts}"
+                    )
         else:
             if self.num_starts is not None:
                 if self.num_starts >= 1:
@@ -276,16 +283,16 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
 
         # Multi-start decoding: first action is chosen by ad-hoc node selection
         if self.num_starts >= 1:
-            if action is None:  # if action is provided, we use it as the first action
-                if self.select_start_nodes_fn is not None:
-                    action = self.select_start_nodes_fn(td, env, self.num_starts)
-                else:
-                    action = env.select_start_nodes(td, num_starts=self.num_starts)
+            if self.multistart:
+                if action is None:  # if action is provided, we use it as the first action
+                    if self.select_start_nodes_fn is not None:
+                        action = self.select_start_nodes_fn(td, env, self.num_starts)
+                    else:
+                        action = env.select_start_nodes(td, num_starts=self.num_starts)
 
-            # Expand td to batch_size * num_starts
-            td = batchify(td, self.num_starts)
+                # Expand td to batch_size * num_starts
+                td = batchify(td, self.num_starts)
 
-            if action is not None:
                 td.set("action", action)
                 td = env.step(td)["next"]
                 # first logprobs is 0, so p = logprobs.exp() = 1
@@ -296,6 +303,9 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
 
                 self.logprobs.append(logprobs)
                 self.actions.append(action)
+            else:
+                # Expand td to batch_size * num_samplestarts
+                td = batchify(td, self.num_starts)
 
         return td, env, self.num_starts
 
