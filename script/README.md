@@ -18,7 +18,9 @@ problem_names = vrplib.list_names(low=500, high=1003, vrp_type='cvrp')
 
 will restrict the size of the VRPLib instances to be evaluated. You can change the `low` and `high` values to restrict the size of the instances.
 
-The script will evaluate the trained model on the VRPLib instances and print the results.
+The script will evaluate the trained model on the VRPLib instances and print the results. Some parameters you could play with:
+
+- `num_augment`: number of augmented samples to evaluate the model. The default value is 1 (no augmentation).
 
 Example output:
 
