@@ -1,0 +1,30 @@
+2024-06-05 16:14:52.033 | INFO     | __main__:solve_baseline:63 - Load data from vrp100_val_seed4321.npz
+2024-06-05 16:14:52.044 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:14:52.044 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp100_val_seed4321.npz
+2024-06-05 16:15:38.982 | INFO     | __main__:solve_baseline:77 - Real runtime: 46.937888022046536
+2024-06-05 16:15:38.983 | INFO     | __main__:solve_baseline:79 - Average cost: -15.533096313476562
+2024-06-05 16:15:38.985 | INFO     | __main__:solve_baseline:63 - Load data from vrp20_val_seed4321.npz
+2024-06-05 16:15:38.988 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:15:38.988 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp20_val_seed4321.npz
+2024-06-05 16:16:25.848 | INFO     | __main__:solve_baseline:77 - Real runtime: 46.86019990197383
+2024-06-05 16:16:25.848 | INFO     | __main__:solve_baseline:79 - Average cost: -5.878820419311523
+2024-06-05 16:16:25.849 | INFO     | __main__:solve_baseline:63 - Load data from vrp20_test_seed1234.npz
+2024-06-05 16:16:25.851 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:16:25.851 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp20_test_seed1234.npz
+2024-06-05 16:18:16.071 | INFO     | __main__:solve_baseline:77 - Real runtime: 110.21949163684621
+2024-06-05 16:18:16.071 | INFO     | __main__:solve_baseline:79 - Average cost: -5.939349174499512
+2024-06-05 16:18:16.072 | INFO     | __main__:solve_baseline:63 - Load data from vrp50_test_seed1234.npz
+2024-06-05 16:18:16.077 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:18:16.077 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp50_test_seed1234.npz
+2024-06-05 16:19:03.208 | INFO     | __main__:solve_baseline:77 - Real runtime: 47.13056870899163
+2024-06-05 16:19:03.208 | INFO     | __main__:solve_baseline:79 - Average cost: -10.197227478027344
+2024-06-05 16:19:03.209 | INFO     | __main__:solve_baseline:63 - Load data from vrp50_val_seed4321.npz
+2024-06-05 16:19:03.214 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:19:03.214 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp50_val_seed4321.npz
+2024-06-05 16:19:50.111 | INFO     | __main__:solve_baseline:77 - Real runtime: 46.89745586598292
+2024-06-05 16:19:50.112 | INFO     | __main__:solve_baseline:79 - Average cost: -10.229366302490234
+2024-06-05 16:19:50.112 | INFO     | __main__:solve_baseline:63 - Load data from vrp100_test_seed1234.npz
+2024-06-05 16:19:50.123 | INFO     | __main__:solve_baseline:65 - Shorten data to 1000 instances
+2024-06-05 16:19:50.124 | INFO     | __main__:solve_baseline:67 - Run baseline for vrp100_test_seed1234.npz
+2024-06-05 16:20:37.274 | INFO     | __main__:solve_baseline:77 - Real runtime: 47.149824590887874
+2024-06-05 16:20:37.274 | INFO     | __main__:solve_baseline:79 - Average cost: -15.481929779052734

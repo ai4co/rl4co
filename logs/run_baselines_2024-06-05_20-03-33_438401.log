@@ -1,0 +1,21 @@
+2024-06-05 20:03:33.440 | INFO     | __main__:main:102 - Shorten all data to 1000 instances
+2024-06-05 20:03:33.440 | INFO     | __main__:main:105 - Running tsp
+2024-06-05 20:03:33.442 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp20_val_seed4321.npz
+2024-06-05 20:03:36.866 | INFO     | __main__:solve_baseline:89 - Real runtime: 3.4233147699851543
+2024-06-05 20:03:36.866 | INFO     | __main__:solve_baseline:91 - Average cost: -9.888611793518066
+2024-06-05 20:03:36.870 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp50_test_seed1234.npz
+2024-06-05 20:03:47.530 | INFO     | __main__:solve_baseline:89 - Real runtime: 10.65978363296017
+2024-06-05 20:03:47.530 | INFO     | __main__:solve_baseline:91 - Average cost: -25.567413330078125
+2024-06-05 20:03:47.535 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp50_val_seed4321.npz
+2024-06-05 20:03:58.921 | INFO     | __main__:solve_baseline:89 - Real runtime: 11.386405840050429
+2024-06-05 20:03:58.922 | INFO     | __main__:solve_baseline:91 - Average cost: -25.55243492126465
+2024-06-05 20:03:58.924 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp20_test_seed1234.npz
+2024-06-05 20:04:02.362 | INFO     | __main__:solve_baseline:89 - Real runtime: 3.4386110499035567
+2024-06-05 20:04:02.363 | INFO     | __main__:solve_baseline:91 - Average cost: -9.956069946289062
+2024-06-05 20:04:02.370 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp100_val_seed4321.npz
+2024-06-05 20:04:27.490 | INFO     | __main__:solve_baseline:89 - Real runtime: 25.120033401064575
+2024-06-05 20:04:27.490 | INFO     | __main__:solve_baseline:91 - Average cost: -51.58620834350586
+2024-06-05 20:04:27.498 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp100_test_seed1234.npz
+2024-06-05 20:04:52.422 | INFO     | __main__:solve_baseline:89 - Real runtime: 24.92407514108345
+2024-06-05 20:04:52.422 | INFO     | __main__:solve_baseline:91 - Average cost: -51.586551666259766
+2024-06-05 20:04:52.423 | INFO     | __main__:main:121 - Done.
