@@ -1,11 +1,14 @@
 # Install with local version. Need to run from root of repo
 .[graph]
 
-sphinx >6.0, <7.0
+docutils >=0.16, <0.20
+jinja2 >=3.0.0,<3.2.0
+lkh >=2.0.0
+loguru >= 0.7.2
 myst-parser ==2.0.0
 nbsphinx >=0.8.5, <=0.8.9
 pandoc >=1.0, <=2.3
-docutils >=0.16, <0.20
+sphinx >6.0, <7.0
 sphinxcontrib-fulltoc >=1.0, <=1.2.0
 sphinxcontrib-mockautodoc
 sphinx-autobuild
@@ -17,6 +20,5 @@ sphinx-multiproject
 sphinx-toolbox ==3.4.0
 sphinx-rtd-dark-mode
 sphinxcontrib-video ==0.2.0
-jinja2 >=3.0.0,<3.2.0
 sphinxcontrib.katex==0.8.6
 sphinx-collections==0.0.1
