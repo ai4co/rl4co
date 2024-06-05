@@ -1,0 +1,40 @@
+2024-06-05 20:29:28.563 | INFO     | __main__:main:102 - Shorten all data to 1000 instances
+2024-06-05 20:29:28.563 | INFO     | __main__:main:105 - Running tsp
+2024-06-05 20:29:28.566 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp20_val_seed4321.npz
+2024-06-05 20:29:32.035 | INFO     | __main__:solve_baseline:89 - Real runtime: 3.4693556390702724
+2024-06-05 20:29:32.035 | INFO     | __main__:solve_baseline:91 - Average cost: -9.888611793518066
+2024-06-05 20:29:32.040 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp50_test_seed1234.npz
+2024-06-05 20:29:42.831 | INFO     | __main__:solve_baseline:89 - Real runtime: 10.791200147010386
+2024-06-05 20:29:42.832 | INFO     | __main__:solve_baseline:91 - Average cost: -25.567413330078125
+2024-06-05 20:29:42.836 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp50_val_seed4321.npz
+2024-06-05 20:29:54.181 | INFO     | __main__:solve_baseline:89 - Real runtime: 11.345199614064768
+2024-06-05 20:29:54.182 | INFO     | __main__:solve_baseline:91 - Average cost: -25.55243492126465
+2024-06-05 20:29:54.184 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp20_test_seed1234.npz
+2024-06-05 20:29:57.643 | INFO     | __main__:solve_baseline:89 - Real runtime: 3.4592514699324965
+2024-06-05 20:29:57.644 | INFO     | __main__:solve_baseline:91 - Average cost: -9.956069946289062
+2024-06-05 20:29:57.651 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp100_val_seed4321.npz
+2024-06-05 20:30:22.812 | INFO     | __main__:solve_baseline:89 - Real runtime: 25.16137971286662
+2024-06-05 20:30:22.813 | INFO     | __main__:solve_baseline:91 - Average cost: -51.58620834350586
+2024-06-05 20:30:22.820 | INFO     | __main__:solve_baseline:76 - Run baseline for tsp100_test_seed1234.npz
+2024-06-05 20:30:47.739 | INFO     | __main__:solve_baseline:89 - Real runtime: 24.91889755590819
+2024-06-05 20:30:47.739 | INFO     | __main__:solve_baseline:91 - Average cost: -51.586551666259766
+2024-06-05 20:30:47.741 | INFO     | __main__:main:105 - Running vrp
+2024-06-05 20:30:47.751 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp100_val_seed4321.npz
+2024-06-05 20:31:34.769 | INFO     | __main__:solve_baseline:89 - Real runtime: 47.01747835520655
+2024-06-05 20:31:34.769 | INFO     | __main__:solve_baseline:91 - Average cost: -15.65693187713623
+2024-06-05 20:31:34.773 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp20_val_seed4321.npz
+2024-06-05 20:32:21.711 | INFO     | __main__:solve_baseline:89 - Real runtime: 46.93860716908239
+2024-06-05 20:32:21.712 | INFO     | __main__:solve_baseline:91 - Average cost: -6.1109771728515625
+2024-06-05 20:32:21.714 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp20_test_seed1234.npz
+2024-06-05 20:33:08.702 | INFO     | __main__:solve_baseline:89 - Real runtime: 46.987683308077976
+2024-06-05 20:33:08.702 | INFO     | __main__:solve_baseline:91 - Average cost: -6.159194469451904
+2024-06-05 20:33:08.708 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp50_test_seed1234.npz
+2024-06-05 20:33:55.710 | INFO     | __main__:solve_baseline:89 - Real runtime: 47.00217494787648
+2024-06-05 20:33:55.710 | INFO     | __main__:solve_baseline:91 - Average cost: -10.463261604309082
+2024-06-05 20:33:55.716 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp50_val_seed4321.npz
+2024-06-05 20:34:42.801 | INFO     | __main__:solve_baseline:89 - Real runtime: 47.08555004512891
+2024-06-05 20:34:42.802 | INFO     | __main__:solve_baseline:91 - Average cost: -10.352136611938477
+2024-06-05 20:34:42.811 | INFO     | __main__:solve_baseline:76 - Run baseline for vrp100_test_seed1234.npz
+2024-06-05 20:35:29.934 | INFO     | __main__:solve_baseline:89 - Real runtime: 47.12275775312446
+2024-06-05 20:35:29.935 | INFO     | __main__:solve_baseline:91 - Average cost: -15.782234191894531
+2024-06-05 20:35:29.936 | INFO     | __main__:main:121 - Done.

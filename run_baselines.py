@@ -91,7 +91,7 @@ def solve_baseline(
     logger.info(f"Average cost: {costs.mean()}")
     save_to_path = save_to_path if save_to_path else filepath
     np.savez(
-        f"{save_to_path}sol_{filename}_{dt.now()}.npz",
+        f"{save_to_path}sol_{filename}_{dt.now().strftime('%Y-%m-%d_%H-%M-%S')}.npz",
         actions=actions.numpy(),
         costs=costs.numpy(),
     )
