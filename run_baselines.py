@@ -14,15 +14,15 @@ from torch import Tensor
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.routing.cvrp.baselines.pyvrp import solve_instance as solve_pyvrp
 
-# from rl4co.envs.routing.pdp.baselines.lkh import solve as solve_lkh_pdp
+from rl4co.envs.routing.pdp.baselines.lkh import solve as solve_lkh_pdp
 from rl4co.envs.routing.tsp.baselines.lkh import solve as solve_lkh_tsp
 
 N_INSTANCES = 1_000
 
 baselines = {
-    # "pdp": solve_lkh_pdp,
+    "pdp": solve_lkh_pdp,
     "tsp": solve_lkh_tsp,
-    "vrp": solve_pyvrp,
+    # "vrp": solve_pyvrp,
 }
 
 
@@ -102,8 +102,8 @@ def main():
     logger.add("logs/run_baselines_{time}.log")
     logger.info(f"Shorten all data to {N_INSTANCES} instances.")
 
-    max_runtime = 120
-    num_procs = 32
+    max_runtime = 5
+    num_procs = 31
     logger.info(
         f"Start running baselines with {num_procs} processes and max_runtime={max_runtime}"
     )

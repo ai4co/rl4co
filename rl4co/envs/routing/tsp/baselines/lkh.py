@@ -32,7 +32,6 @@ def _scale(data: Tensor, scaling_factor: int):
 def solve(
     instance: TensorDict,
     max_runtime: float,
-    # num_runs: int,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an AnyVRP instance with OR-Tools.
@@ -52,7 +51,7 @@ def solve(
         A tuple consisting of the action and the cost, respectively.
     """
     problem = instance2problem(instance, LKH_SCALING_FACTOR)
-    action, cost = _solve(problem, max_runtime, NUM_RUNS)
+    action, cost = _solve(problem, max_runtime)
     cost /= -LKH_SCALING_FACTOR
 
     return action, cost
@@ -61,7 +60,6 @@ def solve(
 def _solve(
     problem: lkh.LKHProblem,
     max_runtime: float,
-    num_runs: int,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an instance with LKH3.
@@ -82,7 +80,7 @@ def _solve(
         solver=SOLVER_LOC,
         problem=problem,
         time_limit=max_runtime,
-        runs=num_runs,
+        runs=NUM_RUNS,
     )[0]
 
     cost = route2costs(route, problem)
@@ -176,5 +174,5 @@ def route2costs(route: list[list[int]], problem: lkh.LKHProblem) -> Tensor:
     """
     cost = 0
     for ii in range(len(route) - 1):
-        cost += problem.edge_weights[ii][ii + 1]
+        cost += problem.edge_weights[route[ii] - 1][route[ii + 1] - 1]
     return cost

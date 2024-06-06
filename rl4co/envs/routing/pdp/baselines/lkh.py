@@ -1,11 +1,19 @@
+import os
 import lkh
 import numpy as np
+import torch
 
 from tensordict import TensorDict
 from torch import Tensor
 
+from rl4co.envs.routing.tsp.baselines.lkh import NUM_RUNS
+from rl4co.utils.ops import get_distance_matrix
+
+cwd = os.getcwd()
 
 LKH_SCALING_FACTOR = 100_000
+MAX_RUNS = 100
+SOLVER_LOC = os.path.abspath(os.path.join(cwd, "../LKH-3.0.9/LKH"))
 
 
 def _scale(data: Tensor, scaling_factor: int):
@@ -25,8 +33,6 @@ def _scale(data: Tensor, scaling_factor: int):
 def solve(
     instance: TensorDict,
     max_runtime: float,
-    num_runs: int,
-    solver_loc: str,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an AnyVRP instance with OR-Tools.
@@ -48,7 +54,7 @@ def solve(
         A tuple consisting of the action and the cost, respectively.
     """
     problem = instance2problem(instance, LKH_SCALING_FACTOR)
-    action, cost = _solve(problem, max_runtime, num_runs, solver_loc)
+    action, cost = _solve(problem, max_runtime)
     cost /= -LKH_SCALING_FACTOR
 
     return action, cost
@@ -57,8 +63,6 @@ def solve(
 def _solve(
     problem: lkh.LKHProblem,
     max_runtime: float,
-    num_runs: int,
-    solver_loc: str,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an instance with LKH3.
@@ -77,15 +81,15 @@ def _solve(
     solver_loc
         The location of the LKH3 solver executable.
     """
-    routes, cost = lkh.solve(
-        solver_loc,
+    route = lkh.solve(
+        solver=SOLVER_LOC,
         problem=problem,
         time_limit=max_runtime,
-        runs=num_runs,
-    )
-
-    action = routes2action(routes)
-    return action, cost
+        runs=NUM_RUNS,
+    )[0]
+    route = route2actions(route)
+    cost = route2costs(route, problem)
+    return route, cost
 
 
 def instance2problem(
@@ -102,73 +106,35 @@ def instance2problem(
     scaling_factor
         The scaling factor to apply to the instance data.
     """
-    num_locations = instance["demand_linehaul"].size()[0]
+    num_locations = instance["locs"].size(0)
+
+    # available fields: depot, locs
+    locs = torch.cat((instance["depot"].unsqueeze(0), instance["locs"]), dim=0)
 
     # Data specifications
     specs = {}
-    specs["DIMENSION"] = num_locations
-    specs["CAPACITY"] = _scale(instance["vehicle_capacity"], scaling_factor)
-
-    if not np.isinf(distance_limit := instance["distance_limit"]).any():
-        specs["DISTANCE"] = _scale(distance_limit, scaling_factor)
+    specs["DIMENSION"] = num_locations + 1
 
     specs["EDGE_WEIGHT_TYPE"] = "EXPLICIT"
     specs["EDGE_WEIGHT_FORMAT"] = "FULL_MATRIX"
     specs["NODE_COORD_TYPE"] = "TWOD_COORDS"
 
-    # LKH can only solve VRP variants that are explicitly supported (so no
-    # arbitrary combinations between individual supported features). We can
-    # support some open variants with some modeling tricks.
     specs["TYPE"] = "PDTSP"
+
+    # pickups and deliveries
+    pdp_matrix = np.zeros((num_locations + 1, 6))
+    # pdp_matrix[:, 0] = np.arange(num_locations + 1) + 1  # Start from 1
+    pdp_matrix[1 : num_locations // 2 + 1, -2] = (
+        np.arange(num_locations // 2 + 1, num_locations + 1) + 1
+    )
+    pdp_matrix[num_locations // 2 + 1 :, -1] = np.arange(1, num_locations // 2 + 1) + 1
+    pdp_matrix = pdp_matrix.astype(int)
 
     # Data sections
     sections = {}
-    sections["NODE_COORD_SECTION"] = _scale(instance["locs"], scaling_factor)
-
-    demand_linehaul = _scale(instance["demand_linehaul"], scaling_factor)
-    demand_backhaul = _scale(instance["demand_backhaul"], scaling_factor)
-    sections["DEMAND_SECTION"] = demand_linehaul + demand_backhaul
-
-    time_windows = _scale(instance["time_windows"], scaling_factor)
-    sections["TIME_WINDOW_SECTION"] = time_windows
-
-    service_times = _scale(instance["durations"], scaling_factor)
-    sections["SERVICE_TIME_SECTION"] = service_times
-
-    distances = instance["cost_matrix"]
-    backhaul_class = instance["backhaul_class"]
-
-    if backhaul_class == 1:
-        # VRPB has a backhaul section that specifies the backhaul nodes.
-        backhaul_idcs = np.flatnonzero(instance["demand_backhaul"]).tolist()
-        sections["BACKHAUL_SECTION"] = backhaul_idcs + [-1]
-
-        # linehaul = np.flatnonzero(demand_linehaul > 0)
-        # backhaul = np.flatnonzero(demand_backhaul > 0)
-        # distances[np.ix_(backhaul, linehaul)] = time_windows.max()
-
-    elif backhaul_class == 2:
-        # VRPMPD has a pickup and delivery section that specifies the pickup
-        # and delivery quantities for each node, as well as the time windows.
-        # The regular time window section is redundant in this case.
-        data = [
-            [
-                0,  # dummy
-                time_windows[idx][0],
-                time_windows[idx][1],
-                service_times[idx],
-                demand_backhaul[idx],
-                demand_linehaul[idx],
-            ]
-            for idx in range(num_locations)
-        ]
-        sections["PICKUP_AND_DELIVERY_SECTION"] = data
-
-    if instance["open_route"]:
-        # Arcs to the depot are set to zero as vehicles don’t need to return.
-        distances[:, 0] = 0
-
-    sections["EDGE_WEIGHT_SECTION"] = _scale(distances, scaling_factor)
+    sections["NODE_COORD_SECTION"] = _scale(locs, scaling_factor)  # includes the depot
+    sections["PICKUP_AND_DELIVERY_SECTION"] = pdp_matrix
+    sections["EDGE_WEIGHT_SECTION"] = _scale(get_distance_matrix(locs), scaling_factor)
 
     # Convert to VRPLIB-like string.
     problem = "\n".join(f"{k} : {v}" for k, v in specs.items())
@@ -231,3 +197,17 @@ def routes2action(routes: list[list[int]]) -> list[int]:
     # LKH routes are 1-indexed, so we subtract 1 to get client indices.
     routes_ = [[client - 1 for client in route] for route in routes]
     return [visit for route in routes_ for visit in route + [0]]
+
+
+def route2actions(route: list[int]) -> list[int]:
+    return [1] + route + [1]
+
+
+def route2costs(route: list[list[int]], problem: lkh.LKHProblem) -> Tensor:
+    """
+    Computes the costs of a route.
+    """
+    cost = 0
+    for ii in range(len(route) - 1):
+        cost += problem.edge_weights[route[ii] - 1][route[ii + 1] - 1]
+    return cost
