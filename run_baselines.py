@@ -70,6 +70,7 @@ def solve_baseline(
     filename: str,
     save_to_path: str = None,
     num_procs: int = 24,
+    max_runtime: float = 1,
 ):
     data = load_npz_to_tensordict(f"{filepath}{filename}")
     instances = shorten_tensordict(data, N_INSTANCES)
@@ -82,7 +83,7 @@ def solve_baseline(
     actions, costs = solve_multipr(
         solver=baselines[baseline],
         instances=instances,
-        max_runtime=1,
+        max_runtime=max_runtime,
         num_procs=num_procs,
     )
     duration = timeit.default_timer() - start_time
@@ -99,7 +100,13 @@ def solve_baseline(
 
 def main():
     logger.add("logs/run_baselines_{time}.log")
-    logger.info(f"Shorten all data to {N_INSTANCES} instances")
+    logger.info(f"Shorten all data to {N_INSTANCES} instances.")
+
+    max_runtime = 120
+    num_procs = 32
+    logger.info(
+        f"Start running baselines with {num_procs} processes and max_runtime={max_runtime}"
+    )
 
     for name in baselines:
         logger.info(f"Running {name}")
@@ -116,7 +123,8 @@ def main():
                     filepath=data_filepath,
                     filename=filename,
                     save_to_path=sol_dir,
-                    num_procs=24,
+                    max_runtime=max_runtime,
+                    num_procs=num_procs,
                 )
     logger.info("Done.")
 
