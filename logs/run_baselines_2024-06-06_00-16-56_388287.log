@@ -1,0 +1,41 @@
+2024-06-06 00:16:56.390 | INFO     | __main__:main:103 - Shorten all data to 1000 instances.
+2024-06-06 00:16:56.390 | INFO     | __main__:main:107 - Start running baselines with 32 processes and max_runtime=120
+2024-06-06 00:16:56.390 | INFO     | __main__:main:112 - Running tsp
+2024-06-06 00:16:56.392 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp20_val_seed4321.npz
+2024-06-06 00:17:00.038 | INFO     | __main__:solve_baseline:90 - Real runtime: 3.6459926140960306
+2024-06-06 00:17:00.039 | INFO     | __main__:solve_baseline:92 - Average cost: -9.888611793518066
+2024-06-06 00:17:00.043 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp50_test_seed1234.npz
+2024-06-06 00:17:10.312 | INFO     | __main__:solve_baseline:90 - Real runtime: 10.268759068101645
+2024-06-06 00:17:10.312 | INFO     | __main__:solve_baseline:92 - Average cost: -25.567413330078125
+2024-06-06 00:17:10.317 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp50_val_seed4321.npz
+2024-06-06 00:17:20.588 | INFO     | __main__:solve_baseline:90 - Real runtime: 10.27062549488619
+2024-06-06 00:17:20.588 | INFO     | __main__:solve_baseline:92 - Average cost: -25.55243492126465
+2024-06-06 00:17:20.591 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp20_test_seed1234.npz
+2024-06-06 00:17:24.361 | INFO     | __main__:solve_baseline:90 - Real runtime: 3.769883784931153
+2024-06-06 00:17:24.361 | INFO     | __main__:solve_baseline:92 - Average cost: -9.956069946289062
+2024-06-06 00:17:24.369 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp100_val_seed4321.npz
+2024-06-06 00:17:46.113 | INFO     | __main__:solve_baseline:90 - Real runtime: 21.744381085038185
+2024-06-06 00:17:46.114 | INFO     | __main__:solve_baseline:92 - Average cost: -51.58620834350586
+2024-06-06 00:17:46.121 | INFO     | __main__:solve_baseline:77 - Run baseline for tsp100_test_seed1234.npz
+2024-06-06 00:18:07.321 | INFO     | __main__:solve_baseline:90 - Real runtime: 21.200074400985613
+2024-06-06 00:18:07.322 | INFO     | __main__:solve_baseline:92 - Average cost: -51.586551666259766
+2024-06-06 00:18:07.323 | INFO     | __main__:main:112 - Running vrp
+2024-06-06 00:18:07.332 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp100_val_seed4321.npz
+2024-06-06 01:22:11.393 | INFO     | __main__:solve_baseline:90 - Real runtime: 3844.0606351981405
+2024-06-06 01:22:11.393 | INFO     | __main__:solve_baseline:92 - Average cost: -15.498337745666504
+2024-06-06 01:22:11.396 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp20_val_seed4321.npz
+2024-06-06 02:26:16.772 | INFO     | __main__:solve_baseline:90 - Real runtime: 3845.375585983973
+2024-06-06 02:26:16.772 | INFO     | __main__:solve_baseline:92 - Average cost: -6.110899925231934
+2024-06-06 02:26:16.775 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp20_test_seed1234.npz
+2024-06-06 03:30:21.984 | INFO     | __main__:solve_baseline:90 - Real runtime: 3845.208548001945
+2024-06-06 03:30:21.984 | INFO     | __main__:solve_baseline:92 - Average cost: -6.1591644287109375
+2024-06-06 03:30:21.991 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp50_test_seed1234.npz
+2024-06-06 04:34:26.260 | INFO     | __main__:solve_baseline:90 - Real runtime: 3844.269553167047
+2024-06-06 04:34:26.261 | INFO     | __main__:solve_baseline:92 - Average cost: -10.449445724487305
+2024-06-06 04:34:26.266 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp50_val_seed4321.npz
+2024-06-06 05:38:30.410 | INFO     | __main__:solve_baseline:90 - Real runtime: 3844.143597222166
+2024-06-06 05:38:30.410 | INFO     | __main__:solve_baseline:92 - Average cost: -10.33922004699707
+2024-06-06 05:38:30.419 | INFO     | __main__:solve_baseline:77 - Run baseline for vrp100_test_seed1234.npz
+2024-06-06 06:42:34.351 | INFO     | __main__:solve_baseline:90 - Real runtime: 3843.9312214360107
+2024-06-06 06:42:34.351 | INFO     | __main__:solve_baseline:92 - Average cost: -15.609370231628418
+2024-06-06 06:42:34.352 | INFO     | __main__:main:129 - Done.
