@@ -74,12 +74,12 @@ def local_search(
         new_actions = [partial_func(*args) for args in zip(actions_np, positions_np, demands_np, distances_np)]
 
     # padding with zero
-    lengths = [len(act) for act in new_actions] + [actions_np.shape[1]]
+    lengths = [len(act) for act in new_actions]
     max_length = max(lengths)
     new_actions = np.array(
         [np.pad(act, (0, max_length - length), mode="constant") for act, length in zip(new_actions, lengths)]
     )
-    return torch.from_numpy(new_actions.astype(np.int64)).to(td.device)
+    return torch.from_numpy(new_actions[:, :-1].astype(np.int64)).to(td.device)  # We can remove the last zero
 
 
 def local_search_single(

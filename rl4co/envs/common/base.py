@@ -211,7 +211,13 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
         raise NotImplementedError
-    
+
+    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Replace selected current actions with updated actions based on `selection_mask`.
+        """
+        raise NotImplementedError
+
     def local_search(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         """Function to improve the solution. Can be called by the agent to improve the current state
         This is called with the full solution (i.e. all actions) at the end of the episode

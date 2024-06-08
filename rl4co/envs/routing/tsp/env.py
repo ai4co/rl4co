@@ -180,6 +180,18 @@ class TSPEnv(RL4COEnvBase):
         )
         return TensorDict({"locs": locs}, batch_size=batch_size)
 
+    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Replace selected current actions with updated actions based on `selection_mask`.
+
+        Args:
+            cur_actions [batch_size, num_loc]
+            new_actions [batch_size, num_loc]
+            selection_mask [batch_size,]
+        """
+        cur_actions[selection_mask] = new_actions[selection_mask]
+        return cur_actions
+
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         assert local_search is not None, "Cannot import local_search module. Check if `numba` is installed."

@@ -85,7 +85,7 @@ class AntSystem:
 
     @cached_property
     def heuristic_dist(self) -> torch.Tensor:
-        heuristic = self.log_heuristic.exp().detach().cpu()
+        heuristic = self.log_heuristic.exp().detach().cpu() + 1e-10
         heuristic_dist = 1 / (heuristic / heuristic.max(-1, keepdim=True)[0] + 1e-5)
         heuristic_dist[:, torch.arange(heuristic_dist.shape[1]), torch.arange(heuristic_dist.shape[2])] = 0
         return heuristic_dist
@@ -226,9 +226,9 @@ class AntSystem:
                 new_rewards = env.get_reward(td_cpu, new_actions)
 
                 improved_indices = new_rewards > best_rewards
-                best_actions[improved_indices] = new_actions[improved_indices]
+                best_actions = env.replace_selected_actions(best_actions, new_actions, improved_indices)
                 best_rewards[improved_indices] = new_rewards[improved_indices]
-        
+
         best_actions = best_actions.to(td.device)
         best_rewards = best_rewards.to(td.device)
 
