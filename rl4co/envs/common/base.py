@@ -212,17 +212,26 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
-    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+    def replace_selected_actions(
+        self,
+        cur_actions: torch.Tensor,
+        new_actions: torch.Tensor,
+        selection_mask: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Replace selected current actions with updated actions based on `selection_mask`.
         """
         raise NotImplementedError
 
-    def local_search(self, td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+    def local_search(
+        self, td: TensorDict, actions: torch.Tensor, **kwargs
+    ) -> torch.Tensor:
         """Function to improve the solution. Can be called by the agent to improve the current state
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
-        raise NotImplementedError(f"Local is not implemented yet for {self.name} environment")
+        raise NotImplementedError(
+            f"Local is not implemented yet for {self.name} environment"
+        )
 
     def dataset(self, batch_size=[], phase="train", filename=None):
         """Return a dataset of observations
@@ -287,6 +296,25 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
             return self
         else:
             return super().to(device)
+
+    @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+
+        Args:
+            instances: The instances to solve
+            max_runtime: The maximum runtime for the solver
+            num_procs: The number of processes to use
+
+        Returns:
+            A tuple containing the action and the cost, respectively
+        """
+        raise NotImplementedError
 
     def __getstate__(self):
         """Return the state of the environment. By default, we want to avoid pickling
