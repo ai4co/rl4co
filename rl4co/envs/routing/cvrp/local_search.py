@@ -1,28 +1,44 @@
 from functools import partial
 from multiprocessing import Pool
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import torch
+
+from pyvrp import (
+    Client,
+    CostEvaluator,
+    Depot,
+    ProblemData,
+    RandomNumberGenerator,
+    Solution,
+    VehicleType,
+)
+from pyvrp.search import (
+    NODE_OPERATORS,
+    ROUTE_OPERATORS,
+    LocalSearch,
+    NeighbourhoodParams,
+    compute_neighbours,
+)
 from tensordict.tensordict import TensorDict
 
 from rl4co.utils.ops import get_distance_matrix
 from rl4co.utils.pylogger import get_pylogger
 
-from pyvrp import Client, CostEvaluator, Depot, ProblemData, RandomNumberGenerator, Solution, VehicleType
-from pyvrp.search import LocalSearch, NODE_OPERATORS, ROUTE_OPERATORS, compute_neighbours, NeighbourhoodParams
-
 log = get_pylogger(__name__)
 
 
-C = 10**4  # Scaling factor for the data, to convert the float values to integers as required by PyVRP
+C = (
+    10**4
+)  # Scaling factor for the data, to convert the float values to integers as required by PyVRP
 
 
 def local_search(
     td: TensorDict,
     actions: torch.Tensor,
     max_trials: int = 10,
-    neighbourhood_params: dict | None = None,
+    neighbourhood_params: Union[dict, None] = None,
     load_penalty: float = 0.2,
     allow_infeasible_solution: bool = False,
     seed: int = 0,
@@ -69,17 +85,27 @@ def local_search(
 
     if num_workers > 1:
         with Pool(processes=num_workers) as pool:
-            new_actions = pool.starmap(partial_func, zip(actions_np, positions_np, demands_np, distances_np))
+            new_actions = pool.starmap(
+                partial_func, zip(actions_np, positions_np, demands_np, distances_np)
+            )
     else:
-        new_actions = [partial_func(*args) for args in zip(actions_np, positions_np, demands_np, distances_np)]
+        new_actions = [
+            partial_func(*args)
+            for args in zip(actions_np, positions_np, demands_np, distances_np)
+        ]
 
     # padding with zero
     lengths = [len(act) for act in new_actions]
     max_length = max(lengths)
     new_actions = np.array(
-        [np.pad(act, (0, max_length - length), mode="constant") for act, length in zip(new_actions, lengths)]
+        [
+            np.pad(act, (0, max_length - length), mode="constant")
+            for act, length in zip(new_actions, lengths)
+        ]
     )
-    return torch.from_numpy(new_actions[:, :-1].astype(np.int64)).to(td.device)  # We can remove the last zero
+    return torch.from_numpy(new_actions[:, :-1].astype(np.int64)).to(
+        td.device
+    )  # We can remove the last zero
 
 
 def local_search_single(
@@ -87,7 +113,7 @@ def local_search_single(
     positions: np.ndarray,
     demands: np.ndarray,
     distances: np.ndarray,
-    neighbourhood_params: dict | None = None,
+    neighbourhood_params: Union[dict, None] = None,
     allow_infeasible_solution: bool = False,
     load_penalty: float = 0.2,
     max_trials: int = 10,
@@ -101,7 +127,7 @@ def local_search_single(
         ls_operator,
         solution,
         int(load_penalty * C),  # * C as we scale the data in `make_data`
-        remaining_trials=max_trials
+        remaining_trials=max_trials,
     )
 
     # Return the original path if no feasible solution is found
@@ -109,11 +135,15 @@ def local_search_single(
         return path
 
     # Recover the path from the sub-routes in the solution
-    route_list = [idx for route in improved_solution.routes() for idx in [0] + route.visits()] + [0]
+    route_list = [
+        idx for route in improved_solution.routes() for idx in [0] + route.visits()
+    ] + [0]
     return np.array(route_list)
 
 
-def make_data(positions: np.ndarray, demands: np.ndarray, distances: np.ndarray) -> ProblemData:
+def make_data(
+    positions: np.ndarray, demands: np.ndarray, distances: np.ndarray
+) -> ProblemData:
     positions = (positions * C).astype(int)
     distances = (distances * C).astype(int)
 
@@ -122,11 +152,17 @@ def make_data(positions: np.ndarray, demands: np.ndarray, distances: np.ndarray)
 
     return ProblemData(
         clients=[
-            Client(x=pos[0], y=pos[1], delivery=d) for pos, d in zip(positions[1:], demands[1:])
+            Client(x=pos[0], y=pos[1], delivery=d)
+            for pos, d in zip(positions[1:], demands[1:])
         ],
         depots=[Depot(x=positions[0][0], y=positions[0][1])],
         vehicle_types=[
-            VehicleType(len(positions) - 1, capacity, 0, name=",".join(map(str, range(1, len(positions)))))
+            VehicleType(
+                len(positions) - 1,
+                capacity,
+                0,
+                name=",".join(map(str, range(1, len(positions)))),
+            )
         ],
         distance_matrix=distances,
         duration_matrix=np.zeros_like(distances),
@@ -135,13 +171,19 @@ def make_data(positions: np.ndarray, demands: np.ndarray, distances: np.ndarray)
 
 def make_solution(data: ProblemData, path: np.ndarray) -> Solution:
     # Split the paths into sub-routes by the zeros
-    routes = [arr[1:].tolist() for arr in np.split(path, np.where(path == 0)[0]) if len(arr) > 1]
+    routes = [
+        arr[1:].tolist() for arr in np.split(path, np.where(path == 0)[0]) if len(arr) > 1
+    ]
     return Solution(data, routes)
 
 
-def make_search_operator(data: ProblemData, seed=0, neighbourhood_params: dict | None = None) -> LocalSearch:
+def make_search_operator(
+    data: ProblemData, seed=0, neighbourhood_params: Union[dict, None] = None
+) -> LocalSearch:
     rng = RandomNumberGenerator(seed)
-    neighbours = compute_neighbours(data, NeighbourhoodParams(**(neighbourhood_params or {})))
+    neighbours = compute_neighbours(
+        data, NeighbourhoodParams(**(neighbourhood_params or {}))
+    )
     ls = LocalSearch(data, rng, neighbours)
     for node_op in NODE_OPERATORS:
         ls.add_node_operator(node_op(data))
@@ -151,9 +193,14 @@ def make_search_operator(data: ProblemData, seed=0, neighbourhood_params: dict |
 
 
 def perform_local_search(
-        ls_operator: LocalSearch, solution: Solution, load_penalty: int, remaining_trials: int = 5
-    ) -> Tuple[Solution, bool]:
-    cost_evaluator = CostEvaluator(load_penalty=load_penalty, tw_penalty=0, dist_penalty=0)
+    ls_operator: LocalSearch,
+    solution: Solution,
+    load_penalty: int,
+    remaining_trials: int = 5,
+) -> Tuple[Solution, bool]:
+    cost_evaluator = CostEvaluator(
+        load_penalty=load_penalty, tw_penalty=0, dist_penalty=0
+    )
     improved_solution = ls_operator(solution, cost_evaluator)
     remaining_trials -= 1
     if is_feasible := improved_solution.is_feasible() or remaining_trials == 0:
@@ -163,4 +210,6 @@ def perform_local_search(
     #       "This will slow down the search due to the repeated local search runs.")
 
     # If infeasible, run the local search again with a higher penalty
-    return perform_local_search(ls_operator, solution, load_penalty * 10, remaining_trials=remaining_trials)
+    return perform_local_search(
+        ls_operator, solution, load_penalty * 10, remaining_trials=remaining_trials
+    )
