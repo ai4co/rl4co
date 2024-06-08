@@ -33,7 +33,11 @@ class DeepACO(REINFORCE):
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
     def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int | None = None
+        self,
+        batch: Any,
+        batch_idx: int,
+        phase: str,
+        dataloader_idx: Union[int, None] = None,
     ):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
