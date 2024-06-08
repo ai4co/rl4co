@@ -7,3 +7,5 @@ generator_params:
   max_loc: 1
   min_num_agents: 3
   max_num_agents: 3
+  loc_distribution: uniform
+

@@ -172,11 +172,11 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
     def configure_optimizers(self, parameters=None):
         """
         Args:
-            parameters: parameters to be optimized. If None, will use `self.policy.parameters()
+            parameters: parameters to be optimized. If None, will use `self.parameters()`, i.e. all parameters
         """
 
         if parameters is None:
-            parameters = self.policy.parameters()
+            parameters = self.parameters()
 
         log.info(f"Instantiating optimizer <{self._optimizer_name_or_cls}>")
         if isinstance(self._optimizer_name_or_cls, str):

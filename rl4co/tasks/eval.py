@@ -161,22 +161,29 @@ class SamplingEval(EvalBase):
 
     name = "sampling"
 
-    def __init__(self, env, samples, softmax_temp=None, **kwargs):
+    def __init__(self, env, samples, softmax_temp=None, select_best=True, temperature=1.0, top_p=0.0, top_k=0, **kwargs):
         check_unused_kwargs(self, kwargs)
         super().__init__(env, kwargs.get("progress", True))
 
         self.samples = samples
         self.softmax_temp = softmax_temp
+        self.temperature = temperature
+        self.select_best = select_best
+        self.top_p = top_p
+        self.top_k = top_k
 
     def _inner(self, policy, td):
         out = policy(
             td.clone(),
             decode_type="sampling",
             num_starts=self.samples,
-            multistart=True,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            top_k=self.top_k,
+            multisample=True,
             return_actions=True,
             softmax_temp=self.softmax_temp,
-            select_best=True,
+            select_best=self.select_best,
             select_start_nodes_fn=lambda td, _, n: sample_n_random_actions(td, n),
         )
 
@@ -331,8 +338,10 @@ def evaluate_policy(
     max_batch_size=4096,
     start_batch_size=8192,
     auto_batch_size=True,
-    save_results=False,
-    save_fname="results.npz",
+    samples=1280,
+    softmax_temp=1.0,
+    num_augment=8,
+    force_dihedral_8=True,
     **kwargs,
 ):
     num_loc = getattr(env.generator, "num_loc", None)
@@ -341,7 +350,7 @@ def evaluate_policy(
         "greedy": {"func": GreedyEval, "kwargs": {}},
         "sampling": {
             "func": SamplingEval,
-            "kwargs": {"samples": 100, "softmax_temp": 1.0},
+            "kwargs": {"samples": samples, "softmax_temp": softmax_temp},
         },
         "multistart_greedy": {
             "func": GreedyMultiStartEval,
@@ -349,20 +358,20 @@ def evaluate_policy(
         },
         "augment_dihedral_8": {
             "func": AugmentationEval,
-            "kwargs": {"num_augment": 8, "force_dihedral_8": True},
+            "kwargs": {"num_augment": num_augment, "force_dihedral_8": force_dihedral_8},
         },
-        "augment": {"func": AugmentationEval, "kwargs": {"num_augment": 8}},
+        "augment": {"func": AugmentationEval, "kwargs": {"num_augment": num_augment}},
         "multistart_greedy_augment_dihedral_8": {
             "func": GreedyMultiStartAugmentEval,
             "kwargs": {
-                "num_augment": 8,
-                "force_dihedral_8": True,
+                "num_augment": num_augment,
+                "force_dihedral_8": force_dihedral_8,
                 "num_starts": num_loc,
             },
         },
         "multistart_greedy_augment": {
             "func": GreedyMultiStartAugmentEval,
-            "kwargs": {"num_augment": 8, "num_starts": num_loc},
+            "kwargs": {"num_augment": num_augment, "num_starts": num_loc},
         },
     }
 
@@ -397,9 +406,110 @@ def evaluate_policy(
     # Run evaluation
     retvals = eval_fn(policy, dataloader)
 
-    # Save results
-    if save_results:
-        print("Saving results to {}".format(save_fname))
-        np.savez(save_fname, **retvals)
-
     return retvals
+
+
+if __name__ == "__main__":
+    import os
+    import pickle
+    import argparse
+    import importlib
+    import torch
+    from rl4co.envs import get_env
+
+    parser = argparse.ArgumentParser()
+
+    # Environment
+    parser.add_argument("--problem", type=str, default="tsp", help="Problem to solve")
+    parser.add_argument("--generator-params", type=dict, default={"num_loc": 50}, help="Generator parameters for the environment")
+    parser.add_argument("--data-path", type=str, default="data/tsp/tsp50_test_seed1234.npz", help="Path of the test data npz file")
+
+    # Model
+    parser.add_argument("--model", type=str, default="AttentionModel", help="The class name of the valid model")
+    parser.add_argument("--ckpt-path", type=str, default="checkpoints/am-tsp50.ckpt", help="The path of the checkpoint file")
+    parser.add_argument("--device", type=str, default="cuda:1", help="Device to run the evaluation")
+
+    # Evaluation
+    parser.add_argument("--method", type=str, default="greedy", help="Evaluation method, support 'greedy', 'sampling',\
+                        'multistart_greedy', 'augment_dihedral_8', 'augment', 'multistart_greedy_augment_dihedral_8',\
+                        'multistart_greedy_augment'")
+    parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling")
+    parser.add_argument("--top-p", type=float, default=0.0, help="Top-p for sampling, from 0.0 to 1.0, 0.0 means not activated")
+    parser.add_argument("--top-k", type=int, default=0, help="Top-k for sampling")
+    parser.add_argument("--select-best", default=True, action=argparse.BooleanOptionalAction, help="During sampling, whether to select the best action, use --no-select_best to disable")
+    parser.add_argument("--save-results", default=True, action=argparse.BooleanOptionalAction, help="Whether to save the evaluation results")
+    parser.add_argument("--save-path", type=str, default="results", help="The root path to save the results")
+    parser.add_argument("--num-instances", type=int, default=1000, help="Number of instances to test, maximum 10000")
+
+    parser.add_argument("--samples", type=int, default=1280, help="Number of samples for sampling method")
+    parser.add_argument("--softmax-temp", type=float, default=1.0, help="Temperature for softmax in the sampling method")
+    parser.add_argument("--num-augment", type=int, default=8, help="Number of augmentations for augmentation method")
+    parser.add_argument("--force-dihedral-8", default=True, action=argparse.BooleanOptionalAction, help="Force the use of 8 augmentations for augmentation method")
+
+    opts = parser.parse_args()
+
+    # Log the evaluation setting information
+    print(f"Problem: {opts.problem}-{opts.generator_params['num_loc']}")
+    print(f"Model: {opts.model}")
+    print(f"Loading test instances from: {opts.data_path}")
+    print(f"Loading model checkpoint from: {opts.ckpt_path}")
+    print(f"Using the device: {opts.device}")
+    print(f"Evaluation method: {opts.method}")
+    print(f"Number of instances to test: {opts.num_instances}")
+
+    if opts.method == "sampling":
+        print(f"[Sampling] Number of samples: {opts.samples}")
+        print(f"[Sampling] Temperature: {opts.temperature}")
+        print(f"[Sampling] Top-p: {opts.top_p}")
+        print(f"[Sampling] Top-k: {opts.top_k}")
+        print(f"[Sampling] Softmax temperature: {opts.softmax_temp}")
+        print(f"[Sampling] Select best: {opts.select_best}")
+
+    if opts.method == "augment" or opts.method == "augment_dihedral_8":
+        print(f"[Augmentation] Number of augmentations: {opts.num_augment}")
+        print(f"[Augmentation] Force dihedral 8: {opts.force_dihedral_8}")
+
+    if opts.save_results:
+        print(f"Saving the results to: {opts.save_path}")
+    else:
+        print("[Warning] The result will not be saved!")
+
+    # Init the environment
+    env = get_env(opts.problem, generator_params=opts.generator_params)
+
+    # Load the test data
+    dataset = env.dataset(filename=opts.data_path)
+
+    # Restrict the instances of testing
+    dataset.data_len = min(opts.num_instances, len(dataset))
+
+    # Load the model from checkpoint
+    model_root = importlib.import_module("rl4co.models.zoo")
+    model_cls = getattr(model_root, opts.model)
+    model = model_cls.load_from_checkpoint(opts.ckpt_path, load_baseline=False)
+    model = model.to(opts.device)
+
+    # Evaluate
+    result = evaluate_policy(
+        env=env,
+        policy=model.policy,
+        dataset=dataset,
+        method=opts.method,
+        temperature=opts.temperature,
+        top_p=opts.top_p,
+        top_k=opts.top_k,
+        samples=opts.samples,
+        softmax_temp=opts.softmax_temp,
+        num_augment=opts.num_augment,
+        select_best=True,
+        force_dihedral_8=True,
+    )
+
+    # Save the results
+    if opts.save_results:
+        if not os.path.exists(opts.save_path):
+            os.makedirs(opts.save_path)
+        save_fname = f"{env.name}{env.generator.num_loc}-{opts.model}-{opts.method}-temp-{opts.temperature}-top_p-{opts.top_p}-top_k-{opts.top_k}.pkl"
+        save_path = os.path.join(opts.save_path, save_fname)
+        with open(save_path, "wb") as f:
+            pickle.dump(result, f)

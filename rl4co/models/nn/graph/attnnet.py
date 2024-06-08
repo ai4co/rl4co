@@ -4,6 +4,8 @@ import torch.nn as nn
 
 from torch import Tensor
 
+from rl4co.models.nn.mlp import MLP
+from rl4co.models.nn.moe import MoE
 from rl4co.models.nn.attention import MultiHeadAttention
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
@@ -20,6 +22,7 @@ class MultiHeadAttentionLayer(nn.Sequential):
         feedforward_hidden: dimension of the hidden layer in the feed-forward layer
         normalization: type of normalization to use (batch, layer, none)
         sdpa_fn: scaled dot product attention function (SDPA)
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -28,20 +31,22 @@ class MultiHeadAttentionLayer(nn.Sequential):
         num_heads: int = 8,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        bias: bool = True,
         sdpa_fn: Optional[Callable] = None,
+        moe_kwargs: Optional[dict] = None,
     ):
+        num_neurons = [feedforward_hidden] if feedforward_hidden > 0 else []
+        if moe_kwargs is not None:
+            ffn = MoE(embed_dim, embed_dim, num_neurons=num_neurons, **moe_kwargs)
+        else:
+            ffn = MLP(input_dim=embed_dim, output_dim=embed_dim, num_neurons=num_neurons, hidden_act="ReLU")
+
         super(MultiHeadAttentionLayer, self).__init__(
-            SkipConnection(MultiHeadAttention(embed_dim, num_heads, sdpa_fn=sdpa_fn)),
-            Normalization(embed_dim, normalization),
             SkipConnection(
-                nn.Sequential(
-                    nn.Linear(embed_dim, feedforward_hidden),
-                    nn.ReLU(),
-                    nn.Linear(feedforward_hidden, embed_dim),
-                )
-                if feedforward_hidden > 0
-                else nn.Linear(embed_dim, embed_dim)
+                MultiHeadAttention(embed_dim, num_heads, bias=bias, sdpa_fn=sdpa_fn)
             ),
+            Normalization(embed_dim, normalization),
+            SkipConnection(ffn),
             Normalization(embed_dim, normalization),
         )
 
@@ -57,6 +62,7 @@ class GraphAttentionNetwork(nn.Module):
         normalization: type of normalization to use (batch, layer, none)
         feedforward_hidden: dimension of the hidden layer in the feed-forward layer
         sdpa_fn: scaled dot product attention function (SDPA)
+        moe_kwargs: Keyword arguments for MoE
     """
 
     def __init__(
@@ -67,6 +73,7 @@ class GraphAttentionNetwork(nn.Module):
         normalization: str = "batch",
         feedforward_hidden: int = 512,
         sdpa_fn: Optional[Callable] = None,
+        moe_kwargs: Optional[dict] = None,
     ):
         super(GraphAttentionNetwork, self).__init__()
 
@@ -78,6 +85,7 @@ class GraphAttentionNetwork(nn.Module):
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
                     sdpa_fn=sdpa_fn,
+                    moe_kwargs=moe_kwargs,
                 )
                 for _ in range(num_layers)
             )

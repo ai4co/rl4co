@@ -30,7 +30,9 @@ class AttentionModelPolicy(AutoregressivePolicy):
         dynamic_embedding: Module to use for the dynamic embedding
         use_graph_context: Whether to use the graph context
         linear_bias_decoder: Whether to use a bias in the linear layer of the decoder
-        sdpa_fn: Function to use for the scaled dot product attention
+        sdpa_fn_encoder: Function to use for the scaled dot product attention in the encoder
+        sdpa_fn_decoder: Function to use for the scaled dot product attention in the decoder
+        sdpa_fn: (deprecated) Function to use for the scaled dot product attention
         mask_inner: Whether to mask the inner product
         out_bias_pointer_attn: Whether to use a bias in the pointer attention
         check_nan: Whether to check for nan values during decoding
@@ -40,6 +42,9 @@ class AttentionModelPolicy(AutoregressivePolicy):
         train_decode_type: Type of decoding to use during training
         val_decode_type: Type of decoding to use during validation
         test_decode_type: Type of decoding to use during testing
+        moe_kwargs: Keyword arguments for MoE,
+            e.g., {"encoder": {"hidden_act": "ReLU", "num_experts": 4, "k": 2, "noisy_gating": True},
+                   "decoder": {"light_version": True, ...}}
     """
 
     def __init__(
@@ -59,6 +64,8 @@ class AttentionModelPolicy(AutoregressivePolicy):
         use_graph_context: bool = True,
         linear_bias_decoder: bool = False,
         sdpa_fn: Callable = None,
+        sdpa_fn_encoder: Callable = None,
+        sdpa_fn_decoder: Callable = None,
         mask_inner: bool = True,
         out_bias_pointer_attn: bool = False,
         check_nan: bool = True,
@@ -68,6 +75,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
+        moe_kwargs: dict = {"encoder": None, "decoder": None},
         **unused_kwargs,
     ):
         if encoder is None:
@@ -80,7 +88,8 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
                 init_embedding=init_embedding,
-                sdpa_fn=sdpa_fn,
+                sdpa_fn=sdpa_fn if sdpa_fn_encoder is None else sdpa_fn_encoder,
+                moe_kwargs=moe_kwargs["encoder"],
             )
 
         if decoder is None:
@@ -90,12 +99,13 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
-                sdpa_fn=sdpa_fn,
+                sdpa_fn=sdpa_fn if sdpa_fn_decoder is None else sdpa_fn_decoder,
                 mask_inner=mask_inner,
                 out_bias_pointer_attn=out_bias_pointer_attn,
                 linear_bias=linear_bias_decoder,
                 use_graph_context=use_graph_context,
                 check_nan=check_nan,
+                moe_kwargs=moe_kwargs["decoder"],
             )
 
         super(AttentionModelPolicy, self).__init__(

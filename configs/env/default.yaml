@@ -3,4 +3,4 @@ name: tsp
 
 generator_params:
   num_loc: 20
-  distribution: uniform
+  loc_distribution: uniform

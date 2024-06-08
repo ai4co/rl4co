@@ -3,6 +3,7 @@ name: op
 
 generator_params:
   num_loc: 20
+  loc_distribution: uniform
 
 data_dir: ${paths.root_dir}/data/op
 val_file: op_const${env.generator_params.num_loc}_val_seed4321.npz

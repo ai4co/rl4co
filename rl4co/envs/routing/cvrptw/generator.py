@@ -21,6 +21,7 @@ class CVRPTWGenerator(CVRPGenerator):
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates, default is 150 insted of 1.0, will be scaled
         loc_distribution: distribution for the location coordinates
+        depot_distribution: distribution for the depot location. If None, sample the depot from the locations
         min_demand: minimum value for the demand of each customer
         max_demand: maximum value for the demand of each customer
         demand_distribution: distribution for the demand of each customer
@@ -48,7 +49,7 @@ class CVRPTWGenerator(CVRPGenerator):
         ] = Uniform,
         depot_distribution: Union[
             int, float, str, type, Callable
-        ] = Uniform,
+        ] = None,
         min_demand: int = 1,
         max_demand: int = 10,
         demand_distribution: Union[

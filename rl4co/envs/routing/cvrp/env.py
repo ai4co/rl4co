@@ -137,27 +137,23 @@ class CVRPEnv(RL4COEnvBase):
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
-        exceeds_cap = (
-            td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
-        )
+        exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
 
         # Nodes that cannot be visited are already visited or too much demand to be served now
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
 
         # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[:, None]
+        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[
+            :, None
+        ]
         return ~torch.cat((mask_depot, mask_loc), -1)
 
-    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> TensorDict:
-        # Gather dataset in order of tour
-        batch_size = td["locs"].shape[0]
-        depot = td["locs"][..., 0:1, :]
+    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+        # Gather locations in order of tour (add depot since we start and end there)
         locs_ordered = torch.cat(
             [
-                depot,
-                gather_by_index(td["locs"], actions).reshape(
-                    [batch_size, actions.size(-1), 2]
-                ),
+                td["locs"][..., 0:1, :],  # depot
+                gather_by_index(td["locs"], actions),  # order locations
             ],
             dim=1,
         )
@@ -258,5 +254,5 @@ class CVRPEnv(RL4COEnvBase):
         return local_search(td, actions, **kwargs)
 
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)

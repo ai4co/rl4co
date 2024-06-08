@@ -25,7 +25,7 @@ model:
   val_data_size: 10_000
   test_data_size: 10_000
   optimizer_kwargs:
-    lr: 1e-4
+    lr: 1e-6
     weight_decay: 0
   lr_scheduler:
     "MultiStepLR"

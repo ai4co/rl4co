@@ -187,3 +187,26 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
 
         # Return latent representation (i.e. heatmap logits) and initial embeddings
         return heatmap_logits, node_embed
+
+
+class NARGNNNodeEncoder(NARGNNEncoder):
+    """In this case, we just use the node embeddings from the graph
+    without transforming them into a heatmap.
+    """
+
+    def forward(self, td: TensorDict):
+        # Transfer to embedding space
+        node_embed = self.init_embedding(td)
+        graph = self.edge_embedding(td, node_embed)
+
+        # Process embedding into graph
+        # TODO: standardize?
+        graph.x, graph.edge_attr = self.graph_network(
+            graph.x, graph.edge_index, graph.edge_attr
+        )
+
+        proc_embeds = graph.x
+        batch_size = node_embed.shape[0]
+        # reshape proc_embeds from [bs*n, h] to [bs, n, h]
+        proc_embeds = proc_embeds.reshape(batch_size, -1, proc_embeds.shape[1])
+        return proc_embeds, node_embed
