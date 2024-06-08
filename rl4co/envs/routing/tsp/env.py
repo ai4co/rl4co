@@ -15,9 +15,10 @@ from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import TSPGenerator
+
 try:
     from .local_search import local_search
-except:
+except ImportError:
     # In case some dependencies are not installed (e.g., numba)
     local_search = None
 from .render import render, render_improvement
@@ -171,16 +172,12 @@ class TSPEnv(RL4COEnvBase):
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 
-    def generate_data(self, batch_size) -> TensorDict:
-        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
-        locs = (
-            torch.rand((*batch_size, self.num_loc, 2), generator=self.rng)
-            * (self.max_loc - self.min_loc)
-            + self.min_loc
-        )
-        return TensorDict({"locs": locs}, batch_size=batch_size)
-
-    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+    def replace_selected_actions(
+        self,
+        cur_actions: torch.Tensor,
+        new_actions: torch.Tensor,
+        selection_mask: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Replace selected current actions with updated actions based on `selection_mask`.
 
@@ -194,13 +191,14 @@ class TSPEnv(RL4COEnvBase):
 
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
-        assert local_search is not None, "Cannot import local_search module. Check if `numba` is installed."
+        assert (
+            local_search is not None
+        ), "Cannot import local_search module. Check if `numba` is installed."
         return local_search(td, actions, **kwargs)
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)
-
 
 
 class TSPkoptEnv(ImprovementEnvBase):
@@ -549,6 +547,7 @@ class TSPkoptEnv(ImprovementEnvBase):
         solution_current = cls.get_current_solution(td)
         solution_best = cls.get_best_solution(td)
         return render_improvement(td, solution_current, solution_best)
+
 
 class DenseRewardTSPEnv(TSPEnv):
     """
