@@ -13,11 +13,39 @@ version = {attr = "rl4co.__version__"}
 name = "rl4co"
 readme = "README.md"
 
-description = "RL4CO: a Unified Reinforcement Learning for Combinatorial Optimization Library"
+
+description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
     {name = "Federico Berto", email = "berto.federico2@gmail.com"},
     {name = "Chuanbo Hua", email="cbhua@kaist.ac.kr"},
     {name = "Junyoung Park", email="junyoungpark.ml@gmail.com"},
+    {name = "Laurin Luttmann", email="laurin.luttmann@gmail.com"},
+    {name = "Yining Ma"},
+    {name = "Fanchen Bu"},
+    {name = "Jiarui Wang"},
+    {name = "Haoran Ye"},
+    {name = "Minsu Kim"},
+    {name = "Sanghyeok Choi"},
+    {name = "Zepeda Gast"},
+    {name = "Andre Hottung"},
+    {name = "Jianan Zhou"},
+    {name = "Jieyi Bi"},
+    {name = "Yu Hu"},
+    {name = "Fei Liu"},
+    {name = "Hyeonah Kim"},
+    {name = "Jiwoo Son"},
+    {name = "Haeyeon Kim"},
+    {name = "Davide Angioni"},
+    {name = "Wouter Kool"},
+    {name = "Zhiguang Cao"},
+    {name = "Jie Zhang"},
+    {name = "Kijung Shin"},
+    {name = "Cathy Wu"},
+    {name = "Sungsoo Ahn"},
+    {name = "Guojie Song"},
+    {name = "Changhyun Kwon"},
+    {name = "Lin Xie"},
+    {name = "Jinkyoo Park"},
   ]
 dynamic = ["version"]
 
