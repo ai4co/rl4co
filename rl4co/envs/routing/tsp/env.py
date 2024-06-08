@@ -15,6 +15,11 @@ from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import TSPGenerator
+try:
+    from .local_search import local_search
+except:
+    # In case some dependencies are not installed (e.g., numba)
+    local_search = None
 from .render import render, render_improvement
 
 log = get_pylogger(__name__)
@@ -148,7 +153,7 @@ class TSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.bool)
 
-    def _get_reward(self, td, actions) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         if self.check_solution:
             self.check_solution_validity(td, actions)
 
@@ -157,7 +162,7 @@ class TSPEnv(RL4COEnvBase):
         return -get_tour_length(locs_ordered)
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that solution is valid: nodes are visited exactly once"""
         assert (
             torch.arange(actions.size(1), out=actions.data.new())
@@ -165,6 +170,32 @@ class TSPEnv(RL4COEnvBase):
             .expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
+
+    def generate_data(self, batch_size) -> TensorDict:
+        batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
+        locs = (
+            torch.rand((*batch_size, self.num_loc, 2), generator=self.rng)
+            * (self.max_loc - self.min_loc)
+            + self.min_loc
+        )
+        return TensorDict({"locs": locs}, batch_size=batch_size)
+
+    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Replace selected current actions with updated actions based on `selection_mask`.
+
+        Args:
+            cur_actions [batch_size, num_loc]
+            new_actions [batch_size, num_loc]
+            selection_mask [batch_size,]
+        """
+        cur_actions[selection_mask] = new_actions[selection_mask]
+        return cur_actions
+
+    @staticmethod
+    def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
+        assert local_search is not None, "Cannot import local_search module. Check if `numba` is installed."
+        return local_search(td, actions, **kwargs)
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):

@@ -168,7 +168,7 @@ class OPEnv(RL4COEnvBase):
         action_mask[..., 0] = 1
         return action_mask
 
-    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """Reward is the sum of the prizes of visited nodes"""
         # In case all tours directly return to depot, prevent further problems
         if actions.size(-1) == 1:
@@ -182,7 +182,7 @@ class OPEnv(RL4COEnvBase):
     @staticmethod
     def check_solution_validity(
         td: TensorDict, actions: torch.Tensor, add_distance_to_depot: bool = True
-    ):
+    ) -> None:
         """Check that solution is valid: nodes are not visited twice except depot and capacity is not exceeded.
         If `add_distance_to_depot` if True, then the distance to the depot is added to max length since by default, the max length is
         modified in the reset function to account for the distance to the depot.

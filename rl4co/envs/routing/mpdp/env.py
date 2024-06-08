@@ -296,7 +296,7 @@ class MPDPEnv(RL4COEnvBase):
         action_mask = mask_loc == 0  # action_mask gets feasible actions
         return action_mask
 
-    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         # Calculate the reward (negative tour length)
         if self.objective == "minmax":
             return -td["lengths"].max(dim=-1, keepdim=True)[0].squeeze(-1)
@@ -306,7 +306,7 @@ class MPDPEnv(RL4COEnvBase):
             raise ValueError(f"Unknown objective {self.objective}")
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         assert True, "Not implemented"
 
     def _make_spec(self, generator: MPDPGenerator):

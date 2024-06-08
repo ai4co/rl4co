@@ -183,7 +183,7 @@ class PCTSPEnv(RL4COEnvBase):
         return saved_penalty.sum(-1) - (length + td["penalty"][..., 1:].sum(-1))
 
     @staticmethod
-    def check_solution_validity(td: TensorDict, actions: torch.Tensor):
+    def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that the solution is valid, i.e. contains all nodes once at most, and either prize constraint is met or all nodes are visited"""
 
         # Check that tours are valid, i.e. contain 0 to n -1

@@ -59,7 +59,7 @@ dependencies = [
 graph = ["torch_geometric"]
 testing = ["pytest", "pytest-cov"]
 dev = ["black", "ruff", "pre-commit>=3.3.3"]
-routing = ["vrplib>=1.3.0"]
+routing = ["numba>=0.58.1", "pyvrp>=0.8.2"]
 
 [project.urls]
 "Homepage" = "https://github.com/ai4co/rl4co"
