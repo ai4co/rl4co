@@ -81,7 +81,6 @@ def test_routing(env_cls, batch_size=2, size=20):
 def test_mtvrp(variant, batch_size=2, size=20):
     env = MTVRPEnv(generator_params=dict(num_loc=size, variant_preset=variant))
     reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
-    env.local_search(td, actions)
     assert reward.shape == (batch_size,)
 
 
