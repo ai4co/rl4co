@@ -1,5 +1,3 @@
-import os
-
 import lkh
 import numpy as np
 
@@ -8,50 +6,31 @@ from torch import Tensor
 
 from rl4co.utils.ops import get_distance_matrix
 
-cwd = os.getcwd()
+from .utils import _scale
 
 LKH_SCALING_FACTOR = 100_000
-NUM_RUNS = 100
-SOLVER_LOC = os.path.abspath(os.path.join(cwd, "../LKH-3.0.9/LKH"))
-
-
-def _scale(data: Tensor, scaling_factor: int):
-    """
-    Scales ands rounds data to integers so PyVRP can handle it.
-    """
-    array = (data * scaling_factor).numpy().round()
-    array = np.where(array == np.inf, np.iinfo(np.int32).max, array)
-    array = array.astype(int)
-
-    if array.size == 1:
-        return array.item()
-
-    return array
 
 
 def solve(
     instance: TensorDict,
     max_runtime: float,
+    solver_loc: str,
+    num_runs: int = 1,
 ) -> tuple[Tensor, Tensor]:
     """
-    Solves an AnyVRP instance with OR-Tools.
+    Solves instance with LKH3.
 
-    Parameters
-    ----------
-    instance
-        The AnyVRP instance to solve.
-    max_runtime
-        The maximum runtime for the solver.
-    num_runs
-        The number of runs to perform and returns the best result.
+    Args:
+        instance: The PDP instance to solve.
+        max_runtime: The maximum runtime for the solver.
+        solver_loc: The location of the LKH3 solver executable.
+        num_runs: The number of runs to perform and returns the best result.
 
-    Returns
-    -------
-    tuple[Tensor, Tensor]
-        A tuple consisting of the action and the cost, respectively.
+    Returns:
+        A tuple containing the action and the cost, respectively.
     """
     problem = instance2problem(instance, LKH_SCALING_FACTOR)
-    action, cost = _solve(problem, max_runtime)
+    action, cost = _solve(problem, max_runtime, num_runs, solver_loc)
     cost /= -LKH_SCALING_FACTOR
 
     return action, cost
@@ -60,31 +39,31 @@ def solve(
 def _solve(
     problem: lkh.LKHProblem,
     max_runtime: float,
+    num_runs: int,
+    solver_loc: str,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an instance with LKH3.
 
-    Parameters
-    ----------
-    problem
-        The LKHProblem instance.
-    max_runtime
-        The maximum runtime for each solver run.
-    num_runs
-        The number of runs to perform and returns the best result.
-        Note: Each run uses a different initial solution. LKH has difficulty
-        finding feasible solutions, so performing more runs can help to find
-        solutions that are feasible.
+    Args:
+        problem: The LKHProblem instance.
+        max_runtime: The maximum runtime for each solver run.
+        num_runs: The number of runs to perform and returns the best result.
+        solver_loc: The location of the LKH3 solver executable.
+
+    Returns:
+        A tuple containing the action and the cost, respectively.
     """
-    route = lkh.solve(
-        solver=SOLVER_LOC,
+    routes, cost = lkh.solve(
+        solver_loc,
         problem=problem,
         time_limit=max_runtime,
-        runs=NUM_RUNS,
-    )[0]
+        runs=num_runs,
+    )
 
-    cost = route2costs(route, problem)
-    return route, cost
+    action = routes2actions(routes)
+    cost = route2costs(routes, problem)
+    return action, cost
 
 
 def instance2problem(
@@ -94,13 +73,14 @@ def instance2problem(
     """
     Converts an AnyVRP instance to an LKHProblem instance.
 
-    Parameters
-    ----------
-    instance
-        The AnyVRP instance to convert.
-    scaling_factor
-        The scaling factor to apply to the instance data.
+    Args:
+        instance: The AnyVRP instance to convert.
+        scaling_factor: The scaling factor to apply to the instance data.
+
+    Returns:
+        The LKHProblem instance.
     """
+
     # tensordict only has field locs
     num_locations = instance["locs"].size(0)
 
@@ -139,22 +119,21 @@ def _format(name: str, data) -> str:
     """
     Formats a data section.
 
-    Parameters
-    ----------
-    name
-        The name of the section.
-    data
-        The data to be formatted.
+    Args:
+        name: The name of the section.
+        data: The data to be formatted.
 
-    Returns
-    -------
-    str
+    Returns:
         A VRPLIB-formatted data section.
     """
     section = [name]
-    include_idx = name not in ["EDGE_WEIGHT_SECTION"]
+    include_idx = name not in ["EDGE_WEIGHT_SECTION", "BACKHAUL_SECTION"]
 
-    if _is_1D(data):
+    if name == "BACKHAUL_SECTION":
+        # Treat backhaul section as row vector.
+        section.append("\t".join(str(val) for val in data))
+
+    elif _is_1D(data):
         # Treat 1D arrays as column vectors, so each element is a row.
         for idx, elt in enumerate(data, 1):
             prefix = f"{idx}\t" if include_idx else ""
@@ -166,6 +145,17 @@ def _format(name: str, data) -> str:
             section.append(prefix + rest)
 
     return "\n".join(section)
+
+
+def routes2actions(routes: list[list[int]]) -> list[int]:
+    """
+    Converts LKH routes to an action.
+    """
+    # LKH routes are location-indexed, which in turn are 1-indexed. The first
+    # location is always the depot, so we subtract 2 to get client indices.
+    # LKH routes are 1-indexed, so we subtract 1 to get client indices.
+    routes_ = [[client - 1 for client in route] for route in routes]
+    return [visit for route in routes_ for visit in route]
 
 
 def route2costs(route: list[list[int]], problem: lkh.LKHProblem) -> Tensor:

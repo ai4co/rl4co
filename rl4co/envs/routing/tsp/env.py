@@ -197,6 +197,21 @@ class TSPEnv(RL4COEnvBase):
         return local_search(td, actions, **kwargs)
 
     @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        solver: str = "lkh",
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+        Available solvers are: `lkh`. Returns the actions and costs.
+        """
+        from .baselines.solve import solve
+
+        return solve(instances, max_runtime, num_procs, solver, **kwargs)
+
+    @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)
 
@@ -520,16 +535,16 @@ class TSPkoptEnv(ImprovementEnvBase):
                 mask[(visited_time_tag <= visited_time_tag.gather(1, action))] = True
                 if i == 0:
                     mask[visited_time_tag > (gs - 2)] = True
-                mask[
-                    stopped, action[stopped].squeeze()
-                ] = False  # allow next k-opt starts immediately
+                mask[stopped, action[stopped].squeeze()] = (
+                    False  # allow next k-opt starts immediately
+                )
                 # if True:#i == self.k_max - 2: # allow special case: close k-opt at the first selected node
                 index_allow_first_node = (~stopped) & (
                     next_of_new_action.squeeze() == action_index[:, 0]
                 )
-                mask[
-                    index_allow_first_node, action_index[index_allow_first_node, 0]
-                ] = False
+                mask[index_allow_first_node, action_index[index_allow_first_node, 0]] = (
+                    False
+                )
 
                 # Move to next
                 next_of_last_action = next_of_new_action
