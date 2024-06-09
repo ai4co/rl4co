@@ -1,4 +1,3 @@
-import os
 import lkh
 import numpy as np
 import torch
@@ -6,55 +5,33 @@ import torch
 from tensordict import TensorDict
 from torch import Tensor
 
-from rl4co.envs.routing.tsp.baselines.lkh import NUM_RUNS
 from rl4co.utils.ops import get_distance_matrix
 
-cwd = os.getcwd()
+from .utils import _scale
 
 LKH_SCALING_FACTOR = 100_000
-MAX_RUNS = 100
-SOLVER_LOC = os.path.abspath(os.path.join(cwd, "../LKH-3.0.9/LKH"))
-
-
-def _scale(data: Tensor, scaling_factor: int):
-    """
-    Scales ands rounds data to integers so PyVRP can handle it.
-    """
-    array = (data * scaling_factor).numpy().round()
-    array = np.where(array == np.inf, np.iinfo(np.int32).max, array)
-    array = array.astype(int)
-
-    if array.size == 1:
-        return array.item()
-
-    return array
 
 
 def solve(
     instance: TensorDict,
     max_runtime: float,
+    solver_loc: str,
+    num_runs: int = 1,
 ) -> tuple[Tensor, Tensor]:
     """
-    Solves an AnyVRP instance with OR-Tools.
+    Solves instance with LKH3.
 
-    Parameters
-    ----------
-    instance
-        The AnyVRP instance to solve.
-    max_runtime
-        The maximum runtime for the solver.
-    num_runs
-        The number of runs to perform and returns the best result.
-    solver_loc
-        The location of the LKH3 solver executable.
+    Args:
+        instance: The PDP instance to solve.
+        max_runtime: The maximum runtime for the solver.
+        solver_loc: The location of the LKH3 solver executable.
+        num_runs: The number of runs to perform and returns the best result.
 
-    Returns
-    -------
-    tuple[Tensor, Tensor]
-        A tuple consisting of the action and the cost, respectively.
+    Returns:
+        A tuple containing the action and the cost, respectively.
     """
     problem = instance2problem(instance, LKH_SCALING_FACTOR)
-    action, cost = _solve(problem, max_runtime)
+    action, cost = _solve(problem, max_runtime, num_runs, solver_loc)
     cost /= -LKH_SCALING_FACTOR
 
     return action, cost
@@ -63,33 +40,31 @@ def solve(
 def _solve(
     problem: lkh.LKHProblem,
     max_runtime: float,
+    num_runs: int,
+    solver_loc: str,
 ) -> tuple[Tensor, Tensor]:
     """
     Solves an instance with LKH3.
 
-    Parameters
-    ----------
-    problem
-        The LKHProblem instance.
-    max_runtime
-        The maximum runtime for each solver run.
-    num_runs
-        The number of runs to perform and returns the best result.
-        Note: Each run uses a different initial solution. LKH has difficulty
-        finding feasible solutions, so performing more runs can help to find
-        solutions that are feasible.
-    solver_loc
-        The location of the LKH3 solver executable.
+    Args:
+        problem: The LKHProblem instance.
+        max_runtime: The maximum runtime for each solver run.
+        num_runs: The number of runs to perform and returns the best result.
+        solver_loc: The location of the LKH3 solver executable.
+
+    Returns:
+        A tuple containing the action and the cost, respectively.
     """
-    route = lkh.solve(
-        solver=SOLVER_LOC,
+    routes, cost = lkh.solve(
+        solver_loc,
         problem=problem,
         time_limit=max_runtime,
-        runs=NUM_RUNS,
-    )[0]
-    route = route2actions(route)
-    cost = route2costs(route, problem)
-    return route, cost
+        runs=num_runs,
+    )
+
+    action = routes2actions(routes)
+    cost = route2costs(routes, problem)
+    return action, cost
 
 
 def instance2problem(
@@ -99,17 +74,22 @@ def instance2problem(
     """
     Converts an AnyVRP instance to an LKHProblem instance.
 
-    Parameters
-    ----------
-    instance
-        The AnyVRP instance to convert.
-    scaling_factor
-        The scaling factor to apply to the instance data.
-    """
-    num_locations = instance["locs"].size(0)
+    Args:
+        instance: The AnyVRP instance to convert.
+        scaling_factor: The scaling factor to apply to the instance data.
 
-    # available fields: depot, locs
-    locs = torch.cat((instance["depot"].unsqueeze(0), instance["locs"]), dim=0)
+    Returns:
+        The LKHProblem instance.
+    """
+
+    # If we have action_mask, then env has been reset
+    if "action_mask" in instance:
+        num_locations = instance["locs"].size(0) - 1  # exclude depot
+        locs = instance["locs"]
+    else:
+        num_locations = instance["locs"].size(0)
+        # available fields: depot, locs
+        locs = torch.cat((instance["depot"][None], instance["locs"]), dim=0)
 
     # Data specifications
     specs = {}
@@ -124,10 +104,10 @@ def instance2problem(
     # pickups and deliveries
     pdp_matrix = np.zeros((num_locations + 1, 6))
     # pdp_matrix[:, 0] = np.arange(num_locations + 1) + 1  # Start from 1
-    pdp_matrix[1 : num_locations // 2 + 1, -2] = (
+    pdp_matrix[1 : num_locations // 2 + 1, -1] = (
         np.arange(num_locations // 2 + 1, num_locations + 1) + 1
     )
-    pdp_matrix[num_locations // 2 + 1 :, -1] = np.arange(1, num_locations // 2 + 1) + 1
+    pdp_matrix[num_locations // 2 + 1 :, -2] = np.arange(1, num_locations // 2 + 1) + 1
     pdp_matrix = pdp_matrix.astype(int)
 
     # Data sections
@@ -155,16 +135,11 @@ def _format(name: str, data) -> str:
     """
     Formats a data section.
 
-    Parameters
-    ----------
-    name
-        The name of the section.
-    data
-        The data to be formatted.
+    Args:
+        name: The name of the section.
+        data: The data to be formatted.
 
-    Returns
-    -------
-    str
+    Returns:
         A VRPLIB-formatted data section.
     """
     section = [name]
@@ -188,7 +163,7 @@ def _format(name: str, data) -> str:
     return "\n".join(section)
 
 
-def routes2action(routes: list[list[int]]) -> list[int]:
+def routes2actions(routes: list[list[int]]) -> list[int]:
     """
     Converts LKH routes to an action.
     """
@@ -196,11 +171,7 @@ def routes2action(routes: list[list[int]]) -> list[int]:
     # location is always the depot, so we subtract 2 to get client indices.
     # LKH routes are 1-indexed, so we subtract 1 to get client indices.
     routes_ = [[client - 1 for client in route] for route in routes]
-    return [visit for route in routes_ for visit in route + [0]]
-
-
-def route2actions(route: list[int]) -> list[int]:
-    return [1] + route + [1]
+    return [visit for route in routes_ for visit in route] + [0]
 
 
 def route2costs(route: list[list[int]], problem: lkh.LKHProblem) -> Tensor:

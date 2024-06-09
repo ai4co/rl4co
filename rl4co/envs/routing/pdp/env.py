@@ -230,6 +230,21 @@ class PDPEnv(RL4COEnvBase):
         return selected
 
     @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        solver: str = "lkh",
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+        Available solvers are: `lkh`. Returns the actions and costs.
+        """
+        from .baselines.solve import solve
+
+        return solve(instances, max_runtime, num_procs, solver, **kwargs)
+
+    @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)
 
