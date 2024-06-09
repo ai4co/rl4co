@@ -7,7 +7,7 @@ url: https://github.com/ai4co/rl4co
 
 preferred-citation:
   type: conference-paper
-  title: "RL4CO: a Unified Reinforcement Learning for Combinatorial Optimization Library"
+  title: "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
   authors:
     - family-names: Berto
       given-names: Federico
@@ -15,20 +15,64 @@ preferred-citation:
       given-names: Chuanbo
     - family-names: Park
       given-names: Junyoung
+    - family-names: Luttmann
+      given-names: Laurin
+    - family-names: Ma
+      given-names: Yining
+    - family-names: Bu
+      given-names: Fanchen
+    - family-names: Wang
+      given-names: Jiarui
+    - family-names: Ye
+      given-names: Haoran
     - family-names: Kim
       given-names: Minsu
+    - family-names: Choi
+      given-names: Sanghyeok
+    - family-names: Gast
+      given-names: Zepeda
+    - family-names: Hottung
+      given-names: André
+    - family-names: Zhou
+      given-names: Jianan
+    - family-names: Bi
+      given-names: Jieyi
+    - family-names: Hu
+      given-names: Yu
+    - family-names: Liu
+      given-names: Fei
     - family-names: Kim
       given-names: Hyeonah
     - family-names: Son
       given-names: Jiwoo
     - family-names: Kim
       given-names: Haeyeon
-    - family-names: Kim
-      given-names: Joungho
+    - family-names: Angioni
+      given-names: Davide
+    - family-names: Kool
+      given-names: Wouter
+    - family-names: Cao
+      given-names: Zhiguang
+    - family-names: Zhang
+      given-names: Jie
+    - family-names: Shin
+      given-names: Kijung
+    - family-names: Wu
+      given-names: Cathy
+    - family-names: Ahn
+      given-names: Sungsoo
+    - family-names: Song
+      given-names: Guojie
+    - family-names: Kwon
+      given-names: Changhyun
+    - family-names: Xie
+      given-names: Lin
     - family-names: Park
       given-names: Jinkyoo
+
+
   collection-title: arXiv
-  year: 2023
+  year: 2024
   url: https://arxiv.org/abs/2306.17100
 
 

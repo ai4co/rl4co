@@ -147,7 +147,7 @@ class ATSPEnv(RL4COEnvBase):
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
 
-    def _get_reward(self, td, actions) -> TensorDict:
+    def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         distance_matrix = td["cost_matrix"]
 
         # Get indexes of tour edges
