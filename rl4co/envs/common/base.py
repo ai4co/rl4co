@@ -8,7 +8,7 @@ import torch
 from tensordict.tensordict import TensorDict
 from torchrl.envs import EnvBase
 
-from rl4co.data.dataset import TensorDictDataset
+from rl4co.data.dataset import FastTdDataset
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.utils.ops import get_num_starts, select_start_nodes
 from rl4co.utils.pylogger import get_pylogger
@@ -52,7 +52,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         val_dataloader_names: list = None,
         test_dataloader_names: list = None,
         check_solution: bool = True,
-        dataset_cls: callable = TensorDictDataset,
+        dataset_cls: callable = FastTdDataset,
         seed: int = None,
         device: str = "cpu",
         batch_size: torch.Size = None,

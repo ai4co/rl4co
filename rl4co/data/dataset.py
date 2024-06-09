@@ -6,6 +6,27 @@ from tensordict.tensordict import TensorDict
 from torch.utils.data import Dataset
 
 
+class FastTdDataset(Dataset):
+    """
+    Note:
+        Check out the issue on tensordict for more details:
+        https://github.com/pytorch-labs/tensordict/issues/374.
+    """
+
+    def __init__(self, td: TensorDict):
+        self.data_len = td.batch_size[0]
+        self.data = td
+
+    def __len__(self):
+        return self.data_len
+
+    def __getitems__(self, idx):
+        return self.data[idx]
+
+    def add_key(self, key, value):
+        return ExtraKeyDataset(self, value, key_name=key)
+
+
 class TensorDictDataset(Dataset):
     """Dataset compatible with TensorDicts with low CPU usage.
     Fast loading but somewhat slow instantiation due to list comprehension since we
