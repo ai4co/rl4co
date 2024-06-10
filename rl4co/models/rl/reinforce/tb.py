@@ -103,7 +103,8 @@ class TB(REINFORCE):
         # Main loss function
         
         forward_flow = log_likelihood + policy_out["log_z"].view(-1)
-        backward_flow = self.gfn_cfg["beta"] * (reward - bl_val) + math.log(1/(2*td["locs"].size(1)))
+        backward_flow = self.gfn_cfg["beta"] * (reward - bl_val) + policy_out["log_pb"]
+        # backward_flow = self.gfn_cfg["beta"] * (reward - bl_val) + math.log(1/(2*td["locs"].size(1)))
         # import pdb; pdb.set_trace()
         
         tb_loss = torch.pow(forward_flow-backward_flow, 2).mean()
@@ -135,11 +136,11 @@ class TB_offline(RL4COLitModule):
         self,
         env: RL4COEnvBase,
         policy: nn.Module,
-        baseline: Union[REINFORCEBaseline, str] = "rollout",
+        baseline: Union[REINFORCEBaseline, str] = "no",
         baseline_kwargs: dict = {},
-        beta: int = 1,
+        beta: int = 50,
         gfn_epochs: int = 2,
-        mini_batch_size: Union[int, float] = 0.25,
+        mini_batch_size: Union[int, float] = 1.,
         **kwargs,
     ):
         super().__init__(env, policy, **kwargs)

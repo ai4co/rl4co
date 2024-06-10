@@ -4,6 +4,10 @@ import torch
 import torch.nn as nn
 from tensordict import TensorDict
 
+import math
+import scipy
+import numpy as np
+
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.utils.decoding import (
     DecodingStrategy,
@@ -235,12 +239,36 @@ class AttentionGFNModelPolicy(AutoregressivePolicy):
         if calc_reward:
             td.set("reward", env.get_reward(td, actions))
             
+        # import pdb; pdb.set_trace()
+        if env.name in ['tsp', 'pctsp']:
+            pb_uniform = (1/(2*torch.ones(td["reward"].shape).to(td.device) * actions.size(1))).log()
+        elif env.name == 'cvrp':  # roughly (propto 1/k!)
+            def calculate_log_pb_uniform(paths: torch.Tensor):
+                # paths.shape: (batch, max_tour_length)
+                # paths are start with 0 and end with 0
+
+                _pi1 = paths.detach().cpu().numpy()
+                # shape: (batch, max_tour_length)
+
+                n_nodes = np.count_nonzero(_pi1, axis=1)
+                _pi2 = _pi1[:, 1:] - _pi1[:, :-1]
+                n_routes = np.count_nonzero(_pi2, axis=1) - n_nodes
+                _pi3 = _pi1[:, 2:] - _pi1[:, :-2]
+                n_multinode_routes = np.count_nonzero(_pi3, axis=1) - n_nodes
+                log_b_p = - scipy.special.gammaln(n_routes + 1) - n_multinode_routes * math.log(2)
+
+                return torch.from_numpy(log_b_p).to(paths.device)
+            pb_uniform = calculate_log_pb_uniform(actions)
+            # k = torch.count_nonzero(actions==0, dim=1) + 1
+            # pb_uniform = - (torch.lgamma(k))
+            
         outdict = {
             "reward": td["reward"],
             "log_likelihood": get_log_likelihood(
                 logprobs, actions, td.get("mask", None), return_sum_log_likelihood
             ),
             "log_z": logZ,
+            "log_pb": pb_uniform,
         }
 
         if return_actions:
