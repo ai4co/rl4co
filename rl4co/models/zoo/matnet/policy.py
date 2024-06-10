@@ -96,15 +96,15 @@ class MultiStageFFSPPolicy(nn.Module):
     def __init__(
         self,
         stage_cnt: int,
-        embed_dim: int = 256,
+        embed_dim: int = 512,
         num_heads: int = 16,
-        num_encoder_layers: int = 3,
+        num_encoder_layers: int = 5,
         use_graph_context: bool = False,
         normalization: str = "instance",
         feedforward_hidden: int = 512,
         bias: bool = False,
         train_decode_type: str = "sampling",
-        val_decode_type: str = "sampling",  # authors report better results for sampling
+        val_decode_type: str = "sampling",
         test_decode_type: str = "sampling",
     ):
         super().__init__()
@@ -136,8 +136,9 @@ class MultiStageFFSPPolicy(nn.Module):
         self.test_decode_type = test_decode_type
 
     def pre_forward(self, td: TensorDict, env: FFSPEnv, num_starts: int):
+        run_time_list = td["run_time"].chunk(env.num_stage, dim=-1)
         for stage_idx in range(self.stage_cnt):
-            td["cost_matrix"] = td["run_time"][:, :, :, stage_idx]
+            td["cost_matrix"] = run_time_list[stage_idx]
             encoder = self.encoders[stage_idx]
             embeddings, _ = encoder(td)
             decoder = self.decoders[stage_idx]
@@ -171,36 +172,36 @@ class MultiStageFFSPPolicy(nn.Module):
 
         # NOTE: this must come after pre_forward due to batchify op
         batch_size = td.size(0)
-        prob_list = torch.zeros(size=(batch_size, 0), device=device)
+        logp_list = torch.zeros(size=(batch_size, 0), device=device)
         action_list = []
 
         while not td["done"].all():
             action_stack = torch.empty(
                 size=(batch_size, self.stage_cnt), dtype=torch.long, device=device
             )
-            prob_stack = torch.empty(size=(batch_size, self.stage_cnt), device=device)
+            logp_stack = torch.empty(size=(batch_size, self.stage_cnt), device=device)
 
             for stage_idx in range(self.stage_cnt):
                 decoder = self.decoders[stage_idx]
-                action, prob = decoder(td, decode_type, num_starts, **decoder_kwargs)
+                action, logp = decoder(td, decode_type, num_starts, **decoder_kwargs)
                 action_stack[:, stage_idx] = action
-                prob_stack[:, stage_idx] = prob
+                logp_stack[:, stage_idx] = logp
 
             gathering_index = td["stage_idx"][:, None]
             # shape: (batch, 1)
             action = action_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
-            prob = prob_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
+            logp = logp_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
             # shape: (batch)
             action_list.append(action)
             # transition
             td.set("action", action)
             td = env.step(td)["next"]
 
-            prob_list = torch.cat((prob_list, prob[:, None]), dim=1)
+            logp_list = torch.cat((logp_list, logp[:, None]), dim=1)
 
         out = {
             "reward": td["reward"],
-            "log_likelihood": prob_list.log().sum(1),
+            "log_likelihood": logp_list.sum(1),
         }
 
         if return_actions:

@@ -26,6 +26,11 @@ class FastTdDataset(Dataset):
     def add_key(self, key, value):
         return ExtraKeyDataset(self, value, key_name=key)
 
+    @staticmethod
+    def collate_fn(batch: Union[dict, TensorDict]):
+        """Collate function compatible with TensorDicts that reassembles a list of dicts."""
+        return batch
+
 
 class TensorDictDataset(Dataset):
     """Dataset compatible with TensorDicts with low CPU usage.
