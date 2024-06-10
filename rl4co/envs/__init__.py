@@ -28,6 +28,9 @@ from rl4co.envs.routing import (
 from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, SMTWTPEnv
 from rl4co.envs.scheduling.jssp.env import JSSPEnv
 
+# Graph
+from rl4co.envs.graph import MCPEnv, FLPEnv
+
 # Register environments
 ENV_REGISTRY = {
     "atsp": ATSPEnv,
@@ -51,6 +54,8 @@ ENV_REGISTRY = {
     "mdcpdp": MDCPDPEnv,
     "mtvrp": MTVRPEnv,
     "tsp_kopt": TSPkoptEnv,
+    "mcp": MCPEnv,
+    "flp": FLPEnv,
 }
 
 
