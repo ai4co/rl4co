@@ -1,27 +1,27 @@
+import torch
 import numpy as np
 import pyvrp as pyvrp
-import torch
 
-from loguru import logger
-from pyvrp import Client, Depot, ProblemData, VehicleType, solve as _solve
-from pyvrp.stop import MaxRuntime
+from torch import Tensor
 from tensordict.tensordict import TensorDict
+from pyvrp.stop import MaxRuntime
+from pyvrp import Client, Depot, ProblemData, VehicleType, solve as _solve
 
 from rl4co.utils.ops import get_distance_matrix
+
+from .utils import scale
 
 PYVRP_SCALING_FACTOR = 1_000
 
 
-def solve_instance(
-    instance: TensorDict, max_runtime: float
-) -> tuple[torch.Tensor, torch.Tensor]:
+def solve(instance: TensorDict, max_runtime: float, **kwargs) -> tuple[Tensor, Tensor]:
     """
-    Solves the AnyVRP instance with PyVRP.
+    Solves the CVRP instance with PyVRP.
 
     Parameters
     ----------
     instance
-        The AnyVRP instance to solve.
+        The CVRP instance to solve.
     max_runtime
         Maximum runtime for the solver.
 
@@ -41,28 +41,14 @@ def solve_instance(
     return action, cost
 
 
-def _scale(data: torch.Tensor, scaling_factor: int):
-    """
-    Scales ands rounds data to integers so PyVRP can handle it.
-    """
-    array = (data * scaling_factor).numpy().round()
-    array = np.where(array == np.inf, np.iinfo(np.int32).max, array)
-    array = array.astype(int)
-
-    if array.size == 1:
-        return array.item()
-
-    return array
-
-
 def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
     """
-    Converts an AnyVRP instance to a ProblemData instance.
+    Converts an CVRP instance to a ProblemData instance.
 
     Parameters
     ----------
     instance
-        The AnyVRP instance to convert.
+        The CVRP instance to convert.
 
     Returns
     -------
@@ -71,13 +57,13 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
     """
     num_locs = instance["demand"].size()[0]
 
-    locs = torch.cat((instance["depot"].unsqueeze(0), instance["locs"]), dim=0)
+    locs = instance["locs"]
 
-    coords = _scale(locs, scaling_factor)
-    matrix = _scale(get_distance_matrix(locs), scaling_factor)
+    coords = scale(locs, scaling_factor)
+    matrix = scale(get_distance_matrix(locs), scaling_factor)
 
-    capacity = _scale(instance["capacity"], scaling_factor)
-    demand = _scale(instance["demand"], scaling_factor)
+    capacity = scale(instance["vehicle_capacity"], scaling_factor)
+    demand = scale(instance["demand"], scaling_factor)
     depot = Depot(
         x=coords[0][0],
         y=coords[0][1],

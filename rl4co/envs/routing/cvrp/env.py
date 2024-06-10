@@ -249,6 +249,21 @@ class CVRPEnv(RL4COEnvBase):
         return cur_actions
 
     @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        solver: str = "pyvrp",
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+        Available solvers are: `pyvrp, ortools, lkh`. Returns the actions and costs.
+        """
+        from .baselines.solve import solve
+
+        return solve(instances, max_runtime, num_procs, solver, **kwargs)
+
+    @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         assert local_search is not None, "Cannot import local_search module. Check if `pyvrp` is installed."
         return local_search(td, actions, **kwargs)
