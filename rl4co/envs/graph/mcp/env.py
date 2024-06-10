@@ -11,7 +11,6 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.data.dataset import TensorDictDataset
 from rl4co.data.utils import load_npz_to_tensordict
 
-from pyg_bipartite import BipartiteData
 from torch_geometric.data import Batch, Data
 
 from rl4co.utils.ops import gather_by_index
@@ -127,7 +126,7 @@ class MCPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:                                
+    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         self.to(td.device)
 
         return TensorDict(
@@ -136,7 +135,7 @@ class MCPEnv(RL4COEnvBase):
                 "orig_membership": td["membership"],  # (batch_size, n_sets, max_size)
                 "membership": td["membership"],  # (batch_size, n_sets, max_size)
                 "orig_weights": td["weights"],  # (batch_size, n_items)
-                "weights": td["weights"],  # (batch_size, n_items)                
+                "weights": td["weights"],  # (batch_size, n_items)
                 "n_sets_to_choose": td["n_sets_to_choose"],  # (batch_size, 1)
                 # states changed by actions
                 "chosen": torch.zeros(
@@ -159,7 +158,7 @@ class MCPEnv(RL4COEnvBase):
     def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         if self.check_solution:
             self.check_solution_validity(td, actions)
-        
+
         membership = td[
             "orig_membership"
         ]  # (batch_size, n_sets, max_size); membership[i, j] = the items in set j in batch i (with 0 padding)
@@ -203,4 +202,3 @@ class MCPEnv(RL4COEnvBase):
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)
-    
