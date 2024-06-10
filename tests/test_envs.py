@@ -26,6 +26,8 @@ from rl4co.envs import (
     SPCTSPEnv,
     SVRPEnv,
     TSPEnv,
+    FLPEnv,
+    MCPEnv,
 )
 from rl4co.utils.decoding import random_policy, rollout
 
@@ -131,6 +133,13 @@ def test_jssp_lb(env_cls):
 
     lb_expected = torch.tensor([[1, 5, 3, 7]], dtype=torch.float32)
     assert torch.allclose(td["lbs"], lb_expected)
+
+
+@pytest.mark.parametrize("env_cls", [FLPEnv, MCPEnv])
+def test_flp_mcp(env_cls, batch_size=2):
+    env = env_cls()
+    reward, td, actions = rollout(env, env.reset(batch_size=[batch_size]), random_policy)
+    assert reward.shape == (batch_size,)
 
 
 def test_scheduling_dataloader():
