@@ -165,3 +165,15 @@ class FLPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         # TODO: local search
         pass
+    
+    @staticmethod
+    def get_num_starts(td):
+        return td["action_mask"].shape[-1]
+
+    @staticmethod
+    def select_start_nodes(td, num_starts):
+        num_loc = td["action_mask"].shape[-1]
+        return (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc
+        )
