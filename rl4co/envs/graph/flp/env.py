@@ -19,9 +19,9 @@ from lightning.pytorch.utilities.seed import isolate_rng
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import FLPGenerator
-from .render import render
 
 log = get_pylogger(__name__)
+
 
 class FLPEnv(RL4COEnvBase):
     """Facility Location Problem (FLP) environment
@@ -38,7 +38,7 @@ class FLPEnv(RL4COEnvBase):
     Finish condition:
         - the given number of locations are chosen
 
-    Reward:        
+    Reward:
         - (minus) the total distance of each location to its closest chosen location
 
     Args:
@@ -52,7 +52,7 @@ class FLPEnv(RL4COEnvBase):
         self,
         generator: FLPGenerator = None,
         generator_params: dict = {},
-        check_solution = False,        
+        check_solution=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -60,14 +60,14 @@ class FLPEnv(RL4COEnvBase):
             generator = FLPGenerator(**generator_params)
         self.generator = generator
         self.check_solution = check_solution
-        self._make_spec(self.generator)        
+        self._make_spec(self.generator)
 
     def _step(self, td: TensorDict) -> TensorDict:
         # action: [batch_size, 1]; the location to be chosen in each instance
         selected = td["action"]
-        batch_size = selected.shape[0]        
+        batch_size = selected.shape[0]
 
-        # Update location selection status        
+        # Update location selection status
         chosen = td["chosen"].clone()  # (batch_size, n_locations)
         n_points_ = chosen.shape[-1]
 
@@ -75,13 +75,13 @@ class FLPEnv(RL4COEnvBase):
 
         # We are done if we choose enough locations
         done = td["i"] >= (td["to_choose"] - 1)
-        
+
         # The reward is calculated outside via get_reward for efficiency, so we set it to zero here
         reward = torch.zeros_like(done)
 
         # Update distances
-        orig_distances = td["orig_distances"]  # (batch_size, n_points, n_points)        
-                
+        orig_distances = td["orig_distances"]  # (batch_size, n_points, n_points)
+
         cur_min_dist = (
             gather_by_index(
                 orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size, -1)
@@ -90,11 +90,10 @@ class FLPEnv(RL4COEnvBase):
             .min(dim=1)
             .values
         )
-        
-        
+
         # We cannot choose the already-chosen locations
         action_mask = ~chosen
-        
+
         td.update(
             {
                 "distances": cur_min_dist,  # (batch_size, n_points)
@@ -105,10 +104,10 @@ class FLPEnv(RL4COEnvBase):
                 "reward": reward,
                 "done": done,
             }
-        )        
+        )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:        
+    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         self.to(td.device)
 
         return TensorDict(
@@ -132,21 +131,21 @@ class FLPEnv(RL4COEnvBase):
                 ),
             },
             batch_size=batch_size,
-        )    
+        )
 
     def _make_spec(self, generator: FLPGenerator):
         # TODO: make spec
         pass
-    
+
     def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         if self.check_solution:
             self.check_solution_validity(td, actions)
-            
+
         # The reward is (minus) the total distance from each location to the closest chosen location
         chosen = td["chosen"]  # (batch_size, n_points)
         batch_size_ = td["chosen"].shape[0]
         n_points_ = td["chosen"].shape[-1]
-        orig_distances = td["orig_distances"]        
+        orig_distances = td["orig_distances"]
         cur_min_dist = (
             gather_by_index(
                 orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size_, -1)
@@ -157,7 +156,6 @@ class FLPEnv(RL4COEnvBase):
         )
         return -cur_min_dist
 
-
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         # TODO: check solution validity
@@ -167,7 +165,3 @@ class FLPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         # TODO: local search
         pass
-
-    @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
-        return render(td, actions, ax)   

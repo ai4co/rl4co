@@ -23,7 +23,6 @@ from lightning.pytorch.utilities.seed import isolate_rng
 import numpy as np
 
 from .generator import MCPGenerator
-from .render import render
 
 
 log = get_pylogger(__name__)
@@ -198,7 +197,3 @@ class MCPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         # TODO: local search
         pass
-
-    @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
-        return render(td, actions, ax)

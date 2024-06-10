@@ -94,9 +94,7 @@ class MCPGenerator(Generator):
             self.min_size, self.max_size + 1, (batch_size, self.num_sets)
         )
 
-        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < cutoffs.unsqueeze(
-            -1
-        )
+        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < cutoffs.unsqueeze(-1)
         # Take the masked elements, 0 means the item is invalid
         membership_tensor = (
             membership_tensor_max_size * cutoffs_masks
