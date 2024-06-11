@@ -6,7 +6,7 @@ import torch
 
 from tensordict.tensordict import TensorDict
 from torch.distributions import Exponential, Normal, Poisson, Uniform
-from rl4co.envs.common.distribution_utils import Cluster, Mixed, Gaussian_Mixture
+from rl4co.envs.common.distribution_utils import Cluster, Mixed, Gaussian_Mixture, Mix_Distribution, Mix_Multi_Distributions
 
 class Generator(metaclass=abc.ABCMeta):
     """Base data generator class, to be called with `env.generator(batch_size)`"""
@@ -82,6 +82,10 @@ def get_sampler(
         return Cluster(kwargs['n_cluster'])
     elif distribution == "mixed":
         return Mixed(kwargs['n_cluster_mix'])
+    elif distribution == "mix_distribution":
+        return Mix_Distribution(kwargs['n_cluster'], kwargs['n_cluster_mix'])
+    elif distribution == "mix_multi_distributions":
+        return Mix_Multi_Distributions()
     else:
         raise ValueError(f"Invalid distribution type of {distribution}")
 

@@ -1,3 +1,4 @@
+import random
 import torch
 
 class Cluster():
@@ -180,5 +181,74 @@ class Gaussian_Mixture():
 
         # Step 3: Center the batch in the middle of the [0, 1] range
         coords = coords + (1 - coords.max(dim=1, keepdim=True).values) / 2  # Centering the batch
+
+        return coords
+
+class Mix_Distribution():
+
+    '''
+    Mixture of three exemplar distributions in batch-level, i.e. Uniform, Cluster, Mixed
+    Following the setting in Bi et al. 2022 (https://arxiv.org/abs/2210.07686)
+
+    Args:
+        n_cluster: Number of the gaussian distributed clusters in Cluster distribution
+        n_cluster_mix: Number of the gaussian distributed clusters in Mixed distribution
+    '''
+    def __init__(self, n_cluster=3, n_cluster_mix=1):
+        super().__init__()
+        self.lower, self.upper = 0.2, 0.8
+        self.std = 0.07
+        self.Mixed = Mixed(n_cluster_mix=n_cluster_mix)
+        self.Cluster = Cluster(n_cluster=n_cluster)
+
+    def sample(self, size):
+
+        batch_size, num_loc, _ = size
+
+        # Pre-define the coordinates sampled under uniform distribution
+        coords = torch.FloatTensor(batch_size, num_loc, 2).uniform_(0, 1)
+
+        # Random sample probability for the distribution of each sample
+        p = torch.rand(batch_size)
+
+        # Mixed
+        mask = p <= 0.33
+        n_mixed = mask.sum().item()
+        if n_mixed > 0:
+            coords[mask] = self.Mixed.sample((n_mixed, num_loc, 2))
+
+        # Cluster
+        mask = (p > 0.33) & (p <= 0.66)
+        n_cluster = mask.sum().item()
+        if n_cluster > 0:
+            coords[mask] = self.Cluster.sample((n_cluster, num_loc, 2))
+
+        # The remaining ones are uniformly distributed
+        return coords
+
+class Mix_Multi_Distributions():
+
+    '''
+    Mixture of 11 Gaussian-like distributions in batch-level
+    Following the setting in Zhou et al. (2023): https://arxiv.org/abs/2305.19587
+    '''
+    def __init__(self):
+        super().__init__()
+        self.dist_set = [(0, 0), (1, 1)] + [(m, c) for m in [3, 5, 7] for c in [10, 30, 50]]
+
+    def sample(self, size):
+        batch_size, num_loc, _ = size
+        coords = torch.zeros(batch_size, num_loc, 2)
+
+        # Pre-select distributions for the entire batch
+        dists = [random.choice(self.dist_set) for _ in range(batch_size)]
+        unique_dists = list(set(dists))  # Unique distributions to minimize re-instantiation
+
+        # Instantiate Gaussian_Mixture only once per unique distribution
+        gm_instances = {dist: Gaussian_Mixture(*dist) for dist in unique_dists}
+
+        # Batch process where possible
+        for i, dist in enumerate(dists):
+            coords[i] = gm_instances[dist].sample((1, num_loc, 2)).squeeze(0)
 
         return coords
