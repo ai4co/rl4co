@@ -5,7 +5,7 @@ fail_fast: true
 repos:
 
 - repo: https://github.com/psf/black
-  rev: 23.3.0
+  rev: 24.4.2
   hooks:
     - id: black
       args: [--config, pyproject.toml]
@@ -13,14 +13,14 @@ repos:
 
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.1.6
+  rev: v0.4.8
   hooks:
     - id: ruff
       args: [ --fix ]
 
 
 -  repo: https://github.com/pre-commit/pre-commit-hooks
-   rev: v4.4.0
+   rev: v4.6.0
    hooks:
    -   id: check-toml
        id: check-yaml

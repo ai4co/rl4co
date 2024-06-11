@@ -3,9 +3,18 @@ import sys
 
 import pytest
 
-from rl4co.envs import ATSPEnv, FJSPEnv, JSSPEnv, PDPEnv, PDPRuinRepairEnv, TSPEnv
+from rl4co.envs import (
+    ATSPEnv,
+    FJSPEnv,
+    JSSPEnv,
+    PDPEnv,
+    PDPRuinRepairEnv,
+    TSPEnv,
+    TSPkoptEnv,
+)
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
+    DACT,
     MDAM,
     N2S,
     ActiveSearch,
@@ -17,6 +26,7 @@ from rl4co.models.zoo import (
     L2DPPOModel,
     MatNet,
     NARGNNPolicy,
+    NeuOpt,
     SymNCO,
 )
 from rl4co.utils import RL4COTrainer
@@ -159,7 +169,7 @@ def test_deepaco():
     trainer.test(model)
 
 
-def test_N2S():
+def test_n2s():
     env = PDPRuinRepairEnv(generator_params=dict(num_loc=20))
     model = N2S(
         env,
@@ -169,6 +179,50 @@ def test_N2S():
         n_step=2,
         T_train=4,
         T_test=4,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_dact():
+    env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=2)
+    model = DACT(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        n_step=2,
+        T_train=4,
+        T_test=4,
+        CL_best=True,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        gradient_clip_val=0.05,
+        devices=1,
+        accelerator=accelerator,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_neuopt():
+    env = TSPkoptEnv(generator_params=dict(num_loc=20), k_max=4)
+    model = NeuOpt(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        n_step=2,
+        T_train=4,
+        T_test=4,
+        CL_best=True,
     )
     trainer = RL4COTrainer(
         max_epochs=1,

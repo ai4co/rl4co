@@ -30,6 +30,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "mdpp": MDPPInitEmbedding,
         "pdp": PDPInitEmbedding,
         "pdp_ruin_repair": TSPInitEmbedding,
+        "tsp_kopt": TSPInitEmbedding,
         "mtsp": MTSPInitEmbedding,
         "smtwtp": SMTWTPInitEmbedding,
         "mdcpdp": MDCPDPInitEmbedding,
