@@ -90,6 +90,7 @@ class PolyNetPolicy(AutoregressivePolicy):
         super(PolyNetPolicy, self).__init__(
             encoder=encoder,
             decoder=decoder,
+            env_name=env_name,
             temperature=temperature,
             tanh_clipping=tanh_clipping,
             mask_logits=mask_logits,
