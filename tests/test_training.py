@@ -27,6 +27,7 @@ from rl4co.models.zoo import (
     MatNet,
     NARGNNPolicy,
     NeuOpt,
+    PolyNet,
     SymNCO,
 )
 from rl4co.utils import RL4COTrainer
@@ -246,5 +247,19 @@ def test_l2d_ppo(env_cls):
         devices=1,
         accelerator=accelerator,
     )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_polynet():
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    model = PolyNet(
+        env,
+        k=10,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+    )
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)

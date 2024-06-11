@@ -43,6 +43,7 @@ from rl4co.models.zoo.mvmoe import MVMoE_AM, MVMoE_POMO
 from rl4co.models.zoo.n2s import N2S, N2SPolicy
 from rl4co.models.zoo.nargnn import NARGNNPolicy
 from rl4co.models.zoo.neuopt import NeuOpt, NeuOptPolicy
+from rl4co.models.zoo.polynet import PolyNet
 from rl4co.models.zoo.pomo import POMO
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
 from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy
