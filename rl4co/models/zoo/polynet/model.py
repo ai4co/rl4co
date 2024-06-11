@@ -98,8 +98,8 @@ class PolyNet(REINFORCE):
 
         train_batch_size = kwargs["batch_size"] if "batch_size" in kwargs else 64
         kwargs_with_defaults = {
-            "val_batch_size": max(1, train_batch_size // (val_num_solutions // k)),
-            "test_batch_size": max(1, train_batch_size // (val_num_solutions // k)),
+            "val_batch_size": train_batch_size,
+            "test_batch_size": train_batch_size,
         }
         kwargs_with_defaults.update(kwargs)
 
