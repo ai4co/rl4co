@@ -9,7 +9,7 @@ def solve(
     instances: TensorDict,
     max_runtime: float,
     num_procs: int = 1,
-    solver: str = "compass",
+    solver: str = "ortools",
     **kwargs,
 ) -> tuple[Tensor, Tensor]:
     """
@@ -30,6 +30,7 @@ def solve(
     else:
         raise ValueError(f"Unknown baseline solver: {solver}")
 
+    import pdb; pdb.set_trace()
     func = partial(_solve, max_runtime=max_runtime, **kwargs)
 
     if num_procs > 1:

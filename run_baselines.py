@@ -12,16 +12,20 @@ from tensordict import TensorDict
 from torch import Tensor
 
 from rl4co.data.utils import load_npz_to_tensordict
-from rl4co.envs.routing.cvrp.baselines.pyvrp import solve_instance as solve_pyvrp
+# from rl4co.envs.routing.cvrp.baselines.pyvrp import solve_instance as solve_pyvrp
 
-from rl4co.envs.routing.pdp.baselines.lkh import solve as solve_lkh_pdp
-from rl4co.envs.routing.tsp.baselines.lkh import solve as solve_lkh_tsp
+from rl4co.envs.routing.pdp.baselines.solve import solve as solve_lkh_pdp
+from rl4co.envs.routing.tsp.baselines.solve import solve as solve_lkh_tsp
+from rl4co.envs.routing.pctsp.baselines.ortools import solve as solve_ortools_pctsp
+from rl4co.envs.routing.op.baselines.compass import solve as solve_compass_op
 
 N_INSTANCES = 1_000
 
 baselines = {
-    "pdp": solve_lkh_pdp,
-    "tsp": solve_lkh_tsp,
+    "op": solve_compass_op
+    # "pctsp": solve_ortools_pctsp
+    # "pdp": solve_lkh_pdp,
+    # "tsp": solve_lkh_tsp,
     # "vrp": solve_pyvrp,
 }
 
@@ -102,8 +106,8 @@ def main():
     logger.add("logs/run_baselines_{time}.log")
     logger.info(f"Shorten all data to {N_INSTANCES} instances.")
 
-    max_runtime = 5
-    num_procs = 31
+    max_runtime = 60
+    num_procs = 1
     logger.info(
         f"Start running baselines with {num_procs} processes and max_runtime={max_runtime}"
     )
