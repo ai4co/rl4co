@@ -1,3 +1,4 @@
+import itertools
 import math
 import warnings
 
@@ -272,7 +273,7 @@ class PointerAttention(nn.Module):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = self._project_out(heads)
+        glimpse = self._project_out(heads, attn_mask)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
@@ -304,13 +305,13 @@ class PointerAttention(nn.Module):
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
 
-    def _project_out(self, out):
+    def _project_out(self, out, *kwargs):
         return self.project_out(out)
 
 
 class PointerAttnMoE(PointerAttention):
     """Calculate logits given query, key and value and logit key.
-    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134),
+    This follows the pointer mechanism of Vinyals et al. (2015) <https://arxiv.org/abs/1506.03134>,
         and the MoE gating mechanism of Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>.
 
     Note:
@@ -354,20 +355,25 @@ class PointerAttnMoE(PointerAttention):
             self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
             self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
 
-    def _project_out(self, out):
+    def _project_out(self, out, attn_mask):
         """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
         if self.moe_kwargs["light_version"]:
-            probs = F.softmax(
-                self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)),
-                dim=-1,
-            )
-            selected = probs.multinomial(1).squeeze(0)
+            num_nodes, num_available_nodes = attn_mask.size(-1), attn_mask.sum(-1)
+            # only do this at the "second" step, which is depot -> pomo -> first select
+            if (num_available_nodes >= num_nodes - 1).any():
+                self.probs = F.softmax(
+                    self.dense_or_moe(
+                        out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)
+                    ),
+                    dim=-1,
+                )
+            selected = self.probs.multinomial(1).squeeze(0)
             out = (
                 self.project_out_moe(out)
                 if selected.item() == 1
                 else self.project_out(out)
             )
-            glimpse = out * probs.squeeze(0)[selected]
+            glimpse = out * self.probs.squeeze(0)[selected]
         else:
             glimpse = self.project_out_moe(out)
         return glimpse
@@ -446,3 +452,86 @@ class MultiHeadCompat(nn.Module):
         compatibility_s2n = torch.matmul(Q, K.transpose(2, 3))
 
         return compatibility_s2n
+
+
+class PolyNetAttention(PointerAttention):
+    """Calculate logits given query, key and value and logit key.
+    This implements a modified version the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134)
+    as described in Hottung et al. (2024) (https://arxiv.org/abs/2402.14048) PolyNetAttention conditions the attention logits on
+    a set of k different binary vectors allowing to learn k different solution strategies.
+
+    Note:
+        With Flash Attention, masking is not supported
+
+    Performs the following:
+        1. Apply cross attention to get the heads
+        2. Project heads to get glimpse
+        3. Apply PolyNet layers
+        4. Compute attention score between glimpse and logit key
+
+    Args:
+        k: Number unique bit vectors used to compute attention score
+        embed_dim: total dimension of the model
+        poly_layer_dim: Dimension of the PolyNet layers
+        num_heads: number of heads
+        mask_inner: whether to mask inner attention
+        linear_bias: whether to use bias in linear projection
+        check_nan: whether to check for NaNs in logits
+        sdpa_fn: scaled dot product attention function (SDPA) implementation
+    """
+
+    def __init__(
+        self, k: int, embed_dim: int, poly_layer_dim: int, num_heads: int, **kwargs
+    ):
+        super(PolyNetAttention, self).__init__(embed_dim, num_heads, **kwargs)
+
+        self.k = k
+        self.binary_vector_dim = math.ceil(math.log2(k))
+        self.binary_vectors = torch.nn.Parameter(
+            torch.Tensor(
+                list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]
+            ),
+            requires_grad=False,
+        )
+
+        self.poly_layer_1 = nn.Linear(embed_dim + self.binary_vector_dim, poly_layer_dim)
+        self.poly_layer_2 = nn.Linear(poly_layer_dim, embed_dim)
+
+    def forward(self, query, key, value, logit_key, attn_mask=None):
+        """Compute attention logits given query, key, value, logit key and attention mask.
+
+        Args:
+            query: query tensor of shape [B, ..., L, E]
+            key: key tensor of shape [B, ..., S, E]
+            value: value tensor of shape [B, ..., S, E]
+            logit_key: logit key tensor of shape [B, ..., S, E]
+            attn_mask: attention mask tensor of shape [B, ..., S]. Note that `True` means that the value _should_ take part in attention
+                as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
+        """
+        # Compute inner multi-head attention with no projections.
+        heads = self._inner_mha(query, key, value, attn_mask)
+        glimpse = self.project_out(heads)
+
+        num_solutions = glimpse.shape[1]
+        z = self.binary_vectors.repeat(math.ceil(num_solutions / self.k), 1)[
+            :num_solutions
+        ]
+        z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
+
+        # PolyNet layers
+        poly_out = self.poly_layer_1(torch.cat((glimpse, z), dim=2))
+        poly_out = F.relu(poly_out)
+        poly_out = self.poly_layer_2(poly_out)
+
+        glimpse += poly_out
+
+        # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
+        # bmm is slightly faster than einsum and matmul
+        logits = (torch.bmm(glimpse, logit_key.squeeze(-2).transpose(-2, -1))).squeeze(
+            -2
+        ) / math.sqrt(glimpse.size(-1))
+
+        if self.check_nan:
+            assert not torch.isnan(logits).any(), "Logits contain NaNs"
+
+        return logits

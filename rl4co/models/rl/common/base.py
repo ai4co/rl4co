@@ -213,7 +213,9 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
                 "monitor": self.lr_scheduler_monitor,
             }
 
-    def log_metrics(self, metric_dict: dict, phase: str, dataloader_idx: int = None):
+    def log_metrics(
+        self, metric_dict: dict, phase: str, dataloader_idx: Union[int, None] = None
+    ):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         dataloader_name = ""

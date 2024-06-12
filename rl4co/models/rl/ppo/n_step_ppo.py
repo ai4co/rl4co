@@ -49,6 +49,7 @@ class n_step_PPO(RL4COLitModule):
         lr_policy: float = 8e-5,  # the learning rate for actor
         lr_critic: float = 2e-5,  # the learning rate for critic
         CL_scalar: float = 2.0,  # hyperparameter of CL scalar of PPO-CL algorithm
+        CL_best: bool = False,  # whether use the best solution from the CL rollout
         metrics: dict = {
             "train": ["loss", "surrogate_loss", "value_loss", "cost_bsf", "cost_init"],
             "val": ["cost_bsf", "cost_init"],
@@ -75,6 +76,7 @@ class n_step_PPO(RL4COLitModule):
 
         self.CL_scalar = CL_scalar
         self.CL_num = 0.0
+        self.CL_best = CL_best
         self.automatic_optimization = False  # n_step_PPO uses custom optimization routine
 
         self.critic = critic
@@ -121,6 +123,7 @@ class n_step_PPO(RL4COLitModule):
                 for i in range(self.ppo_cfg["T_test"]):
                     out = self.policy(td, self.env, phase=phase)
                     self.env.step(td)
+                out["cost_bsf"] = td["cost_bsf"]
 
         else:
             # init the training
@@ -132,6 +135,8 @@ class n_step_PPO(RL4COLitModule):
                 for i in range(int(self.CL_num)):
                     out = self.policy(td, self.env, phase=phase)
                     self.env.step(td)
+            if self.CL_best:
+                td = self.env.step_to_solution(td, td["rec_best"])
             cost_init = td["cost_current"]
 
             # perform gradiant updates every n_step untill reaching T_max

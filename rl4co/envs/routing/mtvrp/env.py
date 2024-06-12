@@ -106,7 +106,7 @@ class MTVRPEnv(RL4COEnvBase):
                 "Solution checking is enabled. This may slow down the environment."
                 " We recommend disabling this for training by passing `check_solution=False`."
             )
-                        
+
         super().__init__(check_solution=check_solution, **kwargs)
 
         if generator is None:
@@ -403,7 +403,7 @@ class MTVRPEnv(RL4COEnvBase):
         from .render import render
 
         return render(*args, **kwargs)
-    
+
     def select_start_nodes(self, td, num_starts):
         """Select available start nodes for the environment (e.g. for POMO-based training)"""
         num_loc = td["locs"].shape[-2] - 1
@@ -413,7 +413,22 @@ class MTVRPEnv(RL4COEnvBase):
             + 1
         )
         return selected
-    
+
+    @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        solver: str = "pyvrp",
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+        Available solvers are: `pyvrp`, `ortools`, `lkh`. Returns the actions and costs.
+        """
+        from .baselines.solve import solve
+
+        return solve(instances, max_runtime, num_procs, solver, **kwargs)
+
     def _make_spec(self, td_params: TensorDict):
         # TODO: include extra vars (but we don't really need them for now)
         """Make the observation and action specs from the parameters."""

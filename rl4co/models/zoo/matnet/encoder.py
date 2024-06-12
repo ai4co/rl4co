@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from rl4co.models.nn.attention import MultiHeadCrossAttention
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from rl4co.models.nn.ops import Normalization
+from rl4co.models.nn.ops import TransformerFFN
 
 
 class MixedScoresSDPA(nn.Module):
@@ -47,14 +47,15 @@ class MixedScoresSDPA(nn.Module):
 
         # Calculate scaled dot product
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
+        # [b, h, m, n, num_scores+1]
         mix_attn_scores = torch.cat(
             [
                 attn_scores.unsqueeze(-1),
                 dmat[:, None, ...].expand(b, self.num_heads, m, n, self.num_scores),
             ],
             dim=-1,
-        )  # [b, h, m, n, num_scores+1]
-
+        )
+        # [b, h, m, n]
         attn_scores = (
             (
                 torch.matmul(
@@ -68,7 +69,7 @@ class MixedScoresSDPA(nn.Module):
             )
             .transpose(1, 2)
             .squeeze(-1)
-        )  # [b, h, m, n]
+        )
 
         # Apply the provided attention mask
         if attn_mask is not None:
@@ -141,7 +142,7 @@ class MatNetMHA(nn.Module):
         return updated_row_emb, updated_col_emb
 
 
-class MatNetMHALayer(nn.Module):
+class MatNetLayer(nn.Module):
     def __init__(
         self,
         embed_dim: int,
@@ -152,30 +153,8 @@ class MatNetMHALayer(nn.Module):
     ):
         super().__init__()
         self.MHA = MatNetMHA(embed_dim, num_heads, bias)
-
-        self.F_a = nn.ModuleDict(
-            {
-                "norm1": Normalization(embed_dim, normalization),
-                "ffn": nn.Sequential(
-                    nn.Linear(embed_dim, feedforward_hidden),
-                    nn.ReLU(),
-                    nn.Linear(feedforward_hidden, embed_dim),
-                ),
-                "norm2": Normalization(embed_dim, normalization),
-            }
-        )
-
-        self.F_b = nn.ModuleDict(
-            {
-                "norm1": Normalization(embed_dim, normalization),
-                "ffn": nn.Sequential(
-                    nn.Linear(embed_dim, feedforward_hidden),
-                    nn.ReLU(),
-                    nn.Linear(feedforward_hidden, embed_dim),
-                ),
-                "norm2": Normalization(embed_dim, normalization),
-            }
-        )
+        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization)
 
     def forward(self, row_emb, col_emb, dmat, attn_mask=None):
         """
@@ -190,54 +169,9 @@ class MatNetMHALayer(nn.Module):
         """
 
         row_emb_out, col_emb_out = self.MHA(row_emb, col_emb, dmat, attn_mask)
-
-        row_emb_out = self.F_a["norm1"](row_emb + row_emb_out)
-        row_emb_out = self.F_a["norm2"](row_emb_out + self.F_a["ffn"](row_emb_out))
-
-        col_emb_out = self.F_b["norm1"](col_emb + col_emb_out)
-        col_emb_out = self.F_b["norm2"](col_emb_out + self.F_b["ffn"](col_emb_out))
+        row_emb_out = self.F_a(row_emb_out, row_emb)
+        col_emb_out = self.F_b(col_emb_out, col_emb)
         return row_emb_out, col_emb_out
-
-
-class MatNetMHANetwork(nn.Module):
-    def __init__(
-        self,
-        embed_dim: int = 128,
-        num_heads: int = 8,
-        num_layers: int = 3,
-        normalization: str = "batch",
-        feedforward_hidden: int = 512,
-        bias: bool = False,
-    ):
-        super().__init__()
-        self.layers = nn.ModuleList(
-            [
-                MatNetMHALayer(
-                    num_heads=num_heads,
-                    embed_dim=embed_dim,
-                    feedforward_hidden=feedforward_hidden,
-                    normalization=normalization,
-                    bias=bias,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-
-    def forward(self, row_emb, col_emb, dmat, attn_mask=None):
-        """
-        Args:
-            row_emb (Tensor): [b, m, d]
-            col_emb (Tensor): [b, n, d]
-            dmat (Tensor): [b, m, n]
-
-        Returns:
-            Updated row_emb (Tensor): [b, m, d]
-            Updated col_emb (Tensor): [b, n, d]
-        """
-
-        for layer in self.layers:
-            row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
-        return row_emb, col_emb
 
 
 class MatNetEncoder(nn.Module):
@@ -245,8 +179,8 @@ class MatNetEncoder(nn.Module):
         self,
         embed_dim: int = 256,
         num_heads: int = 16,
-        num_layers: int = 5,
-        normalization: str = "instance",
+        num_layers: int = 3,
+        normalization: str = "batch",
         feedforward_hidden: int = 512,
         init_embedding: nn.Module = None,
         init_embedding_kwargs: dict = {},
@@ -261,15 +195,19 @@ class MatNetEncoder(nn.Module):
             )
 
         self.init_embedding = init_embedding
-        self.net = MatNetMHANetwork(
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            num_layers=num_layers,
-            normalization=normalization,
-            feedforward_hidden=feedforward_hidden,
-            bias=bias,
-        )
         self.mask_non_neighbors = mask_non_neighbors
+        self.layers = nn.ModuleList(
+            [
+                MatNetLayer(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    bias=bias,
+                    feedforward_hidden=feedforward_hidden,
+                    normalization=normalization,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
     def forward(self, td, attn_mask: torch.Tensor = None):
         row_emb, col_emb, dmat = self.init_embedding(td)
@@ -278,7 +216,8 @@ class MatNetEncoder(nn.Module):
             # attn_mask (keep 1s discard 0s) to only attend on neighborhood
             attn_mask = dmat.ne(0)
 
-        row_emb, col_emb = self.net(row_emb, col_emb, dmat, attn_mask)
+        for layer in self.layers:
+            row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
 
         embedding = (row_emb, col_emb)
         init_embedding = None

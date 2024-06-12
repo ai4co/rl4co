@@ -18,13 +18,6 @@
 
 </div>
 
----
-
-RL4CO has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/)! 🎉
-
----
-
-
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
 
@@ -34,12 +27,21 @@ RL4CO is built upon:
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-![RL4CO Overview](https://github.com/ai4co/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee)
+![RL4CO-Overview](https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f)
+
+We offer flexible and efficient implementations of the following policies:
+- **Constructive**: learn to construct a solution from scratch
+  - _Autoregressive (AR)_: construct solutions one step at a time via a decoder
+  - _NonAutoregressive (NAR)_: learn to predict a heuristic, such as a heatmap, to then construct a solution
+- **Improvement**: learn to improve an pre-existing solution
+
+![RL4CO-Policy-Overview](https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7)
+
+We provide several utilities and modularization. For example, we modularize reusable components such as _environment embeddings_ that can easily be swapped to [solve new problems](https://github.com/ai4co/rl4co/blob/main/examples/3-creating-new-env-model.ipynb).
+
+![RL4CO-Env-Embeddings](https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717)
 
 
-We provide several utilities and modularization. For autoregressive policies, we modularize reusable components such as _environment embeddings_ that can easily be swapped to [solve new problems](https://github.com/ai4co/rl4co/blob/main/examples/3-creating-new-env-model.ipynb).
-
-![RL4CO Policy](https://github.com/ai4co/rl4co/assets/48984123/ca88f159-d0b3-459e-8fd9-89799be9d1b0)
 
 ## Getting started
 <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
@@ -121,27 +123,21 @@ python run.py -m experiment=routing/am  model.optimizer.lr=1e-3,1e-4,1e-5
 Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 30 lines of code:
 
 ```python
-from rl4co.envs import TSPEnv
-from rl4co.models import AttentionModel
+from rl4co.envs.routing import TSPEnv, TSPGenerator
+from rl4co.models import AttentionModelPolicy, POMO
 from rl4co.utils import RL4COTrainer
 
-# Environment, Model, and Lightning Module
-env = TSPEnv(generator_params={'num_loc': 50, 'loc_distribution': 'uniform'})
-model = AttentionModel(env,
-                       baseline="rollout",
-                       train_data_size=100_000,
-                       test_data_size=10_000,
-                       optimizer_kwargs={'lr': 1e-4}
-                       )
+# Instantiate generator and environment
+generator = TSPGenerator(num_loc=50, loc_distribution="uniform")
+env = TSPEnv(generator)
 
-# Trainer
-trainer = RL4COTrainer(max_epochs=3)
+# Create policy and RL model
+policy = AttentionModelPolicy(env_name=env.name, num_encoder_layers=6)
+model = POMO(env, policy, batch_size=64, optimizer_kwargs={"lr": 1e-4})
 
-# Fit the model
+# Instantiate Trainer and fit
+trainer = RL4COTrainer(max_epochs=10, accelerator="gpu", precision="16-mixed")
 trainer.fit(model)
-
-# Test the model
-trainer.test(model)
 ```
 
 Other examples can be found on the [documentation](https://rl4co.readthedocs.io/en/latest/)!
@@ -182,21 +178,26 @@ We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4
 If you find RL4CO valuable for your research or applied projects:
 
 ```bibtex
-@inproceedings{berto2023rl4co,
-    title={{RL}4{CO}: a Unified Reinforcement Learning for Combinatorial Optimization Library},
-    author={Federico Berto and Chuanbo Hua and Junyoung Park and Minsu Kim and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Joungho Kim and Jinkyoo Park},
-    booktitle={NeurIPS 2023 Workshop: New Frontiers in Graph Learning},
-    year={2023},
-    url={https://openreview.net/forum?id=YXSJxi8dOV},
+@misc{berto2024rl4co,
+    title={{RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark}},
+    author={Federico Berto and Chuanbo Hua and Junyoung Park and Laurin Luttmann and Yining Ma and Fanchen Bu and Jiarui Wang and Haoran Ye and Minsu Kim and Sanghyeok Choi and Zepeda Gast and Andre Hottung and Jianan Zhou and Jieyi Bi and Yu Hu and Fei Liu and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Davide Angioni and Wouter Kool and Zhiguang Cao and Jie Zhang and Kijung Shin and Cathy Wu and Sungsoo Ahn and Guojie Song and Changhyun Kwon and Lin Xie and Jinkyoo Park},
+    year={2024},
+    eprint={2306.17100},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG},
     note={\url{https://github.com/ai4co/rl4co}}
 }
 ```
+
+Note that a [previous version of RL4CO](https://openreview.net/forum?id=YXSJxi8dOV) has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/). Since then, the library has greatly evolved and improved!
+
+---
+
 
 ## Join us
 [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
 
 We invite you to join our AI4CO community, an open research group in Artificial Intelligence (AI) for Combinatorial Optimization (CO)!
-
 
 
 <div align="center">

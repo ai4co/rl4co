@@ -1,17 +1,9 @@
-import os
-import zipfile
-from typing import Union, Callable
-
 import torch
-import numpy as np
 
-from robust_downloader import download
-from torch.distributions import Uniform
 from tensordict.tensordict import TensorDict
 
-from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.envs.common.utils import Generator
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.common.utils import get_sampler, Generator
 
 log = get_pylogger(__name__)
 
@@ -34,6 +26,7 @@ class FFSPGenerator(Generator):
     Note:
         - [IMPORTANT] This version of ffsp requires the number of machines in each stage to be the same
     """
+
     def __init__(
         self,
         num_stage: int = 2,
@@ -42,7 +35,7 @@ class FFSPGenerator(Generator):
         min_time: int = 2,
         max_time: int = 10,
         flatten_stages: bool = True,
-        **unused_kwargs
+        **unused_kwargs,
     ):
         self.num_stage = num_stage
         self.num_machine = num_machine
@@ -61,15 +54,8 @@ class FFSPGenerator(Generator):
         run_time = torch.randint(
             low=self.min_time,
             high=self.max_time,
-            size=(*batch_size, self.num_job, self.num_machine, self.num_stage),
+            size=(*batch_size, self.num_job, self.num_machine_total),
         )
-
-        if self.flatten_stages:
-            run_time = (
-                run_time.transpose(-2, -1)
-                .contiguous()
-                .view(*batch_size, self.num_job, self.num_machine_total)
-            )
 
         return TensorDict(
             {
