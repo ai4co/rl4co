@@ -407,6 +407,7 @@ class JSSPInitEmbedding(nn.Module):
         mean_durations = proc_times.sum(1) / (proc_times.gt(0).sum(1) + 1e-9)
         feats = [
             mean_durations / self.scaling_factor,
+            # td["lbs"] / self.scaling_factor,
             td["is_ready"],
             td["num_eligible"],
             td["ops_job_map"],
@@ -430,19 +431,9 @@ class JSSPInitEmbedding(nn.Module):
 
 class FJSPInitEmbedding(JSSPInitEmbedding):
     def __init__(self, embed_dim, linear_bias=False, scaling_factor: int = 100):
-        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=5)
+        super().__init__(embed_dim, linear_bias, scaling_factor)
         self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
         self.edge_embed = nn.Linear(1, embed_dim, bias=linear_bias)
-
-    def _op_features(self, td):
-        feats = [
-            td["lbs"] / self.scaling_factor,
-            td["is_ready"],
-            td["num_eligible"],
-            td["op_scheduled"],
-            td["ops_job_map"],
-        ]
-        return torch.stack(feats, dim=-1)
 
     def forward(self, td: TensorDict):
         ops_emb = self._init_ops_embed(td)
@@ -471,18 +462,8 @@ class FJSPMatNetInitEmbedding(JSSPInitEmbedding):
         linear_bias: bool = False,
         scaling_factor: int = 1000,
     ):
-        super().__init__(embed_dim, linear_bias, scaling_factor, num_op_feats=5)
+        super().__init__(embed_dim, linear_bias, scaling_factor)
         self.init_ma_embed = nn.Linear(1, self.embed_dim, bias=linear_bias)
-
-    def _op_features(self, td):
-        feats = [
-            td["lbs"] / self.scaling_factor,
-            td["is_ready"],
-            td["op_scheduled"],
-            td["num_eligible"],
-            td["ops_job_map"],
-        ]
-        return torch.stack(feats, dim=-1)
 
     def _init_machine_embed(self, td: TensorDict):
         busy_for = (td["busy_until"] - td["time"].unsqueeze(1)) / self.scaling_factor

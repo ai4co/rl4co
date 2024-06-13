@@ -178,7 +178,6 @@ class L2DDecoder(AutoregressiveDecoder):
         actor_hidden_dim: int = 128,
         actor_hidden_layers: int = 2,
         num_encoder_layers: int = 3,
-        num_heads: int = 8,
         normalization: str = "batch",
         het_emb: bool = False,
         stepwise: bool = False,
