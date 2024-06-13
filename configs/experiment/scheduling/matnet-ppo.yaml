@@ -36,13 +36,7 @@ model:
   batch_size: 128
   val_batch_size: 512
   test_batch_size: 64
-  # Song et al use 1000 iterations over batches of 20 = 20_000
-  # We train 10 epochs on a set of 2000 instance = 20_000
   mini_batch_size: 512
-  reward_scale: scale
-  optimizer_kwargs:
-    lr: 1e-4
 
 env:
   stepwise_reward: True
-  _torchrl_mode: True
