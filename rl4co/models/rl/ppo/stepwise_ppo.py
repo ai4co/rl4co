@@ -1,13 +1,13 @@
 import copy
 
-from typing import Any
+from typing import Any, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from torchrl.data.replay_buffers import (
-    LazyTensorStorage,
+    LazyMemmapStorage,
     ListStorage,
     SamplerWithoutReplacement,
     TensorDictReplayBuffer,
@@ -23,13 +23,17 @@ log = get_pylogger(__name__)
 
 def make_replay_buffer(buffer_size, batch_size, device="cpu"):
     if device == "cpu":
-        storage = LazyTensorStorage(buffer_size, device="cpu")
+        storage = LazyMemmapStorage(buffer_size, device="cpu")
+        prefetch = 3
     else:
         storage = ListStorage(buffer_size)
+        prefetch = None
     return TensorDictReplayBuffer(
         storage=storage,
         batch_size=batch_size,
         sampler=SamplerWithoutReplacement(drop_last=True),
+        pin_memory=False,
+        prefetch=prefetch,
     )
 
 
@@ -51,7 +55,7 @@ class StepwisePPO(RL4COLitModule):
         metrics: dict = {
             "train": ["loss", "surrogate_loss", "value_loss", "entropy"],
         },
-        reward_scale: str = None,
+        reward_scale: Union[str, int] = None,
         **kwargs,
     ):
         super().__init__(env, policy, metrics=metrics, batch_size=batch_size, **kwargs)
@@ -143,13 +147,12 @@ class StepwisePPO(RL4COLitModule):
             while not next_td["done"].all():
                 with torch.no_grad():
                     td = self.policy_old.act(next_td, self.env, phase="train")
-
-                assert self.env._torchrl_mode, "Use torchrl mode in stepwise PPO"
-                td = self.env.step(td)
-                next_td = td.pop("next")
+                # get next state
+                next_td = self.env.step(td)["next"]
+                # get reward of action
                 reward = self.env.get_reward(next_td, None)
                 reward = self.scaler(reward)
-
+                # add reward to prior state
                 td.set("reward", reward)
                 # add tensordict with action, logprobs and reward information to buffer
                 self.rb.extend(td)

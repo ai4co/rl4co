@@ -15,7 +15,6 @@ log = get_pylogger(__name__)
 
 
 class FJSPGenerator(Generator):
-
     """Data generator for the Flexible Job-Shop Scheduling Problem (FJSP).
 
     Args:
@@ -209,6 +208,8 @@ class FJSPFileGenerator(Generator):
         self.num_mas = num_machines
         self.num_jobs = num_jobs
         self.max_ops_per_job = max_ops_per_job
+        self.n_ops_max = max_ops_per_job * num_jobs
+
         self.start_idx = 0
 
     def _generate(self, batch_size: List[int]) -> TensorDict:
