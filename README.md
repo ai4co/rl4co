@@ -178,13 +178,11 @@ We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4
 If you find RL4CO valuable for your research or applied projects:
 
 ```bibtex
-@misc{berto2024rl4co,
+@article{berto2024rl4co,
     title={{RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark}},
-    author={Federico Berto and Chuanbo Hua and Junyoung Park and Laurin Luttmann and Yining Ma and Fanchen Bu and Jiarui Wang and Haoran Ye and Minsu Kim and Sanghyeok Choi and Zepeda Gast and Andre Hottung and Jianan Zhou and Jieyi Bi and Yu Hu and Fei Liu and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Davide Angioni and Wouter Kool and Zhiguang Cao and Jie Zhang and Kijung Shin and Cathy Wu and Sungsoo Ahn and Guojie Song and Changhyun Kwon and Lin Xie and Jinkyoo Park},
+    author={Federico Berto and Chuanbo Hua and Junyoung Park and Laurin Luttmann and Yining Ma and Fanchen Bu and Jiarui Wang and Haoran Ye and Minsu Kim and Sanghyeok Choi and Nayeli Gast Zepeda and Andr\'e Hottung and Jianan Zhou and Jieyi Bi and Yu Hu and Fei Liu and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Davide Angioni and Wouter Kool and Zhiguang Cao and Jie Zhang and Kijung Shin and Cathy Wu and Sungsoo Ahn and Guojie Song and Changhyun Kwon and Lin Xie and Jinkyoo Park},
     year={2024},
-    eprint={2306.17100},
-    archivePrefix={arXiv},
-    primaryClass={cs.LG},
+    journal={arXiv preprint arXiv:2306.17100},
     note={\url{https://github.com/ai4co/rl4co}}
 }
 ```
