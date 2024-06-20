@@ -147,7 +147,7 @@ def select_start_nodes(td, env, num_starts):
         num_starts: Number of nodes to select. This may be passed when calling the policy directly. See :class:`rl4co.models.AutoregressiveDecoder`
     """
     num_loc = env.generator.num_loc if hasattr(env.generator, "num_loc") else 0xFFFFFFFF
-    if env.name in ["tsp", "atsp"]:
+    if env.name in ["tsp", "atsp", "flp", "mcp"]:
         selected = (
             torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
             % num_loc
