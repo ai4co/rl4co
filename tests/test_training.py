@@ -29,8 +29,10 @@ from rl4co.models.zoo import (
     NeuOpt,
     PolyNet,
     SymNCO,
+    POMO
 )
 from rl4co.utils import RL4COTrainer
+from rl4co.utils.meta_trainer import ReptileCallback
 
 # Get env variable MAC_OS_GITHUB_RUNNER
 if "MAC_OS_GITHUB_RUNNER" in os.environ:
@@ -128,6 +130,19 @@ def test_mdam():
     trainer.fit(model)
     trainer.test(model)
 
+def test_pomo_reptile():
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    policy = AttentionModelPolicy(env_name=env.name, embed_dim=128,
+                                  num_encoder_layers=6, num_heads=8,
+                                  normalization="instance", use_graph_context=False)
+    model = POMO(env, policy, batch_size=5, train_data_size=5*3, val_data_size=10, test_data_size=10)
+    meta_callback = ReptileCallback(
+        data_type="size", sch_bar=0.9,  num_tasks=2,  alpha = 0.99,
+        alpha_decay = 0.999,  min_size = 20,  max_size =50
+    )
+    trainer = RL4COTrainer(max_epochs=2, callbacks=[meta_callback], devices=1, accelerator=accelerator, limit_train_batches=3)
+    trainer.fit(model)
+    trainer.test(model)
 
 @pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
 def test_search_methods(SearchMethod):
