@@ -1,29 +1,13 @@
 from typing import Optional
-from einops import rearrange
-from matplotlib.axes import Axes
-import random
 
 import torch
-import torch.nn as nn
 
 from tensordict.tensordict import TensorDict
+
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.data.dataset import TensorDictDataset
-from rl4co.data.utils import load_npz_to_tensordict
-
-from torch_geometric.data import Batch, Data
-
-from rl4co.utils.ops import gather_by_index
-
 from rl4co.utils.pylogger import get_pylogger
-from typing import Iterable, Optional
-
-from lightning.pytorch.utilities.seed import isolate_rng
-
-import numpy as np
 
 from .generator import MCPGenerator
-
 
 log = get_pylogger(__name__)
 
@@ -71,12 +55,10 @@ class MCPEnv(RL4COEnvBase):
     def _step(self, td: TensorDict) -> TensorDict:
         # action: [batch_size, 1]; the set to be chosen in each instance
         batch_size = td["action"].shape[0]
-        n_items_ = td["weights"].shape[1]
         selected = td["action"]
 
         # Update set selection status
         chosen = td["chosen"].clone()  # (batch_size, n_sets)
-        n_sets_ = chosen.shape[1]
         chosen[torch.arange(batch_size).to(td.device), selected] = True
 
         # We are done if we choose enough sets

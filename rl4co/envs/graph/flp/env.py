@@ -1,21 +1,11 @@
-import math
 from typing import Optional
-from einops import rearrange
-from matplotlib.axes import Axes
 
 import torch
-import torch.nn as nn
 
 from tensordict.tensordict import TensorDict
 
 from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.utils.ops import gather_by_index, get_distance_matrix
-from rl4co.data.dataset import TensorDictDataset
-
-from typing import Iterable, Optional
-
-from lightning.pytorch.utilities.seed import isolate_rng
-
+from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import FLPGenerator
@@ -165,7 +155,7 @@ class FLPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         # TODO: local search
         pass
-    
+
     @staticmethod
     def get_num_starts(td):
         return td["action_mask"].shape[-1]

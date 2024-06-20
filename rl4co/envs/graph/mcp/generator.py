@@ -1,11 +1,8 @@
-from typing import Callable, Union
-
 import torch
 
 from tensordict.tensordict import TensorDict
-from torch.distributions import Uniform
 
-from rl4co.envs.common.utils import Generator, get_sampler
+from rl4co.envs.common.utils import Generator
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)

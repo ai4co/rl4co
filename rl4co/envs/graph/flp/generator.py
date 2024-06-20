@@ -1,13 +1,14 @@
+import math
+
 from typing import Callable, Union
 
 import torch
-import math
 
 from tensordict.tensordict import TensorDict
 from torch.distributions import Uniform
 
 from rl4co.envs.common.utils import Generator, get_sampler
-from rl4co.utils.ops import gather_by_index, get_distance_matrix
+from rl4co.utils.ops import get_distance_matrix
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
