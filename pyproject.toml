@@ -1,57 +1,47 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ['rl4co*']
-
-# Automatically determine version from package
-[tool.setuptools.dynamic]
-version = {attr = "rl4co.__version__"}
-
-[project]
+[tool.poetry]
 name = "rl4co"
-readme = "README.md"
-
-
+version = "0.5.0.dev1"
 description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
-    {name = "Federico Berto", email = "berto.federico2@gmail.com"},
-    {name = "Chuanbo Hua", email="cbhua@kaist.ac.kr"},
-    {name = "Junyoung Park", email="junyoungpark.ml@gmail.com"},
-    {name = "Laurin Luttmann", email="laurin.luttmann@gmail.com"},
-    {name = "Yining Ma"},
-    {name = "Fanchen Bu"},
-    {name = "Jiarui Wang"},
-    {name = "Haoran Ye"},
-    {name = "Minsu Kim"},
-    {name = "Sanghyeok Choi"},
-    {name = "Zepeda Gast"},
-    {name = "Andre Hottung"},
-    {name = "Jianan Zhou"},
-    {name = "Jieyi Bi"},
-    {name = "Yu Hu"},
-    {name = "Fei Liu"},
-    {name = "Hyeonah Kim"},
-    {name = "Jiwoo Son"},
-    {name = "Haeyeon Kim"},
-    {name = "Davide Angioni"},
-    {name = "Wouter Kool"},
-    {name = "Zhiguang Cao"},
-    {name = "Jie Zhang"},
-    {name = "Kijung Shin"},
-    {name = "Cathy Wu"},
-    {name = "Sungsoo Ahn"},
-    {name = "Guojie Song"},
-    {name = "Changhyun Kwon"},
-    {name = "Lin Xie"},
-    {name = "Jinkyoo Park"},
-  ]
-dynamic = ["version"]
-
-license = {file = "LICENSE"}
-
-requires-python = ">=3.8"
+    "Federico Berto <berto.federico2@gmail.com>",
+    "Chuanbo Hua <cbhua@kaist.ac.kr>",
+    "Junyoung Park <junyoungpark.ml@gmail.com>",
+    "Laurin Luttmann <laurin.luttmann@gmail.com>",
+    "Yining Ma",
+    "Fanchen Bu",
+    "Jiarui Wang",
+    "Haoran Ye",
+    "Minsu Kim",
+    "Sanghyeok Choi",
+    "Zepeda Gast",
+    "Andre Hottung",
+    "Jianan Zhou",
+    "Jieyi Bi",
+    "Yu Hu",
+    "Fei Liu",
+    "Hyeonah Kim",
+    "Jiwoo Son",
+    "Haeyeon Kim",
+    "Davide Angioni",
+    "Wouter Kool",
+    "Zhiguang Cao",
+    "Jie Zhang",
+    "Kijung Shin",
+    "Cathy Wu",
+    "Sungsoo Ahn",
+    "Guojie Song",
+    "Changhyun Kwon",
+    "Lin Xie",
+    "Jinkyoo Park",
+    "AI4CO",
+]
+readme = "README.md"
+license = "MIT"
+homepage = "https://rl4.co"
+repository = "https://github.com/ai4co/rl4co"
+documentation = "https://rl4co.readthedocs.io"
+keywords = ["reinforcement learning", "combinatorial optimization", "benchmark"]
+packages = [{ include = "rl4co" }]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -64,82 +54,41 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
 
-dependencies = [
-    "einops",
-    "hydra-core",
-    "hydra-colorlog",
-    "lightning>=2.1.0",
-    "matplotlib",
-    "omegaconf",
-    "pyrootutils",
-    "rich",
-    "robust-downloader",
-    "scipy",
-    "tensordict>=0.2.0",
-    "torchrl>=0.2.0",
-    "wandb"
-]
+[tool.poetry.urls]
+"Tracker" = "https://github.com/ai4co/rl4co/issues"
 
-[project.optional-dependencies]
+[tool.poetry.dependencies]
+python = ">=3.8"
+einops = "*"
+hydra-core = "*"
+hydra-colorlog = "*"
+lightning = ">=2.1.0"
+matplotlib = "*"
+omegaconf = "*"
+pyrootutils = "*"
+rich = "*"
+robust-downloader = "*"
+scipy = "*"
+tensordict = ">=0.4.0"
+torchrl = ">=0.4.0"
+wandb = "*"
+black = { version = "*", optional = true }
+pre-commit = { version = ">=3.3.3", optional = true }
+ruff = { version = "*", optional = true }
+pytest = { version = "*", optional = true }
+pytest-cov = { version = "*", optional = true }
+torch_geometric = { version = "*", optional = true }
+numba = { version = ">=0.58.1", optional = true }
+pyvrp = { version = ">=0.8.2", optional = true }
+
+[tool.poetry.extras]
+dev = ["black", "pre-commit", "ruff", "pytest", "pytest-cov"]
 graph = ["torch_geometric"]
-testing = ["pytest", "pytest-cov"]
-dev = ["black", "ruff", "pre-commit>=3.3.3"]
-routing = ["numba>=0.58.1", "pyvrp>=0.8.2"]
+routing = ["numba", "pyvrp"]
 
-[project.urls]
-"Homepage" = "https://github.com/ai4co/rl4co"
-"Bug Tracker" = "https://github.com/ai4co/rl4co/issues"
-
-# Ruff + Black + isort combo for code formatting
-# Adapted from https://github.com/AntonOsika/gpt-engineer (kudos!)
-# https://beta.ruff.rs/docs/configuration/#using-pyprojecttoml
-[tool.ruff]
-select = ["F", "E", "W", "I001"]
-line-length = 90
-show-fixes = false
-target-version = "py310"
-task-tags = ["TODO", "FIXME"]
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-]
-ignore = ["E501"] # never enforce `E501` (line length violations), done in Black
-
-# Ignore `E402` (import violations) and "F401" (unused imports) in all `__init__.py` files
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["E402", "F401"]
-
-[tool.ruff.isort]
-known-first-party = []
-known-third-party = []
-section-order = [
-    "future",
-    "standard-library",
-    "third-party",
-    "first-party",
-    "local-folder",
-]
-combine-as-imports = true
-split-on-trailing-comma = false
-lines-between-types = 1
-
-# https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html
 [tool.black]
 line-length = 90
 target-version = ["py311"]
@@ -160,6 +109,31 @@ exclude = '''
 )
 '''
 
+[tool.ruff]
+select = ["F", "E", "W", "I001"]
+line-length = 90
+show-fixes = false
+target-version = "py311"
+task-tags = ["TODO", "FIXME"]
+ignore = ["E501"] # never enforce `E501` (line length violations), done in Black
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+
+[tool.ruff.isort]
+known-first-party = []
+known-third-party = []
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+lines-between-types = 1
+
 [tool.coverage]
 include = ["rl4co.*"]
 
@@ -170,3 +144,7 @@ exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",
 ]
+
+[build-system]
+requires = ["poetry"]
+build-backend = "poetry.core.masonry.api"

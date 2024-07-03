@@ -235,7 +235,7 @@ class PDPEnv(RL4COEnvBase):
 
 
 class PDPRuinRepairEnv(ImprovementEnvBase):
-    """Pickup and Delivery Problem (PDP) environment for performing neural rein-repair search.
+    """Pickup and Delivery Problem (PDP) environment for performing neural ruin-repair search.
     The environment is made of num_loc + 1 locations (cities):
         - 1 depot
         - `num_loc` / 2 pickup locations

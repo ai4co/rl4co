@@ -22,17 +22,19 @@ trainer:
 
 seed: 12345678
 
-scaling_factor: 20
+scaling_factor: ${env.generator_params.max_processing_time}
 
 model:
   _target_: ???
   batch_size: ???
   train_data_size: 2_000
   val_data_size: 1_000
-  test_data_size: 1_000
+  test_data_size: 100
   optimizer_kwargs:
-    lr: 1e-4
+    lr: 2e-4
     weight_decay: 1e-6
   lr_scheduler: "ExponentialLR"
   lr_scheduler_kwargs:
     gamma: 0.95
+  reward_scale: scale
+  max_grad_norm: 1

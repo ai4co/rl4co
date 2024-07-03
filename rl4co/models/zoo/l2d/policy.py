@@ -35,6 +35,7 @@ class L2DPolicy(AutoregressivePolicy):
         env_name: str = "fjsp",
         het_emb: bool = True,
         scaling_factor: int = 1000,
+        normalization: str = "batch",
         init_embedding: Optional[nn.Module] = None,
         stepwise_encoding: bool = False,
         tanh_clipping: float = 10,
@@ -77,6 +78,7 @@ class L2DPolicy(AutoregressivePolicy):
                 het_emb=het_emb,
                 stepwise=stepwise_encoding,
                 scaling_factor=scaling_factor,
+                normalization=normalization,
             )
 
         # Pass to constructive policy
@@ -101,6 +103,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
         num_heads: int = 8,
         num_encoder_layers: int = 4,
         scaling_factor: int = 1000,
+        normalization: str = "batch",
         env_name: str = "fjsp",
         init_embedding: Optional[nn.Module] = None,
         tanh_clipping: float = 10,
@@ -122,7 +125,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
                 embed_dim=embed_dim,
                 num_heads=num_heads,
                 num_layers=num_encoder_layers,
-                normalization="batch",
+                normalization=normalization,
                 feedforward_hidden=embed_dim * 2,
                 init_embedding=init_embedding,
             )

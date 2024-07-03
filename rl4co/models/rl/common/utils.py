@@ -20,6 +20,8 @@ class RewardScaler:
     def __call__(self, scores: torch.Tensor):
         if self.scale is None:
             return scores
+        elif isinstance(self.scale, int):
+            return scores / self.scale
         # Score scaling
         self.update(scores)
         tensor_to_kwargs = dict(dtype=scores.dtype, device=scores.device)

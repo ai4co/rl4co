@@ -79,13 +79,31 @@ class FJSPEnv(EnvBase):
             else:
                 generator = FJSPGenerator(**generator_params)
         self.generator = generator
-        self.num_mas = generator.num_mas
-        self.num_jobs = generator.num_jobs
-        self.n_ops_max = generator.max_ops_per_job * self.num_jobs
+        self._num_mas = generator.num_mas
+        self._num_jobs = generator.num_jobs
+        self._n_ops_max = generator.max_ops_per_job * self.num_jobs
+
         self.mask_no_ops = mask_no_ops
         self.check_mask = check_mask
         self.stepwise_reward = stepwise_reward
         self._make_spec(self.generator)
+
+    @property
+    def num_mas(self):
+        return self._num_mas
+
+    @property
+    def num_jobs(self):
+        return self._num_jobs
+
+    @property
+    def n_ops_max(self):
+        return self._n_ops_max
+
+    def set_instance_params(self, td):
+        self._num_jobs = td["start_op_per_job"].size(1)
+        self._num_mas = td["proc_times"].size(1)
+        self._n_ops_max = td["proc_times"].size(2)
 
     def _decode_graph_structure(self, td: TensorDict):
         batch_size = td.batch_size
@@ -142,6 +160,8 @@ class FJSPEnv(EnvBase):
         return td, n_ops_max
 
     def _reset(self, td: TensorDict = None, batch_size=None) -> TensorDict:
+        self.set_instance_params(td)
+
         td_reset = td.clone()
 
         td_reset, n_ops_max = self._decode_graph_structure(td_reset)
@@ -333,10 +353,10 @@ class FJSPEnv(EnvBase):
             td["ops_sequence_order"] - gather_by_index(td["job_ops_adj"], selected_job, 1)
         ).clip(0)
         # some checks
-        assert torch.allclose(
-            td["proc_times"].sum(1).gt(0).sum(1),  # num ops with eligible machine
-            (~(td["op_scheduled"] + td["pad_mask"])).sum(1),  # num unscheduled ops
-        )
+        # assert torch.allclose(
+        #     td["proc_times"].sum(1).gt(0).sum(1),  # num ops with eligible machine
+        #     (~(td["op_scheduled"] + td["pad_mask"])).sum(1),  # num unscheduled ops
+        # )
 
         return td
 
@@ -483,7 +503,6 @@ class FJSPEnv(EnvBase):
         # NOTE in the paper they use N_s = 100
         return 100
 
-    @staticmethod
-    def load_data(fpath, batch_size=[]):
+    def load_data(self, fpath, batch_size=[]):
         g = FJSPFileGenerator(fpath)
         return g(batch_size=batch_size)

@@ -14,6 +14,7 @@ model:
     _target_: rl4co.models.L2DAttnPolicy
     env_name: ${env.name}
     scaling_factor: ${scaling_factor}
+    normalization: "batch"
   batch_size: 64
   num_starts: 10
   num_augment: 0

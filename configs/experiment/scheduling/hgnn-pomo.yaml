@@ -18,6 +18,7 @@ model:
     stepwise_encoding: False
     scaling_factor: ${scaling_factor}
     het_emb: True
+    normalization: instance
   num_starts: 10
   batch_size: 64
   num_augment: 0
