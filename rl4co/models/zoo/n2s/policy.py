@@ -124,7 +124,7 @@ class N2SPolicy(ImprovementPolicy):
         # Encoder: get encoder output and initial embeddings from initial state
         h_wave, final_p = self.encoder(td)
         if only_return_embed:
-            return {"embeds": h_wave}
+            return {"embeds": h_wave.detach()}
         final_h = (
             self.project_node(h_wave) + self.project_graph(h_wave.max(1)[0])[:, None, :]
         )
@@ -212,7 +212,7 @@ class N2SPolicy(ImprovementPolicy):
         td.set("action", N2S_action)
 
         if return_embeds:
-            outdict["embeds"] = h_wave
+            outdict["embeds"] = h_wave.detach()
 
         if return_actions:
             outdict["actions"] = N2S_action

@@ -179,7 +179,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         """Make the specifications of the environment (observation, action, reward, done)"""
         raise NotImplementedError
 
-    def get_reward(self, td, actions) -> TensorDict:
+    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
@@ -206,11 +206,32 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
     def select_start_nodes(self, td, num_starts):
         return select_start_nodes(td, self, num_starts)
 
-    def check_solution_validity(self, td, actions) -> TensorDict:
+    def check_solution_validity(self, td: TensorDict, actions: torch.Tensor) -> None:
         """Function to check whether the solution is valid. Can be called by the agent to check the validity of the current state
         This is called with the full solution (i.e. all actions) at the end of the episode
         """
         raise NotImplementedError
+
+    def replace_selected_actions(
+        self,
+        cur_actions: torch.Tensor,
+        new_actions: torch.Tensor,
+        selection_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Replace selected current actions with updated actions based on `selection_mask`.
+        """
+        raise NotImplementedError
+
+    def local_search(
+        self, td: TensorDict, actions: torch.Tensor, **kwargs
+    ) -> torch.Tensor:
+        """Function to improve the solution. Can be called by the agent to improve the current state
+        This is called with the full solution (i.e. all actions) at the end of the episode
+        """
+        raise NotImplementedError(
+            f"Local is not implemented yet for {self.name} environment"
+        )
 
     def dataset(self, batch_size=[], phase="train", filename=None):
         """Return a dataset of observations
@@ -276,6 +297,25 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         else:
             return super().to(device)
 
+    @staticmethod
+    def solve(
+        instances: TensorDict,
+        max_runtime: float,
+        num_procs: int = 1,
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Classical solver for the environment. This is a wrapper for the baselines solver.
+
+        Args:
+            instances: The instances to solve
+            max_runtime: The maximum runtime for the solver
+            num_procs: The number of processes to use
+
+        Returns:
+            A tuple containing the action and the cost, respectively
+        """
+        raise NotImplementedError
+
     def __getstate__(self):
         """Return the state of the environment. By default, we want to avoid pickling
         the random number generator directly as it is not allowed by `deepcopy`
@@ -291,3 +331,73 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         self.__dict__.update(state)
         self.rng = torch.manual_seed(0)
         self.rng.set_state(state["rng"])
+
+
+class ImprovementEnvBase(RL4COEnvBase, metaclass=abc.ABCMeta):
+    """Base class for Improvement environments based on RL4CO EnvBase.
+    Note that this class assumes that the solution is stored in a linked list format.
+    Here, if rec[i] = j, it means the node i is connected to node j, i.e., edge i-j is in the solution.
+    For example, if edge 0-1, edge 1-5, edge 2-10 are in the solution, so we have rec[0]=1, rec[1]=5 and rec[2]=10.
+    Kindly see https://github.com/yining043/VRP-DACT/blob/new_version/Play_with_DACT.ipynb for an example at the end for TSP.
+    """
+
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+    @abc.abstractmethod
+    def _step(self, td: TensorDict, solution_to=None) -> TensorDict:
+        raise NotImplementedError
+
+    def step_to_solution(self, td, solution) -> TensorDict:
+        return self._step(td, solution_to=solution)
+
+    @staticmethod
+    def _get_reward(td, actions) -> TensorDict:
+        raise NotImplementedError(
+            "This function is not used for improvement tasks since the reward is computed per step"
+        )
+
+    @staticmethod
+    def get_costs(coordinates, rec):
+        batch_size, size = rec.size()
+
+        # calculate the route length value
+        d1 = coordinates.gather(1, rec.long().unsqueeze(-1).expand(batch_size, size, 2))
+        d2 = coordinates
+        length = (d1 - d2).norm(p=2, dim=2).sum(1)
+
+        return length
+
+    @staticmethod
+    def _get_real_solution(rec):
+        batch_size, seq_length = rec.size()
+        visited_time = torch.zeros((batch_size, seq_length)).to(rec.device)
+        pre = torch.zeros((batch_size), device=rec.device).long()
+        for i in range(seq_length):
+            visited_time[torch.arange(batch_size), rec[torch.arange(batch_size), pre]] = (
+                i + 1
+            )
+            pre = rec[torch.arange(batch_size), pre]
+
+        visited_time = visited_time % seq_length
+        return visited_time.argsort()
+
+    @staticmethod
+    def _get_linked_list_solution(solution):
+        solution_pre = solution
+        solution_post = torch.cat((solution[:, 1:], solution[:, :1]), 1)
+
+        rec = solution.clone()
+        rec.scatter_(1, solution_pre, solution_post)
+        return rec
+
+    @classmethod
+    def get_best_solution(cls, td):
+        return cls._get_real_solution(td["rec_best"])
+
+    @classmethod
+    def get_current_solution(cls, td):
+        return cls._get_real_solution(td["rec_current"])

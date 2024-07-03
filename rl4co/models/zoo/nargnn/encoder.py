@@ -57,30 +57,34 @@ class EdgeHeatmapGenerator(nn.Module):
             edge_attr = self.act(layer(edge_attr))
         graph.edge_attr = torch.sigmoid(self.output(edge_attr))  # type: ignore
 
-        heatmaps_logits = self._make_heatmaps(graph)
-        return heatmaps_logits
+        heatmap_logits = self._make_heatmap_logits(graph)
+        return heatmap_logits
 
-    def _make_heatmaps(self, batch_graph: Batch) -> Tensor:  # type: ignore
+    def _make_heatmap_logits(self, batch_graph: Batch) -> Tensor:  # type: ignore
         graphs = batch_graph.to_data_list()
         device = graphs[0].edge_attr.device
         batch_size = len(graphs)
         num_nodes = graphs[0].x.shape[0]
 
-        heatmaps_logits = torch.zeros(
+        heatmap = torch.zeros(
             (batch_size, num_nodes, num_nodes),
             device=device,
             dtype=graphs[0].edge_attr.dtype,
         )
-        heatmaps_logits.fill_(-1)
 
         for index, graph in enumerate(graphs):
             edge_index, edge_attr = graph.edge_index, graph.edge_attr
-            heatmaps_logits[index, edge_index[0], edge_index[1]] = edge_attr.flatten()
+            heatmap[index, edge_index[0], edge_index[1]] = edge_attr.flatten()
 
-        if self.undirected_graph:
-            heatmaps_logits = (heatmaps_logits + heatmaps_logits.transpose(1, 2)) * 0.5
+        # This is commented out, because it undo the some of the sparsification.
+        # if self.undirected_graph:
+        #     heatmap = (heatmap + heatmap.transpose(1, 2)) * 0.5
 
-        return heatmaps_logits
+        heatmap += 1e-10 if heatmap.dtype != torch.float16 else 3e-8
+        # 3e-8 is the smallest positive number such that log(3e-8) is not -inf
+        heatmap_logits = torch.log(heatmap)
+
+        return heatmap_logits
 
 
 class NARGNNEncoder(NonAutoregressiveEncoder):
@@ -109,6 +113,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         act_fn: The activation function to use in each GNNLayer, see https://pytorch.org/docs/stable/nn.functional.html#non-linear-activation-functions for available options. Defaults to 'silu'.
         agg_fn: The aggregation function to use in each GNNLayer for pooling features. Options: 'add', 'mean', 'max'. Defaults to 'mean'.
         linear_bias: Use bias in linear layers. Defaults to True.
+        k_sparse: Number of edges to keep for each node. Defaults to None.
     """
 
     def __init__(
@@ -125,6 +130,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         act_fn="silu",
         agg_fn="mean",
         linear_bias: bool = True,
+        k_sparse: Optional[int] = None,
     ):
         super(NonAutoregressiveEncoder, self).__init__()
         self.env_name = env_name
@@ -136,7 +142,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         )
 
         self.edge_embedding = (
-            env_edge_embedding(self.env_name, {"embed_dim": embed_dim})
+            env_edge_embedding(self.env_name, {"embed_dim": embed_dim, "k_sparse": k_sparse})
             if edge_embedding is None
             else edge_embedding
         )
@@ -176,11 +182,11 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
             graph.x, graph.edge_index, graph.edge_attr
         )
 
-        # Generate heatmaps
-        heatmaps_logits = self.heatmap_generator(graph)
+        # Generate heatmap logits
+        heatmap_logits = self.heatmap_generator(graph)
 
         # Return latent representation (i.e. heatmap logits) and initial embeddings
-        return heatmaps_logits, node_embed
+        return heatmap_logits, node_embed
 
 
 class NARGNNNodeEncoder(NARGNNEncoder):

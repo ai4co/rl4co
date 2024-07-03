@@ -272,7 +272,7 @@ class PointerAttention(nn.Module):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = self._project_out(heads)
+        glimpse = self._project_out(heads, attn_mask)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
@@ -304,13 +304,13 @@ class PointerAttention(nn.Module):
     def _make_heads(self, v):
         return rearrange(v, "... g (h s) -> ... h g s", h=self.num_heads)
 
-    def _project_out(self, out):
+    def _project_out(self, out, *kwargs):
         return self.project_out(out)
 
 
 class PointerAttnMoE(PointerAttention):
     """Calculate logits given query, key and value and logit key.
-    This follows the pointer mechanism of Vinyals et al. (2015) (https://arxiv.org/abs/1506.03134),
+    This follows the pointer mechanism of Vinyals et al. (2015) <https://arxiv.org/abs/1506.03134>,
         and the MoE gating mechanism of Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>.
 
     Note:
@@ -354,20 +354,16 @@ class PointerAttnMoE(PointerAttention):
             self.dense_or_moe = nn.Linear(embed_dim, 2, bias=False)
             self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
 
-    def _project_out(self, out):
+    def _project_out(self, out, attn_mask):
         """Implementation of Hierarchical Gating based on Zhou et al. (2024) <https://arxiv.org/abs/2405.01029>."""
         if self.moe_kwargs["light_version"]:
-            probs = F.softmax(
-                self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)),
-                dim=-1,
-            )
-            selected = probs.multinomial(1).squeeze(0)
-            out = (
-                self.project_out_moe(out)
-                if selected.item() == 1
-                else self.project_out(out)
-            )
-            glimpse = out * probs.squeeze(0)[selected]
+            num_nodes, num_available_nodes = attn_mask.size(-1), attn_mask.sum(-1)
+            # only do this at the "second" step, which is depot -> pomo -> first select
+            if (num_available_nodes >= num_nodes - 1).any():
+                self.probs = F.softmax(self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)), dim=-1)
+            selected = self.probs.multinomial(1).squeeze(0)
+            out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
+            glimpse = out * self.probs.squeeze(0)[selected]
         else:
             glimpse = self.project_out_moe(out)
         return glimpse

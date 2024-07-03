@@ -13,6 +13,7 @@ from torchrl.data import (
     UnboundedDiscreteTensorSpec,
 )
 
+from rl4co.data.dataset import FastTdDataset
 from rl4co.envs.common.base import RL4COEnvBase
 
 from .generator import FFSPGenerator
@@ -57,7 +58,7 @@ class FFSPEnv(RL4COEnvBase):
         generator_params: dict = {},
         **kwargs,
     ):
-        super().__init__(check_solution=False, **kwargs)
+        super().__init__(check_solution=False, dataset_cls=FastTdDataset, **kwargs)
         if generator is None:
             generator = FFSPGenerator(**generator_params)
         self.generator = generator
@@ -150,15 +151,12 @@ class FFSPEnv(RL4COEnvBase):
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)
         sub_time_idx = td["sub_time_idx"]
         # update machine index
-        machine_idx = self.tables.get_machine_index(batch_idx, sub_time_idx)
+        td["machine_idx"] = self.tables.get_machine_index(batch_idx, sub_time_idx)
         # update action mask and stage machine indx
         td = self._update_step_state(td)
         # perform some checks
-        stage_machine_idx = td["stage_machine_idx"]
-        stage_idx = td["stage_idx"]
-        is_stage_one = stage_idx == 0
-        assert torch.all(stage_machine_idx[is_stage_one] == machine_idx[is_stage_one])
-        assert is_stage_one.all(), "call pre_step only at beginning of env"
+        assert (td["stage_idx"] == 0).all(), "call pre_step only at beginning of env"
+        assert torch.all(td["stage_machine_idx"] == td["machine_idx"])
         # return updated td
         return td
 
@@ -214,9 +212,6 @@ class FFSPEnv(RL4COEnvBase):
         job_idx = td["action"]
         time_idx = td["time_idx"]
         machine_idx = td["machine_idx"]
-
-        # create new td to avoid incplace ops and gradient problems resulting from this
-        # td = td.clone()
 
         # increment the operation counter of the selected job
         td["job_location"][batch_idx, job_idx] += 1
@@ -311,21 +306,7 @@ class FFSPEnv(RL4COEnvBase):
             dtype=torch.long,
             device=device,
         )
-        if self.flatten_stages:
-            assert (
-                len(td["run_time"].shape) == 3
-            ), "cost matrix has shape other than (bs, jobs, ma_total)"
-            job_duration[..., : self.num_job, :] = td["run_time"]
-        else:
-            assert (
-                len(td["run_time"].shape) == 4
-            ), "cost matrix has shape other than (bs, jobs, ma, stages)"
-            job_duration[..., : self.num_job, :] = (
-                td["run_time"]
-                .transpose(-2, -1)
-                .contiguous()
-                .view(*batch_size, self.num_job, self.num_machine_total)
-            )
+        job_duration[..., : self.num_job, :] = td["run_time"]
         job_duration[..., self.num_job, :] = 0
 
         # Finish status information
@@ -428,16 +409,6 @@ class FFSPEnv(RL4COEnvBase):
 
     def _get_reward(self, td, actions) -> TensorDict:
         return td["reward"]
-
-    def _get_cmap(self, color_cnt):
-        from random import shuffle
-
-        from matplotlib.colors import CSS4_COLORS, ListedColormap
-
-        color_list = list(CSS4_COLORS.keys())
-        shuffle(color_list)
-        cmap = ListedColormap(color_list, N=color_cnt)
-        return cmap
 
 
 class IndexTables:

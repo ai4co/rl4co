@@ -9,7 +9,8 @@ from torch import Tensor
 
 from rl4co.models.nn.env_embeddings.context import FFSPContext
 from rl4co.models.zoo.am.decoder import AttentionModelDecoder
-from rl4co.utils.decoding import process_logits
+from rl4co.utils.decoding import decode_logprobs, process_logits
+from rl4co.utils.ops import gather_by_index
 
 
 @dataclass
@@ -53,6 +54,8 @@ class MatNetFFSPDecoder(AttentionModelDecoder):
         self,
         embed_dim: int,
         num_heads: int,
+        linear_bias: bool = False,
+        out_bias_pointer_attn: bool = True,
         use_graph_context: bool = False,
         **kwargs,
     ):
@@ -62,8 +65,10 @@ class MatNetFFSPDecoder(AttentionModelDecoder):
             env_name="ffsp",
             embed_dim=embed_dim,
             num_heads=num_heads,
-            use_graph_context=use_graph_context,
             context_embedding=context_embedding,
+            out_bias_pointer_attn=out_bias_pointer_attn,
+            linear_bias=linear_bias,
+            use_graph_context=use_graph_context,
             **kwargs,
         )
 
@@ -116,6 +121,7 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         embed_dim: int,
         num_heads: int,
         use_graph_context: bool = True,
+        tanh_clipping: float = 10,
         **kwargs,
     ):
         super().__init__(
@@ -125,7 +131,7 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
             **kwargs,
         )
         self.cached_embs: PrecomputedCache = None
-        # self.encoded_wait_op = nn.Parameter(torch.rand((1, 1, embed_dim)))
+        self.tanh_clipping = tanh_clipping
 
     def _precompute_cache(self, embeddings: Tuple[Tensor], **kwargs):
         self.cached_embs = super()._precompute_cache(embeddings, **kwargs)
@@ -137,38 +143,15 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         num_starts: int = 1,
         **decoding_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
-        device = td.device
-        batch_size = td.size(0)
 
-        # TODO: we need to insert precompute cache inside the decoder
         logits, mask = super().forward(td, self.cached_embs, num_starts)
         logprobs = process_logits(
             logits,
             mask,
+            tanh_clipping=self.tanh_clipping,
             **decoding_kwargs,
         )
-        all_job_probs = logprobs.exp()
-
-        if "sampling" in decode_type:
-            # to fix pytorch.multinomial bug on selecting 0 probability elements
-            while True:
-                job_selected = all_job_probs.multinomial(1).squeeze(dim=1)
-                # shape: (batch)
-                job_prob = all_job_probs.gather(1, job_selected[:, None]).squeeze(dim=1)
-                # shape: (batch)
-                assert (job_prob[td["done"].squeeze()] == 1).all()
-
-                if (job_prob != 0).all():
-                    break
-
-        elif "greedy" in decode_type:
-            job_selected = all_job_probs.argmax(dim=1)
-            # shape: (batch)
-            job_prob = torch.zeros(
-                size=(batch_size,), device=device
-            )  # any number is okay
-
-        else:
-            raise ValueError(f"decode type {decode_type} not understood")
+        job_selected = decode_logprobs(logprobs, mask, decode_type)
+        job_prob = gather_by_index(logprobs, job_selected, dim=1)
 
         return job_selected, job_prob
