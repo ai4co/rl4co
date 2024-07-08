@@ -4,7 +4,7 @@ repo_name: ai4co/rl4co
 repo_url: https://github.com/ai4co/rl4co/
 edit_uri: edit/main/docs
 site_description: Official documentation for RL4CO
-copyright: Copyright &copy; 2024 AI4CO
+copyright: Made with ❤️ by AI4CO contributors
 
 theme:
   name: material
