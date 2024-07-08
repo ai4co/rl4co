@@ -1,9 +1,10 @@
-site_name: RL4CO Documentation
+site_name: RL4CO
 site_url: https://ai4co.github.io/rl4co/
 repo_name: ai4co/rl4co
 repo_url: https://github.com/ai4co/rl4co/
 edit_uri: edit/main/docs
 site_description: Official documentation for RL4CO
+copyright: Copyright &copy; 2024 AI4CO
 
 theme:
   name: material
@@ -54,7 +55,7 @@ extra_css:
   - https://unpkg.com/katex@0/dist/katex.min.css # Latex math rendering
 
 extra_javascript:
-  - javascripts/katex.js # Latex math rendering
+  - js/katex.js # Latex math rendering
   - https://unpkg.com/katex@0/dist/katex.min.js # Latex math rendering
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js # Latex math rendering
 
@@ -63,13 +64,10 @@ extra:
     default: stable
 
 plugins:
-  - mike:
-      alias_type: symlink
-      canonical_version: latest
   - mkdocstrings:
       handlers:
         python:
-          paths: [.]
+          paths: [rl4co]
           options:
             members_order: source
             separate_signature: true
@@ -81,8 +79,7 @@ plugins:
             signature_crossrefs: true
             docstring_section_style: list
             heading_level: 1
-            inherited_members: true
-            merge_init_into_class: true
+            inherited_members: false
             show_root_heading: true
             show_root_full_path: false
             show_source: false
@@ -91,11 +88,22 @@ plugins:
             show_symbol_type_toc: true
             signature_crossrefs: true
             summary: true
+            extensions:
+            - griffe_typingdoc
+            - griffe_inherited_docstrings
           import:
             - https://docs.python.org/3/objects.inv
+            - https://pytorch.org/rl/stable/objects.inv
+            - https://pytorch.org/tensordict/stable/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
+            - https://lightning.ai/docs/pytorch/stable/objects.inv
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
   - mkdocs-jupyter
   - search
   - autorefs
+  - autolinks
 
 markdown_extensions:
   - pymdownx.details
@@ -106,6 +114,7 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
+  - pymdownx.magiclink
   - tables
   - toc:
       permalink: true
@@ -120,34 +129,44 @@ markdown_extensions:
 
 nav:
   - Getting Started:
-    - Installation: getting_started/installation.md
-    - Quick Start: examples/1-quickstart.ipynb
-    - Training with Hydra: getting_started/hydra.md
-    - NCO Methods: getting_started/nco_methods.md
+    - Installation: content/getting_started/installation.md
+    - Quick Start: content/examples/1-quickstart.ipynb
+    - Training with Hydra: content/getting_started/hydra.md
+    - NCO Methods: content/getting_started/nco_methods.md
   - Tutorials:
-    - Training a Model: tutorials/training.md
-    - New Environment: tutorials/new_environment.md
-    - Decoding Strategies: tutorials/decoding.md
-    - Transductive Methods: tutorials/transductive.md
-    - Encoder Customization: tutorials/encoder.md
-    - Hydra Configuration: tutorials/hydra.md
+    - Training a Model: content/tutorials/training.md
+    - New Environment: content/tutorials/new_environment.md
+    - Decoding Strategies: content/tutorials/decoding.md
+    - Transductive Methods: content/tutorials/transductive.md
+    - Encoder Customization: content/tutorials/encoder.md
+    - Hydra Configuration: content/tutorials/hydra.md
   - RL Algorithms:
-    - Base Algorithms: algorithms/base.md
-    - Reinforce: algorithms/rl.md
-    - PPO: algorithms/ppo.md
-    - A2C: algorithms/a2c.md
+    - Base Algorithms: content/algorithms/base.md
+    - Reinforce: content/algorithms/rl.md
+    - PPO: content/algorithms/ppo.md
+    - A2C: content/algorithms/a2c.md
   - Environments:
-    - Basic Environments: environments/basic.md
-    - EDA Problems: environments/eda.md
-    - Routing Problems: environments/routing.md
-    - Scheduling Problems: environments/scheduling.md
+    - Basic Environments: content/environments/basic.md
+    - EDA Problems: content/environments/eda.md
+    - Routing Problems: content/environments/routing.md
+    - Scheduling Problems: content/environments/scheduling.md
   - Networks:
-    - Neural Network Modules: networks/neural_networks.md
-    - Environment Embeddings: networks/environment_embeddings.md
+    - Neural Network Modules: content/networks/neural_networks.md
+    - Environment Embeddings: content/networks/environment_embeddings.md
   - Base NCO Methods:
-    - Constructive Policies: policies/constructive.md
-    - Improvement Policies: policies/improvement.md
+    - Constructive Policies: content/policies/constructive.md
+    - Improvement Policies: content/policies/improvement.md
   - Additional APIs:
-    - Train and Evaluation: api/train_and_eval.md
-    - Decoding Strategies: api/decoding.md
-    - Data: api/data.md
+    - Train and Evaluation: content/api/train_and_eval.md
+    - Decoding Strategies: content/api/decoding.md
+    - Data: content/api/data.md
+
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/ai4co
+  - icon: fontawesome/brands/slack
+    link: https://bit.ly/ai4co-slack
+  - icon: fontawesome/solid/globe
+    link: https://ai4co.org

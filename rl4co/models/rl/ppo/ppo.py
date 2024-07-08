@@ -32,9 +32,9 @@ class PPO(RL4COLitModule):
 
     The commonly implemented definition of policy entropy is the entropy of the policy distribution, given by:
 
-    .. math:: H(\\pi(x_t)) = - \\sum_{a_t \\in A_t} \\pi(a_t|x_t) \\log \\pi(a_t|x_t)
+    $$H(\\pi(x_t)) = - \\sum_{a_t \\in A_t} \\pi(a_t|x_t) \\log \\pi(a_t|x_t)$$
 
-    where :math:`x_t` represents the given state at step :math:`t`, :math:`A_t` is the set of all (admisible) actions
+    where $x_t$ represents the given state at step :math:`t`, :math:`A_t` is the set of all (admisible) actions
     at step :math:`t`, and :math:`a_t` is the action taken at step :math:`t`.
 
     If we interpret autoregressive decoding steps as transition steps of an MDP, the entropy for the entire decoding
