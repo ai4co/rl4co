@@ -1,121 +1,221 @@
-# RL4CO
-
 <div align="center">
 
 <div align="center">
     <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
 </div>
 
-</br></br>
+</br>
+</br>
 
-An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
-
-<a href="https://pytorch.org/get-started/locally/"><img class="badge-tag" alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
+<a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
-<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> 
+<a href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a> 
+<a href="https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ"><img alt="Slack" src="https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack"></a> 
+<a href="https://opensource.org/licenses/MIT"><img alt="Black" src="https://img.shields.io/badge/License-MIT-red.svg"></a> 
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+<a href="https://pypi.org/project/rl4co"><img alt="PyPI" src="https://img.shields.io/pypi/v/rl4co?logo=pypi"></a> 
+<a href="https://app.codecov.io/github/ai4co/rl4co/tree/main/rl4co"><img alt="Black" src="https://codecov.io/github/ai4co/rl4co/tree/main/badge.svg"></a> 
+<a href="https://github.com/ai4co/rl4co/actions/workflows/tests.yml"><img alt="Black" src="https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg"></a> 
 
-<a href="https://github.com/ai4co/rl4co/blob/main/LICENSE">[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)</a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)
-[![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
+</br>
+</br>
 
-<iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=star&count=true" frameborder="0" scrolling="0" width="100" height="20" title="GitHub"></iframe> <iframe src="https://ghbtns.com/github-btn.html?user=ai4co&repo=rl4co&type=fork&count=true" frameborder="0" scrolling="0" width="100" height="30" title="GitHub"></iframe>
+<div align="center">
+    <a href="https://rl4co.readthedocs.io/">Documentation</a> | <a href="#getting-started">Getting Started</a> | <a href="#usage">Usage</a> | <a href="#contributing">Contributing</a> | <a href="https://arxiv.org/abs/2306.17100">Paper</a> | <a href="https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ">Join Us</a>
+</div>
+
+</br>
 
 </div>
 
 
+An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
+
+
 RL4CO is built upon:
+
 - [TorchRL](https://github.com/pytorch/rl): official PyTorch framework for RL algorithms and vectorized environments on GPUs
 - [TensorDict](https://github.com/pytorch-labs/tensordict): a library to easily handle heterogeneous data such as states, actions and rewards
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-<img class="full-img" alt="image" src="https://github.com/ai4co/rl4co/assets/34462374/4d9a670f-ab7c-4fc8-9135-82d17cb6d0ee">
+![RL4CO-Overview](https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f)
+
+We offer flexible and efficient implementations of the following policies:
+
+- **Constructive**: learn to construct a solution from scratch
+  - _Autoregressive (AR)_: construct solutions one step at a time via a decoder
+  - _NonAutoregressive (NAR)_: learn to predict a heuristic, such as a heatmap, to then construct a solution
+- **Improvement**: learn to improve an pre-existing solution
+
+![RL4CO-Policy-Overview](https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7)
+
+We provide several utilities and modularization. For example, we modularize reusable components such as _environment embeddings_ that can easily be swapped to [solve new problems](https://github.com/ai4co/rl4co/blob/main/examples/3-creating-new-env-model.ipynb).
+
+![RL4CO-Env-Embeddings](https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717)
 
 
-```{eval-rst}
-.. toctree::
-   :maxdepth: 3
-   :caption: Getting started
 
-   _content/start/installation
-   _collections/1-quickstart
-   _content/start/hydra
-   _content/api/models/common/__init__
+## Getting started
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 
+RL4CO is now available for installation on `pip`!
+```bash
+pip install rl4co
+```
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Tutorials
+To get started, we recommend checking out our [quickstart notebook](examples/1-quickstart.ipynb) or the [minimalistic example](#minimalistic-example) below.
 
-   _collections/2-full-training
-   _collections/3-creating-new-env-model
-   _collections/modeling/1-decoding-strategies
-   _collections/modeling/2-transductive-methods
-   _collections/modeling/3-change-encoder
-   _collections/advanced/1-hydra-config
+### Install from source
+This command installs the bleeding edge `main` version, useful for staying up-to-date with the latest developments - for instance, if a bug has been fixed since the last official release but a new release hasn’t been rolled out yet:
 
-.. toctree::
-   :maxdepth: 3
-   :caption: RL Algorithms
+```bash
+pip install -U git+https://github.com/ai4co/rl4co.git
+```
 
-   _content/api/algos/base
-   _content/api/algos/reinforce
-   _content/api/algos/a2c
-   _content/api/algos/ppo
+### Local install and development
+If you want to develop RL4CO we recommend you to install it locally with `pip` in editable mode:
+
+```bash
+git clone https://github.com/ai4co/rl4co && cd rl4co
+pip install -e .
+```
+
+We recommend using a virtual environment such as `conda` to install `rl4co` locally.
 
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Environments
 
-   _content/api/envs/base
-   _content/api/envs/eda
-   _content/api/envs/routing
-   _content/api/envs/scheduling
-
-.. toctree::
-   :maxdepth: 3
-   :caption: Networks
-
-   _content/api/models/nn
-   _content/api/models/env_embeddings
-
-.. toctree::
-   :maxdepth: 3
-   :caption: Base NCO Methods
-
-   _content/api/models/common/constructive
-   _content/api/models/common/improvement
-   _content/api/models/common/transductive
+## Usage
 
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Model Zoo
+Train model with default configuration (AM on TSP environment):
+```bash
+python run.py
+```
 
-   _content/api/models/common/zoo/__init__
-   _content/api/models/common/zoo/constructive
-   _content/api/models/common/zoo/improvement
-   _content/api/models/common/zoo/transductive
+!!! warning ""
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Additional API
+    You may check out [this notebook](examples/advanced/1-hydra-config.ipynb) to get started with Hydra!
 
-   _content/api/tasks
-   _content/api/decoding
-   _content/api/data
+<details>
+    <summary>Change experiment settings</summary>
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Other
+Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
+```bash
+python run.py experiment=routing/am env=tsp env.num_loc=50 model.optimizer_kwargs.lr=2e-4
+```
+Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](configs/experiment/routing/am.yaml).
 
-   _content/general/contribute
-   _content/general/faq
+</details>
+
+
+
+
+<details>
+    <summary>Disable logging</summary>
+
+```bash
+python run.py experiment=routing/am logger=none '~callbacks.learning_rate_monitor'
+```
+Note that `~` is used to disable a callback that would need a logger.
+
+</details>
+
+
+<details>
+    <summary>Create a sweep over hyperparameters (-m for multirun)</summary>
+
+```bash
+python run.py -m experiment=routing/am  model.optimizer.lr=1e-3,1e-4,1e-5
+```
+</details>
+
+
+
+### Minimalistic Example
+
+Here is a minimalistic example training the Attention Model with greedy rollout baseline on TSP in less than 30 lines of code:
+
+```python
+from rl4co.envs.routing import TSPEnv, TSPGenerator
+from rl4co.models import AttentionModelPolicy, POMO
+from rl4co.utils import RL4COTrainer
+
+# Instantiate generator and environment
+generator = TSPGenerator(num_loc=50, loc_distribution="uniform")
+env = TSPEnv(generator)
+
+# Create policy and RL model
+policy = AttentionModelPolicy(env_name=env.name, num_encoder_layers=6)
+model = POMO(env, policy, batch_size=64, optimizer_kwargs={"lr": 1e-4})
+
+# Instantiate Trainer and fit
+trainer = RL4COTrainer(max_epochs=10, accelerator="gpu", precision="16-mixed")
+trainer.fit(model)
+```
+
+Other examples can be found on the [documentation](https://rl4co.readthedocs.io/en/latest/)!
+
+
+### Testing
+
+Run tests with `pytest` from the root directory:
+
+```bash
+pytest tests
+```
+
+### Known Bugs
+
+
+#### Bugs installing PyTorch Geometric (PyG)
+
+Installing `PyG` via `Conda` seems to update Torch itself. We have found that this update introduces some bugs with `torchrl`. At this moment, we recommend installing `PyG` with `Pip`:
+```bash
+pip install torch_geometric
 ```
 
 
-## Contributors
+## Contributing
+
+Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/ai4co/rl4co/issues) or [submit a pull request](https://github.com/ai4co/rl4co/pulls).
+If you would like to contribute, please check out our contribution guidelines   [here](.github/CONTRIBUTING.md). We welcome and look forward to all contributions to RL4CO!
+
+We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ) if you have any questions or would like to discuss RL4CO with us. We are open to collaborations and would love to hear from you 🚀
+
+### Contributors
 <a href="https://github.com/ai4co/rl4co/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=ai4co/rl4co" />
 </a>
+
+## Citation
+If you find RL4CO valuable for your research or applied projects:
+
+```bibtex
+@article{berto2024rl4co,
+    title={{RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark}},
+    author={Federico Berto and Chuanbo Hua and Junyoung Park and Laurin Luttmann and Yining Ma and Fanchen Bu and Jiarui Wang and Haoran Ye and Minsu Kim and Sanghyeok Choi and Nayeli Gast Zepeda and Andr\'e Hottung and Jianan Zhou and Jieyi Bi and Yu Hu and Fei Liu and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Davide Angioni and Wouter Kool and Zhiguang Cao and Jie Zhang and Kijung Shin and Cathy Wu and Sungsoo Ahn and Guojie Song and Changhyun Kwon and Lin Xie and Jinkyoo Park},
+    year={2024},
+    journal={arXiv preprint arXiv:2306.17100},
+    note={\url{https://github.com/ai4co/rl4co}}
+}
+```
+
+Note that a [previous version of RL4CO](https://openreview.net/forum?id=YXSJxi8dOV) has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/). Since then, the library has greatly evolved and improved!
+
+---
+
+
+## Join us
+[![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
+
+We invite you to join our AI4CO community, an open research group in Artificial Intelligence (AI) for Combinatorial Optimization (CO)!
+
+
+<div align="center">
+    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/ai4co_animated_full.svg" alt="AI4CO Logo" style="width: 30%; height: auto;">
+</div>
+
+

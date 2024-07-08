@@ -1,0 +1,153 @@
+site_name: RL4CO Documentation
+site_url: https://ai4co.github.io/rl4co/
+repo_name: ai4co/rl4co
+repo_url: https://github.com/ai4co/rl4co/
+edit_uri: edit/main/docs
+site_description: Official documentation for RL4CO
+
+theme:
+  name: material
+  logo: assets/figs/rl4co-logo.svg
+  favicon: assets/figs/rl4co-logo.svg
+  primary: red
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.expand
+    - navigation.top
+    - content.tabs.link
+    - content.tooltips
+    - announce.dismiss
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.preview
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette: 
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: "#5023df" # Changed to match the company logo color
+      accent: "#55c2ac" # Changed to match the company logo color
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: "#5023df" # Changed to match the company logo color
+      accent: "#55be75" # Changed to match the company logo color
+      toggle:
+        icon: material/weather-night
+        name: Switch to system preference
+
+extra_css:
+  - stylesheets/extra.css # Our custom CSS
+  - https://unpkg.com/katex@0/dist/katex.min.css # Latex math rendering
+
+extra_javascript:
+  - javascripts/katex.js # Latex math rendering
+  - https://unpkg.com/katex@0/dist/katex.min.js # Latex math rendering
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js # Latex math rendering
+
+extra:
+  version:
+    default: stable
+
+plugins:
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            members_order: source
+            separate_signature: true
+            filters: ["!^_"]
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            docstring_section_style: list
+            heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+          import:
+            - https://docs.python.org/3/objects.inv
+  - mkdocs-jupyter
+  - search
+  - autorefs
+
+markdown_extensions:
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - toc:
+      permalink: true
+      title: Page contents
+  - admonition
+  - pymdownx.extra
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quick Start: examples/1-quickstart.ipynb
+    - Training with Hydra: getting_started/hydra.md
+    - NCO Methods: getting_started/nco_methods.md
+  - Tutorials:
+    - Training a Model: tutorials/training.md
+    - New Environment: tutorials/new_environment.md
+    - Decoding Strategies: tutorials/decoding.md
+    - Transductive Methods: tutorials/transductive.md
+    - Encoder Customization: tutorials/encoder.md
+    - Hydra Configuration: tutorials/hydra.md
+  - RL Algorithms:
+    - Base Algorithms: algorithms/base.md
+    - Reinforce: algorithms/rl.md
+    - PPO: algorithms/ppo.md
+    - A2C: algorithms/a2c.md
+  - Environments:
+    - Basic Environments: environments/basic.md
+    - EDA Problems: environments/eda.md
+    - Routing Problems: environments/routing.md
+    - Scheduling Problems: environments/scheduling.md
+  - Networks:
+    - Neural Network Modules: networks/neural_networks.md
+    - Environment Embeddings: networks/environment_embeddings.md
+  - Base NCO Methods:
+    - Constructive Policies: policies/constructive.md
+    - Improvement Policies: policies/improvement.md
+  - Additional APIs:
+    - Train and Evaluation: api/train_and_eval.md
+    - Decoding Strategies: api/decoding.md
+    - Data: api/data.md
