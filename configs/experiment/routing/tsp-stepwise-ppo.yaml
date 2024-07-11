@@ -7,7 +7,7 @@ defaults:
   - override /logger: wandb.yaml
 
 env:
-  _target_: rl4co.envs.TSPEnv4PPO
+  _target_: rl4co.envs.DenseRewardTSPEnv
   generator_params:
     num_loc: 20
 

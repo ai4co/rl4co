@@ -3,4 +3,5 @@ from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.rl.ppo.n_step_ppo import n_step_PPO
 from rl4co.models.rl.ppo.ppo import PPO
 from rl4co.models.rl.ppo.stepwise_ppo import StepwisePPO
+from rl4co.models.rl.ppo.stepwise_ppo_ep_rew import StepwisePPOwEpisodicReward
 from rl4co.models.rl.reinforce.reinforce import REINFORCE

@@ -11,7 +11,7 @@ logger:
 embed_dim: 256
 
 model:
-  _target_: rl4co.models.StepwisePPO
+  _target_: rl4co.models.StepwisePPOwEpisodicReward
   policy:
     _target_: rl4co.models.L2DPolicy4PPO
     decoder:
