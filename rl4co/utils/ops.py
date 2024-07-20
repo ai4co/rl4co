@@ -260,3 +260,21 @@ def sample_n_random_actions(td: TensorDict, n: int):
     selected = torch.multinomial(ps, n, replacement=replace).squeeze(1)
     selected = rearrange(selected, "b n -> (n b)")
     return selected.to(td.device)
+
+
+def cartesian_to_polar(cartesian: torch.Tensor, origin: Optional[torch.Tensor] = None):
+    if origin is not None:
+        cartesian = cartesian - origin
+    x, y = cartesian[..., 0], cartesian[..., 1]
+    rho = torch.norm(cartesian, dim=-1)
+    theta = torch.atan2(y, x)
+    polar = torch.stack((rho, theta), dim=-1)
+    return polar
+
+
+def select_start_nodes_by_distance(td, env, num_starts):
+    radius = td["polar_locs"][..., 0]
+    _, node_index = torch.topk(
+        radius, k=num_starts + 1, dim=-1, sorted=True, largest=False
+    )
+    return rearrange(node_index[:, 1:], "b n -> (n b)")
