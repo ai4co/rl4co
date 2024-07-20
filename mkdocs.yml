@@ -164,3 +164,12 @@ nav:
   - Other:
     - Contributing to RL4CO: content/general/contribute.md
     - FAQ: content/general/faq.md
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/ai4co
+  - icon: fontawesome/brands/slack
+    link: https://bit.ly/ai4co-slack
+  - icon: fontawesome/solid/globe
+    link: https://ai4co.org
