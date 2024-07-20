@@ -129,44 +129,38 @@ markdown_extensions:
 
 nav:
   - Getting Started:
-    - Installation: content/getting_started/installation.md
-    - Quick Start: content/examples/1-quickstart.ipynb
-    - Training with Hydra: content/getting_started/hydra.md
-    - NCO Methods: content/getting_started/nco_methods.md
+    - Installation: content/start/installation.md
+    - Quick Start: ../examples/1-quickstart.ipynb
+    - Training with Hydra: content/start/hydra.md
+    - NCO Methods: content/api/models/common/__init__
   - Tutorials:
-    - Training a Model: content/tutorials/training.md
-    - New Environment: content/tutorials/new_environment.md
-    - Decoding Strategies: content/tutorials/decoding.md
-    - Transductive Methods: content/tutorials/transductive.md
-    - Encoder Customization: content/tutorials/encoder.md
-    - Hydra Configuration: content/tutorials/hydra.md
+    - Training a Model: ../examples/2-full-training.ipynb
+    - New Environment: ../examples/3-creating-new-env-model.ipynb
+    - Decoding Strategies: ../examples/modeling/1-decoding-strategies
+    - Transductive Methods: ../examples/modeling/2-transductive-methods
+    - Encoder Customization: ../examples/modeling/3-change-encoder
+    - Hydra Configuration: ../examples/advanced/1-hydra-config
   - RL Algorithms:
-    - Base Algorithms: content/algorithms/base.md
-    - Reinforce: content/algorithms/rl.md
-    - PPO: content/algorithms/ppo.md
-    - A2C: content/algorithms/a2c.md
+    - Base Algorithms: content/api/algos/base.md
+    - Reinforce: content/api/algos/reinforce.md
+    - PPO: content/api/algos/ppo.md
+    - A2C: content/api/algos/a2c.md
   - Environments:
-    - Basic Environments: content/environments/basic.md
-    - EDA Problems: content/environments/eda.md
-    - Routing Problems: content/environments/routing.md
-    - Scheduling Problems: content/environments/scheduling.md
+    - Basic Environments: content/api/envs/base.md
+    - EDA Problems: content/api/envs/eda.md
+    - Routing Problems: content/api/envs/routing.md
+    - Scheduling Problems: content/api/envs/scheduling.md
   - Networks:
-    - Neural Network Modules: content/networks/neural_networks.md
-    - Environment Embeddings: content/networks/environment_embeddings.md
+    - Neural Network Modules: content/api/models/nn.md
+    - Environment Embeddings: content/api/models/env_embeddings.md
   - Base NCO Methods:
-    - Constructive Policies: content/policies/constructive.md
-    - Improvement Policies: content/policies/improvement.md
+    - Constructive Policies: content/api/models/common/zoo/constructive.md
+    - Improvement Policies: content/api/models/common/zoo/improvement.md
+    - Transductive Models: content/api/models/common/zoo/transductive.md
   - Additional APIs:
-    - Train and Evaluation: content/api/train_and_eval.md
+    - Train and Evaluation: content/api/tasks.md
     - Decoding Strategies: content/api/decoding.md
     - Data: content/api/data.md
-
-
-extra:
-  social:
-  - icon: fontawesome/brands/github
-    link: https://github.com/ai4co
-  - icon: fontawesome/brands/slack
-    link: https://bit.ly/ai4co-slack
-  - icon: fontawesome/solid/globe
-    link: https://ai4co.org
+  - Other:
+    - Contributing to RL4CO: content/general/contribute.md
+    - FAQ: content/general/faq.md
