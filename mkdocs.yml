@@ -10,16 +10,16 @@ docs_dir: docs
 nav:
   - Getting Started:
     - Installation: content/start/installation.md
-    - Quick Start: ../examples/1-quickstart.ipynb
+    - Quick Start: examples/1-quickstart.ipynb
     - Training with Hydra: content/start/hydra.md
     - NCO Methods: content/api/models/common/__init__
   - Tutorials:
-    - Training a Model: ../examples/2-full-training.ipynb
-    - New Environment: ../examples/3-creating-new-env-model.ipynb
-    - Decoding Strategies: ../examples/modeling/1-decoding-strategies
-    - Transductive Methods: ../examples/modeling/2-transductive-methods
-    - Encoder Customization: ../examples/modeling/3-change-encoder
-    - Hydra Configuration: ../examples/advanced/1-hydra-config
+    - Training a Model: examples/2-full-training.ipynb
+    - New Environment: examples/3-creating-new-env-model.ipynb
+    - Decoding Strategies: examples/modeling/1-decoding-strategies
+    - Transductive Methods: examples/modeling/2-transductive-methods
+    - Encoder Customization: examples/modeling/3-change-encoder
+    - Hydra Configuration: examples/advanced/1-hydra-config
   - RL Algorithms:
     - Base Algorithms: content/api/algos/base.md
     - Reinforce: content/api/algos/reinforce.md
@@ -60,25 +60,28 @@ theme:
   favicon: assets/figs/rl4co-logo.svg
   primary: red
   features:
+    - announce.dismiss
     - content.code.copy
     - content.code.annotate
-    - navigation.expand
-    - navigation.top
     - content.tabs.link
     - content.tooltips
-    - announce.dismiss
+    - navigation.expand
     - navigation.instant
     - navigation.instant.prefetch
     - navigation.instant.preview
     - navigation.instant.progress
+    - navigation.indexes
     - navigation.path
     - navigation.sections
     - navigation.top
     - navigation.tracking
+    - navigation.tabs # horizontal tabs for navigation
+    - navigation.tabs.sticky # tabs do not scroll out of view
     - search.suggest
     - search.highlight
     - search.share
     - toc.follow
+    # - toc.integrate
   palette: 
     - media: "(prefers-color-scheme)"
       toggle:
@@ -151,10 +154,12 @@ plugins:
       canonical_version: latest
   - mkdocs-jupyter:
       include_source: True
-      include: ["../*.ipynb"]
   - search
   - autorefs
   - autolinks
+
+hooks:
+  - docs/hooks.py
 
 markdown_extensions:
   - pymdownx.details
