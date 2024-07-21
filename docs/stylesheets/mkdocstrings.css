@@ -1,0 +1,23 @@
+.doc-symbol-parameter::after {
+    content: "P";
+  }
+  
+  .doc-symbol-attribute::after {
+    content: "A";
+  }
+  
+  .doc-symbol-function::after {
+    content: "F";
+  }
+  
+  .doc-symbol-method::after {
+    content: "M";
+  }
+  
+  .doc-symbol-class::after {
+    content: "C";
+  }
+  
+  .doc-symbol-module::after {
+    content: "M";
+  }

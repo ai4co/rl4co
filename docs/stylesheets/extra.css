@@ -1,12 +1,19 @@
+/* Custom colors */
 :root {
     --md-primary-fg-color:        #B92B0F;
     --md-primary-fg-color--light: #F05F42;
     --md-primary-fg-color--dark:  #B92B0F;
   }
 
-[data-md-color-accent=indigo] {
-    --md-accent-fg-color: #B92B0F;
+[data-md-color-scheme="aiforco"] {
+  --md-primary-fg-color:        #B92B0F;
+  --md-primary-fg-color--light: #F05F42;
+  --md-primary-fg-color--dark:  #B92B0F;
 }
+
+/* [data-md-color-accent=indigo] {
+    --md-accent-fg-color: #B92B0F;
+} */
 
 /* Ensure code blocks wrap text */
 .codehilite pre {
