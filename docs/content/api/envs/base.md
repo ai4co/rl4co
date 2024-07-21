@@ -4,6 +4,9 @@
 
 This is the base wrapper around TorchRL's `EnvBase`, with additional functionality.
 
+::: rl4co.envs.common.base.RL4COEnvBase
+
+
 ```{eval-rst}
 .. automodule:: rl4co.envs.common.base
    :members:
