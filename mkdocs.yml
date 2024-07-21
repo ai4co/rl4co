@@ -5,6 +5,54 @@ repo_url: https://github.com/ai4co/rl4co/
 edit_uri: edit/main/docs
 site_description: Official documentation for RL4CO
 copyright: Made with ❤️ by AI4CO contributors
+docs_dir: docs
+
+nav:
+  - Getting Started:
+    - Installation: content/start/installation.md
+    - Quick Start: ../examples/1-quickstart.ipynb
+    - Training with Hydra: content/start/hydra.md
+    - NCO Methods: content/api/models/common/__init__
+  - Tutorials:
+    - Training a Model: ../examples/2-full-training.ipynb
+    - New Environment: ../examples/3-creating-new-env-model.ipynb
+    - Decoding Strategies: ../examples/modeling/1-decoding-strategies
+    - Transductive Methods: ../examples/modeling/2-transductive-methods
+    - Encoder Customization: ../examples/modeling/3-change-encoder
+    - Hydra Configuration: ../examples/advanced/1-hydra-config
+  - RL Algorithms:
+    - Base Algorithms: content/api/algos/base.md
+    - Reinforce: content/api/algos/reinforce.md
+    - PPO: content/api/algos/ppo.md
+    - A2C: content/api/algos/a2c.md
+  - Environments:
+    - Basic Environments: content/api/envs/base.md
+    - EDA Problems: content/api/envs/eda.md
+    - Routing Problems: content/api/envs/routing.md
+    - Scheduling Problems: content/api/envs/scheduling.md
+  - Networks:
+    - Neural Network Modules: content/api/models/nn.md
+    - Environment Embeddings: content/api/models/env_embeddings.md
+  - Base NCO Methods:
+    - Constructive Policies: content/api/models/common/zoo/constructive.md
+    - Improvement Policies: content/api/models/common/zoo/improvement.md
+    - Transductive Models: content/api/models/common/zoo/transductive.md
+  - Additional APIs:
+    - Train and Evaluation: content/api/tasks.md
+    - Decoding Strategies: content/api/decoding.md
+    - Data: content/api/data.md
+  - Other:
+    - Contributing to RL4CO: content/general/contribute.md
+    - FAQ: content/general/faq.md
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/ai4co
+  - icon: fontawesome/brands/slack
+    link: https://bit.ly/ai4co-slack
+  - icon: fontawesome/solid/globe
+    link: https://ai4co.org
 
 theme:
   name: material
@@ -29,6 +77,7 @@ theme:
     - navigation.tracking
     - search.suggest
     - search.highlight
+    - search.share
     - toc.follow
   palette: 
     - media: "(prefers-color-scheme)"
@@ -100,7 +149,9 @@ plugins:
   - mike:
       alias_type: symlink
       canonical_version: latest
-  - mkdocs-jupyter
+  - mkdocs-jupyter:
+      include_source: True
+      include: ["../*.ipynb"]
   - search
   - autorefs
   - autolinks
@@ -127,49 +178,3 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
 
-nav:
-  - Getting Started:
-    - Installation: content/start/installation.md
-    - Quick Start: ../examples/1-quickstart.ipynb
-    - Training with Hydra: content/start/hydra.md
-    - NCO Methods: content/api/models/common/__init__
-  - Tutorials:
-    - Training a Model: ../examples/2-full-training.ipynb
-    - New Environment: ../examples/3-creating-new-env-model.ipynb
-    - Decoding Strategies: ../examples/modeling/1-decoding-strategies
-    - Transductive Methods: ../examples/modeling/2-transductive-methods
-    - Encoder Customization: ../examples/modeling/3-change-encoder
-    - Hydra Configuration: ../examples/advanced/1-hydra-config
-  - RL Algorithms:
-    - Base Algorithms: content/api/algos/base.md
-    - Reinforce: content/api/algos/reinforce.md
-    - PPO: content/api/algos/ppo.md
-    - A2C: content/api/algos/a2c.md
-  - Environments:
-    - Basic Environments: content/api/envs/base.md
-    - EDA Problems: content/api/envs/eda.md
-    - Routing Problems: content/api/envs/routing.md
-    - Scheduling Problems: content/api/envs/scheduling.md
-  - Networks:
-    - Neural Network Modules: content/api/models/nn.md
-    - Environment Embeddings: content/api/models/env_embeddings.md
-  - Base NCO Methods:
-    - Constructive Policies: content/api/models/common/zoo/constructive.md
-    - Improvement Policies: content/api/models/common/zoo/improvement.md
-    - Transductive Models: content/api/models/common/zoo/transductive.md
-  - Additional APIs:
-    - Train and Evaluation: content/api/tasks.md
-    - Decoding Strategies: content/api/decoding.md
-    - Data: content/api/data.md
-  - Other:
-    - Contributing to RL4CO: content/general/contribute.md
-    - FAQ: content/general/faq.md
-
-extra:
-  social:
-  - icon: fontawesome/brands/github
-    link: https://github.com/ai4co
-  - icon: fontawesome/brands/slack
-    link: https://bit.ly/ai4co-slack
-  - icon: fontawesome/solid/globe
-    link: https://ai4co.org
