@@ -21,3 +21,7 @@ To build the documentation, run:
 ```bash
 mkdocs serve
 ```
+
+### Hooks
+
+You may have noticed that we do not have an `index.md` file. This is because we are using [hooks.py](hooks.py) to copy the root `README.md` to `index.md`. We are also copying the examples folder and deleting it upon stopping the server.
