@@ -3,6 +3,11 @@
     --md-primary-fg-color:        #B92B0F;
     --md-primary-fg-color--light: #F05F42;
     --md-primary-fg-color--dark:  #B92B0F;
+
+    --md-accent-fg-color:                #B92B0F;
+    --md-accent-fg-color--transparent:   #B92B0F;
+    --md-accent-bg-color:                #ffffff;
+    --md-accent-bg-color--light:         #B92B0F;
   }
 
 [data-md-color-scheme="aiforco"] {
