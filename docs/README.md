@@ -4,19 +4,18 @@ We use [MkDocs](https://www.mkdocs.org/) to generate the documentation with the 
 
 ## Development
 
-From root directory - install RL4CO locally:
+From the root directory:
+
+1. Install RL4CO locally
 
 ```bash
-pip install -e ".[dev,graph,routing]"
+pip install -e ".[dev,graph,routing,docs]"
 ```
 
-Then, install the dependencies:
+note that `docs` is the extra requirement for the documentation.
 
-```bash
-pip install -r docs/requirements.txt
-```
 
-To build the documentation, run:
+2. To build the documentation, run:
 
 ```bash
 mkdocs serve
@@ -24,4 +23,4 @@ mkdocs serve
 
 ### Hooks
 
-You may have noticed that we do not have an `index.md` file. This is because we are using [hooks.py](hooks.py) to copy the root `README.md` to `index.md`. We are also copying the examples folder and deleting it upon stopping the server.
+We are using the [hooks.py](hooks.py) for additional modifications. MkDocs for instance cannot detect files that are not in the same directory as an `__init__.py` (as described [here](https://stackoverflow.com/questions/75232397/mkdocs-unable-to-find-modules)) so we are automatically creating and deleting such files with our script
