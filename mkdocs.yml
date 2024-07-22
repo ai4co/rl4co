@@ -5,46 +5,46 @@ repo_url: https://github.com/ai4co/rl4co/
 edit_uri: edit/main/docs
 site_description: Official documentation for RL4CO
 copyright: Made with ❤️ by AI4CO contributors
-docs_dir: docs
+docs_dir: .
 
 nav:
-  - Home: index.md
+  - Home: README.md
   - Getting Started:
-    - Installation: content/start/installation.md
-    - Quick Start: content/examples/1-quickstart.ipynb
-    - Training with Hydra: content/start/hydra.md
-    - NCO Methods: content/api/models/common/__init__
+    - Installation: docs/content/start/installation.md
+    - Quick Start: docs/content/examples/1-quickstart.ipynb
+    - Training with Hydra: docs/content/start/hydra.md
+    - NCO Methods: docs/content/api/models/common/__init__
   - Tutorials:
-    - Training a Model: content/examples/2-full-training.ipynb
-    - New Environment: content/examples/3-creating-new-env-model.ipynb
-    - Decoding Strategies: content/examples/modeling/1-decoding-strategies
-    - Transductive Methods: content/examples/modeling/2-transductive-methods
-    - Encoder Customization: content/examples/modeling/3-change-encoder
-    - Hydra Configuration: content/examples/advanced/1-hydra-config
+    - Training a Model: examples/2-full-training.ipynb
+    - New Environment: examples/3-creating-new-env-model.ipynb
+    - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
+    - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
+    - Encoder Customization: examples/modeling/3-change-encoder.ipynb
+    - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
   - RL Algorithms:
-    - Base Algorithms: content/api/algos/base.md
-    - Reinforce: content/api/algos/reinforce.md
-    - PPO: content/api/algos/ppo.md
-    - A2C: content/api/algos/a2c.md
+    - Base Algorithms: docs/content/api/algos/base.md
+    - Reinforce: docs/content/api/algos/reinforce.md
+    - PPO: docs/content/api/algos/ppo.md
+    - A2C: docs/content/api/algos/a2c.md
   - Environments:
-    - Basic Environments: content/api/envs/base.md
-    - EDA Problems: content/api/envs/eda.md
-    - Routing Problems: content/api/envs/routing.md
-    - Scheduling Problems: content/api/envs/scheduling.md
+    - Basic Environments: docs/content/api/envs/base.md
+    - EDA Problems: docs/content/api/envs/eda.md
+    - Routing Problems: docs/content/api/envs/routing.md
+    - Scheduling Problems: docs/content/api/envs/scheduling.md
   - Networks:
-    - Neural Network Modules: content/api/models/nn.md
-    - Environment Embeddings: content/api/models/env_embeddings.md
+    - Neural Network Modules: docs/content/api/models/nn.md
+    - Environment Embeddings: docs/content/api/models/env_embeddings.md
   - Base NCO Methods:
-    - Constructive Policies: content/api/models/common/zoo/constructive.md
-    - Improvement Policies: content/api/models/common/zoo/improvement.md
-    - Transductive Models: content/api/models/common/zoo/transductive.md
+    - Constructive Policies: docs/content/api/models/common/zoo/constructive.md
+    - Improvement Policies: docs/content/api/models/common/zoo/improvement.md
+    - Transductive Models: docs/content/api/models/common/zoo/transductive.md
   - Additional APIs:
-    - Train and Evaluation: content/api/tasks.md
-    - Decoding Strategies: content/api/decoding.md
-    - Data: content/api/data.md
+    - Train and Evaluation: docs/content/api/tasks.md
+    - Decoding Strategies: docs/content/api/decoding.md
+    - Data: docs/content/api/data.md
   - Other:
-    - Contributing to RL4CO: content/general/contribute.md
-    - FAQ: content/general/faq.md
+    - Contributing to RL4CO: docs/content/general/contribute.md
+    - FAQ: docs/content/general/faq.md
 
 extra:
   social:
@@ -57,8 +57,8 @@ extra:
 
 theme:
   name: material
-  logo: assets/figs/rl4co-logo.svg
-  favicon: assets/figs/rl4co-logo.svg
+  logo: docs/assets/figs/rl4co-logo.svg
+  favicon: docs/assets/figs/rl4co-logo.svg
   primary: red
   features:
     - announce.dismiss
@@ -107,8 +107,8 @@ theme:
     code: Fira Code
 
 extra_css:
-  - stylesheets/extra.css # Our custom CSS
-  - stylesheets/mkdocstrings.css # mkdocstrings CSS
+  - docs/stylesheets/extra.css # Our custom CSS
+  - docs/stylesheets/mkdocstrings.css # mkdocstrings CSS
   - https://unpkg.com/katex@0/dist/katex.min.css # Latex math rendering
 
 extra_javascript:
@@ -152,7 +152,6 @@ plugins:
             - https://pytorch.org/tensordict/stable/objects.inv
             - https://pytorch.org/docs/stable/objects.inv
             - https://lightning.ai/docs/pytorch/stable/objects.inv
-
   - mike:
       alias_type: symlink
       canonical_version: latest
@@ -161,6 +160,7 @@ plugins:
   - search
   - autorefs
   - autolinks
+  - same-dir 
 
 hooks:
   - docs/hooks.py
@@ -190,3 +190,7 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - def_list
+  - mdx_truly_sane_lists
+  - mdx_breakless_lists
+  - gfm_admonition
+
