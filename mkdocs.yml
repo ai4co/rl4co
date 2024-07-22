@@ -8,7 +8,7 @@ copyright: Made with ❤️ by AI4CO contributors
 docs_dir: .
 
 nav:
-  - Home: README.md
+  - Home: docs/index.md
   - Getting Started:
     - Installation: docs/content/start/installation.md
     - Quick Start: docs/content/examples/1-quickstart.ipynb
