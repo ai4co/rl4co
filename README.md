@@ -42,8 +42,9 @@ RL4CO is built upon:
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-<img src="https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f" alt="RL4CO-Overview" style="max-width: 90%;">
-
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f" alt="RL4CO-Overview" style="max-width: 90%;">
+</div>
 
 We offer flexible and efficient implementations of the following policies:
 - **Constructive**: learn to construct a solution from scratch
@@ -51,14 +52,16 @@ We offer flexible and efficient implementations of the following policies:
   - _NonAutoregressive (NAR)_: learn to predict a heuristic, such as a heatmap, to then construct a solution
 - **Improvement**: learn to improve an pre-existing solution
 
-<img src="https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7" alt="RL4CO-Policy-Overview" style="max-width: 90%;">
-
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7" alt="RL4CO-Policy-Overview" style="max-width: 90%;">
+</div>
 
 We provide several utilities and modularization. For example, we modularize reusable components such as _environment embeddings_ that can easily be swapped to [solve new problems](https://github.com/ai4co/rl4co/blob/main/examples/3-creating-new-env-model.ipynb).
 
 
-<img src="https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717" alt="RL4CO-Env-Embedding" style="max-width: 90%;">
-
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717" alt="RL4CO-Env-Embedding" style="max-width: 90%;">
+</div>
 
 
 ## Getting started
@@ -219,5 +222,3 @@ We invite you to join our AI4CO community, an open research group in Artificial 
 <div align="center">
     <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/ai4co_animated_full.svg" alt="AI4CO Logo" style="width: 30%; height: auto;">
 </div>
-
-

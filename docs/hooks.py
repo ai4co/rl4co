@@ -19,26 +19,38 @@ def on_startup(*args, **kwargs):
             created_files.append(init_file_path)
     log.info(f"{len(created_files)} __init__.py files created")
 
-    log.info("Copying README.md to docs/index.md and adding custom CSS")
-    shutil.copyfile("README.md", "docs/index.md")
-
+    # huge trick: we save a backup of README.md and append CSS content to hide some elements
+    log.info("Saving backup of README.md and appending CSS content")
+    shutil.copyfile("README.md", "README_backup.md")
+    # warning: don't touch any of the following. you have been warned :)
     def append_css_to_readme(file_path):
         css_content = dedent("""
-        <style type="text/css">
-        .md-typeset h1,
-        .md-content__button {
-            display: none;
-        }
-        </style>
-        """)    
+            ---
+            hide:
+            - navigation
+            - toc
+            --- 
+
+            <div>                        
+            <style type="text/css">
+            .md-typeset h1,
+            .md-content__button {
+                display: none;
+            }
+            </style>      
+            </div> 
+                                                            
+            """)[1:] # remove "\n" from the beginning
         if not os.path.exists(file_path):
             print(f"Error: The file {file_path} does not exist.")
             return        
-        with open(file_path, 'a') as file:
-            file.write(css_content)
+        with open(file_path, 'r') as original:
+            data = original.read()
+        with open(file_path, 'w') as modified:
+            modified.write(css_content + data)
         print(f"CSS content has been appended to {file_path}")
 
-    append_css_to_readme("docs/index.md")
+    append_css_to_readme("README.md")
 
 
 def on_shutdown(*args, **kwargs):
@@ -47,6 +59,5 @@ def on_shutdown(*args, **kwargs):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-    log.info("Removing docs/index.md")
-    if os.path.exists("docs/index.md"):
-        os.remove("docs/index.md")
+    log.info("Replace README.md with README_backup.md")
+    shutil.move("README_backup.md", "README.md")

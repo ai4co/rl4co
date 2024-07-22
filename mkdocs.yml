@@ -8,10 +8,10 @@ copyright: Made with ❤️ by AI4CO contributors
 docs_dir: .
 
 nav:
-  - Home: docs/index.md
+  - Home: README.md
   - Getting Started:
     - Installation: docs/content/start/installation.md
-    - Quick Start: docs/content/examples/1-quickstart.ipynb
+    - Quick Start: examples/1-quickstart.ipynb
     - Training with Hydra: docs/content/start/hydra.md
     - NCO Methods: docs/content/api/models/common/__init__
   - Tutorials:
@@ -59,6 +59,7 @@ theme:
   name: material
   logo: docs/assets/figs/rl4co-logo.svg
   favicon: docs/assets/figs/rl4co-logo.svg
+  custom_dir: docs/overrides
   primary: red
   features:
     - announce.dismiss
@@ -77,7 +78,6 @@ theme:
     - navigation.top
     - navigation.tracking
     - navigation.tabs # horizontal tabs for navigation
-    - navigation.tabs.sticky # tabs do not scroll out of view
     - search.suggest
     - search.highlight
     - search.share
@@ -112,7 +112,8 @@ extra_css:
   - https://unpkg.com/katex@0/dist/katex.min.css # Latex math rendering
 
 extra_javascript:
-  - js/katex.js # Latex math rendering
+  - docs/js/katex.js # Latex math rendering
+  - docs/js/particles.min.js
   - https://unpkg.com/katex@0/dist/katex.min.js # Latex math rendering
   - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js # Latex math rendering
 
@@ -155,8 +156,9 @@ plugins:
   - mike:
       alias_type: symlink
       canonical_version: latest
-  # - mkdocs-jupyter:
-  #     include_source: True
+  - mkdocs-jupyter:
+      include_source: True
+      include: ["*ipynb"]
   - search
   - autorefs
   - autolinks
