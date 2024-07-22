@@ -1,0 +1,11 @@
+mkdocs
+mkdocs-material
+mkdocstrings-python
+mike
+mkdocs-jupyter
+mkdocs-redirects
+mkdocs-autolinks-plugin
+griffe-typingdoc
+griffe-inherited-docstrings
+griffe
+black # for automatically formatting docstrings
