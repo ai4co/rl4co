@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import torch.nn as nn
 
@@ -52,13 +53,14 @@ class TSPEdgeEmbedding(nn.Module):
     used by the neural network. It supports sparsification to focus on a subset of relevant edges,
     which is particularly useful for large graphs.
     """
+    node_dim = 1
 
     def __init__(
         self,
         embed_dim,
         linear_bias=True,
         sparsify=True,
-        k_sparse: int = None,
+        k_sparse: Optional[int] = None,
     ):
         assert Batch is not None, (
             "torch_geometric not found. Please install torch_geometric using instructions from "
@@ -66,10 +68,9 @@ class TSPEdgeEmbedding(nn.Module):
         )
 
         super(TSPEdgeEmbedding, self).__init__()
-        node_dim = 1
         self.k_sparse = k_sparse
         self.sparsify = sparsify
-        self.edge_embed = nn.Linear(node_dim, embed_dim, linear_bias)
+        self.edge_embed = nn.Linear(self.node_dim, embed_dim, linear_bias)
 
     def forward(self, td, init_embeddings: Tensor):
         cost_matrix = get_distance_matrix(td["locs"])
@@ -142,13 +143,15 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
             init_embedding: init embeddings of shape [batch_size, n, m]
         """
         graph_data = []
+        k_sparse = max(batch_cost_matrix.shape[-1] // 5, 10) if self.k_sparse is None else self.k_sparse
+        
         for index, cost_matrix in enumerate(batch_cost_matrix):
             edge_index, _ = sparsify_graph(
-                cost_matrix[..., 0], self.k_sparse, self_loop=False
+                cost_matrix[..., 0], k_sparse, self_loop=False
             )
             edge_index = edge_index.T[torch.all(edge_index != 0, dim=0)].T
             _, depot_edge_index = torch.topk(
-                cost_matrix[0, :, 1], k=self.k_sparse, largest=False, sorted=False
+                cost_matrix[0, :, 1], k=k_sparse, largest=False, sorted=False
             )
             depot_edge_index = depot_edge_index[depot_edge_index != 0]
             depot_edge_index = torch.stack(

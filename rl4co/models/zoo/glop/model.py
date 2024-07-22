@@ -34,12 +34,12 @@ class GLOP(REINFORCE):
         baseline_kwargs={},
         **kwargs,
     ):
-        assert env.name == "cvrp", f"{env.name} is not supported by {self.__class__.__name__}"
+        # TODO: test more VRPs
+        assert env.name in ["cvrp", "cvrpmvc"], f"{env.name} is not supported by {self.__class__.__name__}"
 
         policy = GLOPPolicy(
             env_name=env.name,
             n_samples=n_samples,
-            opts=opts,
             **policy_kwargs,
         )  if policy is None else policy
 

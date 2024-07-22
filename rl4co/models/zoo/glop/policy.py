@@ -1,12 +1,11 @@
 from typing import Literal, Optional, Union
 
-import numpy as np
 import torch
 
 from einops import rearrange
 from tensordict import TensorDict
 
-from rl4co.envs import RL4COEnvBase
+from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.common.constructive.nonautoregressive import (
     NonAutoregressiveDecoder,
     NonAutoregressiveEncoder,
@@ -14,10 +13,16 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
-from rl4co.models.zoo.glop.utils import cvrp_to_subtsp, get_total_cost
+from rl4co.models.zoo.glop.utils import eval_insertion
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
+
+try:
+    from rl4co.models.zoo.glop.adapter import SubTSPAdapter
+except ImportError:
+    # In case some dependencies are not installed (e.g., numba)
+    SubTSPAdapter = None
 
 log = get_pylogger(__name__)
 
@@ -29,9 +34,13 @@ class GLOPPolicy(NonAutoregressivePolicy):
         decoder: Optional[NonAutoregressiveDecoder] = None,
         env_name: str = "cvrp",
         n_samples: int = 10,
-        opts: list[Union[callable]] = None,
+        temperature: float = 0.1,
         **encoder_kwargs,
     ):
+        assert (
+            SubTSPAdapter is not None
+        ), "Cannot import adapter module. Please check if `numba` is installed."
+
         if encoder is None:
             embed_dim = encoder_kwargs.get("embed_dim", 64)
             if "init_embedding" not in encoder_kwargs:
@@ -48,19 +57,20 @@ class GLOPPolicy(NonAutoregressivePolicy):
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,
-            temperature=0.1,
+            temperature=temperature,
             train_decode_type="multistart_sampling",
             val_decode_type="multistart_greedy",
             test_decode_type="multistart_greedy",
         )
 
         self.n_samples = n_samples
-        self.opts = opts
+
+        SubTSPAdapter.pre_compile_numba()
 
     def forward(
         self,
         td: TensorDict,
-        env: Union[str, RL4COEnvBase, None] = None,
+        env: Optional[Union[RL4COEnvBase, str]] = None,
         phase: Literal["train", "val", "test"] = "train",
         calc_reward: bool = True,
         return_actions: bool = False,
@@ -89,9 +99,8 @@ class GLOPPolicy(NonAutoregressivePolicy):
             **decoding_kwargs,
         )
 
+        # local policy
         par_actions = par_out["actions"]
-        par_log_likelihood = par_out["log_likelihood"]
-
         local_policy_out = self.local_policy(
             td,
             par_actions,
@@ -100,18 +109,22 @@ class GLOPPolicy(NonAutoregressivePolicy):
         )
 
         # Construct final output
-        out = {
-            "log_likelihood": par_log_likelihood,
-            "reward": local_policy_out["reward"],
-        }
+        out = par_out
 
-        # if return_additional_info:
-        #     out.update({
-        #         "par_actions": rearrange(par_actions.cpu(), "(b n) ... -> (n b) ...", n=self.n_samples),
-        #         # "tsp_insts": tsp_insts_list,
-        #         # "n_tsps_per_route": n_tsps_per_route_list,
-        #         # "tours_list": tours_list,
-        #     })
+        if calc_reward:
+            td_repeated = td.expand(self.n_samples, td.batch_size[0]).reshape(-1)
+            if isinstance(env, str) or env is None:
+                env_name = self.env_name if env is None else env
+                log.info(
+                    f"Instantiated environment not provided; instantiating {env_name}"
+                )
+                env = get_env(env_name)
+
+            reward = env.get_reward(td_repeated, local_policy_out["actions"])
+            out["reward"] = rearrange(reward, "(n b) -> b n", n=self.n_samples)
+
+        if return_actions:
+            out["actions"] = local_policy_out["actions"]
 
         return out
 
@@ -124,64 +137,14 @@ class GLOPPolicy(NonAutoregressivePolicy):
         phase: Literal["train", "val", "test"] = "train",
         subtsp_solver: Literal["am", "insertion", "lkh"] = "am",
     ):
-        device = td.device
-
+        assert SubTSPAdapter is not None
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
-        # Based on partition actions to get partitions
-        tsp_insts_list, n_tsps_per_route_list = self.partition_glop(td, actions, phase)
+        adapter = SubTSPAdapter(td, actions)
+        for mapping in adapter.get_batched_subtsps(batch_size=5):
+            subtsp_actions, _ = eval_insertion(mapping.subtsp_coordinates)
+            adapter.update_actions(mapping, subtsp_actions)
 
-        reward_list = []
-        tours_list = []
-        for batch_idx in range(td.batch_size[0]):
-            tsp_insts = tsp_insts_list[batch_idx]
-            n_tsps_per_route = n_tsps_per_route_list[batch_idx]
-            if phase == "train" or subtsp_solver == "insertion":
-                objs = here_eval(tsp_insts, n_tsps_per_route)
-                objs = torch.tensor(objs, device=device)
-            elif subtsp_solver == "lkh":
-                costs, tours = lkh_solve(self.opts, tsp_insts, batch_idx)
-                costs = get_total_cost(np.array(costs), n_tsps_per_route)
-                objs = torch.tensor(costs, device=device)
-                # if return_additional_info:
-                #     tours_index = np.array(tours)
-                #     tours_coords = []
-                #     for cord, ri in zip(tsp_insts, tours_index, strict = True):
-                #         tours_coords.append(cord[ri])
-                #     tours_list.append(np.stack(tours_coords, axis=0))
-                del tours
-            else:
-                tsp_insts = torch.tensor(tsp_insts, device=device)
-                tours, objs = glop_eval(tsp_insts, n_tsps_per_route, self.opts)
-                # if return_additional_info:
-                #     tours_list.append(tours.cpu().numpy())
-                del tours
-            reward_list.append(objs)
-
-        reward = -torch.stack(reward_list, dim=0)
-
-        return {"reward": reward}
-
-    @torch.no_grad()
-    def partition_glop(self, td: TensorDict, actions: torch.Tensor, phase: str):
-        """Partition based on the partition actions, from original GLOP
-        Args:
-            td [bs]: NOTE: different with our partition, this doesn't to be sampled
-            actions [bs*n_samples, seq_len]
-        Returns:
-            tsp_insts_list [bs]: list of tsp instances, each has the size of [sum_num_tsps_of_samples, max_tsp_len, 2]
-            n_tsps_per_route_list [bs[n_samples]]: list of number of tsps per route, each element is a list[int]
-        """
-        batch_size = td.batch_size[0]
-        tsp_insts_list = []
-        n_tsps_per_route_list = []
-        batch_locs = td["locs"].cpu().numpy()
-        batch_routes = actions.view(batch_size, self.n_samples, -1).cpu().numpy()
-
-        for coors, routes in zip(batch_locs, batch_routes):
-            padded_tsp_pis, n_tsps_per_route = cvrp_to_subtsp(routes)
-            tsp_insts = coors[padded_tsp_pis.astype(int)]
-            tsp_insts_list.append(tsp_insts)
-            n_tsps_per_route_list.append(n_tsps_per_route)
-
-        return tsp_insts_list, n_tsps_per_route_list
+        actions = adapter.actions.to(td.device)
+        actions = rearrange(actions, "(b n) ... -> (n b) ...", n=self.n_samples)
+        return dict(actions=actions)

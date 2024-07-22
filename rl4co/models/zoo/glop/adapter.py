@@ -20,10 +20,14 @@ class SubTSPAdapter(object):
         self.batch_size = parent_td.batch_size[0]
         self.n_samples = actions.shape[0] // self.batch_size
         assert actions.shape[0] == self.n_samples * self.batch_size
+
         if actions.device.type == "cpu":  # to make sure a copy of actions is always made
-            self.actions = actions.clone()
+            actions = actions.clone()
         else:
-            self.actions = actions.cpu()
+            actions = actions.cpu()
+        # prepend depot to each route
+        self.actions = torch.concat([torch.zeros((actions.shape[0], 1), dtype=actions.dtype), actions], dim=1)
+
         self.map_action_index = _cvrp_action_partitioner(self.actions.numpy())
         self.coordinates = parent_td["locs"].cpu().numpy()
 
@@ -81,7 +85,7 @@ def _cvrp_action_partitioner(routes: np.ndarray):
     route_length = routes.shape[1]
     for index in range(routes.shape[0]):
         start = sub_route_count = 0
-        last_is_not_zero = False  # assume the first one is always zero
+        last_is_not_zero = routes[index, 0] != 0
         for idx in range(1, route_length):
             node = routes[index, idx]
             if node == 0:
