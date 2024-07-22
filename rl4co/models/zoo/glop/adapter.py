@@ -26,7 +26,9 @@ class SubTSPAdapter(object):
         else:
             actions = actions.cpu()
         # prepend depot to each route
-        self.actions = torch.concat([torch.zeros((actions.shape[0], 1), dtype=actions.dtype), actions], dim=1)
+        self.actions = torch.concat(
+            [torch.zeros((actions.shape[0], 1), dtype=actions.dtype), actions], dim=1
+        )
 
         self.map_action_index = _cvrp_action_partitioner(self.actions.numpy())
         self.coordinates = parent_td["locs"].cpu().numpy()
@@ -153,39 +155,3 @@ def _update_cvrp_actions(
 
         # update cvrp_actions
         cvrp_actions[route_idx, start + 1 : end] = real_nodes[real_nodes != 0]
-
-
-if __name__ == "__main__":
-    import time
-
-    start = time.time()
-    SubTSPAdapter.pre_compile_numba()
-    duration = time.time() - start
-    print(f"compile cost: {duration:.6f}s")
-
-    actions = np.array(
-        [
-            [0, 1, 2, 3, 4, 5, 0, 6, 7, 8, 0],
-            [0, 1, 2, 3, 4, 5, 0, 6, 7, 8, 0],
-        ],
-        dtype=int,
-    )
-    coordinates = np.random.randn(1, 30, 2)
-    subtsp_actions = np.array(
-        [
-            [1, 2, 3, 0, 0, 4, 5],
-            [0, 0, 0, 0, 1, 2, 3],
-            [0, 0, 5, 4, 3, 2, 1],
-            [3, 1, 2, 0, 0, 0, 0],
-        ],
-        dtype=int,
-    )
-
-    map_action_index = _cvrp_action_partitioner(actions)
-    map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
-        actions, map_action_index, coordinates
-    )
-    print(actions)
-    print(map_node_index)
-    _update_cvrp_actions(actions, subtsp_actions, map_action_index, map_node_index)
-    print(actions)

@@ -1,11 +1,12 @@
-from typing import Any, Union, Optional
+from typing import Any, Callable, Optional, Union
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline
+from rl4co.models.zoo.glop.policy import GLOPPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 
-from rl4co.models.zoo.glop.policy import GLOPPolicy
+GLOP_SUPPORTED_ENVS = {"cvrp", "cvrpmvc"}
 
 
 class GLOP(REINFORCE):
@@ -28,25 +29,32 @@ class GLOP(REINFORCE):
         env: RL4COEnvBase,
         policy: Optional[GLOPPolicy] = None,
         baseline: Union[REINFORCEBaseline, str] = "shared",
-        revisers: list[Union[callable]] = None,
+        revisers: list[Callable] = None,
         n_samples: int = 10,
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
     ):
         # TODO: test more VRPs
-        assert env.name in ["cvrp", "cvrpmvc"], f"{env.name} is not supported by {self.__class__.__name__}"
+        assert (
+            env.name in GLOP_SUPPORTED_ENVS
+        ), f"{env.name} is not supported by {self.__class__.__name__}"
 
-        policy = GLOPPolicy(
-            env_name=env.name,
-            n_samples=n_samples,
-            **policy_kwargs,
-        )  if policy is None else policy
+        if policy is None:
+            policy = (
+                GLOPPolicy(
+                    env_name=env.name,
+                    n_samples=n_samples,
+                    **policy_kwargs,
+                )
+                if policy is None
+                else policy
+            )
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
     def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: Optional[int] = None
     ):
         td = self.env.reset(batch)
         n_samples = self.policy.n_samples
@@ -67,7 +75,7 @@ class GLOP(REINFORCE):
             self.calculate_loss(td, batch, out, reward, log_likelihood)
             max_reward, max_idxs = reward.max(dim=-1)
             out.update({"max_reward": max_reward})
-        
+
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_samples > 1:
@@ -79,7 +87,11 @@ class GLOP(REINFORCE):
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_samples))
                     out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs, dim=max_idxs.dim())}
+                        {
+                            "best_multistart_actions": gather_by_index(
+                                actions, max_idxs, dim=max_idxs.dim()
+                            )
+                        }
                     )
                     out["actions"] = actions
 

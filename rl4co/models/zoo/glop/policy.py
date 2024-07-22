@@ -112,16 +112,17 @@ class GLOPPolicy(NonAutoregressivePolicy):
         out = par_out
 
         if calc_reward:
-            td_repeated = td.expand(self.n_samples, td.batch_size[0]).reshape(-1)
-            if isinstance(env, str) or env is None:
-                env_name = self.env_name if env is None else env
-                log.info(
-                    f"Instantiated environment not provided; instantiating {env_name}"
-                )
-                env = get_env(env_name)
+            with torch.no_grad():
+                td_repeated = td.expand(self.n_samples, td.batch_size[0]).reshape(-1)
+                if isinstance(env, str) or env is None:
+                    env_name = self.env_name if env is None else env
+                    log.info(
+                        f"Instantiated environment not provided; instantiating {env_name}"
+                    )
+                    env = get_env(env_name)
 
-            reward = env.get_reward(td_repeated, local_policy_out["actions"])
-            out["reward"] = rearrange(reward, "(n b) -> b n", n=self.n_samples)
+                reward = env.get_reward(td_repeated, local_policy_out["actions"])
+                out["reward"] = rearrange(reward, "(n b) -> b n", n=self.n_samples)
 
         if return_actions:
             out["actions"] = local_policy_out["actions"]
@@ -141,10 +142,11 @@ class GLOPPolicy(NonAutoregressivePolicy):
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
         adapter = SubTSPAdapter(td, actions)
-        for mapping in adapter.get_batched_subtsps(batch_size=5):
+        for mapping in adapter.get_batched_subtsps(batch_size=None):
             subtsp_actions, _ = eval_insertion(mapping.subtsp_coordinates)
             adapter.update_actions(mapping, subtsp_actions)
 
-        actions = adapter.actions.to(td.device)
+        actions = adapter.actions
         actions = rearrange(actions, "(b n) ... -> (n b) ...", n=self.n_samples)
+        actions = actions.to(td.device)
         return dict(actions=actions)

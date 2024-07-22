@@ -1,9 +1,10 @@
 import numpy as np
 
 try:
-    from GLOP.utils.insertion import random_insertion
+    from .insertion import random_insertion
 except ImportError:
     random_insertion = None
+
 
 def eval_insertion(tsp_insts):
     assert random_insertion is not None
