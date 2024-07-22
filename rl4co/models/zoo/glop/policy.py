@@ -177,10 +177,9 @@ class GLOPPolicy(NonAutoregressivePolicy):
         n_tsps_per_route_list = []
         batch_locs = td["locs"].cpu().numpy()
         batch_routes = actions.view(batch_size, self.n_samples, -1).cpu().numpy()
-        min_subtsp_scale = 0 if phase == "train" else max(self.opts.revision_lens)
 
         for coors, routes in zip(batch_locs, batch_routes):
-            padded_tsp_pis, n_tsps_per_route = cvrp_to_subtsp(routes, min_subtsp_scale)
+            padded_tsp_pis, n_tsps_per_route = cvrp_to_subtsp(routes)
             tsp_insts = coors[padded_tsp_pis.astype(int)]
             tsp_insts_list.append(tsp_insts)
             n_tsps_per_route_list.append(n_tsps_per_route)
