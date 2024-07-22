@@ -11,16 +11,16 @@ nav:
   - Home: index.md
   - Getting Started:
     - Installation: content/start/installation.md
-    - Quick Start: examples/1-quickstart.ipynb
+    - Quick Start: content/examples/1-quickstart.ipynb
     - Training with Hydra: content/start/hydra.md
     - NCO Methods: content/api/models/common/__init__
   - Tutorials:
-    - Training a Model: examples/2-full-training.ipynb
-    - New Environment: examples/3-creating-new-env-model.ipynb
-    - Decoding Strategies: examples/modeling/1-decoding-strategies
-    - Transductive Methods: examples/modeling/2-transductive-methods
-    - Encoder Customization: examples/modeling/3-change-encoder
-    - Hydra Configuration: examples/advanced/1-hydra-config
+    - Training a Model: content/examples/2-full-training.ipynb
+    - New Environment: content/examples/3-creating-new-env-model.ipynb
+    - Decoding Strategies: content/examples/modeling/1-decoding-strategies
+    - Transductive Methods: content/examples/modeling/2-transductive-methods
+    - Encoder Customization: content/examples/modeling/3-change-encoder
+    - Hydra Configuration: content/examples/advanced/1-hydra-config
   - RL Algorithms:
     - Base Algorithms: content/api/algos/base.md
     - Reinforce: content/api/algos/reinforce.md
@@ -134,7 +134,6 @@ plugins:
               ignore_init_summary: true
             merge_init_into_class: true
             show_signature_annotations: true
-            signature_crossrefs: true
             docstring_section_style: list
             heading_level: 1
             inherited_members: false
@@ -146,7 +145,6 @@ plugins:
             signature_crossrefs: true
             summary: true
             extensions:
-            - griffe_typingdoc
             - griffe_inherited_docstrings
           import:
             - https://docs.python.org/3/objects.inv
@@ -158,8 +156,8 @@ plugins:
   - mike:
       alias_type: symlink
       canonical_version: latest
-  - mkdocs-jupyter:
-      include_source: True
+  # - mkdocs-jupyter:
+  #     include_source: True
   - search
   - autorefs
   - autolinks
