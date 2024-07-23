@@ -30,7 +30,6 @@ class GLOP(REINFORCE):
         policy: Optional[GLOPPolicy] = None,
         baseline: Union[REINFORCEBaseline, str] = "shared",
         revisers: list[Callable] = None,
-        n_samples: int = 10,
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
@@ -41,15 +40,7 @@ class GLOP(REINFORCE):
         ), f"{env.name} is not supported by {self.__class__.__name__}"
 
         if policy is None:
-            policy = (
-                GLOPPolicy(
-                    env_name=env.name,
-                    n_samples=n_samples,
-                    **policy_kwargs,
-                )
-                if policy is None
-                else policy
-            )
+            policy = GLOPPolicy(env_name=env.name, **policy_kwargs)
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
@@ -66,23 +57,19 @@ class GLOP(REINFORCE):
             phase=phase,
             return_actions=True,
         )
-        reward = out["reward"]
+        reward = unbatchify(out["reward"], n_samples)
+        max_reward, max_idxs = reward.max(dim=-1)
+        out.update({"max_reward": max_reward})
 
         # Training phase
         if phase == "train":
             assert n_samples > 1, "num_starts must be > 1 during training"
-            log_likelihood = unbatchify(out["log_likelihood"], (n_samples))
+            log_likelihood = unbatchify(out["log_likelihood"], n_samples)
             self.calculate_loss(td, batch, out, reward, log_likelihood)
-            max_reward, max_idxs = reward.max(dim=-1)
-            out.update({"max_reward": max_reward})
 
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_samples > 1:
-                # max multi-start reward
-                max_reward, max_idxs = reward.max(dim=-1)
-                out.update({"max_reward": max_reward})
-
                 if out.get("actions", None) is not None:
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_samples))

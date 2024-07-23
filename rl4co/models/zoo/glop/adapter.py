@@ -86,21 +86,19 @@ def _cvrp_action_partitioner(routes: np.ndarray):
     map_action_index = []
     route_length = routes.shape[1]
     for index in range(routes.shape[0]):
-        start = sub_route_count = 0
+        start = 0
         last_is_not_zero = routes[index, 0] != 0
         for idx in range(1, route_length):
             node = routes[index, idx]
             if node == 0:
                 if last_is_not_zero:
                     map_action_index.append((index, start, idx))
-                    sub_route_count += 1
+                    last_is_not_zero = False
                 start = idx
-                last_is_not_zero = False
             else:
                 last_is_not_zero = True
         if node != 0:  # handle final routes
             map_action_index.append((index, start, route_length))
-            sub_route_count += 1
     map_action_index = np.array(map_action_index, dtype=np.int32)
     return map_action_index
 

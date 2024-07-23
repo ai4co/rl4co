@@ -15,7 +15,7 @@ from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
 from rl4co.models.zoo.glop.utils import eval_insertion
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
-from rl4co.utils.ops import select_start_nodes_by_distance
+from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
 
 try:
@@ -71,7 +71,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         self,
         td: TensorDict,
         env: Optional[Union[RL4COEnvBase, str]] = None,
-        phase: Literal["train", "val", "test"] = "train",
+        phase: Literal["train", "val", "test"] = "test",
         calc_reward: bool = True,
         return_actions: bool = False,
         return_entropy: bool = False,
@@ -113,19 +113,19 @@ class GLOPPolicy(NonAutoregressivePolicy):
 
         if calc_reward:
             with torch.no_grad():
-                td_repeated = td.expand(self.n_samples, td.batch_size[0]).reshape(-1)
                 if isinstance(env, str) or env is None:
                     env_name = self.env_name if env is None else env
                     log.info(
                         f"Instantiated environment not provided; instantiating {env_name}"
                     )
                     env = get_env(env_name)
+                td_repeated = batchify(td, self.n_samples)
+                reward = env.get_reward(
+                    td_repeated, local_policy_out["actions"], check_solution=False
+                )
+                out["reward"] = reward.detach()
 
-                reward = env.get_reward(td_repeated, local_policy_out["actions"])
-                out["reward"] = rearrange(reward, "(n b) -> b n", n=self.n_samples)
-
-        if return_actions:
-            out["actions"] = local_policy_out["actions"]
+        out["actions"] = local_policy_out["actions"]
 
         return out
 
