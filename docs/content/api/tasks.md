@@ -1,17 +1,6 @@
 # Tasks: Train and Evaluate
 
-## Train
-
-```{eval-rst}
-.. automodule:: rl4co.tasks.train
-   :members:
-   :undoc-members:
-```
+:::tasks.train
 
 ## Evaluate
-
-```{eval-rst}
-.. automodule:: rl4co.tasks.eval
-   :members:
-   :undoc-members:
-```
+:::tasks.eval

@@ -2,32 +2,16 @@
 
 ## Datasets
 
-```{eval-rst}
-.. automodule:: rl4co.data.dataset
-   :members:
-   :undoc-members:
-```
+:::data.dataset
 
 ## Data Generation
 
-```{eval-rst}
-.. automodule:: rl4co.data.generate_data
-   :members:
-   :undoc-members:
-```
+:::data.generate_data
 
 ## Transforms
 
-```{eval-rst}
-.. automodule:: rl4co.data.transforms
-   :members:
-   :undoc-members:
-```
+:::data.transforms
 
 ## Utils
 
-```{eval-rst}
-.. automodule:: rl4co.data.utils
-   :members:
-   :undoc-members:
-```
+:::data.utils

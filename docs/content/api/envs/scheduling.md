@@ -2,28 +2,12 @@
 
 ## Flexible Flow Shop Problem (FFSP)
 
-```{eval-rst}
-.. automodule:: rl4co.envs.scheduling.ffsp.env
-   :members:
-   :undoc-members:
-```
+:::envs.scheduling.ffsp.env
 
-```{eval-rst}
-.. automodule:: rl4co.envs.scheduling.ffsp.generator
-   :members:
-   :undoc-members:
-```
+:::envs.scheduling.ffsp.generator
 
 ## Single Machine Total Weighted Tardiness Problem (SMTWTP)
 
-```{eval-rst}
-.. automodule:: rl4co.envs.scheduling.smtwtp.env
-   :members:
-   :undoc-members:
-```
+:::envs.scheduling.smtwtp.env
 
-```{eval-rst}
-.. automodule:: rl4co.envs.scheduling.smtwtp.generator
-   :members:
-   :undoc-members:
-```
+:::envs.scheduling.smtwtp.generator

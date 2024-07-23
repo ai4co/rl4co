@@ -2,59 +2,31 @@
 
 ## Critic Network
 
-```{eval-rst}
-.. automodule:: rl4co.models.rl.common.critic
-   :members:
-   :undoc-members:
-```
+:::models.rl.common.critic
 
 ## Graph Neural Networks
 
 ### Graph Attention Encoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.graph.attnnet
-   :members:
-   :undoc-members:
-```
+:::models.nn.graph.attnnet
 
 ### Graph Convolutional Encoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.graph.gcn
-   :members:
-   :undoc-members:
-```
+:::models.nn.graph.gcn
 
 ### Message Passing Encoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.graph.mpnn
-   :members:
-   :undoc-members:
-```
+:::models.nn.graph.mpnn
 
 ## rl4co.models.nn.attention
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.attention
-   :members:
-   :undoc-members:
-```
+:::models.nn.attention
 
 
 ## rl4co.models.nn.mlp
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.mlp
-   :members:
-   :undoc-members:
-```
+:::models.nn.mlp
 
 ## rl4co.models.nn.ops
 
-```{eval-rst}
-.. automodule:: rl4co.models.nn.ops
-   :members:
-   :undoc-members:
-```
+:::models.nn.ops

@@ -21,51 +21,22 @@ where _embeddings_ transfer information from feature space to embedding space.
 
 ### Constructive Policy Base Classes
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.base
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.base
 
 
 
 ### Autoregressive Policies Base Classes
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.autoregressive.encoder
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.autoregressive.encoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.autoregressive.decoder
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.autoregressive.decoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.autoregressive.policy
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.autoregressive.policy
 
 ### Nonautoregressive Policies Base Classes
 
+:::models.common.constructive.nonautoregressive.encoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.nonautoregressive.encoder
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.nonautoregressive.decoder
 
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.nonautoregressive.decoder
-   :members:
-   :undoc-members:
-```
-
-```{eval-rst}
-.. automodule:: rl4co.models.common.constructive.nonautoregressive.policy
-   :members:
-   :undoc-members:
-```
+:::models.common.constructive.nonautoregressive.policy
