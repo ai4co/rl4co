@@ -65,6 +65,7 @@ theme:
     - announce.dismiss
     - content.code.copy
     - content.code.annotate
+    - content.code.select
     - content.tabs.link
     - content.tooltips
     - navigation.expand
@@ -82,7 +83,6 @@ theme:
     - search.highlight
     - search.share
     - toc.follow
-    - toc.integrate
   palette: 
     - media: "(prefers-color-scheme)"
       toggle:

@@ -1,23 +1,44 @@
-.doc-symbol-parameter::after {
-    content: "P";
-  }
-  
-  .doc-symbol-attribute::after {
-    content: "A";
-  }
-  
-  .doc-symbol-function::after {
-    content: "F";
-  }
-  
-  .doc-symbol-method::after {
-    content: "M";
-  }
-  
-  .doc-symbol-class::after {
-    content: "C";
-  }
-  
-  .doc-symbol-module::after {
-    content: "M";
-  }
+/* Indentation. */
+div.doc-contents:not(.first) {
+  padding-left: 15px;
+  border-left: .05rem solid var(--md-typeset-table-color);
+}
+
+
+/* Fancier color for operators such as * and |. */
+.doc-signature .o {
+  color: var(--md-code-hl-special-color);
+}
+
+/* Fancier color for constants such as None, True, and False. */
+.doc-signature .kc {
+  color: var(--md-code-hl-constant-color);
+}
+
+/* Fancier color for built-in types (only useful when cross-references are used). */
+.doc-signature .n > a[href^="https://docs.python.org/"][href*="/functions.html#"],
+.doc-signature .n > a[href^="https://docs.python.org/"][href*="/stdtypes.html#"] {
+  color: var(--md-code-hl-constant-color);
+}
+
+
+/* Nice names only in TOC */
+.doc-symbol-toc.doc-symbol-method::after {
+  content: "F";
+}
+
+.doc-symbol-toc.doc-symbol-class::after {
+  content: "C";
+}
+
+.doc-symbol-toc.doc-symbol-module::after {
+  content: "M";
+}
+
+.doc-symbol-toc.doc-symbol-attribute::after {
+  content: "A";
+}
+
+.doc-symbol-toc.doc-symbol-parameter::after {
+  content: "P";
+}
