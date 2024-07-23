@@ -21,28 +21,29 @@ nav:
     - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
     - Encoder Customization: examples/modeling/3-change-encoder.ipynb
     - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
-  - RL Algorithms:
-    - Base Algorithms: docs/content/api/algos/base.md
-    - Reinforce: docs/content/api/algos/reinforce.md
-    - PPO: docs/content/api/algos/ppo.md
-    - A2C: docs/content/api/algos/a2c.md
-  - Environments:
-    - Basic Environments: docs/content/api/envs/base.md
-    - EDA Problems: docs/content/api/envs/eda.md
-    - Routing Problems: docs/content/api/envs/routing.md
-    - Scheduling Problems: docs/content/api/envs/scheduling.md
-  - Networks:
-    - Neural Network Modules: docs/content/api/models/nn.md
-    - Environment Embeddings: docs/content/api/models/env_embeddings.md
-  - Base NCO Methods:
-    - Constructive Policies: docs/content/api/models/common/zoo/constructive.md
-    - Improvement Policies: docs/content/api/models/common/zoo/improvement.md
-    - Transductive Models: docs/content/api/models/common/zoo/transductive.md
-  - Additional APIs:
-    - Train and Evaluation: docs/content/api/tasks.md
-    - Decoding Strategies: docs/content/api/decoding.md
-    - Data: docs/content/api/data.md
-  - Other:
+  - API Docs:
+    - RL Algorithms:
+      - Base Algorithms: docs/content/api/algos/base.md
+      - Reinforce: docs/content/api/algos/reinforce.md
+      - PPO: docs/content/api/algos/ppo.md
+      - A2C: docs/content/api/algos/a2c.md
+    - Environments:
+      - Basic Environments: docs/content/api/envs/base.md
+      - EDA Problems: docs/content/api/envs/eda.md
+      - Routing Problems: docs/content/api/envs/routing.md
+      - Scheduling Problems: docs/content/api/envs/scheduling.md
+    - Networks:
+      - Neural Network Modules: docs/content/api/models/nn.md
+      - Environment Embeddings: docs/content/api/models/env_embeddings.md
+    - Base NCO Methods:
+      - Constructive Policies: docs/content/api/models/common/constructive.md
+      - Improvement Policies: docs/content/api/models/common/improvement.md
+      - Transductive Models: docs/content/api/models/common/transductive.md
+    - Additional APIs:
+      - Train and Evaluation: docs/content/api/tasks.md
+      - Decoding Strategies: docs/content/api/decoding.md
+      - Data: docs/content/api/data.md
+  - About:
     - Contributing to RL4CO: docs/content/general/contribute.md
     - FAQ: docs/content/general/faq.md
 
@@ -136,7 +137,7 @@ plugins:
             merge_init_into_class: true
             show_signature_annotations: true
             docstring_section_style: list
-            heading_level: 1
+            heading_level: 2
             inherited_members: false
             show_root_heading: true
             show_root_full_path: false
@@ -156,9 +157,9 @@ plugins:
   - mike:
       alias_type: symlink
       canonical_version: latest
-  - mkdocs-jupyter:
-      include_source: True
-      include: ["*ipynb"]
+  # - mkdocs-jupyter:
+  #     include_source: True
+  #     include: ["*ipynb"]
   - search
   - autorefs
   - autolinks
