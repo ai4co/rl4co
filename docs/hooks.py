@@ -23,34 +23,23 @@ def on_startup(*args, **kwargs):
     log.info("Saving backup of README.md and appending CSS content")
     shutil.copyfile("README.md", "README_backup.md")
     # warning: don't touch any of the following. you have been warned :)
-    def append_css_to_readme(file_path):
-        css_content = dedent("""
-            ---
-            hide:
-            - navigation
-            - toc
-            --- 
-
-            <div>                        
-            <style type="text/css">
-            .md-typeset h1,
-            .md-content__button {
-                display: none;
-            }
-            </style>      
-            </div> 
-                                                            
-            """)[1:] # remove "\n" from the beginning
+    def append_tricks_to_readme(file_path):
+        # read the tricks from docs/overrides/fancylogo.txt
+        # and put them at the beginning of the file
+        with open("docs/overrides/fancylogo.txt", 'r') as fancylogo:
+            tricks = fancylogo.read()
         if not os.path.exists(file_path):
             print(f"Error: The file {file_path} does not exist.")
             return        
         with open(file_path, 'r') as original:
             data = original.read()
+        # remove first 33 lines. yeah, it's a hack to remove unneded stuff lol
+        data = '\n'.join(data.split('\n')[33:])
         with open(file_path, 'w') as modified:
-            modified.write(css_content + data)
+            modified.write(tricks + data)
         print(f"CSS content has been appended to {file_path}")
 
-    append_css_to_readme("README.md")
+    append_tricks_to_readme("README.md")
 
 
 def on_shutdown(*args, **kwargs):
