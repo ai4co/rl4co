@@ -1,22 +1,37 @@
 <div align="center">
 
 
-<div align="center">
-    <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
-</div>
+<img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
 
 </br></br>
 
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
-<a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red">
-<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a> [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
-[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT) <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"> <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a> [![PyPI](https://img.shields.io/pypi/v/rl4co?logo=pypi)](https://pypi.org/project/rl4co)[![Codecov](https://codecov.io/github/ai4co/rl4co/tree/main/badge.svg)](https://app.codecov.io/github/ai4co/rl4co/tree/main/rl4co)[![Test](https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg)](https://github.com/ai4co/rl4co/actions/workflows/tests.yml)
+<a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red"></a>
+<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a>
+<a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a> 
+<a href="https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ"><img alt="Slack" src="https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack"></a>
+<a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-red.svg"></a>
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+<a href="https://pypi.org/project/rl4co"><img alt="PyPI" src="https://img.shields.io/pypi/v/rl4co?logo=pypi"></a>
+<a href="https://app.codecov.io/github/ai4co/rl4co/tree/main/rl4co"><img alt="Codecov" src="https://codecov.io/github/ai4co/rl4co/tree/main/badge.svg"></a>
+<a href="https://github.com/ai4co/rl4co/actions/workflows/tests.yml"><img alt="Test" src="https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg"></a>
 
-[**Documentation**](https://rl4co.readthedocs.io/) |  [**Getting Started**](#getting-started) | [**Usage**](#usage) | [**Contributing**](#contributing) | [**Paper**](https://arxiv.org/abs/2306.17100) | [**Join Us**](#join-us)
+<p>
+  <a href="https://rl4co.readthedocs.io/"><strong>Documentation</strong></a> |
+  <a href="#getting-started"><strong>Getting Started</strong></a> |
+  <a href="#usage"><strong>Usage</strong></a> |
+  <a href="#contributing"><strong>Contributing</strong></a> |
+  <a href="https://arxiv.org/abs/2306.17100"><strong>Paper</strong></a> |
+  <a href="#join-us"><strong>Join Us</strong></a>
+</p>
+
+
 
 </div>
+
+
 
 An extensive Reinforcement Learning (RL) for Combinatorial Optimization (CO) benchmark. Our goal is to provide a unified framework for RL-based CO algorithms, and to facilitate reproducible research in this field, decoupling the science from the engineering.
 
@@ -27,7 +42,9 @@ RL4CO is built upon:
 - [PyTorch Lightning](https://github.com/Lightning-AI/lightning): a lightweight PyTorch wrapper for high-performance AI research
 - [Hydra](https://github.com/facebookresearch/hydra): a framework for elegantly configuring complex applications
 
-![RL4CO-Overview](https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f)
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/0e409784-05a9-4799-b7aa-6c0f76ecf27f" alt="RL4CO-Overview" style="max-width: 90%;">
+</div>
 
 We offer flexible and efficient implementations of the following policies:
 - **Constructive**: learn to construct a solution from scratch
@@ -35,12 +52,16 @@ We offer flexible and efficient implementations of the following policies:
   - _NonAutoregressive (NAR)_: learn to predict a heuristic, such as a heatmap, to then construct a solution
 - **Improvement**: learn to improve an pre-existing solution
 
-![RL4CO-Policy-Overview](https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7)
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7" alt="RL4CO-Policy-Overview" style="max-width: 90%;">
+</div>
 
 We provide several utilities and modularization. For example, we modularize reusable components such as _environment embeddings_ that can easily be swapped to [solve new problems](https://github.com/ai4co/rl4co/blob/main/examples/3-creating-new-env-model.ipynb).
 
-![RL4CO-Env-Embeddings](https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717)
 
+<div align="center">
+  <img src="https://github.com/ai4co/rl4co/assets/48984123/c47a9301-4c9f-43fd-b21f-761abeae9717" alt="RL4CO-Env-Embedding" style="max-width: 90%;">
+</div>
 
 
 ## Getting started
@@ -201,5 +222,3 @@ We invite you to join our AI4CO community, an open research group in Artificial 
 <div align="center">
     <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/ai4co_animated_full.svg" alt="AI4CO Logo" style="width: 30%; height: auto;">
 </div>
-
-

@@ -273,7 +273,7 @@ class AntSystem:
         self.pheromone += delta_pheromone
 
     def _reward_map(self, x: Tensor):
-        """Map reward :math:`f: \\mathbb{R} \\rightarrow \\mathbb{R}^+`"""
+        """Map reward $f: \\mathbb{R} \\rightarrow \\mathbb{R}^+$"""
         M, _ = x.max(-1, keepdim=True)
         m, _ = x.min(-1, keepdim=True)
         v = ((x - m) / (M - m)) ** 2 * self.Q
