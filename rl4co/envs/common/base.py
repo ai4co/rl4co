@@ -291,7 +291,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         self.rng = rng
 
     def to(self, device):
-        """Override `to` device method for safety against `None` device (may be found in `TensorDict`))"""
+        """Override `to` device method for safety against `None` device (may be found in `TensorDict`)"""
         if device is None:
             return self
         else:
@@ -336,8 +336,8 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
 class ImprovementEnvBase(RL4COEnvBase, metaclass=abc.ABCMeta):
     """Base class for Improvement environments based on RL4CO EnvBase.
     Note that this class assumes that the solution is stored in a linked list format.
-    Here, if rec[i] = j, it means the node i is connected to node j, i.e., edge i-j is in the solution.
-    For example, if edge 0-1, edge 1-5, edge 2-10 are in the solution, so we have rec[0]=1, rec[1]=5 and rec[2]=10.
+    Here, if `rec[i] = j`, it means the node `i` is connected to node `j`, i.e., edge `i-j` is in the solution.
+    For example, if edge `0-1`, edge `1-5`, edge `2-10` are in the solution, so we have `rec[0]=1`, `rec[1]=5` and `rec[2]=10`.
     Kindly see https://github.com/yining043/VRP-DACT/blob/new_version/Play_with_DACT.ipynb for an example at the end for TSP.
     """
 
