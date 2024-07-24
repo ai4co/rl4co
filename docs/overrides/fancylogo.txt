@@ -13,6 +13,15 @@ hide:
 </style>      
 </div> 
 
+<style>
+.rl4co-letters {
+    fill: #424242;
+}
+.rl4co-number {
+    fill: #dd3412;
+}
+</style>
+
 <div class="md-content" data-md-component="content">
   <article class="md-content__inner md-typeset">
     <!-- Assuming this is where the main content begins -->
@@ -71,13 +80,13 @@ hide:
             <div class="loading-indicator">Loading...</div>
             <div id="tsparticles"></div>
             <div id="particles-mask"></div>
-            <img id="logo-overlay" src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo">
+            <img id="logo-overlay" src="docs/assets/rl4co_animated_full_tricks.svg" alt="AI4CO Logo">
             <div id="gradient"></div>
         </div>
 
         <script>
             (async () => {
-                const IMAGE_WIDTH = 3143;
+                const IMAGE_WIDTH = 3200;
                 const IMAGE_HEIGHT = 955;
                 const ASPECT_RATIO = IMAGE_HEIGHT / IMAGE_WIDTH;
 
@@ -144,77 +153,93 @@ hide:
 
                 // Initialize particles
                 await tsParticles.load({
-                    id: "tsparticles",
-                    options: {
-                        fullScreen: {
-                            enable: false,
-                        },
-                        particles: {
-                            number: {
-                                value: 200,
-                                density: {
-                                    enable: true,
-                                    value_area: 800
-                                }
-                            },
-                            color: {
-                                value: "#dc341a"
-                            },
-                            shape: {
-                                type: "circle"
-                            },
-                            opacity: {
-                                value: 0.6,
-                                random: false
-                            },
-                            size: {
-                                value: 2,
-                                random: true
-                            },
-                            links: {
-                                enable: true,
-                                distance: 100,
-                                color: "#dc341a",
-                                opacity: 0.5,
-                                width: 1
-                            },
-                            move: {
-                                enable: true,
-                                speed: 2,
-                                direction: "none",
-                                random: false,
-                                straight: false,
-                                outModes: "out",
-                                bounce: false,
-                            }
-                        },
-                        interactivity: {
-                            detectsOn: "canvas",
-                            events: {
-                                onHover: {
-                                    enable: false
-                                },
-                                onClick: {
-                                    enable: false
-                                },
-                                resize: true
-                            }
-                        },
-                        detectRetina: true,
-                        responsive: [
-                            {
-                                maxWidth: 768,
-                                options: {
-                                    particles: {
-                                        number: {
-                                            value: 100
-                                        }
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                });
+                  id: "tsparticles",
+                  options: {
+                      fullScreen: {
+                          enable: false,
+                      },
+                      particles: {
+                          number: {
+                              value: 200,
+                              density: {
+                                  enable: true,
+                                  value_area: 800
+                              },
+                              limit: 300  // Set maximum number of particles
+                          },
+                          color: {
+                              value: "#bebebe"
+                          },
+                          shape: {
+                              type: "circle"
+                          },
+                          opacity: {
+                              value: 0.6,
+                              random: false
+                          },
+                          size: {
+                              value: 2,
+                              random: true
+                          },
+                          links: {
+                              enable: true,
+                              distance: 100,
+                              color: "#bebebe",
+                              opacity: 0.5,
+                              width: 1
+                          },
+                          move: {
+                              enable: true,
+                              speed: 0.5,
+                              direction: "none",
+                              random: false,
+                              straight: false,
+                              outModes: "out",
+                              bounce: false,
+                          }
+                      },
+                      interactivity: {
+                          detectsOn: "canvas",
+                          events: {
+                              onHover: {
+                                  enable: true,
+                                  mode: "grab"
+                              },
+                              onClick: {
+                                  enable: true,
+                                  mode: "push"
+                              },
+                              resize: true
+                          },
+                          modes: {
+                              grab: {
+                                  distance: 140,
+                                  links: {
+                                      opacity: 1
+                                  }
+                              },
+                              push: {
+                                  quantity: 4,
+                                  limit: 300  // Limit for push mode
+                              }
+                          }
+                      },
+                      detectRetina: true,
+                      responsive: [
+                          {
+                              maxWidth: 768,
+                              options: {
+                                  particles: {
+                                      number: {
+                                          value: 100,
+                                          limit: 150  // Adjusted limit for smaller screens
+                                      }
+                                  }
+                              }
+                          }
+                      ]
+                  }
+              });
 
                 // Fade in particles background
                 const particlesElement = document.querySelector('.md-main__inner #tsparticles');
