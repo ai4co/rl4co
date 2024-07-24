@@ -140,6 +140,7 @@ plugins:
             heading_level: 2
             inherited_members: false
             show_root_heading: true
+            show_root_toc_entry: false
             show_root_full_path: false
             show_source: true
             show_symbol_type_heading: true
