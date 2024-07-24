@@ -43,8 +43,10 @@ def get_sampler(
         kwargs: Additional arguments for the distribution
 
     Example:
-    >>> sampler_uniform = get_sampler("loc", "uniform", 0, 1)
-    >>> sampler_normal = get_sampler("loc", "normal", loc_mean=0.5, loc_std=.2)
+        ```python
+        sampler_uniform = get_sampler("loc", "uniform", 0, 1)
+        sampler_normal = get_sampler("loc", "normal", loc_mean=0.5, loc_std=.2)
+        ```
     """
     if isinstance(distribution, (int, float)):
         return Uniform(low=distribution, high=distribution)
