@@ -13,18 +13,9 @@ hide:
 </style>      
 </div> 
 
-<style>
-.rl4co-letters {
-    fill: #424242;
-}
-.rl4co-number {
-    fill: #dd3412;
-}
-</style>
 
 <div class="md-content" data-md-component="content">
   <article class="md-content__inner md-typeset">
-    <!-- Assuming this is where the main content begins -->
     <div id="particles-container-main" class="md-main__inner md-content" data-md-content="main">
         <script src="docs/js/tsparticles.js"></script>
         <style>
@@ -56,7 +47,6 @@ hide:
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                z-index: 10;
                 width: 60%;
                 height: auto;
                 opacity: 0;
@@ -80,7 +70,7 @@ hide:
             <div class="loading-indicator">Loading...</div>
             <div id="tsparticles"></div>
             <div id="particles-mask"></div>
-            <img id="logo-overlay" src="docs/assets/rl4co_animated_full_tricks.svg" alt="AI4CO Logo">
+            <img id="logo-overlay" class="md-content" src="docs/assets/rl4co_animated_full_tricks.svg" alt="AI4CO Logo">
             <div id="gradient"></div>
         </div>
 
@@ -265,4 +255,3 @@ hide:
     </div>
   </article>
 </div>
-

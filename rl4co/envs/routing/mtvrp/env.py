@@ -42,49 +42,32 @@ class MTVRPEnv(RL4COEnvBase):
         - Imposes a limit on the total travel duration (or length) of each route, ensuring a balanced workload across vehicles.
 
     The environment covers the following 16 variants depending on the data generation:
-
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRP Variant  || Capacity (C) | Open Route (O) | Backhaul (B) | Duration Limit (L) | Time Window (TW) |
-    +==============++==============+================+==============+====================+==================+
-    | CVRP         || ✔            |                |              |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRP         || ✔            | ✔              |              |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPB         || ✔            |                | ✔            |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPL         || ✔            |                |              | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPTW        || ✔            |                |              |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPTW       || ✔            | ✔              |              |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPB        || ✔            | ✔              | ✔            |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPL        || ✔            | ✔              |              | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBL        || ✔            |                | ✔            | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBTW       || ✔            |                | ✔            |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPLTW       || ✔            |                |              | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBL       || ✔            | ✔              | ✔            | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBTW      || ✔            | ✔              | ✔            |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPLTW      || ✔            | ✔              |              | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBLTW      || ✔            |                | ✔            | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBLTW     || ✔            | ✔              | ✔            | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
+    
+    | VRP Variant | Capacity (C) | Open Route (O) | Backhaul (B) | Duration Limit (L) | Time Window (TW) |
+    | :---------- | :----------: | :------------: | :----------: | :----------------: | :--------------: |
+    | CVRP        |      ✔       |                |              |                    |                  |
+    | OVRP        |      ✔       |       ✔        |              |                    |                  |
+    | VRPB        |      ✔       |                |      ✔       |                    |                  |
+    | VRPL        |      ✔       |                |              |         ✔          |                  |
+    | VRPTW       |      ✔       |                |              |                    |        ✔         |
+    | OVRPTW      |      ✔       |       ✔        |              |                    |        ✔         |
+    | OVRPB       |      ✔       |       ✔        |      ✔       |                    |                  |
+    | OVRPL       |      ✔       |       ✔        |              |         ✔          |                  |
+    | VRPBL       |      ✔       |                |      ✔       |         ✔          |                  |
+    | VRPBTW      |      ✔       |                |      ✔       |                    |        ✔         |
+    | VRPLTW      |      ✔       |                |              |         ✔          |        ✔         |
+    | OVRPBL      |      ✔       |       ✔        |      ✔       |         ✔          |                  |
+    | OVRPBTW     |      ✔       |       ✔        |      ✔       |                    |        ✔         |
+    | OVRPLTW     |      ✔       |       ✔        |              |         ✔          |        ✔         |
+    | VRPBLTW     |      ✔       |                |      ✔       |         ✔          |        ✔         |
+    | OVRPBLTW    |      ✔       |       ✔        |      ✔       |         ✔          |        ✔         |
 
     You may also check out the following papers as reference:
-    - `"Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024) <https://arxiv.org/abs/2402.16891>`_
-    - `"MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024) <https://arxiv.org/abs/2405.01029>`_.
-    - `"RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024) <https://arxiv.org/abs/24comingsoon>`_.
-
-    Note:
+    - ["Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024)](https://arxiv.org/abs/2402.16891)
+    - ["MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024)](https://arxiv.org/abs/2405.01029)
+    - ["RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024)](https://arxiv.org/abs/2406.15007)
+    
+    Tip:
         Have a look at https://pyvrp.org/ for more information about VRP and its variants and their solutions. Kudos to their help and great job!
 
     Args:
