@@ -26,65 +26,48 @@ class MTVRPEnv(RL4COEnvBase):
     Features:
 
     - *Capacity (C)*
-        - Each vehicle has a maximum capacity :math:`Q`, restricting the total load that can be in the vehicle at any point of the route.
+        - Each vehicle has a maximum capacity $Q$, restricting the total load that can be in the vehicle at any point of the route.
         - The route must be planned such that the sum of demands and pickups for all customers visited does not exceed this capacity.
     - *Time Windows (TW)*
-        - Every node :math:`i` has an associated time window :math:`[e_i, l_i]` during which service must commence.
-        - Additionally, each node has a service time :math:`s_i`. Vehicles must reach node :math:`i` within its time window; early arrivals must wait at the node location until time :math:`e_i`.
+        - Every node $i$ has an associated time window $[e_i, l_i]$ during which service must commence.
+        - Additionally, each node has a service time $s_i$. Vehicles must reach node $i$ within its time window; early arrivals must wait at the node location until time :math:`e_i`.
     - *Open Routes (O)*
         - Vehicles are not required to return to the depot after serving all customers.
         - Note that this does not need to be counted as a constraint since it can be modelled by setting zero costs on arcs returning to the depot :math:`c_{i0} = 0` from any customer :math:`i \in C`, and not counting the return arc as part of the route.
     - *Backhauls (B)*
         - Backhauls generalize demand to also account for return shipments. Customers are either linehaul or backhaul customers.
-        - Linehaul customers require delivery of a demand :math:`q_i > 0` that needs to be transported from the depot to the customer, whereas backhaul customers need a pickup of an amount :math:`p_i > 0` that is transported from the client back to the depot.
+        - Linehaul customers require delivery of a demand $q_i > 0$ that needs to be transported from the depot to the customer, whereas backhaul customers need a pickup of an amount :math:`p_i > 0` that is transported from the client back to the depot.
         - It is possible for vehicles to serve a combination of linehaul and backhaul customers in a single route, but then any linehaul customers must precede the backhaul customers in the route.
     - *Duration Limits (L)*
         - Imposes a limit on the total travel duration (or length) of each route, ensuring a balanced workload across vehicles.
 
     The environment covers the following 16 variants depending on the data generation:
-
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRP Variant  || Capacity (C) | Open Route (O) | Backhaul (B) | Duration Limit (L) | Time Window (TW) |
-    +==============++==============+================+==============+====================+==================+
-    | CVRP         || ✔            |                |              |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRP         || ✔            | ✔              |              |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPB         || ✔            |                | ✔            |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPL         || ✔            |                |              | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPTW        || ✔            |                |              |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPTW       || ✔            | ✔              |              |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPB        || ✔            | ✔              | ✔            |                    |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPL        || ✔            | ✔              |              | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBL        || ✔            |                | ✔            | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBTW       || ✔            |                | ✔            |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPLTW       || ✔            |                |              | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBL       || ✔            | ✔              | ✔            | ✔                  |                  |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBTW      || ✔            | ✔              | ✔            |                    | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPLTW      || ✔            | ✔              |              | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | VRPBLTW      || ✔            |                | ✔            | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
-    | OVRPBLTW     || ✔            | ✔              | ✔            | ✔                  | ✔                |
-    +--------------++--------------+----------------+--------------+--------------------+------------------+
+    
+    | VRP Variant | Capacity (C) | Open Route (O) | Backhaul (B) | Duration Limit (L) | Time Window (TW) |
+    | :---------- | :----------: | :------------: | :----------: | :----------------: | :--------------: |
+    | CVRP        |      ✔       |                |              |                    |                  |
+    | OVRP        |      ✔       |       ✔        |              |                    |                  |
+    | VRPB        |      ✔       |                |      ✔       |                    |                  |
+    | VRPL        |      ✔       |                |              |         ✔          |                  |
+    | VRPTW       |      ✔       |                |              |                    |        ✔         |
+    | OVRPTW      |      ✔       |       ✔        |              |                    |        ✔         |
+    | OVRPB       |      ✔       |       ✔        |      ✔       |                    |                  |
+    | OVRPL       |      ✔       |       ✔        |              |         ✔          |                  |
+    | VRPBL       |      ✔       |                |      ✔       |         ✔          |                  |
+    | VRPBTW      |      ✔       |                |      ✔       |                    |        ✔         |
+    | VRPLTW      |      ✔       |                |              |         ✔          |        ✔         |
+    | OVRPBL      |      ✔       |       ✔        |      ✔       |         ✔          |                  |
+    | OVRPBTW     |      ✔       |       ✔        |      ✔       |                    |        ✔         |
+    | OVRPLTW     |      ✔       |       ✔        |              |         ✔          |        ✔         |
+    | VRPBLTW     |      ✔       |                |      ✔       |         ✔          |        ✔         |
+    | OVRPBLTW    |      ✔       |       ✔        |      ✔       |         ✔          |        ✔         |
 
     You may also check out the following papers as reference:
-    - `"Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024) <https://arxiv.org/abs/2402.16891>`_
-    - `"MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024) <https://arxiv.org/abs/2405.01029>`_.
-    - `"RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024) <https://arxiv.org/abs/24comingsoon>`_.
-
-    Note:
+    - ["Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024)](https://arxiv.org/abs/2402.16891)
+    - ["MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024)](https://arxiv.org/abs/2405.01029)
+    - ["RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024)](https://arxiv.org/abs/2406.15007)
+    
+    Tip:
         Have a look at https://pyvrp.org/ for more information about VRP and its variants and their solutions. Kudos to their help and great job!
 
     Args:
