@@ -19,12 +19,23 @@ nav:
     - docs/content/intro/policies.md
     - docs/content/intro/rl.md
   - Tutorials:
-    - Training a Model: examples/2-full-training.ipynb
-    - New Environment: examples/3-creating-new-env-model.ipynb
-    - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
-    - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
-    - Encoder Customization: examples/modeling/3-change-encoder.ipynb
-    - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
+    - Main:
+      - Quickstart: examples/1-quickstart.ipynb
+      - Training a Model: examples/2-full-training.ipynb
+      - Solving New Problems: examples/3-creating-new-env-model.ipynb
+    - Modeling: 
+      - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
+      - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
+      - Encoder Customization: examples/modeling/3-change-encoder.ipynb
+    - Advanced:
+      - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
+      - Local Search: examples/advanced/3-local-search.ipynb
+    - Routing:
+      - Multi-Task VRP: examples/other/1-mtvrp.ipynb
+      - TSPLib: examples/datasets/1-test-on-tsplib.ipynb
+      - CVRPLib: examples/datasets/2-test-on-cvrplib.ipynb
+    - Scheduling:
+      - Flexible Job Shop Scheduling: examples/other/2-scheduling.ipynb
   - API Reference:
     - Environments:
       - Base Classes: docs/content/api/envs/base.md
