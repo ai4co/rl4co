@@ -158,9 +158,9 @@ plugins:
   - mike:
       alias_type: symlink
       canonical_version: latest
-  # - mkdocs-jupyter:
-  #     include_source: True
-  #     include: ["*ipynb"]
+  - mkdocs-jupyter:
+      include_source: True
+      include: ["*ipynb"]
   - search
   - autorefs
   - autolinks
