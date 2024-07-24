@@ -1,1 +1,1 @@
-::: models.rl.common.base
+::: models.rl.common.base.RL4COLitModule

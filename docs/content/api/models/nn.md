@@ -2,31 +2,28 @@
 
 ## Critic Network
 
-:::models.rl.common.critic
+:::models.rl.common.critic.CriticNetwork
 
 ## Graph Neural Networks
 
-### Graph Attention Encoder
+:::models.nn.graph.attnnet.MultiHeadAttentionLayer
+:::models.nn.graph.attnnet.GraphAttentionNetwork
 
-:::models.nn.graph.attnnet
+:::models.nn.graph.gcn.GCNEncoder
 
-### Graph Convolutional Encoder
+:::models.nn.graph.mpnn.MessagePassingEncoder
 
-:::models.nn.graph.gcn
-
-### Message Passing Encoder
-
-:::models.nn.graph.mpnn
-
-## rl4co.models.nn.attention
+## Attention Mechanisms
 
 :::models.nn.attention
+    options:
+      show_root_heading: false
 
+## Multi-Layer Perceptron
 
-## rl4co.models.nn.mlp
+:::models.nn.mlp.MLP
 
-:::models.nn.mlp
+## Operations
 
-## rl4co.models.nn.ops
-
-:::models.nn.ops
+:::models.nn.ops.PositionalEncoding
+:::models.nn.ops.RandomEncoding

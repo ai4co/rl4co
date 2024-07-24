@@ -1,11 +1,9 @@
-## Constructive Policies
-
 Constructive NCO policies pre-train a policy to amortize the inference. "Constructive" means that a solution is created from scratch by the model. We can also categorize constructive NCO in two sub-categories depending on the role of encoder and decoder:
 
-#### Autoregressive (AR)
+## Autoregressive (AR)
 Autoregressive approaches **use a learned decoder** that outputs log probabilities for the current solution. These approaches generate a solution step by step, similar to e.g. LLMs. They have an encoder-decoder structure. Some models may not have an encoder at all and just re-encode at each step.
 
-#### NonAutoregressive (NAR)
+## NonAutoregressive (NAR)
 The difference between AR and NAR approaches is that NAR **only an encoder is learnable** (they just encode in one shot) and generate for example a heatmap, which can then be decoded simply by using it as a probability distribution or by using some search method on top.
 
 Here is a general structure of a general constructive policy with an encoder-decoder structure:
@@ -15,28 +13,38 @@ Here is a general structure of a general constructive policy with an encoder-dec
 
 where _embeddings_ transfer information from feature space to embedding space.
 
----
 
 
-
-### Constructive Policy Base Classes
+## Constructive Policy Base Classes
 
 :::models.common.constructive.base
+    options:
+      show_root_heading: false
 
-
-
-### Autoregressive Policies Base Classes
+## Autoregressive Policies Base Classes
 
 :::models.common.constructive.autoregressive.encoder
+    options:
+      show_root_heading: false
 
 :::models.common.constructive.autoregressive.decoder
+    options:
+      show_root_heading: false
 
 :::models.common.constructive.autoregressive.policy
+    options:
+      show_root_heading: false
 
-### Nonautoregressive Policies Base Classes
+## Nonautoregressive Policies Base Classes
 
 :::models.common.constructive.nonautoregressive.encoder
+    options:
+      show_root_heading: false
 
 :::models.common.constructive.nonautoregressive.decoder
+    options:
+      show_root_heading: false
 
 :::models.common.constructive.nonautoregressive.policy
+    options:
+      show_root_heading: false
