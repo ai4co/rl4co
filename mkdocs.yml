@@ -4,7 +4,7 @@ repo_name: ai4co/rl4co
 repo_url: https://github.com/ai4co/rl4co/
 edit_uri: edit/main/docs
 site_description: Official documentation for RL4CO
-copyright: Made with ❤️ by AI4CO contributors
+copyright: Made with ❤️ by <a href="https://github.com/ai4co">AI4CO</a> contributors
 docs_dir: .
 
 nav:
@@ -13,7 +13,11 @@ nav:
     - Installation: docs/content/start/installation.md
     - Quick Start: examples/1-quickstart.ipynb
     - Training with Hydra: docs/content/start/hydra.md
-    - NCO Methods: docs/content/api/models/common/__init__
+  - Overview:
+    - docs/content/intro/intro.md
+    - docs/content/intro/environments.md
+    - docs/content/intro/policies.md
+    - docs/content/intro/rl.md
   - Tutorials:
     - Training a Model: examples/2-full-training.ipynb
     - New Environment: examples/3-creating-new-env-model.ipynb
@@ -21,24 +25,26 @@ nav:
     - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
     - Encoder Customization: examples/modeling/3-change-encoder.ipynb
     - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
-  - API Docs:
-    - RL Algorithms:
-      - Base Algorithms: docs/content/api/algos/base.md
-      - Reinforce: docs/content/api/algos/reinforce.md
-      - PPO: docs/content/api/algos/ppo.md
-      - A2C: docs/content/api/algos/a2c.md
+  - API Reference:
     - Environments:
-      - Basic Environments: docs/content/api/envs/base.md
-      - EDA Problems: docs/content/api/envs/eda.md
+      - Base Classes: docs/content/api/envs/base.md
       - Routing Problems: docs/content/api/envs/routing.md
       - Scheduling Problems: docs/content/api/envs/scheduling.md
+      - EDA Problems: docs/content/api/envs/eda.md
     - Networks:
-      - Neural Network Modules: docs/content/api/models/nn.md
-      - Environment Embeddings: docs/content/api/models/env_embeddings.md
-    - Base NCO Methods:
-      - Constructive Policies: docs/content/api/models/common/constructive.md
-      - Improvement Policies: docs/content/api/models/common/improvement.md
-      - Transductive Models: docs/content/api/models/common/transductive.md
+      - Policy Base Classes: docs/content/api/networks/base_policies.md
+      - Neural Network Modules: docs/content/api/networks/nn.md
+      - Environment Embeddings: docs/content/api/networks/env_embeddings.md
+    - RL Algorithms:
+      - Base Classes: docs/content/api/rl/base.md
+      - Reinforce: docs/content/api/rl/reinforce.md
+      - PPO: docs/content/api/rl/ppo.md
+      - A2C: docs/content/api/rl/a2c.md
+    - Zoo:
+      - Constructive AR Methods: docs/content/api/zoo/constructive_ar.md
+      - Constructive NAR Methods: docs/content/api/zoo/constructive_nar.md
+      - Improvement Methods: docs/content/api/zoo/improvement.md
+      - Transductive Methods: docs/content/api/zoo/transductive.md
     - Additional APIs:
       - Train and Evaluation: docs/content/api/tasks.md
       - Decoding Strategies: docs/content/api/decoding.md
@@ -46,6 +52,7 @@ nav:
   - About:
     - Contributing to RL4CO: docs/content/general/contribute.md
     - FAQ: docs/content/general/faq.md
+    - Join AI4CO: docs/content/general/ai4co.md
 
 extra:
   social:
