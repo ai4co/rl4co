@@ -24,7 +24,11 @@ div.doc-contents:not(.first) {
 
 /* Nice names only in TOC */
 .doc-symbol-toc.doc-symbol-method::after {
-  content: "F";
+  content: "m";
+}
+
+.doc-symbol-toc.doc-symbol-function::after {
+  content: "f";
 }
 
 .doc-symbol-toc.doc-symbol-class::after {
@@ -41,4 +45,10 @@ div.doc-contents:not(.first) {
 
 .doc-symbol-toc.doc-symbol-parameter::after {
   content: "P";
+}
+
+/* Line under link as solid */
+.doc-signature .autorefs {
+  color: inherit;
+  border-bottom: 1px solid currentcolor;
 }

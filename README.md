@@ -1,269 +1,34 @@
----
-hide:
-- navigation
-- toc
---- 
+<div align="center">
 
-<div>                        
-<style type="text/css">
-.md-typeset h1,
-.md-content__button {
-    display: none;
-}
-</style>      
-</div> 
 
-<style>
-.rl4co-letters {
-    fill: #424242;
-}
-.rl4co-number {
-    fill: #dd3412;
-}
-</style>
+<img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
 
-<div class="md-content" data-md-component="content">
-  <article class="md-content__inner md-typeset">
-    <!-- Assuming this is where the main content begins -->
-    <div id="particles-container-main" class="md-main__inner md-content" data-md-content="main">
-        <script src="docs/js/tsparticles.js"></script>
-        <style>
-            .md-main__inner #particles-container {
-                width: 100%;
-                position: relative;
-                overflow: hidden;
-            }
-            .md-main__inner #tsparticles {
-                width: 100%;
-                height: 100%;
-                position: absolute;
-                top: 0;
-                left: 0;
-                opacity: 0;
-                transition: opacity 0.5s ease-in-out;
-            }
-            .md-main__inner #particles-mask {
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                pointer-events: none;
-                z-index: 5;
-            }
-            .md-main__inner #logo-overlay {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                z-index: 10;
-                width: 60%;
-                height: auto;
-                opacity: 0;
-                transition: opacity 0.5s ease-in-out;
-            }
-            .md-main__inner .loading-indicator {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                font-size: 24px;
-                color: #333;
-            }
-            @media (max-width: 768px) {
-                .md-main__inner #gradient {
-                    height: 50px;
-                }
-            }
-        </style>
-        <div id="particles-container">
-            <div class="loading-indicator">Loading...</div>
-            <div id="tsparticles"></div>
-            <div id="particles-mask"></div>
-            <img id="logo-overlay" src="docs/assets/rl4co_animated_full_tricks.svg" alt="AI4CO Logo">
-            <div id="gradient"></div>
-        </div>
+</br></br>
 
-        <script>
-            (async () => {
-                const IMAGE_WIDTH = 3200;
-                const IMAGE_HEIGHT = 955;
-                const ASPECT_RATIO = IMAGE_HEIGHT / IMAGE_WIDTH;
 
-                const setContainerDimensions = () => {
-                    const container = document.querySelector('.md-main__inner #particles-container');
-                    const mainContent = document.querySelector('.md-main__inner');
-                    
-                    if (mainContent && container) {
-                        const containerWidth = mainContent.offsetWidth;
-                        container.style.width = `${containerWidth}px`;
-                        
-                        // Calculate height based on the aspect ratio and 60% width
-                        const imageWidth = containerWidth * 0.6;
-                        const imageHeight = imageWidth * ASPECT_RATIO;
-                        container.style.height = `${imageHeight * 2}px`;
-                    }
-                };
+<a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
+<a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
+<a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red"></a>
+<a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a>
+<a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a> 
+<a href="https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ"><img alt="Slack" src="https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack"></a>
+<a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-red.svg"></a>
+<a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+<a href="https://pypi.org/project/rl4co"><img alt="PyPI" src="https://img.shields.io/pypi/v/rl4co?logo=pypi"></a>
+<a href="https://app.codecov.io/github/ai4co/rl4co/tree/main/rl4co"><img alt="Codecov" src="https://codecov.io/github/ai4co/rl4co/tree/main/badge.svg"></a>
+<a href="https://github.com/ai4co/rl4co/actions/workflows/tests.yml"><img alt="Test" src="https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg"></a>
 
-                const setMaskGradient = () => {
-                    const mask = document.querySelector('.md-main__inner #particles-mask');
-                    const mainContent = document.querySelector('.md-main__inner');
-                    if (mask && mainContent) {
-                        const computedStyle = getComputedStyle(mainContent);
-                        const backgroundColor = computedStyle.backgroundColor;
+<p>
+  <a href="https://rl4co.readthedocs.io/"><strong>Documentation</strong></a> |
+  <a href="#getting-started"><strong>Getting Started</strong></a> |
+  <a href="#usage"><strong>Usage</strong></a> |
+  <a href="#contributing"><strong>Contributing</strong></a> |
+  <a href="https://arxiv.org/abs/2306.17100"><strong>Paper</strong></a> |
+  <a href="#join-us"><strong>Join Us</strong></a>
+</p>
 
-                        mask.style.background = `
-                            linear-gradient(to right, 
-                                ${backgroundColor} 0%, 
-                                rgba(0,0,0,0) 10%, 
-                                rgba(0,0,0,0) 90%, 
-                                ${backgroundColor} 100%
-                            ),
-                            linear-gradient(to bottom, 
-                                ${backgroundColor} 0%, 
-                                rgba(0,0,0,0) 10%, 
-                                rgba(0,0,0,0) 90%, 
-                                ${backgroundColor} 100%
-                            )
-                        `;
-                    }
-                };
 
-                // Set initial dimensions and mask
-                setContainerDimensions();
-                setMaskGradient();
 
-                // Update dimensions and mask on window resize
-                window.addEventListener('resize', () => {
-                    setContainerDimensions();
-                    setMaskGradient();
-                });
-
-                // Load the image
-                const img = document.querySelector('.md-main__inner #logo-overlay');
-                if (img) {
-                    img.onload = () => {
-                        img.style.opacity = 1;
-                        const loadingIndicator = document.querySelector('.md-main__inner .loading-indicator');
-                        if (loadingIndicator) {
-                            loadingIndicator.style.display = 'none';
-                        }
-                    };
-                }
-
-                // Initialize particles
-                await tsParticles.load({
-                  id: "tsparticles",
-                  options: {
-                      fullScreen: {
-                          enable: false,
-                      },
-                      particles: {
-                          number: {
-                              value: 200,
-                              density: {
-                                  enable: true,
-                                  value_area: 800
-                              },
-                              limit: 300  // Set maximum number of particles
-                          },
-                          color: {
-                              value: "#bebebe"
-                          },
-                          shape: {
-                              type: "circle"
-                          },
-                          opacity: {
-                              value: 0.6,
-                              random: false
-                          },
-                          size: {
-                              value: 2,
-                              random: true
-                          },
-                          links: {
-                              enable: true,
-                              distance: 100,
-                              color: "#bebebe",
-                              opacity: 0.5,
-                              width: 1
-                          },
-                          move: {
-                              enable: true,
-                              speed: 0.5,
-                              direction: "none",
-                              random: false,
-                              straight: false,
-                              outModes: "out",
-                              bounce: false,
-                          }
-                      },
-                      interactivity: {
-                          detectsOn: "canvas",
-                          events: {
-                              onHover: {
-                                  enable: true,
-                                  mode: "grab"
-                              },
-                              onClick: {
-                                  enable: true,
-                                  mode: "push"
-                              },
-                              resize: true
-                          },
-                          modes: {
-                              grab: {
-                                  distance: 140,
-                                  links: {
-                                      opacity: 1
-                                  }
-                              },
-                              push: {
-                                  quantity: 4,
-                                  limit: 300  // Limit for push mode
-                              }
-                          }
-                      },
-                      detectRetina: true,
-                      responsive: [
-                          {
-                              maxWidth: 768,
-                              options: {
-                                  particles: {
-                                      number: {
-                                          value: 100,
-                                          limit: 150  // Adjusted limit for smaller screens
-                                      }
-                                  }
-                              }
-                          }
-                      ]
-                  }
-              });
-
-                // Fade in particles background
-                const particlesElement = document.querySelector('.md-main__inner #tsparticles');
-                if (particlesElement) {
-                    particlesElement.style.opacity = 1;
-                }
-
-                // Observer for theme changes
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'data-md-color-scheme') {
-                            setMaskGradient();
-                        }
-                    });
-                });
-
-                const mainContent = document.querySelector('.md-main__inner');
-                if (mainContent) {
-                    observer.observe(mainContent, { attributes: true });
-                }
-            })();
-        </script>
-    </div>
-  </article>
 </div>
 
 

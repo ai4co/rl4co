@@ -2,7 +2,7 @@ Transductive models are learning algorithms that optimize on a specific instance
 
 
 !!! tip
-    You may refer to the definition of `inductive vs transductive RL <https://en.wikipedia.org/wiki/Transduction_(machine_learning)>`. In inductive RL, we train to generalize to new instances. In transductive RL we train (or finetune) to solve only specific ones.
+    You may refer to the definition of [inductive vs transductive RL](https://en.wikipedia.org/wiki/Transduction_(machine_learning)) . In inductive RL, we train to generalize to new instances. In transductive RL we train (or finetune) to solve only specific ones.
 
 
 ## Base Transductive Model
