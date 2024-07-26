@@ -16,28 +16,28 @@ class SubTSPMapping(NamedTuple):
 class SubTSPAdapter(object):
     """TODO"""
 
-    def __init__(self, parent_td: TensorDict, actions: torch.Tensor) -> None:
+    def __init__(self, parent_td: TensorDict, actions: torch.Tensor, min_node_count: int = 4) -> None:
         self.batch_size = parent_td.batch_size[0]
         self.n_samples = actions.shape[0] // self.batch_size
         assert actions.shape[0] == self.n_samples * self.batch_size
 
-        if actions.device.type == "cpu":  # to make sure a copy of actions is always made
-            actions = actions.clone()
-        else:
-            actions = actions.cpu()
         # prepend depot to each route
-        self.actions = torch.concat(
-            [torch.zeros((actions.shape[0], 1), dtype=actions.dtype), actions], dim=1
-        )
+        self._actions = np.concatenate([
+            np.zeros((actions.shape[0], 1), dtype = np.int64),
+            actions.cpu().numpy(),
+        ], axis=1)
 
-        self.map_action_index = _cvrp_action_partitioner(self.actions.numpy())
+        self.map_action_index = _cvrp_action_partitioner(self._actions, min_node_count)
         self.coordinates = parent_td["locs"].cpu().numpy()
 
     def get_all_subtsps(self) -> SubTSPMapping:
         map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
-            self.actions.numpy(), self.map_action_index, self.coordinates
+            self._actions, self.map_action_index, self.coordinates
         )
         return SubTSPMapping(self.map_action_index, map_node_index, subtsp_coordinates)
+    
+    def get_actions(self):
+        return torch.from_numpy(self._actions)
 
     def get_batched_subtsps(
         self, batch_size: Optional[int] = None
@@ -52,15 +52,14 @@ class SubTSPAdapter(object):
                 selected_subtsp_index = order[start_index : start_index + batch_size]
                 map_action_index = self.map_action_index[selected_subtsp_index]
                 map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
-                    self.actions.numpy(), map_action_index, self.coordinates
+                    self._actions, map_action_index, self.coordinates
                 )
                 yield SubTSPMapping(map_action_index, map_node_index, subtsp_coordinates)
 
     def update_actions(self, mapping: SubTSPMapping, subtsp_actions: np.ndarray):
         assert subtsp_actions.shape == mapping.map_node_index.shape
-        # Kindly note that `x.numpy()` will share the memory with `x`
         _update_cvrp_actions(
-            self.actions.numpy(),
+            self._actions,
             subtsp_actions,
             mapping.map_action_index,
             mapping.map_node_index,
@@ -70,19 +69,19 @@ class SubTSPAdapter(object):
     def pre_compile_numba():
         # Use a tiny example to invoke numba's compilation
         # This might take around 16 seconds, depending on the CPU performance
-        actions = np.array([[0, 1, 2, 0, 3]], dtype=int)
-        coordinates = np.zeros((1, 4, 2), dtype=float)
-        subtsp_actions = np.array([[2, 1, 0, 3], [3, 0, 1, 2]], dtype=int)
-        map_action_index = _cvrp_action_partitioner(actions)
+        actions = np.array([[0, 1, 2, 3, 0, 4]], dtype=np.int64)
+        coordinates = np.zeros((1, 5, 2), dtype=np.float32)
+        subtsp_actions = np.array([[1, 2, 0, 4, 3]], dtype=np.int64)
+        map_action_index = _cvrp_action_partitioner(actions, min_node_count=4)
         map_node_index, _ = _compose_subtsp_coordinates(
             actions, map_action_index, coordinates
         )
         _update_cvrp_actions(actions, subtsp_actions, map_action_index, map_node_index)
-        # `actions` should be [[0,2,1,0,3]] at this moment
+        # `actions` should be [[0,3,1,2,0,4]] at this moment
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
-def _cvrp_action_partitioner(routes: np.ndarray):
+def _cvrp_action_partitioner(routes: np.ndarray, min_node_count: int = 4):
     map_action_index = []
     route_length = routes.shape[1]
     for index in range(routes.shape[0]):
@@ -91,13 +90,13 @@ def _cvrp_action_partitioner(routes: np.ndarray):
         for idx in range(1, route_length):
             node = routes[index, idx]
             if node == 0:
-                if last_is_not_zero:
+                if last_is_not_zero and idx - start >= min_node_count:
                     map_action_index.append((index, start, idx))
-                    last_is_not_zero = False
+                last_is_not_zero = False
                 start = idx
             else:
                 last_is_not_zero = True
-        if node != 0:  # handle final routes
+        if node != 0 and route_length-start >= min_node_count:  # handle final routes
             map_action_index.append((index, start, route_length))
     map_action_index = np.array(map_action_index, dtype=np.int32)
     return map_action_index

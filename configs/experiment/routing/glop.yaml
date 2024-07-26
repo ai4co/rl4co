@@ -34,6 +34,8 @@ model:
   lr_scheduler_kwargs:
     milestones: [37, 45]
     gamma: 0.1
+  policy_kwargs:
+    n_samples: 10
 
 trainer:
   max_epochs: 50

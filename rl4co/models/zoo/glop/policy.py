@@ -146,7 +146,6 @@ class GLOPPolicy(NonAutoregressivePolicy):
             subtsp_actions, _ = eval_insertion(mapping.subtsp_coordinates)
             adapter.update_actions(mapping, subtsp_actions)
 
-        actions = adapter.actions
-        actions = rearrange(actions, "(b n) ... -> (n b) ...", n=self.n_samples)
-        actions = actions.to(td.device)
-        return dict(actions=actions)
+        actions_revised = adapter.get_actions().to(td.device)
+        actions_revised = rearrange(actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples)
+        return dict(actions=actions_revised)
