@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rl4co"
-version = "0.5.0.dev1"
+version = "0.5.0.dev2"
 description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
     "Federico Berto <berto.federico2@gmail.com>",
@@ -49,6 +49,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
