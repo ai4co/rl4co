@@ -51,17 +51,17 @@ class EvalBase:
                 actions_list.append(actions)
 
             rewards = torch.cat(rewards_list)
-
+            
             # Padding: pad actions to the same length with zeros
-            max_length = max(action.size(-1) for action in actions)
+            max_length = max(action.size(-1) for action in actions_list)
             actions = torch.cat(
                 [
                     torch.nn.functional.pad(action, (0, max_length - action.size(-1)))
-                    for action in actions
+                    for action in actions_list
                 ],
                 0,
             )
-
+            
         inference_time = time.time() - start
 
         tqdm.write(f"Mean reward for {self.name}: {rewards.mean():.4f}")
