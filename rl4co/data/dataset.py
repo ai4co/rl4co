@@ -1,9 +1,17 @@
 from typing import Union
 
+import tensordict
 import torch
 
+from packaging import version
 from tensordict.tensordict import TensorDict
 from torch.utils.data import Dataset
+
+# Checks were removed in tensordict 0.5.0, so we should not pass the kwargs
+if version.parse(tensordict.__version__) <= version.parse("0.4.0"):
+    td_kwargs = {"_run_checks": False}
+else:
+    td_kwargs = {}
 
 
 class FastTdDataset(Dataset):
@@ -63,7 +71,7 @@ class TensorDictDataset(Dataset):
         return TensorDict(
             {key: torch.stack([b[key] for b in batch]) for key in batch[0].keys()},
             batch_size=torch.Size([len(batch)]),
-            _run_checks=False,
+            **td_kwargs,
         )
 
 
@@ -113,7 +121,7 @@ class TensorDictDatasetFastGeneration(Dataset):
         return TensorDict(
             {key: item[index] for key, item in self.data.items()},
             batch_size=torch.Size([len(index)]),
-            _run_checks=False,  # faster this way
+            **td_kwargs,
         )
 
     def add_key(self, key, value):
