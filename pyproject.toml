@@ -63,7 +63,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 # Required dependencies
-python = ">=3.8"
+python = ">=3.8,<4.0"
 einops = "*"
 hydra-core = "*"
 hydra-colorlog = "*"
