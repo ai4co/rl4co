@@ -45,7 +45,6 @@ packages = [{ include = "rl4co" }]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -63,7 +62,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 # Required dependencies
-python = ">=3.8"
+python = ">=3.9"
 einops = "*"
 hydra-core = "*"
 hydra-colorlog = "*"
@@ -87,7 +86,7 @@ pytest-cov = { version = "*", optional = true }
 torch_geometric = { version = "*", optional = true }
 # Routing
 numba = { version = ">=0.58.1", optional = true }
-pyvrp = { version = ">=0.8.2", optional = true }
+pyvrp = { version = ">=0.8.2", optional = true, python = "<4.0" }
 # Docs
 mkdocs = { version = "*", optional = true }
 mkdocs-material = { version = "*", optional = true }
