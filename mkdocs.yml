@@ -30,6 +30,7 @@ nav:
     - Advanced:
       - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
       - Local Search: examples/advanced/3-local-search.ipynb
+      - Custom Distributions: examples/other/3-data-generator-distributions.ipynb
     - Routing:
       - Multi-Task VRP: examples/other/1-mtvrp.ipynb
       - TSPLib: examples/datasets/1-test-on-tsplib.ipynb
