@@ -1,8 +1,11 @@
+from typing import Callable, Union
+
 import torch
 
 from tensordict.tensordict import TensorDict
+from torch.distributions import Uniform
 
-from rl4co.envs.common.utils import Generator
+from rl4co.envs.common.utils import Generator, get_sampler
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -63,6 +66,8 @@ class MCPGenerator(Generator):
         min_size: int = 5,
         max_size: int = 15,
         n_sets_to_choose: int = 10,
+        size_distribution: Union[int, float, str, type, Callable] = Uniform,
+        weight_distribution: Union[int, float, str, type, Callable] = Uniform,
         **kwargs,
     ):
         self.num_items = num_items
@@ -73,25 +78,47 @@ class MCPGenerator(Generator):
         self.max_size = max_size
         self.n_sets_to_choose = n_sets_to_choose
 
+        # Set size distribution
+        if kwargs.get("size_sampler", None) is not None:
+            self.size_sampler = kwargs["size_sampler"]
+        else:
+            self.size_sampler = get_sampler(
+                "size", size_distribution, min_size, max_size + 1, **kwargs
+            )
+
+        # Item weight distribution
+        if kwargs.get("weight_sampler", None) is not None:
+            self.weight_sampler = kwargs["weight_sampler"]
+        else:
+            self.weight_sampler = get_sampler(
+                "weight", weight_distribution, min_weight, max_weight + 1, **kwargs
+            )
+
     def _generate(self, batch_size) -> TensorDict:
         try:
             batch_size = batch_size[0]
         except TypeError:
             batch_size = batch_size
 
-        weights_tensor = torch.randint(
-            self.min_weight, self.max_weight + 1, (batch_size, self.num_items)
-        ).float()
+        # Sample item weights
+        weights_tensor = self.weight_sampler.sample((batch_size, self.num_items))
+        weights_tensor = torch.floor(weights_tensor)
+        weights_tensor = torch.clamp(weights_tensor, self.min_weight, self.max_weight)
+
+        # Sample set sizes
+        set_sizes = self.size_sampler.sample((batch_size, self.num_sets))
+        set_sizes = torch.floor(set_sizes).long()
+        set_sizes = torch.clamp(set_sizes, self.min_size, self.max_size)
+        max_size = set_sizes.max().item()
+
         # Create membership tensor
         membership_tensor_max_size = torch.randint(
-            1, self.num_items + 1, (batch_size, self.num_sets, self.max_size)
-        )
-        # Cutoffs for each set
-        cutoffs = torch.randint(
-            self.min_size, self.max_size + 1, (batch_size, self.num_sets)
+            1, self.num_items + 1, (batch_size, self.num_sets, max_size)
         )
 
-        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < cutoffs.unsqueeze(-1)
+        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < set_sizes.unsqueeze(
+            -1
+        )
         # Take the masked elements, 0 means the item is invalid
         membership_tensor = (
             membership_tensor_max_size * cutoffs_masks
