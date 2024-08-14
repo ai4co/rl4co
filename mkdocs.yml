@@ -23,7 +23,7 @@ nav:
       - Quickstart: examples/1-quickstart.ipynb
       - Training a Model: examples/2-full-training.ipynb
       - Solving New Problems: examples/3-creating-new-env-model.ipynb
-    - Modeling: 
+    - Modeling:
       - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
       - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
       - Encoder Customization: examples/modeling/3-change-encoder.ipynb
@@ -103,7 +103,7 @@ theme:
     - search.highlight
     - search.share
     - toc.follow
-  palette: 
+  palette:
     - media: "(prefers-color-scheme)"
       toggle:
         icon: material/brightness-auto
@@ -183,7 +183,7 @@ plugins:
   - search
   - autorefs
   - autolinks
-  - same-dir 
+  - same-dir
 
 hooks:
   - docs/hooks.py
