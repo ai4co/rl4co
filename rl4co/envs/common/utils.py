@@ -6,7 +6,15 @@ import torch
 
 from tensordict.tensordict import TensorDict
 from torch.distributions import Exponential, Normal, Poisson, Uniform
-from rl4co.envs.common.distribution_utils import Cluster, Mixed, Gaussian_Mixture, Mix_Distribution, Mix_Multi_Distributions
+
+from rl4co.envs.common.distribution_utils import (
+    Cluster,
+    Gaussian_Mixture,
+    Mix_Distribution,
+    Mix_Multi_Distributions,
+    Mixed,
+)
+
 
 class Generator(metaclass=abc.ABCMeta):
     """Base data generator class, to be called with `env.generator(batch_size)`"""
@@ -59,7 +67,7 @@ def get_sampler(
         assert (
             kwargs.get(val_name + "_std", None) is not None
         ), "std is required for Normal distribution"
-        return Normal(loc=kwargs[val_name + "_loc"], scale=kwargs[val_name + "_scale"])
+        return Normal(loc=kwargs[val_name + "_mean"], scale=kwargs[val_name + "_std"])
     elif distribution == Exponential or distribution == "exponential":
         assert (
             kwargs.get(val_name + "_rate", None) is not None
@@ -79,13 +87,13 @@ def get_sampler(
     elif isinstance(distribution, Callable):
         return distribution(**kwargs)
     elif distribution == "gaussian_mixture":
-        return Gaussian_Mixture(num_modes=kwargs['num_modes'], cdist=kwargs['cdist'])
+        return Gaussian_Mixture(num_modes=kwargs["num_modes"], cdist=kwargs["cdist"])
     elif distribution == "cluster":
-        return Cluster(kwargs['n_cluster'])
+        return Cluster(kwargs["n_cluster"])
     elif distribution == "mixed":
-        return Mixed(kwargs['n_cluster_mix'])
+        return Mixed(kwargs["n_cluster_mix"])
     elif distribution == "mix_distribution":
-        return Mix_Distribution(kwargs['n_cluster'], kwargs['n_cluster_mix'])
+        return Mix_Distribution(kwargs["n_cluster"], kwargs["n_cluster_mix"])
     elif distribution == "mix_multi_distributions":
         return Mix_Multi_Distributions()
     else:
@@ -99,4 +107,3 @@ def batch_to_scalar(param):
     if isinstance(param, torch.Tensor):
         return param.item()
     return param
-
