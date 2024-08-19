@@ -64,6 +64,7 @@ nav:
   - About:
     - Contributing to RL4CO: docs/content/general/contribute.md
     - FAQ: docs/content/general/faq.md
+    - License and Usage: docs/content/general/licensing.md
     - Join AI4CO: docs/content/general/ai4co.md
 
 extra:
