@@ -1,6 +1,6 @@
 # Training with Hydra Configuration
 
-You may find Hydra configurations under [configs/](../../../configs/) divided into categories (model, env, train, experiment, etc.).
+You may find Hydra configurations under [configs/](https://github.com/ai4co/rl4co/tree/main/configs) divided into categories (model, env, train, experiment, etc.).
 
 ## Usage
 
@@ -15,11 +15,11 @@ python run.py
 
 ### Change experiment
 
-Train model with chosen experiment configuration from [configs/experiment/](../../../configs/experiment/)
+Train model with chosen experiment configuration from [configs/experiment/](https://github.com/ai4co/rl4co/tree/main/configs/experiment)
 ```bash
 python run.py experiment=routing/am env=tsp env.generator_params.num_loc=50 model.optimizer_kwargs.lr=2e-4
 ```
-Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](../../../configs/experiment/routing/am.yaml).
+Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](https://github.com/ai4co/rl4co/tree/main/configs/experiment/routing/am.yaml).
 </details>
 
 
