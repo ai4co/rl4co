@@ -43,13 +43,14 @@ nav:
       - Routing Problems: docs/content/api/envs/routing.md
       - Scheduling Problems: docs/content/api/envs/scheduling.md
       - EDA Problems: docs/content/api/envs/eda.md
+      - Graph Problems: docs/content/api/envs/graph.md
     - Networks:
       - Policy Base Classes: docs/content/api/networks/base_policies.md
       - Neural Network Modules: docs/content/api/networks/nn.md
       - Environment Embeddings: docs/content/api/networks/env_embeddings.md
     - RL Algorithms:
       - Base Classes: docs/content/api/rl/base.md
-      - Reinforce: docs/content/api/rl/reinforce.md
+      - REINFORCE: docs/content/api/rl/reinforce.md
       - PPO: docs/content/api/rl/ppo.md
       - A2C: docs/content/api/rl/a2c.md
     - Zoo:
@@ -191,7 +192,6 @@ hooks:
 
 markdown_extensions:
   - pymdownx.details
-  - pymdownx.superfences
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.highlight:
