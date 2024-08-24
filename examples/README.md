@@ -25,3 +25,6 @@ Under the [`datasets/`](datasets) directory, here are some additional examples f
 
 ### Advanced
 Under the [`advanced/`](advanced) directory, here are some additional examples for advanced topics.
+
+### Other
+Under the [`other/`](other) directory, here are some additional examples for other topics.
