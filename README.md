@@ -19,7 +19,7 @@
 <a href="https://github.com/ai4co/rl4co/actions/workflows/tests.yml"><img alt="Test" src="https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg"></a>
 
 <p>
-  <a href="https://rl4co.readthedocs.io/"><strong>Documentation</strong></a> |
+  <a href="https://rl4.co/"><strong>Documentation</strong></a> |
   <a href="#getting-started"><strong>Getting Started</strong></a> |
   <a href="#usage"><strong>Usage</strong></a> |
   <a href="#contributing"><strong>Contributing</strong></a> |
@@ -50,7 +50,7 @@ We offer flexible and efficient implementations of the following policies:
 - **Constructive**: learn to construct a solution from scratch
   - _Autoregressive (AR)_: construct solutions one step at a time via a decoder
   - _NonAutoregressive (NAR)_: learn to predict a heuristic, such as a heatmap, to then construct a solution
-- **Improvement**: learn to improve an pre-existing solution
+- **Improvement**: learn to improve a pre-existing solution
 
 <div align="center">
   <img src="https://github.com/ai4co/rl4co/assets/48984123/9e1f32f9-9884-49b9-b6cd-364861cc8fe7" alt="RL4CO-Policy-Overview" style="max-width: 90%;">
@@ -161,7 +161,7 @@ trainer = RL4COTrainer(max_epochs=10, accelerator="gpu", precision="16-mixed")
 trainer.fit(model)
 ```
 
-Other examples can be found on the [documentation](https://rl4co.readthedocs.io/en/latest/)!
+Other examples can be found on our [documentation](https://rl4.co/examples/1-quickstart/)!
 
 
 ### Testing
