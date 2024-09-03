@@ -1,5 +1,5 @@
+</br>
 <div align="center">
-
 
 <img src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="AI4CO Logo" style="width: 40%; height: auto;">
 
