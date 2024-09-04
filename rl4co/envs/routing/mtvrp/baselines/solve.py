@@ -13,15 +13,15 @@ class NoSolver:
 
 
 try:
-    import routefinder.baselines.pyvrp as pyvrp
+    import rl4co.envs.routing.mtvrp.baselines.pyvrp as pyvrp
 except ImportError:
     pyvrp = NoSolver()
 try:
-    import routefinder.baselines.lkh as lkh
+    import rl4co.envs.routing.mtvrp.baselines.lkh as lkh
 except ImportError:
     lkh = NoSolver()
 try:
-    import routefinder.baselines.ortools as ortools
+    import rl4co.envs.routing.mtvrp.baselines.ortools as ortools
 except ImportError:
     ortools = NoSolver()
 
