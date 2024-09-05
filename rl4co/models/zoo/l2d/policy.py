@@ -225,7 +225,7 @@ class L2DPolicy4PPO(L2DPolicy):
 
         return action_logprobs, value_pred, dist_entropys
 
-    def act(self, td, env, phase: str = "train"):
+    def act(self, td, env, phase: str = "train", temp: float = 1.0):
         logits, mask = self.decoder(td, hidden=None, num_starts=0)
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)
 
