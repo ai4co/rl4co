@@ -37,6 +37,7 @@ model:
   val_batch_size: 512
   test_batch_size: 64
   mini_batch_size: 512
+  max_grad_norm: 1
 
 env:
   stepwise_reward: True

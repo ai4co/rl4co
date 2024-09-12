@@ -10,19 +10,26 @@ logger:
 
 # params from Song et al.
 model:
-  _target_: rl4co.models.L2DPPOModel
+  _target_: rl4co.models.L2DModel
   policy_kwargs:
-    embed_dim: 256
+    embed_dim: 128
     num_encoder_layers: 3
     scaling_factor: ${scaling_factor}
-    ppo_epochs: 2
+    max_grad_norm: 1
+    ppo_epochs: 3
     het_emb: True
-    normalization: instance
   batch_size: 128
   val_batch_size: 512
   test_batch_size: 64
   mini_batch_size: 512
-  max_grad_norm: 1
+  # reward_scale: scale
+  optimizer_kwargs:
+    lr: 1e-4
+
+trainer:
+  max_epochs: 10
+
 
 env:
-  stepwise_reward: True
+  stepwise_reward: False
+  _torchrl_mode: False

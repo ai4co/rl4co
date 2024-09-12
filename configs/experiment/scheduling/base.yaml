@@ -37,4 +37,3 @@ model:
   lr_scheduler_kwargs:
     gamma: 0.95
   reward_scale: scale
-  max_grad_norm: 1

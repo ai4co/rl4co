@@ -203,7 +203,7 @@ class L2DPolicy4PPO(L2DPolicy):
             self.encoder, NoEncoder
         ), "Define a feature extractor for decoder rather than an encoder in stepwise PPO"
 
-    def evaluate(self, td):
+    def evaluate(self, td, return_selected=True):
         # Encoder: get encoder output and initial embeddings from initial state
         hidden, _ = self.decoder.feature_extractor(td)
         # pool the embeddings for the critic
@@ -220,10 +220,12 @@ class L2DPolicy4PPO(L2DPolicy):
         logits, mask = self.decoder.actor(td, *hidden)
         # get logprobs and entropy over logp distribution
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)
-        action_logprobs = gather_by_index(logprobs, td["action"], dim=1)
         dist_entropys = Categorical(logprobs.exp()).entropy()
 
-        return action_logprobs, value_pred, dist_entropys
+        if return_selected:
+            logprobs = gather_by_index(logprobs, td["action"], dim=1)
+
+        return logprobs, value_pred, dist_entropys
 
     def act(self, td, env, phase: str = "train"):
         logits, mask = self.decoder(td, hidden=None, num_starts=0)
