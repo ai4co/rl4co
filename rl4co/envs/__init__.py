@@ -4,6 +4,9 @@ from rl4co.envs.common.base import RL4COEnvBase
 # EDA
 from rl4co.envs.eda import DPPEnv, MDPPEnv
 
+# Graph
+from rl4co.envs.graph import FLPEnv, MCPEnv
+
 # Routing
 from rl4co.envs.routing import (
     ATSPEnv,
@@ -25,11 +28,7 @@ from rl4co.envs.routing import (
 )
 
 # Scheduling
-from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, SMTWTPEnv
-from rl4co.envs.scheduling.jssp.env import JSSPEnv
-
-# Graph
-from rl4co.envs.graph import MCPEnv, FLPEnv
+from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, JSSPEnv, SMTWTPEnv
 
 # Register environments
 ENV_REGISTRY = {
