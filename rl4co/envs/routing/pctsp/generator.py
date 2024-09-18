@@ -72,7 +72,7 @@ class PCTSPGenerator(Generator):
             "deterministric_prize", "uniform", 0.0, 4.0 / self.num_loc, **kwargs
         )
         self.stochastic_prize_sampler = get_sampler(
-            "stochastic_prize", "uniform", 0.0, 8.0 / self.num_loc, **kwargs
+            "stochastic_prize", "uniform", 0.0, 2.0, **kwargs
         )
 
         # For the penalty to make sense it should be not too large (in which case all nodes will be visited) nor too small
