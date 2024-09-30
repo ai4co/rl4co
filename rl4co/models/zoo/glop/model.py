@@ -65,14 +65,16 @@ class GLOP(REINFORCE):
         if phase == "train":
             assert n_samples > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], n_samples)
-            self.calculate_loss(td, batch, out, reward, log_likelihood)
+            advantage = reward - reward.mean(-1, keepdim=True)
+            out['loss'] = -(advantage * log_likelihood).mean()
+            # self.calculate_loss(td, batch, out, reward, log_likelihood)
 
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_samples > 1:
                 if out.get("actions", None) is not None:
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
-                    actions = unbatchify(out["actions"], (n_samples))
+                    actions = unbatchify(out["actions"], n_samples)
                     out.update(
                         {
                             "best_multistart_actions": gather_by_index(
