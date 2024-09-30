@@ -57,8 +57,6 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
     depot = Depot(
         x=coords[0][0],
         y=coords[0][1],
-        tw_early=time_windows[0][0],
-        tw_late=time_windows[0][1],
     )
 
     clients = [
@@ -78,6 +76,8 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
         num_available=num_locs - 1,  # one vehicle per client
         capacity=capacity,
         max_distance=max_distance,
+        tw_early=time_windows[0][0],
+        tw_late=time_windows[0][1],
     )
 
     matrix = scale(instance["cost_matrix"], scaling_factor)
@@ -99,7 +99,7 @@ def instance2data(instance: TensorDict, scaling_factor: int) -> ProblemData:
         # matrix[0, backhaul] = MAX_VALUE
         matrix[np.ix_(backhaul, linehaul)] = MAX_VALUE
 
-    return ProblemData(clients, [depot], [vehicle_type], matrix, matrix)
+    return ProblemData(clients, [depot], [vehicle_type], [matrix], [matrix])
 
 
 def solution2action(solution: pyvrp.Solution) -> list[int]:

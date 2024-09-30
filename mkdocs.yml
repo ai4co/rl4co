@@ -1,0 +1,221 @@
+site_name: RL4CO
+site_url: https://ai4co.github.io/rl4co/
+repo_name: ai4co/rl4co
+repo_url: https://github.com/ai4co/rl4co/
+edit_uri: edit/main/docs
+site_description: Official documentation for RL4CO
+copyright: Made with ❤️ by <a href="https://github.com/ai4co">AI4CO</a> contributors
+docs_dir: .
+
+nav:
+  - Home: README.md
+  - Getting Started:
+    - Installation: docs/content/start/installation.md
+    - Quick Start: examples/1-quickstart.ipynb
+    - Training with Hydra: docs/content/start/hydra.md
+  - Overview:
+    - docs/content/intro/intro.md
+    - docs/content/intro/environments.md
+    - docs/content/intro/policies.md
+    - docs/content/intro/rl.md
+  - Tutorials:
+    - Main:
+      - Quickstart: examples/1-quickstart.ipynb
+      - Training a Model: examples/2-full-training.ipynb
+      - Solving New Problems: examples/3-creating-new-env-model.ipynb
+    - Modeling:
+      - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
+      - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
+      - Encoder Customization: examples/modeling/3-change-encoder.ipynb
+    - Advanced:
+      - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
+      - Local Search: examples/advanced/3-local-search.ipynb
+      - Custom Distributions: examples/other/3-data-generator-distributions.ipynb
+    - Routing:
+      - Multi-Task VRP: examples/other/1-mtvrp.ipynb
+      - TSPLib: examples/datasets/1-test-on-tsplib.ipynb
+      - CVRPLib: examples/datasets/2-test-on-cvrplib.ipynb
+    - Scheduling:
+      - Flexible Job Shop Scheduling: examples/other/2-scheduling.ipynb
+  - API Reference:
+    - Environments:
+      - Base Classes: docs/content/api/envs/base.md
+      - Routing Problems: docs/content/api/envs/routing.md
+      - Scheduling Problems: docs/content/api/envs/scheduling.md
+      - EDA Problems: docs/content/api/envs/eda.md
+      - Graph Problems: docs/content/api/envs/graph.md
+    - Networks:
+      - Policy Base Classes: docs/content/api/networks/base_policies.md
+      - Neural Network Modules: docs/content/api/networks/nn.md
+      - Environment Embeddings: docs/content/api/networks/env_embeddings.md
+    - RL Algorithms:
+      - Base Classes: docs/content/api/rl/base.md
+      - REINFORCE: docs/content/api/rl/reinforce.md
+      - PPO: docs/content/api/rl/ppo.md
+      - A2C: docs/content/api/rl/a2c.md
+    - Zoo:
+      - Constructive AR Methods: docs/content/api/zoo/constructive_ar.md
+      - Constructive NAR Methods: docs/content/api/zoo/constructive_nar.md
+      - Improvement Methods: docs/content/api/zoo/improvement.md
+      - Transductive Methods: docs/content/api/zoo/transductive.md
+    - Additional APIs:
+      - Train and Evaluation: docs/content/api/tasks.md
+      - Decoding Strategies: docs/content/api/decoding.md
+      - Data: docs/content/api/data.md
+  - About:
+    - Contributing to RL4CO: docs/content/general/contribute.md
+    - FAQ: docs/content/general/faq.md
+    - Paper and Citation: docs/content/general/paper.md
+    - License and Usage: docs/content/general/licensing.md
+    - Join AI4CO: docs/content/general/ai4co.md
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/ai4co
+  - icon: fontawesome/brands/slack
+    link: https://bit.ly/ai4co-slack
+  - icon: fontawesome/solid/globe
+    link: https://ai4co.org
+
+theme:
+  name: material
+  logo: docs/assets/figs/rl4co-logo.svg
+  favicon: docs/assets/figs/rl4co-logo.svg
+  custom_dir: docs/overrides
+  primary: red
+  features:
+    - announce.dismiss
+    - content.code.copy
+    - content.code.annotate
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    - navigation.expand
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.preview
+    - navigation.instant.progress
+    - navigation.indexes
+    - navigation.path
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.tabs # horizontal tabs for navigation
+    - search.suggest
+    - search.highlight
+    - search.share
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to system preference
+  font:
+    text: Noto Sans
+    code: Fira Code
+
+extra_css:
+  - docs/stylesheets/extra.css # Our custom CSS
+  - docs/stylesheets/mkdocstrings.css # mkdocstrings CSS
+  - https://unpkg.com/katex@0/dist/katex.min.css # Latex math rendering
+
+extra_javascript:
+  - docs/js/katex.js # Latex math rendering
+  - docs/js/particles.min.js
+  - https://unpkg.com/katex@0/dist/katex.min.js # Latex math rendering
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js # Latex math rendering
+
+extra:
+  version:
+    default: stable
+
+plugins:
+  - mkdocstrings:
+      enable_inventory: true # create .inv file for auto linking
+      handlers:
+        python:
+          paths: [rl4co]
+          options:
+            members_order: source
+            separate_signature: true
+            filters: ["!^_"]
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
+            show_signature_annotations: true
+            docstring_section_style: list
+            heading_level: 2
+            inherited_members: false
+            show_root_heading: true
+            show_root_toc_entry: false
+            show_root_full_path: false
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+            extensions:
+            - griffe_inherited_docstrings
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://pytorch.org/rl/stable/objects.inv
+            - https://pytorch.org/tensordict/stable/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
+            - https://lightning.ai/docs/pytorch/stable/objects.inv
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
+  - mkdocs-jupyter:
+      include_source: True
+      include: ["*ipynb"]
+  - search
+  - autorefs
+  - autolinks
+  - same-dir
+
+hooks:
+  - docs/hooks.py
+
+markdown_extensions:
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.magiclink
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+      title: Page contents
+  - admonition
+  - pymdownx.extra
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - def_list
+  - mdx_truly_sane_lists
+  - mdx_breakless_lists
+  - gfm_admonition
+

@@ -30,8 +30,7 @@ from rl4co.envs.routing import (
 )
 
 # Scheduling
-from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, SMTWTPEnv
-from rl4co.envs.scheduling.jssp.env import JSSPEnv
+from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, JSSPEnv, SMTWTPEnv
 
 # Register environments
 ENV_REGISTRY = {

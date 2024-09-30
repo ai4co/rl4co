@@ -164,8 +164,8 @@ def make_data(
                 name=",".join(map(str, range(1, len(positions)))),
             )
         ],
-        distance_matrix=distances,
-        duration_matrix=np.zeros_like(distances),
+        distance_matrices=[distances],
+        duration_matrices=[np.zeros_like(distances)],
     )
 
 

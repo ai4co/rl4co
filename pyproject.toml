@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rl4co"
-version = "0.5.0.dev1"
+version = "0.5.0"
 description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
     "Federico Berto <berto.federico2@gmail.com>",
@@ -45,10 +45,10 @@ packages = [{ include = "rl4co" }]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -61,7 +61,8 @@ classifiers = [
 "Tracker" = "https://github.com/ai4co/rl4co/issues"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+# Required dependencies
+python = ">=3.9"
 einops = "*"
 hydra-core = "*"
 hydra-colorlog = "*"
@@ -75,19 +76,54 @@ scipy = "*"
 tensordict = ">=0.4.0"
 torchrl = ">=0.4.0"
 wandb = "*"
+# Dev dependencies
 black = { version = "*", optional = true }
 pre-commit = { version = ">=3.3.3", optional = true }
 ruff = { version = "*", optional = true }
 pytest = { version = "*", optional = true }
 pytest-cov = { version = "*", optional = true }
+# Graph
 torch_geometric = { version = "*", optional = true }
+# Routing
 numba = { version = ">=0.58.1", optional = true }
-pyvrp = { version = ">=0.8.2", optional = true }
+pyvrp = { version = ">=0.9.0", optional = true, python = "<4.0" }
+# Docs
+mkdocs = { version = "*", optional = true }
+mkdocs-material = { version = "*", optional = true }
+mkdocstrings-python = { version = "*", optional = true }
+mike = { version = "*", optional = true }
+mkdocs-jupyter = { version = "*", optional = true }
+mkdocs-redirects = { version = "*", optional = true }
+mkdocs-autolinks-plugin = { version = "*", optional = true }
+griffe-typingdoc = { version = "*", optional = true }
+griffe-inherited-docstrings = { version = "*", optional = true }
+griffe = { version = "*", optional = true }
+mkdocs-same-dir = { version = "*", optional = true }
+mdx-breakless-lists = { version = "*", optional = true }
+mdx-truly-sane-lists = { version = "*", optional = true }
+markdown-gfm-admonition = { version = "*", optional = true }
 
 [tool.poetry.extras]
 dev = ["black", "pre-commit", "ruff", "pytest", "pytest-cov"]
 graph = ["torch_geometric"]
 routing = ["numba", "pyvrp"]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings-python",
+    "mike",
+    "mkdocs-jupyter",
+    "mkdocs-redirects",
+    "mkdocs-autolinks-plugin",
+    "griffe-typingdoc",
+    "griffe-inherited-docstrings",
+    "griffe",
+    "black", # for formatting docstrings
+    "mkdocs-same-dir",
+    "mdx-breakless-lists",
+    "mdx-truly-sane-lists",
+    "markdown-gfm-admonition",
+]
 
 [tool.black]
 line-length = 90
