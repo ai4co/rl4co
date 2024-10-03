@@ -1,5 +1,6 @@
-from typing import Literal, Optional, Union
+from typing import Callable, Literal, Optional, Union
 
+import numpy as np
 import torch
 
 from einops import rearrange
@@ -13,18 +14,23 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
-from rl4co.models.zoo.glop.utils import eval_insertion
+from rl4co.models.zoo.glop.utils import eval_insertion, eval_lkh
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
 
 try:
-    from rl4co.models.zoo.glop.adapter import SubTSPAdapter
+    from rl4co.models.zoo.glop.adapter import VRP2SubTSPAdapter
 except ImportError:
     # In case some dependencies are not installed (e.g., numba)
-    SubTSPAdapter = None
+    VRP2SubTSPAdapter = None
 
 log = get_pylogger(__name__)
+
+SubTSPSolverType = Union[
+    Literal["insertion", "lkh"],
+    Callable[[np.ndarray], np.ndarray],
+]
 
 
 class GLOPPolicy(NonAutoregressivePolicy):
@@ -35,10 +41,13 @@ class GLOPPolicy(NonAutoregressivePolicy):
         env_name: str = "cvrp",
         n_samples: int = 10,
         temperature: float = 0.1,
+        subtsp_adapter_class=VRP2SubTSPAdapter,
+        subtsp_solver: SubTSPSolverType = "insertion",
+        subtsp_batchsize: int = 1000,
         **encoder_kwargs,
     ):
         assert (
-            SubTSPAdapter is not None
+            VRP2SubTSPAdapter is not None
         ), "Cannot import adapter module. Please check if `numba` is installed."
 
         if encoder is None:
@@ -64,8 +73,9 @@ class GLOPPolicy(NonAutoregressivePolicy):
         )
 
         self.n_samples = n_samples
-
-        SubTSPAdapter.pre_compile_numba()
+        self.subtsp_solver = subtsp_solver
+        self.subtsp_adapter_class = subtsp_adapter_class
+        self.subtsp_batchsize = subtsp_batchsize
 
     def forward(
         self,
@@ -77,8 +87,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         return_sum_log_likelihood: bool = True,
-        subtsp_solver: Literal["am", "insertion", "lkh"] = "am",
-        actions=None,
+        subtsp_solver: Optional[SubTSPSolverType] = None,
         **decoding_kwargs,
     ) -> dict:
         decoding_kwargs.setdefault(
@@ -95,9 +104,17 @@ class GLOPPolicy(NonAutoregressivePolicy):
             return_init_embeds=return_init_embeds,
             return_sum_log_likelihood=return_sum_log_likelihood,
             num_starts=self.n_samples,
-            actions=actions,
             **decoding_kwargs,
         )
+
+        subtsp_solver = self.subtsp_solver if subtsp_solver is None else subtsp_solver
+        if isinstance(subtsp_solver, str):
+            if subtsp_solver == "insertion":
+                subtsp_solver = eval_insertion
+            elif subtsp_solver == "lkh":
+                subtsp_solver = eval_lkh
+            else:
+                raise ValueError(f"Unexpected sub-TSP solver value '{subtsp_solver}'")
 
         # local policy
         par_actions = par_out["actions"]
@@ -107,13 +124,15 @@ class GLOPPolicy(NonAutoregressivePolicy):
             phase=phase,
             subtsp_solver=subtsp_solver,
         )
+        actions = local_policy_out["actions"]
 
         # Construct final output
-        out = {
-            "log_likelihood": par_out["log_likelihood"],
-            "par_reward": par_out.get("reward", None),
-            "actions": local_policy_out["actions"],
-        }
+        out = par_out
+
+        if return_actions:
+            out["actions"] = actions
+        else:
+            del out["actions"]
 
         if calc_reward:
             if isinstance(env, str) or env is None:
@@ -123,9 +142,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
                 )
                 env = get_env(env_name)
             td_repeated = batchify(td, self.n_samples)
-            reward = env.get_reward(
-                td_repeated, local_policy_out["actions"], check_solution=False
-            )
+            reward = env.get_reward(td_repeated, actions)
             out["reward"] = reward.detach()
         return out
 
@@ -134,18 +151,18 @@ class GLOPPolicy(NonAutoregressivePolicy):
         self,
         td: TensorDict,
         actions: torch.Tensor,
-        /,
-        phase: Literal["train", "val", "test"] = "train",
-        subtsp_solver: Literal["am", "insertion", "lkh"] = "am",
+        subtsp_solver,
     ):
-        assert SubTSPAdapter is not None
+        assert self.subtsp_adapter_class is not None
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
-        adapter = SubTSPAdapter(td, actions)
-        for mapping in adapter.get_batched_subtsps(batch_size=2000):
-            subtsp_actions, _ = eval_insertion(mapping.subtsp_coordinates)
+        adapter = self.subtsp_adapter_class(td, actions)
+        for mapping in adapter.get_batched_subtsps(batch_size=self.subtsp_batchsize):
+            subtsp_actions = subtsp_solver(mapping.subtsp_coordinates)
             adapter.update_actions(mapping, subtsp_actions)
 
         actions_revised = adapter.get_actions().to(td.device)
-        actions_revised = rearrange(actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples)
+        actions_revised = rearrange(
+            actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples
+        )
         return dict(actions=actions_revised)

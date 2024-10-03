@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
@@ -29,7 +29,6 @@ class GLOP(REINFORCE):
         env: RL4COEnvBase,
         policy: Optional[GLOPPolicy] = None,
         baseline: Union[REINFORCEBaseline, str] = "shared",
-        revisers: list[Callable] = None,
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
@@ -60,20 +59,22 @@ class GLOP(REINFORCE):
         reward = out["reward"] = unbatchify(out["reward"], n_samples)
         max_reward, max_idxs = reward.max(dim=-1)
         out.update({"max_reward": max_reward})
-        
+
         if phase == "train":
             assert n_samples > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], n_samples)
             advantage = reward - reward.mean(-1, keepdim=True)
-            out['loss'] = -(advantage * log_likelihood).mean()
+            out["loss"] = -(advantage * log_likelihood).mean()
         else:
             if n_samples > 1 and out.get("actions", None) is not None:
                 actions = unbatchify(out["actions"], n_samples)
-                out.update({
-                    "best_multistart_actions": gather_by_index(
-                        actions, max_idxs, dim=max_idxs.dim()
-                    )
-                })
+                out.update(
+                    {
+                        "best_multistart_actions": gather_by_index(
+                            actions, max_idxs, dim=max_idxs.dim()
+                        )
+                    }
+                )
                 out["actions"] = actions
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)

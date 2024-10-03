@@ -13,19 +13,24 @@ class SubTSPMapping(NamedTuple):
     subtsp_coordinates: np.ndarray
 
 
-class SubTSPAdapter(object):
+class VRP2SubTSPAdapter(object):
     """TODO"""
 
-    def __init__(self, parent_td: TensorDict, actions: torch.Tensor, min_node_count: int = 4) -> None:
+    def __init__(
+        self, parent_td: TensorDict, actions: torch.Tensor, min_node_count: int = 4
+    ) -> None:
         self.batch_size = parent_td.batch_size[0]
         self.n_samples = actions.shape[0] // self.batch_size
         assert actions.shape[0] == self.n_samples * self.batch_size
 
         # prepend depot to each route
-        self._actions = np.concatenate([
-            np.zeros((actions.shape[0], 1), dtype = np.int64),
-            actions.cpu().numpy(),
-        ], axis=1)
+        self._actions = np.concatenate(
+            [
+                np.zeros((actions.shape[0], 1), dtype=np.int64),
+                actions.cpu().numpy(),
+            ],
+            axis=1,
+        )
 
         self.map_action_index = _cvrp_action_partitioner(self._actions, min_node_count)
         self.coordinates = parent_td["locs"].cpu().numpy()
@@ -35,7 +40,7 @@ class SubTSPAdapter(object):
             self._actions, self.map_action_index, self.coordinates
         )
         return SubTSPMapping(self.map_action_index, map_node_index, subtsp_coordinates)
-    
+
     def get_actions(self):
         return torch.from_numpy(self._actions)
 
@@ -96,7 +101,7 @@ def _cvrp_action_partitioner(routes: np.ndarray, min_node_count: int = 4):
                 start = idx
             else:
                 last_is_not_zero = True
-        if node != 0 and route_length-start >= min_node_count:  # handle final routes
+        if node != 0 and route_length - start >= min_node_count:  # handle final routes
             map_action_index.append((index, start, route_length))
     map_action_index = np.array(map_action_index, dtype=np.int32)
     return map_action_index
