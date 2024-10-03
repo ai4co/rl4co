@@ -143,7 +143,7 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
             init_embedding: init embeddings of shape [batch_size, n, m]
         """
         graph_data = []
-        k_sparse = max(batch_cost_matrix.shape[-1] // 5, 10) if self.k_sparse is None else self.k_sparse
+        k_sparse = self.get_k_sparse(batch_cost_matrix.shape[2])
         
         for index, cost_matrix in enumerate(batch_cost_matrix):
             edge_index, _ = sparsify_graph(
@@ -169,6 +169,23 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
 
         batch = Batch.from_data_list(graph_data)  # type: ignore
         return batch
+
+    def get_k_sparse(self, n_nodes):
+        # for reproducing GLOP
+        if self.k_sparse is None:
+            if n_nodes >= 30000:
+                k_sparse = 350
+            elif n_nodes >= 10000:
+                k_sparse = 300
+            elif n_nodes >= 7000:
+                k_sparse = 250
+            elif n_nodes >= 3000:
+                k_sparse = 200
+            else:
+                k_sparse = min(100, max(n_nodes // 10, 10))
+            return k_sparse
+        else:
+            return self.k_sparse
 
 
 class ATSPEdgeEmbedding(TSPEdgeEmbedding):

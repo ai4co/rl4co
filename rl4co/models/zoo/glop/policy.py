@@ -109,24 +109,24 @@ class GLOPPolicy(NonAutoregressivePolicy):
         )
 
         # Construct final output
-        out = par_out
+        out = {
+            "log_likelihood": par_out["log_likelihood"],
+            "par_reward": par_out.get("reward", None),
+            "actions": local_policy_out["actions"],
+        }
 
         if calc_reward:
-            with torch.no_grad():
-                if isinstance(env, str) or env is None:
-                    env_name = self.env_name if env is None else env
-                    log.info(
-                        f"Instantiated environment not provided; instantiating {env_name}"
-                    )
-                    env = get_env(env_name)
-                td_repeated = batchify(td, self.n_samples)
-                reward = env.get_reward(
-                    td_repeated, local_policy_out["actions"], check_solution=False
+            if isinstance(env, str) or env is None:
+                env_name = self.env_name if env is None else env
+                log.info(
+                    f"Instantiated environment not provided; instantiating {env_name}"
                 )
-                out["reward"] = reward.detach()
-
-        out["actions"] = local_policy_out["actions"]
-
+                env = get_env(env_name)
+            td_repeated = batchify(td, self.n_samples)
+            reward = env.get_reward(
+                td_repeated, local_policy_out["actions"], check_solution=False
+            )
+            out["reward"] = reward.detach()
         return out
 
     @torch.no_grad()
@@ -142,7 +142,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
         adapter = SubTSPAdapter(td, actions)
-        for mapping in adapter.get_batched_subtsps(batch_size=None):
+        for mapping in adapter.get_batched_subtsps(batch_size=2000):
             subtsp_actions, _ = eval_insertion(mapping.subtsp_coordinates)
             adapter.update_actions(mapping, subtsp_actions)
 
