@@ -13,6 +13,7 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
+from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.zoo.glop.adapter import adapter_map
 from rl4co.models.zoo.glop.utils import eval_insertion, eval_lkh
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
@@ -21,8 +22,10 @@ from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
-SubTSPSolverType = Union[
+SubProblemSolverType = Union[
     Literal["insertion", "lkh"],
+    RL4COLitModule,
+    tuple[RL4COLitModule, dict],
     Callable[[torch.Tensor], torch.Tensor],
 ]
 
@@ -35,20 +38,20 @@ class GLOPPolicy(NonAutoregressivePolicy):
         env_name: str = "cvrp",
         n_samples: int = 10,
         temperature: float = 0.1,
-        subtsp_adapter_class=None,
-        subtsp_solver: SubTSPSolverType = "insertion",
-        subtsp_batchsize: int = 1000,
+        subprob_adapter_class=None,
+        subprob_adapter_kwargs: dict = {},
+        subprob_solver: SubProblemSolverType = "insertion",
         **encoder_kwargs,
     ):
 
-        if subtsp_adapter_class is None:
+        if subprob_adapter_class is None:
             # TODO: test more VRPs
             assert (
                 env_name in adapter_map
             ), f"{env_name} is not supported by {self.__class__.__name__} yet"
-            subtsp_adapter_class = adapter_map.get(env_name)
+            subprob_adapter_class = adapter_map.get(env_name)
             assert (
-                subtsp_adapter_class is not None
+                subprob_adapter_class is not None
             ), "Can not import adapter module. Please check if `numba` is installed."
 
         if encoder is None:
@@ -76,9 +79,10 @@ class GLOPPolicy(NonAutoregressivePolicy):
         )
 
         self.n_samples = n_samples
-        self.subtsp_solver: SubTSPSolverType = subtsp_solver
-        self.subtsp_adapter_class = subtsp_adapter_class
-        self.subtsp_batchsize = subtsp_batchsize
+        self.subprob_solver: SubProblemSolverType = subprob_solver
+        self.subprob_adapter_class = subprob_adapter_class
+        self.subprob_adapter_kwargs = subprob_adapter_kwargs
+        self.subprob_adapter_kwargs.setdefault("subprob_batch_size", 2000)
 
     def forward(
         self,
@@ -89,8 +93,8 @@ class GLOPPolicy(NonAutoregressivePolicy):
         return_actions: bool = False,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
-        return_sum_log_likelihood: bool = True,
-        subtsp_solver: Optional[SubTSPSolverType] = None,
+        return_sum_log_likelihood: bool = False,
+        subprob_solver: Optional[SubProblemSolverType] = None,
         **decoding_kwargs,
     ) -> dict:
         if (
@@ -113,26 +117,17 @@ class GLOPPolicy(NonAutoregressivePolicy):
             return_actions=True,  # Used for partition
             return_entropy=return_entropy,
             return_init_embeds=return_init_embeds,
-            return_sum_log_likelihood=return_sum_log_likelihood,
+            return_sum_log_likelihood=return_sum_log_likelihood or phase == "train",
             num_starts=self.n_samples,
             **decoding_kwargs,
         )
-
-        subtsp_solver = self.subtsp_solver if subtsp_solver is None else subtsp_solver
-        if isinstance(subtsp_solver, str):
-            if subtsp_solver == "insertion":
-                subtsp_solver = eval_insertion
-            elif subtsp_solver == "lkh":
-                subtsp_solver = eval_lkh
-            else:
-                raise ValueError(f"Unexpected sub-TSP solver value '{subtsp_solver}'")
 
         # local policy
         par_actions = par_out["actions"]
         local_policy_out = self.local_policy(
             td,
             par_actions,
-            subtsp_solver=subtsp_solver,
+            subprob_solver=self._get_subprob_solver(subprob_solver),
         )
         actions = local_policy_out["actions"]
 
@@ -161,18 +156,54 @@ class GLOPPolicy(NonAutoregressivePolicy):
         self,
         td: TensorDict,
         actions: torch.Tensor,
-        subtsp_solver,
+        subprob_solver: Callable[[torch.Tensor], torch.Tensor],
     ):
-        assert self.subtsp_adapter_class is not None
+        assert self.subprob_adapter_class is not None
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
-        adapter = self.subtsp_adapter_class(td, actions)
-        for mapping in adapter.get_batched_subtsps(batch_size=self.subtsp_batchsize):
-            subtsp_actions = subtsp_solver(mapping.subtsp_coordinates)
-            adapter.update_actions(mapping, subtsp_actions)
+        adapter = self.subprob_adapter_class(td, actions, **self.subprob_adapter_kwargs)
+        for mapping in adapter.get_batched_subprobs():
+            subprob_actions = subprob_solver(mapping.subprob_coordinates)
+            adapter.update_actions(mapping, subprob_actions)
 
         actions_revised = adapter.get_actions().to(td.device)
         actions_revised = rearrange(
             actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples
         )
         return dict(actions=actions_revised)
+
+    def _get_subprob_solver(
+        self, solver: Optional[SubProblemSolverType]
+    ) -> Callable[[torch.Tensor], torch.Tensor]:
+        solver = self.subprob_solver if solver is None else solver
+        env_name = self.subprob_adapter_class.subproblem_env_name
+
+        if isinstance(solver, str):
+            if solver == "insertion":
+                assert env_name == "tsp", f"{env_name} is not supported by insertion"
+                subprob_solver = eval_insertion
+            elif solver == "lkh":
+                subprob_solver = eval_lkh
+            else:
+                raise ValueError(f"Unexpected sub-problem solver value '{solver}'")
+
+        elif isinstance(solver, (RL4COLitModule, tuple)):
+            env = get_env(env_name)
+            if isinstance(solver, tuple):
+                solver, kwargs = solver
+                assert isinstance(solver, RL4COLitModule)
+            else:
+                kwargs = {}
+
+            def solver_function(coordinates: torch.Tensor) -> torch.Tensor:
+                td = TensorDict({"locs": coordinates}, batch_size=coordinates.shape[0])
+                td = env.reset(td=td).to(solver.device)
+                results = solver(td=td, env=env, **kwargs)
+                return results["actions"].to(coordinates.device)
+
+            subprob_solver = solver_function
+
+        else:
+            subprob_solver = solver
+
+        return subprob_solver

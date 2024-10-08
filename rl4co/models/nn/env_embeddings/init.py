@@ -22,6 +22,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "matnet": MatNetInitEmbedding,
         "cvrp": VRPInitEmbedding,
         "cvrptw": VRPTWInitEmbedding,
+        "cvrpmvc": VRPInitEmbedding,
         "svrp": SVRPInitEmbedding,
         "sdvrp": VRPInitEmbedding,
         "pctsp": PCTSPInitEmbedding,
@@ -38,6 +39,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "fjsp": FJSPInitEmbedding,
         "jssp": FJSPInitEmbedding,
         "mtvrp": MTVRPInitEmbedding,
+        "shpp": TSPInitEmbedding,
     }
 
     if env_name not in embedding_registry:

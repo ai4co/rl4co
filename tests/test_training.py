@@ -223,19 +223,23 @@ def test_deepaco():
     "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
 )
 @pytest.mark.skipfif("numba" not in sys.modules, reason="Numba not installed")
-def test_glop():
+@pytest.mark.parametrize("Environment", [TSPEnv, CVRPMVCEnv])
+def test_glop(Environment):
     import torch
 
     def dummy_solver(c):
         return torch.arange(c.shape[1] - 1, -1, -1).unsqueeze(0).expand(c.shape[0], -1)
 
-    env = CVRPMVCEnv(generator_params=dict(num_loc=20))
+    env = Environment(generator_params=dict(num_loc=20))
     model = GLOP(
         env,
         train_data_size=10,
         val_data_size=10,
         test_data_size=10,
-        policy_kwargs={"subtsp_solver": dummy_solver},
+        policy_kwargs={
+            "subprob_solver": dummy_solver,
+            "subprob_adapter_kwargs": {"min_node_count": 5},
+        },
     )
     trainer = RL4COTrainer(
         max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator

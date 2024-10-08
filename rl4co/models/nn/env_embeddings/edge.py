@@ -1,4 +1,5 @@
 from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -28,6 +29,7 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
         "tsp": TSPEdgeEmbedding,
         "atsp": ATSPEdgeEmbedding,
         "cvrp": TSPEdgeEmbedding,
+        "cvrpmvc": TSPEdgeEmbedding,
         "sdvrp": TSPEdgeEmbedding,
         "pctsp": TSPEdgeEmbedding,
         "spctsp": TSPEdgeEmbedding,
@@ -37,6 +39,7 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": TSPEdgeEmbedding,
         "mtsp": TSPEdgeEmbedding,
         "smtwtp": NoEdgeEmbedding,
+        "shpp": TSPEdgeEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -53,6 +56,7 @@ class TSPEdgeEmbedding(nn.Module):
     used by the neural network. It supports sparsification to focus on a subset of relevant edges,
     which is particularly useful for large graphs.
     """
+
     node_dim = 1
 
     def __init__(
@@ -144,11 +148,9 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
         """
         graph_data = []
         k_sparse = self.get_k_sparse(batch_cost_matrix.shape[2])
-        
+
         for index, cost_matrix in enumerate(batch_cost_matrix):
-            edge_index, _ = sparsify_graph(
-                cost_matrix[..., 0], k_sparse, self_loop=False
-            )
+            edge_index, _ = sparsify_graph(cost_matrix[..., 0], k_sparse, self_loop=False)
             edge_index = edge_index.T[torch.all(edge_index != 0, dim=0)].T
             _, depot_edge_index = torch.topk(
                 cost_matrix[0, :, 1], k=k_sparse, largest=False, sorted=False

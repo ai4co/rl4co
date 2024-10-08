@@ -10,14 +10,21 @@ from tensordict import TensorDict
 class SubTSPMapping(NamedTuple):
     map_action_index: np.ndarray
     map_node_index: np.ndarray
-    subtsp_coordinates: torch.Tensor
+    subprob_coordinates: torch.Tensor
 
 
 class VRP2SubTSPAdapter(object):
     """TODO"""
 
+    subproblem_env_name = "tsp"
+
     def __init__(
-        self, parent_td: TensorDict, actions: torch.Tensor, /, min_node_count: int = 4
+        self,
+        parent_td: TensorDict,
+        actions: torch.Tensor,
+        /,
+        subprob_batch_size: Optional[int] = None,
+        min_node_count: int = 4,
     ) -> None:
         batch_size = parent_td.batch_size[0]
         n_samples = actions.shape[0] // batch_size
@@ -34,27 +41,28 @@ class VRP2SubTSPAdapter(object):
 
         self.map_action_index = _cvrp_action_partitioner(self._actions, min_node_count)
         self.coordinates = parent_td["locs"].cpu().numpy()
-
-    def get_all_subtsps(self) -> SubTSPMapping:
-        map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
-            self._actions, self.map_action_index, self.coordinates
-        )
-        return SubTSPMapping(
-            self.map_action_index, map_node_index, torch.from_numpy(subtsp_coordinates)
-        )
+        self.subprob_batch_size = subprob_batch_size
 
     def get_actions(self):
         return torch.from_numpy(self._actions)
 
-    def get_batched_subtsps(
-        self, batch_size: Optional[int] = None
-    ) -> Generator[SubTSPMapping, Any, None]:
+    def get_batched_subprobs(self) -> Generator[SubTSPMapping, Any, None]:
+        batch_size = self.subprob_batch_size
         if batch_size is None:  # fallback to single batch
-            yield self.get_all_subtsps()
+            map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
+                self._actions, self.map_action_index, self.coordinates
+            )
+            yield SubTSPMapping(
+                self.map_action_index,
+                map_node_index,
+                torch.from_numpy(subtsp_coordinates),
+            )
         else:
             # group sub problems by node count
             node_count = self.map_action_index[:, 2] - self.map_action_index[:, 1]
             order = np.argsort(node_count)
+            if len(order) == 0:
+                return
             for start_index in range(0, len(order), batch_size):
                 selected_subtsp_index = order[start_index : start_index + batch_size]
                 map_action_index = self.map_action_index[selected_subtsp_index]
@@ -62,7 +70,9 @@ class VRP2SubTSPAdapter(object):
                     self._actions, map_action_index, self.coordinates
                 )
                 yield SubTSPMapping(
-                    map_action_index, map_node_index, torch.from_numpy(subtsp_coordinates)
+                    map_action_index,
+                    map_node_index,
+                    torch.from_numpy(subtsp_coordinates),
                 )
 
     def update_actions(self, mapping: SubTSPMapping, subtsp_actions: torch.Tensor):
@@ -74,20 +84,6 @@ class VRP2SubTSPAdapter(object):
             mapping.map_action_index,
             mapping.map_node_index,
         )
-
-    @staticmethod
-    def pre_compile_numba():
-        # Use a tiny example to invoke numba's compilation
-        # This might take around 16 seconds, depending on the CPU performance
-        actions = np.array([[0, 1, 2, 3, 0, 4]], dtype=np.int64)
-        coordinates = np.zeros((1, 5, 2), dtype=np.float32)
-        subtsp_actions = np.array([[1, 2, 0, 4, 3]], dtype=np.int64)
-        map_action_index = _cvrp_action_partitioner(actions, min_node_count=4)
-        map_node_index, _ = _compose_subtsp_coordinates(
-            actions, map_action_index, coordinates
-        )
-        _update_cvrp_actions(actions, subtsp_actions, map_action_index, map_node_index)
-        # `actions` should be [[0,3,1,2,0,4]] at this moment
 
 
 @nb.njit(nogil=True, parallel=False, cache=True)
