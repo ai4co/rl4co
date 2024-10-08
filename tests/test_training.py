@@ -224,10 +224,10 @@ def test_deepaco():
 )
 @pytest.mark.skipfif("numba" not in sys.modules, reason="Numba not installed")
 def test_glop():
-    import numpy as np
+    import torch
 
     def dummy_solver(c):
-        return np.arange(c.shape[1])[::-1].reshape(1, -1).repeat(c.shape[0], axis=0)
+        return torch.arange(c.shape[1] - 1, -1, -1).unsqueeze(0).expand(c.shape[0], -1)
 
     env = CVRPMVCEnv(generator_params=dict(num_loc=20))
     model = GLOP(

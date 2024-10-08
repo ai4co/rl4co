@@ -1,6 +1,5 @@
 from typing import Callable, Literal, Optional, Union
 
-import numpy as np
 import torch
 
 from einops import rearrange
@@ -14,22 +13,17 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
+from rl4co.models.zoo.glop.adapter import adapter_map
 from rl4co.models.zoo.glop.utils import eval_insertion, eval_lkh
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
 
-try:
-    from rl4co.models.zoo.glop.adapter import VRP2SubTSPAdapter
-except ImportError:
-    # In case some dependencies are not installed (e.g., numba)
-    VRP2SubTSPAdapter = None
-
 log = get_pylogger(__name__)
 
 SubTSPSolverType = Union[
     Literal["insertion", "lkh"],
-    Callable[[np.ndarray], np.ndarray],
+    Callable[[torch.Tensor], torch.Tensor],
 ]
 
 
@@ -41,24 +35,33 @@ class GLOPPolicy(NonAutoregressivePolicy):
         env_name: str = "cvrp",
         n_samples: int = 10,
         temperature: float = 0.1,
-        subtsp_adapter_class=VRP2SubTSPAdapter,
+        subtsp_adapter_class=None,
         subtsp_solver: SubTSPSolverType = "insertion",
         subtsp_batchsize: int = 1000,
         **encoder_kwargs,
     ):
-        assert (
-            VRP2SubTSPAdapter is not None
-        ), "Cannot import adapter module. Please check if `numba` is installed."
+
+        if subtsp_adapter_class is None:
+            # TODO: test more VRPs
+            assert (
+                env_name in adapter_map
+            ), f"{env_name} is not supported by {self.__class__.__name__} yet"
+            subtsp_adapter_class = adapter_map.get(env_name)
+            assert (
+                subtsp_adapter_class is not None
+            ), "Can not import adapter module. Please check if `numba` is installed."
 
         if encoder is None:
-            embed_dim = encoder_kwargs.get("embed_dim", 64)
-            if "init_embedding" not in encoder_kwargs:
-                encoder_kwargs["init_embedding"] = VRPPolarInitEmbedding(
-                    embed_dim, attach_cartesian_coords=True
-                )
-            if "edge_embedding" not in encoder_kwargs:
-                encoder_kwargs["edge_embedding"] = VRPPolarEdgeEmbedding(embed_dim)
-            encoder = NARGNNEncoder(**encoder_kwargs)
+            encoder_kwargs.setdefault("embed_dim", 64)
+            if env_name.startswith("cvrp"):
+                embed_dim = encoder_kwargs.get("embed_dim", 64)
+                if "init_embedding" not in encoder_kwargs:
+                    encoder_kwargs["init_embedding"] = VRPPolarInitEmbedding(
+                        embed_dim, attach_cartesian_coords=True
+                    )
+                if "edge_embedding" not in encoder_kwargs:
+                    encoder_kwargs["edge_embedding"] = VRPPolarEdgeEmbedding(embed_dim)
+            encoder = NARGNNEncoder(env_name=env_name, **encoder_kwargs)
         if decoder is None:
             decoder = NonAutoregressiveDecoder()
 
@@ -73,7 +76,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         )
 
         self.n_samples = n_samples
-        self.subtsp_solver = subtsp_solver
+        self.subtsp_solver: SubTSPSolverType = subtsp_solver
         self.subtsp_adapter_class = subtsp_adapter_class
         self.subtsp_batchsize = subtsp_batchsize
 
@@ -90,9 +93,17 @@ class GLOPPolicy(NonAutoregressivePolicy):
         subtsp_solver: Optional[SubTSPSolverType] = None,
         **decoding_kwargs,
     ) -> dict:
-        decoding_kwargs.setdefault(
-            "select_start_nodes_fn", select_start_nodes_by_distance
-        )
+        if (
+            env is None
+            and self.env_name.startswith("cvrp")
+            or isinstance(env, str)
+            and env.startswith("cvrp")
+            or isinstance(env, RL4COEnvBase)
+            and env.name.startswith("cvrp")
+        ):
+            decoding_kwargs.setdefault(
+                "select_start_nodes_fn", select_start_nodes_by_distance
+            )
 
         par_out = super().forward(
             td=td,

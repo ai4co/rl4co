@@ -10,18 +10,18 @@ from tensordict import TensorDict
 class SubTSPMapping(NamedTuple):
     map_action_index: np.ndarray
     map_node_index: np.ndarray
-    subtsp_coordinates: np.ndarray
+    subtsp_coordinates: torch.Tensor
 
 
 class VRP2SubTSPAdapter(object):
     """TODO"""
 
     def __init__(
-        self, parent_td: TensorDict, actions: torch.Tensor, min_node_count: int = 4
+        self, parent_td: TensorDict, actions: torch.Tensor, /, min_node_count: int = 4
     ) -> None:
-        self.batch_size = parent_td.batch_size[0]
-        self.n_samples = actions.shape[0] // self.batch_size
-        assert actions.shape[0] == self.n_samples * self.batch_size
+        batch_size = parent_td.batch_size[0]
+        n_samples = actions.shape[0] // batch_size
+        assert actions.shape[0] == n_samples * batch_size
 
         # prepend depot to each route
         self._actions = np.concatenate(
@@ -39,7 +39,9 @@ class VRP2SubTSPAdapter(object):
         map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
             self._actions, self.map_action_index, self.coordinates
         )
-        return SubTSPMapping(self.map_action_index, map_node_index, subtsp_coordinates)
+        return SubTSPMapping(
+            self.map_action_index, map_node_index, torch.from_numpy(subtsp_coordinates)
+        )
 
     def get_actions(self):
         return torch.from_numpy(self._actions)
@@ -59,13 +61,16 @@ class VRP2SubTSPAdapter(object):
                 map_node_index, subtsp_coordinates = _compose_subtsp_coordinates(
                     self._actions, map_action_index, self.coordinates
                 )
-                yield SubTSPMapping(map_action_index, map_node_index, subtsp_coordinates)
+                yield SubTSPMapping(
+                    map_action_index, map_node_index, torch.from_numpy(subtsp_coordinates)
+                )
 
-    def update_actions(self, mapping: SubTSPMapping, subtsp_actions: np.ndarray):
+    def update_actions(self, mapping: SubTSPMapping, subtsp_actions: torch.Tensor):
+        subtsp_actions_np = subtsp_actions.cpu().numpy()
         assert subtsp_actions.shape == mapping.map_node_index.shape
         _update_cvrp_actions(
             self._actions,
-            subtsp_actions,
+            subtsp_actions_np,
             mapping.map_action_index,
             mapping.map_node_index,
         )
@@ -103,6 +108,7 @@ def _cvrp_action_partitioner(routes: np.ndarray, min_node_count: int = 4):
                 last_is_not_zero = True
         if node != 0 and route_length - start >= min_node_count:  # handle final routes
             map_action_index.append((index, start, route_length))
+    # [route_index, subtsp_start_index, subtsp_end_index] * total_count
     map_action_index = np.array(map_action_index, dtype=np.int32)
     return map_action_index
 
