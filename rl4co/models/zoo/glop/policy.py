@@ -121,7 +121,6 @@ class GLOPPolicy(NonAutoregressivePolicy):
         local_policy_out = self.local_policy(
             td,
             par_actions,
-            phase=phase,
             subtsp_solver=subtsp_solver,
         )
         actions = local_policy_out["actions"]

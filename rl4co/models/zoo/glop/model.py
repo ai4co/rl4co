@@ -36,7 +36,7 @@ class GLOP(REINFORCE):
         # TODO: test more VRPs
         assert (
             env.name in GLOP_SUPPORTED_ENVS
-        ), f"{env.name} is not supported by {self.__class__.__name__}"
+        ), f"{env.name} is not supported by {self.__class__.__name__} yet"
 
         if policy is None:
             policy = GLOPPolicy(env_name=env.name, **policy_kwargs)
