@@ -13,6 +13,10 @@
 *saved_checkpoints*
 *.ckpt
 
+# CO-related file types
+*.sol
+*.vrp
+
 
 # Hydra
 .hydra/
