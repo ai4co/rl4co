@@ -1,10 +1,9 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from matplotlib import cm, colormaps
 
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -32,7 +31,7 @@ def render(td, actions=None, ax=None):
         actions = actions[0]
 
     locs = td["locs"]
-    scale_demand = td["capacity"][0]
+    scale_demand = td["capacity"][0] if td["capacity"].ndim == 1 else td["capacity"]
     demands = td["demand"] * scale_demand
 
     # add the depot at the first action and the end action
