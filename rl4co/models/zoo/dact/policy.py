@@ -86,7 +86,7 @@ class DACTPolicy(ImprovementPolicy):
         td: TensorDict,
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_embeds: bool = False,
         only_return_embed: bool = False,
         actions=None,
@@ -155,9 +155,11 @@ class DACTPolicy(ImprovementPolicy):
         logprob, action_sampled = decode_strategy.step(
             logits,
             mask,
-            action=actions[:, 0] * seq_length + actions[:, 1]
-            if actions is not None
-            else None,
+            action=(
+                actions[:, 0] * seq_length + actions[:, 1]
+                if actions is not None
+                else None
+            ),
         )
         action_sampled = action_sampled.unsqueeze(-1)
         if phase == "train":

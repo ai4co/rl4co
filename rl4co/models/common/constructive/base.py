@@ -160,7 +160,7 @@ class ConstructivePolicy(nn.Module):
         env: Optional[Union[str, RL4COEnvBase]] = None,
         phase: str = "train",
         calc_reward: bool = True,
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_entropy: bool = False,
         return_hidden: bool = False,
         return_init_embeds: bool = False,

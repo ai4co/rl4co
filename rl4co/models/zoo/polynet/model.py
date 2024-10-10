@@ -145,7 +145,6 @@ class PolyNet(REINFORCE):
             phase=phase,
             num_starts=n_start,
             multisample=True,
-            return_actions=True,
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].

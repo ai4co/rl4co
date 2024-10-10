@@ -120,7 +120,7 @@ class ImprovementPolicy(nn.Module):
         td: TensorDict,
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         actions=None,

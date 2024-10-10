@@ -131,7 +131,7 @@ class PPO(RL4COLitModule):
         # Evaluate old actions, log probabilities, and rewards
         with torch.no_grad():
             td = self.env.reset(batch)  # note: clone needed for dataloader
-            out = self.policy(td.clone(), self.env, phase=phase, return_actions=True)
+            out = self.policy(td.clone(), self.env, phase=phase)
 
         if phase == "train":
             batch_size = out["actions"].shape[0]

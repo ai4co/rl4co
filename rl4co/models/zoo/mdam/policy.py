@@ -62,7 +62,7 @@ class MDAMPolicy(AutoregressivePolicy):
         td: TensorDict,
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         **decoder_kwargs,
     ) -> TensorDict:
         embedding = self.init_embedding(td)

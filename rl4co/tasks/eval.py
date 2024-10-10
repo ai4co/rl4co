@@ -51,7 +51,7 @@ class EvalBase:
                 actions_list.append(actions)
 
             rewards = torch.cat(rewards_list)
-            
+
             # Padding: pad actions to the same length with zeros
             max_length = max(action.size(-1) for action in actions_list)
             actions = torch.cat(
@@ -61,7 +61,7 @@ class EvalBase:
                 ],
                 0,
             )
-            
+
         inference_time = time.time() - start
 
         tqdm.write(f"Mean reward for {self.name}: {rewards.mean():.4f}")
@@ -99,7 +99,6 @@ class GreedyEval(EvalBase):
             td.clone(),
             decode_type="greedy",
             num_starts=0,
-            return_actions=True,
         )
         rewards = self.env.get_reward(td, out["actions"])
         return out["actions"], rewards
@@ -131,7 +130,7 @@ class AugmentationEval(EvalBase):
             num_augment = self.augmentation.num_augment
         td_init = td.clone()
         td = self.augmentation(td)
-        out = policy(td.clone(), decode_type="greedy", num_starts=0, return_actions=True)
+        out = policy(td.clone(), decode_type="greedy", num_starts=0)
 
         # Move into batches and compute rewards
         rewards = self.env.get_reward(batchify(td_init, num_augment), out["actions"])
@@ -188,7 +187,6 @@ class SamplingEval(EvalBase):
             top_p=self.top_p,
             top_k=self.top_k,
             multisample=True,
-            return_actions=True,
             softmax_temp=self.softmax_temp,
             select_best=self.select_best,
             select_start_nodes_fn=lambda td, _, n: sample_n_random_actions(td, n),
@@ -223,7 +221,6 @@ class GreedyMultiStartEval(EvalBase):
             td.clone(),
             decode_type="multistart_greedy",
             num_starts=self.num_starts,
-            return_actions=True,
         )
 
         # Move into batches and compute rewards
@@ -286,7 +283,6 @@ class GreedyMultiStartAugmentEval(EvalBase):
             td.clone(),
             decode_type="multistart_greedy",
             num_starts=self.num_starts,
-            return_actions=True,
         )
 
         # Move into batches and compute rewards

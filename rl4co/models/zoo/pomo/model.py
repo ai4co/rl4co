@@ -61,7 +61,9 @@ class POMO(REINFORCE):
                 "use_graph_context": False,
             }
             policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs_with_defaults)
+            policy = AttentionModelPolicy(
+                env_name=env.name, **policy_kwargs_with_defaults
+            )
 
         assert baseline == "shared", "POMO only supports shared baseline"
 
@@ -98,9 +100,7 @@ class POMO(REINFORCE):
             td = self.augment(td)
 
         # Evaluate policy
-        out = self.policy(
-            td, self.env, phase=phase, num_starts=n_start, return_actions=True
-        )
+        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (n_aug, n_start))
@@ -123,7 +123,11 @@ class POMO(REINFORCE):
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
                     actions = unbatchify(out["actions"], (n_aug, n_start))
                     out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs, dim=max_idxs.dim())}
+                        {
+                            "best_multistart_actions": gather_by_index(
+                                actions, max_idxs, dim=max_idxs.dim()
+                            )
+                        }
                     )
                     out["actions"] = actions
 

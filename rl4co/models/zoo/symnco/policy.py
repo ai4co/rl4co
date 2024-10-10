@@ -64,7 +64,7 @@ class SymNCOPolicy(AttentionModelPolicy):
         td: TensorDict,
         env: Union[str, RL4COEnvBase] = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_init_embeds: bool = True,
         **kwargs,
     ) -> dict:

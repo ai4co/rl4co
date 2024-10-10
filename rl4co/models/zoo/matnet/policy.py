@@ -158,7 +158,7 @@ class MultiStageFFSPPolicy(nn.Module):
         env: FFSPEnv,
         phase="train",
         num_starts=1,
-        return_actions: bool = False,
+        return_actions: bool = True,
         **decoder_kwargs,
     ):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"

@@ -132,7 +132,6 @@ class ActiveSearch(TransductiveModel):
                 env=self.env,
                 decode_type="multistart_sampling",
                 num_starts=n_start,
-                return_actions=True,
             )
 
             if i == 0:
