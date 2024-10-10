@@ -201,9 +201,15 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         top_k: Top-k sampling, i.e. restrict sampling to the top k logits. If 0, do not perform. Defaults to 0.
         mask_logits: Whether to mask logits of infeasible actions. Defaults to True.
         tanh_clipping: Tanh clipping (https://arxiv.org/abs/1611.09940). Defaults to 0.
-        multistart: Whether to use multistart decoding. Defaults to False.
         multisample: Whether to use sampling decoding. Defaults to False.
+        num_samples: Number of samples to evaluate during decoding. Defaults to None.
         num_starts: Number of starts for multistart decoding. Defaults to None.
+        multistart: Whether to use multistart decoding. Defaults to False.
+        select_start_nodes_fn: Function to select start nodes for multistart decoding. Defaults to None.
+        improvement_method_mode: Whether to use improvement method mode. Defaults to False.
+        select_best: Whether to select the best action or return all. Defaults to False.
+        store_all_logp: Whether to store all log probabilities. Defaults to False. If True, logprobs will be stored for all actions.
+            Note that this will increase memory usage.
     """
 
     name = "base"
@@ -215,9 +221,10 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         top_k: int = 0,
         mask_logits: bool = True,
         tanh_clipping: float = 0,
-        multistart: bool = False,
+        num_samples: Optional[int] = None,
         multisample: bool = False,
         num_starts: Optional[int] = None,
+        multistart: bool = False,
         select_start_nodes_fn: Optional[callable] = None,
         improvement_method_mode: bool = False,
         select_best: bool = False,
@@ -229,9 +236,24 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.top_k = top_k
         self.mask_logits = mask_logits
         self.tanh_clipping = tanh_clipping
+        # check if multistart (POMO) and multisample flags
+        assert not (
+            multistart and multisample
+        ), "Using both multistart and multisample is not supported"
+        if num_samples and num_starts:
+            assert not (
+                num_samples > 1 and num_starts > 1
+            ), f"num_samples={num_samples} and num_starts={num_starts} are both > 1"
+        if num_samples is not None:
+            multisample = True if num_samples > 1 else False
+        if num_starts is not None:
+            multistart = True if num_starts > 1 else False
         self.multistart = multistart
         self.multisample = multisample
-        self.num_starts = num_starts
+        # num_starts is used for both multistart and multisample
+        # the function is to use start multiple rollouts for the same instance in parallel
+        self.num_starts = num_starts if multistart else num_samples
+
         self.select_start_nodes_fn = select_start_nodes_fn
         self.improvement_method_mode = improvement_method_mode
         self.select_best = select_best
