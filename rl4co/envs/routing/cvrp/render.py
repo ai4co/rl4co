@@ -9,7 +9,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def render(td, actions=None, ax=None):
+def render(td, actions=None, ax=None, skip_depot=True):
     num_routine = (actions == 0).sum().item() + 2
     base = colormaps["nipy_spectral"]
     color_list = base(np.linspace(0, 1, num_routine))
@@ -113,6 +113,8 @@ def render(td, actions=None, ax=None):
             color_idx += 1
         from_loc = locs[actions[action_idx]]
         to_loc = locs[actions[action_idx + 1]]
+        if skip_depot and (actions[action_idx] == 0 or actions[action_idx + 1] == 0):
+            continue
         ax.plot(
             [from_loc[0], to_loc[0]],
             [from_loc[1], to_loc[1]],
