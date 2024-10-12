@@ -15,7 +15,7 @@ from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.zoo.glop.adapter import adapter_map
-from rl4co.models.zoo.glop.utils import eval_insertion, eval_lkh
+from rl4co.models.zoo.glop.utils import eval_lkh, shpp_eval_insertion, tsp_eval_insertion
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
@@ -180,8 +180,12 @@ class GLOPPolicy(NonAutoregressivePolicy):
 
         if isinstance(solver, str):
             if solver == "insertion":
-                assert env_name == "tsp", f"{env_name} is not supported by insertion"
-                subprob_solver = eval_insertion
+                if env_name == "tsp":
+                    subprob_solver = tsp_eval_insertion
+                elif env_name == "shpp":
+                    subprob_solver = shpp_eval_insertion
+                else:
+                    raise NotImplementedError(f"{env_name} is not supported by insertion")
             elif solver == "lkh":
                 subprob_solver = eval_lkh
             else:
@@ -202,7 +206,6 @@ class GLOPPolicy(NonAutoregressivePolicy):
                 return results["actions"].to(coordinates.device)
 
             subprob_solver = solver_function
-
         else:
             subprob_solver = solver
 
