@@ -61,11 +61,6 @@ class ATSPGenerator(Generator):
         dms[..., torch.arange(self.num_loc), torch.arange(self.num_loc)] = 0
         log.info("Using TMAT class (triangle inequality): {}".format(self.tmat_class))
         if self.tmat_class:
-            while True:
-                old_dms = dms.clone()
-                dms, _ = (
-                    dms[..., :, None, :] + dms[..., None, :, :].transpose(-2, -1)
-                ).min(dim=-1)
-                if (dms == old_dms).all():
-                    break
+            for i in range(self.num_loc):
+                dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
         return TensorDict({"cost_matrix": dms}, batch_size=batch_size)
