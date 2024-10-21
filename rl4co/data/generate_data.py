@@ -20,6 +20,7 @@ DISTRIBUTIONS_PER_PROBLEM = {
     "op": ["const", "unif", "dist"],
     "mdpp": [None],
     "pdp": [None],
+    "atsp": [None]
 }
 
 
@@ -210,6 +211,16 @@ def generate_mdpp_data(
         "locs": locs.astype(np.float32),
         "probe": probes.astype(bool),
         "action_mask": available.astype(bool),
+    }
+
+def generate_atsp_data(dataset_size, atsp_size, tmat_class: bool = True):
+    cost_matrix = np.random.uniform(size=(dataset_size, atsp_size, atsp_size))
+    cost_matrix[..., np.arange(atsp_size), np.arange(atsp_size)] = 0
+    if tmat_class:
+        for i in range(atsp_size):
+            cost_matrix = np.minimum(cost_matrix, cost_matrix[..., :, [i]] + cost_matrix[..., [i], :])
+    return {
+        "cost_matrix": cost_matrix.astype(np.float32)
     }
 
 
