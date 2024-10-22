@@ -73,7 +73,7 @@ pyrootutils = "*"
 rich = "*"
 robust-downloader = "*"
 scipy = "*"
-tensordict = ">=0.4.0"
+tensordict = ">=0.4.0, <0.6.0"
 torchrl = ">=0.4.0"
 wandb = "*"
 # Dev dependencies
