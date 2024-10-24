@@ -19,7 +19,8 @@ log = get_pylogger(__name__)
 def scaled_dot_product_attention_simple(
     q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False
 ):
-    """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
+    """Simple (exact) Scaled Dot-Product Attention in RL4CO without customized kernels (i.e. no Flash Attention)."""
+
     # Check for causal and attn_mask conflict
     if is_causal and attn_mask is not None:
         raise ValueError("Cannot set both is_causal and attn_mask")
