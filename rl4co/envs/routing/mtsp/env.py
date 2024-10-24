@@ -1,15 +1,9 @@
 from typing import Optional
 
-import numpy as np
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.envs.common.utils import batch_to_scalar
@@ -173,55 +167,55 @@ class MTSPEnv(RL4COEnvBase):
 
     def _make_spec(self, generator: MTSPGenerator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
-            num_agents=UnboundedDiscreteTensorSpec(
+            num_agents=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            agent_idx=UnboundedDiscreteTensorSpec(
+            agent_idx=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            current_length=UnboundedContinuousTensorSpec(
+            current_length=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            max_subtour_length=UnboundedContinuousTensorSpec(
+            max_subtour_length=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            first_node=UnboundedDiscreteTensorSpec(
+            first_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec()
-        self.done_spec = UnboundedDiscreteTensorSpec(dtype=torch.bool)
+        self.reward_spec = Unbounded()
+        self.done_spec = Unbounded(dtype=torch.bool)
 
     def _get_reward(self, td, actions=None) -> TensorDict:
         # With minmax, get the maximum distance among subtours, calculated in the model

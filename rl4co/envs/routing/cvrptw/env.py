@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.data.utils import (
     load_npz_to_tensordict,
@@ -68,20 +68,16 @@ class CVRPTWEnv(CVRPEnv):
         if isinstance(generator, CVRPGenerator):
             super()._make_spec(generator)
         else:
-            current_time = UnboundedContinuousTensorSpec(
-                shape=(1), dtype=torch.float32, device=self.device
-            )
-            current_loc = UnboundedContinuousTensorSpec(
-                shape=(2), dtype=torch.float32, device=self.device
-            )
-            durations = BoundedTensorSpec(
+            current_time = Unbounded(shape=(1), dtype=torch.float32, device=self.device)
+            current_loc = Unbounded(shape=(2), dtype=torch.float32, device=self.device)
+            durations = Bounded(
                 low=generator.min_time,
                 high=generator.max_time,
                 shape=(generator.num_loc, 1),
                 dtype=torch.int64,
                 device=self.device,
             )
-            time_windows = BoundedTensorSpec(
+            time_windows = Bounded(
                 low=generator.min_time,
                 high=generator.max_time,
                 shape=(
@@ -92,7 +88,7 @@ class CVRPTWEnv(CVRPEnv):
                 device=self.device,
             )
             # Extend observation specs
-            self.observation_spec = CompositeSpec(
+            self.observation_spec = Composite(
                 **self.observation_spec,
                 current_time=current_time,
                 current_loc=current_loc,

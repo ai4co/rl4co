@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import ImprovementEnvBase, RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
@@ -152,39 +147,39 @@ class PDPEnv(RL4COEnvBase):
 
     def _make_spec(self, generator: PDPGenerator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            to_deliver=UnboundedDiscreteTensorSpec(
+            to_deliver=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc + 1),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     @staticmethod
     def _get_reward(td, actions) -> TensorDict:
@@ -419,51 +414,51 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
 
     def _make_spec(self, generator: PDPGenerator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
-            cost_current=UnboundedContinuousTensorSpec(
+            cost_current=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            cost_bsf=UnboundedContinuousTensorSpec(
+            cost_bsf=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            rec_current=UnboundedDiscreteTensorSpec(
+            rec_current=Unbounded(
                 shape=(self.generator.num_loc + 1),
                 dtype=torch.int64,
             ),
-            rec_best=UnboundedDiscreteTensorSpec(
+            rec_best=Unbounded(
                 shape=(self.generator.num_loc + 1),
                 dtype=torch.int64,
             ),
-            visited_time=UnboundedDiscreteTensorSpec(
+            visited_time=Unbounded(
                 shape=(self.generator.num_loc + 1, self.generator.num_loc + 1),
                 dtype=torch.int64,
             ),
-            action_record=UnboundedDiscreteTensorSpec(
+            action_record=Unbounded(
                 shape=(self.generator.num_loc + 1, self.generator.num_loc + 1),
                 dtype=torch.int64,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(3,),
             dtype=torch.int64,
             low=0,
             high=self.generator.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def check_solution_validity(self, td, actions=None):
         # The function can be called by the agent to check the validity of the best found solution

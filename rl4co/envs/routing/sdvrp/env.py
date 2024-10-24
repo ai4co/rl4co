@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
@@ -29,7 +24,7 @@ class SDVRPEnv(CVRPEnv):
 
     Observations:
         - location of the depot.
-        - locations and demand/remaining demand of each customer 
+        - locations and demand/remaining demand of each customer
         - current location of the vehicle.
         - the remaining capacity of the vehicle.
 
@@ -165,46 +160,46 @@ class SDVRPEnv(CVRPEnv):
 
     def _make_spec(self, generator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            demand=BoundedTensorSpec(
+            demand=Bounded(
                 low=generator.min_demand,
                 high=generator.max_demand,
                 shape=(generator.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
             ),
-            demand_with_depot=BoundedTensorSpec(
+            demand_with_depot=Bounded(
                 low=generator.min_demand,
                 high=generator.max_demand,
                 shape=(generator.num_loc + 1, 1),
                 dtype=torch.float32,
             ),
-            used_capacity=BoundedTensorSpec(
+            used_capacity=Bounded(
                 low=0,
                 high=generator.vehicle_capacity,
                 shape=(1,),
                 dtype=torch.float32,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)

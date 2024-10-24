@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
@@ -42,7 +37,7 @@ class MTVRPEnv(RL4COEnvBase):
         - Imposes a limit on the total travel duration (or length) of each route, ensuring a balanced workload across vehicles.
 
     The environment covers the following 16 variants depending on the data generation:
-    
+
     | VRP Variant | Capacity (C) | Open Route (O) | Backhaul (B) | Duration Limit (L) | Time Window (TW) |
     | :---------- | :----------: | :------------: | :----------: | :----------------: | :--------------: |
     | CVRP        |      ✔       |                |              |                    |                  |
@@ -66,7 +61,7 @@ class MTVRPEnv(RL4COEnvBase):
     - ["Multi-Task Learning for Routing Problem with Cross-Problem Zero-Shot Generalization" (Liu et al, 2024)](https://arxiv.org/abs/2402.16891)
     - ["MVMoE: Multi-Task Vehicle Routing Solver with Mixture-of-Experts" (Zhou et al, 2024)](https://arxiv.org/abs/2405.01029)
     - ["RouteFinder: Towards Foundation Models for Vehicle Routing Problems" (Berto et al, 2024)](https://arxiv.org/abs/2406.15007)
-    
+
     Tip:
         Have a look at https://pyvrp.org/ for more information about VRP and its variants and their solutions. Kudos to their help and great job!
 
@@ -415,53 +410,49 @@ class MTVRPEnv(RL4COEnvBase):
     def _make_spec(self, td_params: TensorDict):
         # TODO: include extra vars (but we don't really need them for now)
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=self.generator.min_loc,
                 high=self.generator.max_loc,
                 shape=(self.generator.num_loc + 1, 2),
                 dtype=torch.float32,
                 device=self.device,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
                 device=self.device,
             ),
-            demand_linehaul=BoundedTensorSpec(
+            demand_linehaul=Bounded(
                 low=-self.generator.capacity,
                 high=self.generator.max_demand,
                 shape=(self.generator.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
                 device=self.device,
             ),
-            demand_backhaul=BoundedTensorSpec(
+            demand_backhaul=Bounded(
                 low=-self.generator.capacity,
                 high=self.generator.max_demand,
                 shape=(self.generator.num_loc, 1),  # demand is only for customers
                 dtype=torch.float32,
                 device=self.device,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(self.generator.num_loc + 1, 1),
                 dtype=torch.bool,
                 device=self.device,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             low=0,
             high=self.generator.num_loc + 1,
             shape=(1,),
             dtype=torch.int64,
             device=self.device,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(
-            shape=(1,), dtype=torch.float32, device=self.device
-        )
-        self.done_spec = UnboundedDiscreteTensorSpec(
-            shape=(1,), dtype=torch.bool, device=self.device
-        )
+        self.reward_spec = Unbounded(shape=(1,), dtype=torch.float32, device=self.device)
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool, device=self.device)
 
     @staticmethod
     def check_variants(td):

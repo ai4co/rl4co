@@ -2,12 +2,7 @@ import torch
 
 from einops import rearrange, reduce
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import RL4COEnvBase as EnvBase
 from rl4co.utils.ops import gather_by_index, sample_n_random_actions
@@ -416,81 +411,81 @@ class FJSPEnv(EnvBase):
             )
 
     def _make_spec(self, generator: FJSPGenerator):
-        self.observation_spec = CompositeSpec(
-            time=UnboundedDiscreteTensorSpec(
+        self.observation_spec = Composite(
+            time=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            next_op=UnboundedDiscreteTensorSpec(
+            next_op=Unbounded(
                 shape=(self.num_jobs,),
                 dtype=torch.int64,
             ),
-            proc_times=UnboundedDiscreteTensorSpec(
+            proc_times=Unbounded(
                 shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.float32,
             ),
-            pad_mask=UnboundedDiscreteTensorSpec(
+            pad_mask=Unbounded(
                 shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.bool,
             ),
-            start_op_per_job=UnboundedDiscreteTensorSpec(
+            start_op_per_job=Unbounded(
                 shape=(self.num_jobs,),
                 dtype=torch.bool,
             ),
-            end_op_per_job=UnboundedDiscreteTensorSpec(
+            end_op_per_job=Unbounded(
                 shape=(self.num_jobs,),
                 dtype=torch.bool,
             ),
-            start_times=UnboundedDiscreteTensorSpec(
+            start_times=Unbounded(
                 shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
-            finish_times=UnboundedDiscreteTensorSpec(
+            finish_times=Unbounded(
                 shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
-            job_ops_adj=UnboundedDiscreteTensorSpec(
+            job_ops_adj=Unbounded(
                 shape=(self.num_jobs, self.n_ops_max),
                 dtype=torch.int64,
             ),
-            ops_job_map=UnboundedDiscreteTensorSpec(
+            ops_job_map=Unbounded(
                 shape=(self.n_ops_max),
                 dtype=torch.int64,
             ),
-            ops_sequence_order=UnboundedDiscreteTensorSpec(
+            ops_sequence_order=Unbounded(
                 shape=(self.n_ops_max),
                 dtype=torch.int64,
             ),
-            ma_assignment=UnboundedDiscreteTensorSpec(
+            ma_assignment=Unbounded(
                 shape=(self.num_mas, self.n_ops_max),
                 dtype=torch.int64,
             ),
-            busy_until=UnboundedDiscreteTensorSpec(
+            busy_until=Unbounded(
                 shape=(self.num_mas,),
                 dtype=torch.int64,
             ),
-            num_eligible=UnboundedDiscreteTensorSpec(
+            num_eligible=Unbounded(
                 shape=(self.n_ops_max,),
                 dtype=torch.int64,
             ),
-            job_in_process=UnboundedDiscreteTensorSpec(
+            job_in_process=Unbounded(
                 shape=(self.num_jobs,),
                 dtype=torch.bool,
             ),
-            job_done=UnboundedDiscreteTensorSpec(
+            job_done=Unbounded(
                 shape=(self.num_jobs,),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=-1,
             high=self.n_ops_max,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     @staticmethod
     def render(td, idx):

@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
@@ -16,9 +11,10 @@ from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import CVRPGenerator
+
 try:
     from .local_search import local_search
-except:
+except Exception:
     # In case some dependencies are not installed (e.g., pyvrp)
     local_search = None
 from .render import render
@@ -199,39 +195,44 @@ class CVRPEnv(RL4COEnvBase):
         return td_load
 
     def _make_spec(self, generator: CVRPGenerator):
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            demand=BoundedTensorSpec(
+            demand=Bounded(
                 low=-generator.capacity,
                 high=generator.max_demand,
                 shape=(generator.num_loc + 1, 1),
                 dtype=torch.float32,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
-    def replace_selected_actions(self, cur_actions: torch.Tensor, new_actions: torch.Tensor, selection_mask: torch.Tensor) -> torch.Tensor:
+    def replace_selected_actions(
+        self,
+        cur_actions: torch.Tensor,
+        new_actions: torch.Tensor,
+        selection_mask: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Replace selected current actions with updated actions based on `selection_mask`.
 
@@ -242,15 +243,21 @@ class CVRPEnv(RL4COEnvBase):
         """
         diff_length = cur_actions.size(-1) - new_actions.size(-1)
         if diff_length > 0:
-            new_actions = torch.nn.functional.pad(new_actions, (0, diff_length, 0, 0), mode="constant", value=0)
+            new_actions = torch.nn.functional.pad(
+                new_actions, (0, diff_length, 0, 0), mode="constant", value=0
+            )
         elif diff_length < 0:
-            cur_actions = torch.nn.functional.pad(cur_actions, (0, -diff_length, 0, 0), mode="constant", value=0)
+            cur_actions = torch.nn.functional.pad(
+                cur_actions, (0, -diff_length, 0, 0), mode="constant", value=0
+            )
         cur_actions[selection_mask] = new_actions[selection_mask]
         return cur_actions
 
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
-        assert local_search is not None, "Cannot import local_search module. Check if `pyvrp` is installed."
+        assert (
+            local_search is not None
+        ), "Cannot import local_search module. Check if `pyvrp` is installed."
         return local_search(td, actions, **kwargs)
 
     @staticmethod

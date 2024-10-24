@@ -1,15 +1,10 @@
-from typing import Optional, Union
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
@@ -33,7 +28,7 @@ class OPEnv(RL4COEnvBase):
         - current tour length
         - current total prize
         - the remaining length of the path
-    
+
     Constraints:
         - the tour starts and ends at the depot
         - not all customers need to be visited
@@ -215,48 +210,48 @@ class OPEnv(RL4COEnvBase):
 
     def _make_spec(self, generator: OPGenerator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc + 1, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            prize=UnboundedContinuousTensorSpec(
+            prize=Unbounded(
                 shape=(generator.num_loc,),
                 dtype=torch.float32,
             ),
-            tour_length=UnboundedContinuousTensorSpec(
+            tour_length=Unbounded(
                 shape=(generator.num_loc,),
                 dtype=torch.float32,
             ),
-            visited=UnboundedDiscreteTensorSpec(
+            visited=Unbounded(
                 shape=(generator.num_loc + 1,),
                 dtype=torch.bool,
             ),
-            max_length=UnboundedContinuousTensorSpec(
+            max_length=Unbounded(
                 shape=(1,),
                 dtype=torch.float32,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc + 1, 1),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc + 1,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)

@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import ImprovementEnvBase, RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_distance, get_tour_length
@@ -120,39 +115,39 @@ class TSPEnv(RL4COEnvBase):
         )
 
     def _make_spec(self, generator: TSPGenerator):
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
-            first_node=UnboundedDiscreteTensorSpec(
+            first_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1))
+        self.done_spec = Unbounded(shape=(1), dtype=torch.bool)
 
     def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
         if self.check_solution:
@@ -393,47 +388,47 @@ class TSPkoptEnv(ImprovementEnvBase):
 
     def _make_spec(self, generator: TSPGenerator):
         """Make the observation and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
-            cost_current=UnboundedContinuousTensorSpec(
+            cost_current=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            cost_bsf=UnboundedContinuousTensorSpec(
+            cost_bsf=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            rec_current=UnboundedDiscreteTensorSpec(
+            rec_current=Unbounded(
                 shape=(self.generator.num_loc),
                 dtype=torch.int64,
             ),
-            rec_best=UnboundedDiscreteTensorSpec(
+            rec_best=Unbounded(
                 shape=(self.generator.num_loc),
                 dtype=torch.int64,
             ),
-            visited_time=UnboundedDiscreteTensorSpec(
+            visited_time=Unbounded(
                 shape=(self.generator.num_loc, self.generator.num_loc),
                 dtype=torch.int64,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(self.k_max * 3,),
             dtype=torch.int64,
             low=0,
             high=self.generator.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def check_solution_validity(self, td, actions=None):
         # The function can be called by the agent to check the validity of the best found solution
@@ -520,16 +515,16 @@ class TSPkoptEnv(ImprovementEnvBase):
                 mask[(visited_time_tag <= visited_time_tag.gather(1, action))] = True
                 if i == 0:
                     mask[visited_time_tag > (gs - 2)] = True
-                mask[
-                    stopped, action[stopped].squeeze()
-                ] = False  # allow next k-opt starts immediately
+                mask[stopped, action[stopped].squeeze()] = (
+                    False  # allow next k-opt starts immediately
+                )
                 # if True:#i == self.k_max - 2: # allow special case: close k-opt at the first selected node
                 index_allow_first_node = (~stopped) & (
                     next_of_new_action.squeeze() == action_index[:, 0]
                 )
-                mask[
-                    index_allow_first_node, action_index[index_allow_first_node, 0]
-                ] = False
+                mask[index_allow_first_node, action_index[index_allow_first_node, 0]] = (
+                    False
+                )
 
                 # Move to next
                 next_of_last_action = next_of_new_action
