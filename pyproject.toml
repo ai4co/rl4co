@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rl4co"
-version = "0.5.1"
+version = "0.5.1dev0"
 description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
     "Federico Berto <berto.federico2@gmail.com>",
