@@ -18,6 +18,7 @@
 *.tour
 *.sol
 *.vrp
+*.problems
 
 
 # Hydra
