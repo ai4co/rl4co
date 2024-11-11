@@ -70,7 +70,7 @@ hide:
             <div class="loading-indicator">Loading...</div>
             <div id="tsparticles"></div>
             <div id="particles-mask"></div>
-            <img id="logo-overlay" class="md-content" src="docs/assets/rl4co_animated_full_tricks.svg" alt="AI4CO Logo">
+            <img id="logo-overlay" class="md-content" src="https://raw.githubusercontent.com/ai4co/assets/main/svg/rl4co_animated_full.svg" alt="RL4CO Logo">
             <div id="gradient"></div>
         </div>
 
