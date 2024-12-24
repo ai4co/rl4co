@@ -24,7 +24,7 @@ class PrecomputedCache:
 
 class MatNetDecoder(AttentionModelDecoder):
     def _precompute_cache(self, embeddings: Tuple[Tensor, Tensor], *args, **kwargs):
-        col_emb, row_emb = embeddings
+        row_emb, col_emb = embeddings
         (
             glimpse_key_fixed,
             glimpse_val_fixed,
