@@ -12,11 +12,7 @@ from rl4co.utils.pylogger import get_pylogger
 
 from .generator import CVRPGenerator
 
-try:
-    from .local_search import local_search
-except Exception:
-    # In case some dependencies are not installed (e.g., pyvrp)
-    local_search = None
+from .local_search import local_search
 from .render import render
 
 log = get_pylogger(__name__)
