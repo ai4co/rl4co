@@ -181,7 +181,7 @@ class CVRPEnv(RL4COEnvBase):
             # Cannot use less than 0
             used_cap[used_cap < 0] = 0
             assert (
-                used_cap <= td["vehicle_capacity"] + 1e-5
+                used_cap <= td["vehicle_capacity"][:, 0] + 1e-5
             ).all(), "Used more than capacity"
 
     @staticmethod
