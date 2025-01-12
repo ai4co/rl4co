@@ -25,7 +25,6 @@ class AntSystem:
         beta: Importance of heuristic information in the decision-making process. Defaults to 1.0.
         decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
         Q: Rate at which pheromone deposits. Defaults to `1 / n_ants`.
-        temperature: Temperature for the softmax during decoding. Defaults to 0.1.
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
         require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
@@ -43,7 +42,6 @@ class AntSystem:
         beta: float = 1.0,
         decay: float = 0.95,
         Q: Optional[float] = None,
-        temperature: float = 0.1,
         pheromone: Optional[Tensor] = None,
         require_logprobs: bool = False,
         use_local_search: bool = False,
@@ -59,9 +57,8 @@ class AntSystem:
         self.beta = beta
         self.decay = decay
         self.Q = 1 / self.n_ants if Q is None else Q
-        self.temperature = temperature
 
-        self.log_heuristic = log_heuristic / self.temperature
+        self.log_heuristic = log_heuristic
 
         if pheromone is None:
             self.pheromone = torch.ones_like(log_heuristic)
@@ -92,7 +89,7 @@ class AntSystem:
 
     @staticmethod
     def select_start_node_fn(
-        td: TensorDict, env: RL4COEnvBase, num_starts: int, start_node: Optional[int]=None
+        td: TensorDict, env: RL4COEnvBase, num_starts: int, start_node: Optional[int] = None
     ):
         if env.name == "tsp" and start_node is not None:
             # For now, only TSP supports explicitly setting the start node
