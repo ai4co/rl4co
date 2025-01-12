@@ -12,7 +12,10 @@ from rl4co.utils.pylogger import get_pylogger
 
 from .generator import CVRPGenerator
 
-from .local_search import local_search
+try:
+    from .local_search import local_search
+except:  # In case when we fail to build HGS
+    local_search = None
 from .render import render
 
 log = get_pylogger(__name__)
@@ -253,7 +256,7 @@ class CVRPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         assert (
             local_search is not None
-        ), "Cannot import local_search module. Check if `pyvrp` is installed."
+        ), "Cannot import local_search module. Check if HGS is built."
         return local_search(td, actions, **kwargs)
 
     @staticmethod
