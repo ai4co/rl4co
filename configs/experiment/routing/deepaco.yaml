@@ -25,6 +25,7 @@ model:
   train_data_size: 400
   val_data_size: 20
   test_data_size: 100
+  optimizer: "AdamW"
   optimizer_kwargs:
     lr: 1e-3
     weight_decay: 0
@@ -45,8 +46,8 @@ model:
     n_iterations:
       train: 1 # unused value
       val: 5
-      test: 20
-    temperature: 0.5
+      test: 10
+    temperature: 1.0
     top_p: 0.0
     top_k: 0
     aco_kwargs:
@@ -55,10 +56,12 @@ model:
       decay: 0.95
       use_local_search: True
       use_nls: True
+      n_perturbations: 5
       local_search_params:
         max_iterations: 1000
       perturbation_params:
         max_iterations: 20
+    k_sparse: 5  # this should be adjusted based on the `num_loc` value
 
 trainer:
   max_epochs: 50

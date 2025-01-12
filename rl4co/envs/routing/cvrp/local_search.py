@@ -100,17 +100,17 @@ def local_search(td: TensorDict, actions: torch.Tensor, max_iterations: int = 10
     new_actions = torch.from_numpy(new_actions).to(td.device)
 
     # Check the validity of the solution and use the original solution if the new solution is invalid
-    valid = check_validity(td, new_actions)
-    import pdb; pdb.set_trace()
-    if not valid.all():    
-        orig_valid_actions = actions[~valid]
+    isvalid = check_validity(td, new_actions)
+    if not isvalid.all():    
+        new_actions[~isvalid] = 0
+        orig_valid_actions = actions[~isvalid]
         # pad if needed
         orig_max_pos = torch.max(torch.where(orig_valid_actions != 0)[1]) + 1
         if orig_max_pos > max_pos:
             new_actions = torch.nn.functional.pad(
                 new_actions, (0, orig_max_pos - max_pos, 0, 0), mode="constant", value=0  # type: ignore
             )
-        new_actions[~valid] = orig_valid_actions[:, :orig_max_pos]
+        new_actions[~isvalid, :orig_max_pos] = orig_valid_actions[:, :orig_max_pos]
     return new_actions
 
 

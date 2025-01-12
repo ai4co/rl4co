@@ -36,7 +36,9 @@ class GFACS(DeepACO):
         ls_reward_aug_W: float = 0.95,
         policy_kwargs: dict = {},
         baseline_kwargs: dict = {},
-        beta: float = 1.0,
+        beta_min: float = 1.0,
+        beta_max: float = 1.0,
+        beta_flat_epochs: int = 0,
         **kwargs,
     ):
         if policy is None:
@@ -45,10 +47,25 @@ class GFACS(DeepACO):
             )
 
         super().__init__(
-            env, policy, baseline, train_with_local_search, ls_reward_aug_W, policy_kwargs, baseline_kwargs, **kwargs
+            env,
+            policy,
+            baseline,
+            train_with_local_search,
+            ls_reward_aug_W,
+            policy_kwargs,
+            baseline_kwargs,
+            **kwargs,
         )
 
-        self.beta = beta
+        self.beta_min = beta_min
+        self.beta_max = beta_max
+        self.beta_flat_epochs = beta_flat_epochs
+
+    @property
+    def beta(self) -> float:
+        return self.beta_min + (self.beta_max - self.beta_min) * min(
+            math.log(self.current_epoch + 1) / math.log(self.trainer.max_epochs - self.beta_flat_epochs), 1.0
+        )
 
     def calculate_loss(
         self,

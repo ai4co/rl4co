@@ -56,7 +56,7 @@ class GFACSPolicy(DeepACOPolicy):
     ):
         if encoder is None:
             encoder_kwargs["z_out_dim"] = 2 if train_with_local_search else 1
-            encoder = GFACSEncoder(**encoder_kwargs)
+            encoder = GFACSEncoder(env_name=env_name, **encoder_kwargs)
 
         super().__init__(
             encoder=encoder,
@@ -169,8 +169,6 @@ class GFACSPolicy(DeepACOPolicy):
         if self.top_p > 0:
             assert self.top_p <= 1.0, "top-p should be in (0, 1]."
             heatmap_logits = modify_logits_for_top_p_filtering(heatmap_logits, self.top_p)
-        
-        heatmap_logits = torch.nan_to_num(heatmap_logits, nan=math.log(1e-10), neginf=math.log(1e-10))
 
         aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
         td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
