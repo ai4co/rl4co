@@ -1,5 +1,5 @@
 import math
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import scipy

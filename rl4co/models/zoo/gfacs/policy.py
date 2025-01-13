@@ -134,7 +134,9 @@ class GFACSPolicy(DeepACOPolicy):
             if self.train_with_local_search:
                 # TODO: Refactor this so that we don't need to use the aco object
                 aco = self.aco_class(hidden, n_ants=n_ants, **self.aco_kwargs)
-                ls_actions, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, actions)
+                ls_actions, ls_reward = aco.local_search(
+                    batchify(td_initial, n_ants), env, actions  # type:ignore
+                )
                 ls_logprobs, ls_actions, td, env = self.common_decoding(
                     "evaluate", td_initial, env, hidden, n_ants, ls_actions, **decoding_kwargs
                 )
@@ -149,7 +151,6 @@ class GFACSPolicy(DeepACOPolicy):
                         )
                     }
                 )
-
                 if return_actions:
                     outdict["ls_actions"] = ls_actions
             ########################################################################

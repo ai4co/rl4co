@@ -13,8 +13,8 @@ from rl4co.models.common.constructive.nonautoregressive import (
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.decoding import modify_logits_for_top_k_filtering, modify_logits_for_top_p_filtering
+from rl4co.utils.ops import batchify, get_distance_matrix, unbatchify
 from rl4co.utils.utils import merge_with_defaults
-from rl4co.utils.ops import batchify, unbatchify
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
@@ -59,6 +59,9 @@ class DeepACOPolicy(NonAutoregressivePolicy):
             val_decode_type="multistart_sampling",
             test_decode_type="multistart_sampling",
         )
+
+        self.top_p = top_p
+        self.top_k = top_k
 
         self.aco_class = AntSystem if aco_class is None else aco_class
         self.aco_kwargs = aco_kwargs
@@ -124,7 +127,9 @@ class DeepACOPolicy(NonAutoregressivePolicy):
                 heatmap_logits = outdict["hidden"]
                 # TODO: Refactor this so that we don't need to use the aco object
                 aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
-                _, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, outdict["actions"])
+                _, ls_reward = aco.local_search(
+                    batchify(td_initial, n_ants), env, outdict["actions"]  # type:ignore
+                )
                 outdict["ls_reward"] = unbatchify(ls_reward, n_ants)
 
             outdict["log_likelihood"] = unbatchify(outdict["log_likelihood"], n_ants)

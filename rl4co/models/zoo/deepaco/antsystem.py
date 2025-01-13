@@ -26,7 +26,6 @@ class AntSystem:
         decay: Rate at which pheromone evaporates. Should be between 0 and 1. Defaults to 0.95.
         Q: Rate at which pheromone deposits. Defaults to `1 / n_ants`.
         pheromone: Initial pheromone matrix. Defaults to `torch.ones_like(log_heuristic)`.
-        require_logprobs: Whether to require the log probability of actions. Defaults to False.
         use_local_search: Whether to use local_search provided by the env. Default to False.
         use_nls: Whether to use neural-guided local search provided by the env. Default to False.
         n_perturbations: Number of perturbations to be used for nls. Defaults to 5.
@@ -43,7 +42,6 @@ class AntSystem:
         decay: float = 0.95,
         Q: Optional[float] = None,
         pheromone: Optional[Tensor] = None,
-        require_logprobs: bool = False,
         use_local_search: bool = False,
         use_nls: bool = False,
         n_perturbations: int = 5,
@@ -67,8 +65,7 @@ class AntSystem:
             self.pheromone = pheromone
 
         self.final_actions = self.final_reward = None
-        self.require_logprobs = require_logprobs
-        self.all_records = []
+        self.final_reward_cache = torch.zeros(self.batch_size, 0, device=log_heuristic.device)
 
         self.use_local_search = use_local_search
         assert not (use_nls and not use_local_search), "use_nls requires use_local_search"
@@ -123,8 +120,8 @@ class AntSystem:
             td = td_initial.clone()
             self._one_step(td, env)
 
+        assert self.final_reward is not None
         action_matrix = self._convert_final_action_to_matrix()
-        assert action_matrix is not None and self.final_reward is not None
         td, env = self._recreate_final_routes(td_initial, env, action_matrix)
 
         return td, action_matrix, self.final_reward
@@ -183,9 +180,6 @@ class AntSystem:
 
         logprobs, actions, td, env = decode_strategy.post_decoder_hook(td, env)
         reward = env.get_reward(td, actions)
-
-        if self.require_logprobs:
-            self.all_records.append((logprobs, actions, reward, td.get("mask", None)))
 
         return td, env, actions, reward
 
@@ -246,6 +240,9 @@ class AntSystem:
                 self.final_actions[index] = best_actions[index]
             self.final_reward[require_update] = best_reward[require_update]
 
+        self.final_reward_cache = torch.cat(
+            [self.final_reward_cache, self.final_reward.unsqueeze(-1)], -1
+        )
         return best_index
 
     def _update_pheromone(self, actions, reward):
@@ -285,53 +282,14 @@ class AntSystem:
         assert td["done"].all()
         return td, env
 
-    def get_logp(self):
-        """Get the log probability (logprobs) values recorded during the execution of the algorithm.
-
-        Returns:
-            results: Tuple containing the log probability values,
-                actions chosen, rewards obtained, and mask values (if available).
-
-        Raises:
-            AssertionError: If `require_logp` is not enabled.
-        """
-
-        assert (
-            self.require_logprobs
-        ), "Please enable `require_logp` to record logprobs values"
-
-        logprobs_list, actions_list, reward_list, mask_list = [], [], [], []
-
-        for logprobs, actions, reward, mask in self.all_records:
-            logprobs_list.append(logprobs)
-            actions_list.append(actions)
-            reward_list.append(reward)
-            mask_list.append(mask)
-
-        if mask_list[0] is None:
-            mask_list = None
-        else:
-            mask_list = torch.stack(mask_list, 0)
-
-        # reset records
-        self.all_records = []
-
-        return (
-            torch.stack(logprobs_list, 0),
-            torch.stack(actions_list, 0),
-            torch.stack(reward_list, 0),
-            mask_list,
-        )
-
     @staticmethod
     @lru_cache(5)
     def _batch_action_indices(batch_size: int, n_actions: int, device: torch.device):
         batchindex = torch.arange(batch_size, device=device)
         return batchindex.unsqueeze(1).repeat(1, n_actions).view(-1)
 
-    def _convert_final_action_to_matrix(self) -> Optional[Tensor]:
-        if self.final_actions is None:
-            return None
+    def _convert_final_action_to_matrix(self) -> Tensor:
+        assert self.final_actions is not None
         action_count = max(len(actions) for actions in self.final_actions)
         mat_actions = torch.zeros(
             (self.batch_size, action_count),
@@ -340,5 +298,4 @@ class AntSystem:
         )
         for index, action in enumerate(self.final_actions):
             mat_actions[index, : len(action)] = action
-
         return mat_actions

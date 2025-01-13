@@ -291,13 +291,13 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             if self.num_starts is None:
                 self.num_starts = env.get_num_starts(td)
                 if self.multisample:
-                    log.warn(
+                    log.warning(
                         f"num_starts is not provided for sampling, using num_starts={self.num_starts}"
                     )
         else:
             if self.num_starts is not None:
                 if self.num_starts >= 1:
-                    log.warn(
+                    log.warning(
                         f"num_starts={self.num_starts} is ignored for decode_type={self.name}"
                     )
 
