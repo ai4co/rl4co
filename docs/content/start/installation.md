@@ -40,6 +40,8 @@ source .venv/bin/activate
 Note that `uv` directly generates the `.venv` folder in the current directory.
 
 
+To install (all) extras, you may use `uv sync --frozen --all-extras` or specify them individually with `uv sync --frozen --extra dev --extra graph --extra routing --extra docs`.
+
 </details>
 
 
