@@ -45,7 +45,6 @@ packages = [{ include = "rl4co" }]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -62,7 +61,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 # Required dependencies
-python = ">=3.9"
+python = ">=3.10"
 einops = "*"
 hydra-core = "*"
 hydra-colorlog = "*"
