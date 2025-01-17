@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Optional, Type, Union
+from typing import Optional, Type
 
 from tensordict import TensorDict
 
@@ -10,8 +10,8 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
-from rl4co.utils.utils import merge_with_defaults
 from rl4co.utils.ops import batchify, unbatchify
+from rl4co.utils.utils import merge_with_defaults
 
 
 class DeepACOPolicy(NonAutoregressivePolicy):
@@ -39,8 +39,8 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         aco_class: Optional[Type[AntSystem]] = None,
         aco_kwargs: dict = {},
         train_with_local_search: bool = True,
-        n_ants: Optional[Union[int, dict]] = None,
-        n_iterations: Optional[Union[int, dict]] = None,
+        n_ants: Optional[int | dict] = None,
+        n_iterations: Optional[int | dict] = None,
         ls_reward_aug_W: float = 0.95,
         **encoder_kwargs,
     ):
@@ -66,7 +66,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
     def forward(
         self,
         td_initial: TensorDict,
-        env: Optional[Union[str, RL4COEnvBase]] = None,
+        env: Optional[str | RL4COEnvBase] = None,
         calc_reward: bool = True,
         phase: str = "train",
         actions=None,
@@ -80,13 +80,16 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         """
         n_ants = self.n_ants[phase]
         # Instantiate environment if needed
-        if (phase != "train" or self.ls_reward_aug_W > 0) and (env is None or isinstance(env, str)):
+        if (phase != "train" or self.ls_reward_aug_W > 0) and (
+            env is None or isinstance(env, str)
+        ):
             env_name = self.env_name if env is None else env
             env = get_env(env_name)
 
         if phase == "train":
             select_start_nodes_fn = partial(
-                self.aco_class.select_start_node_fn, start_node=self.aco_kwargs.get("start_node", None)
+                self.aco_class.select_start_node_fn,
+                start_node=self.aco_kwargs.get("start_node", None),
             )
             kwargs.update({"select_start_nodes_fn": select_start_nodes_fn})
             #  we just use the constructive policy
@@ -115,13 +118,18 @@ class DeepACOPolicy(NonAutoregressivePolicy):
                     temperature=self.aco_kwargs.get("temperature", self.temperature),
                     **self.aco_kwargs,
                 )
-                
+
                 actions = outdict["actions"]
-                _, ls_reward = aco.local_search(batchify(td_initial, n_ants), env, actions)
+                _, ls_reward = aco.local_search(
+                    batchify(td_initial, n_ants), env, actions
+                )
 
                 ls_reward = unbatchify(ls_reward, n_ants)
                 ls_advantage = ls_reward - ls_reward.mean(dim=1, keepdim=True)
-                advantage = advantage * (1 - self.ls_reward_aug_W) + ls_advantage * self.ls_reward_aug_W
+                advantage = (
+                    advantage * (1 - self.ls_reward_aug_W)
+                    + ls_advantage * self.ls_reward_aug_W
+                )
 
             outdict["advantage"] = advantage
             outdict["log_likelihood"] = unbatchify(outdict["log_likelihood"], n_ants)

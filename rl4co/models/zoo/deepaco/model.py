@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
@@ -22,7 +22,7 @@ class DeepACO(REINFORCE):
         self,
         env: RL4COEnvBase,
         policy: Optional[DeepACOPolicy] = None,
-        baseline: Union[REINFORCEBaseline, str] = "no",
+        baseline: REINFORCEBaseline | str = "no",
         policy_kwargs: dict = {},
         baseline_kwargs: dict = {},
         **kwargs,
@@ -37,7 +37,7 @@ class DeepACO(REINFORCE):
         batch: Any,
         batch_idx: int,
         phase: str,
-        dataloader_idx: Union[int, None] = None,
+        dataloader_idx: int | None = None,
     ):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)

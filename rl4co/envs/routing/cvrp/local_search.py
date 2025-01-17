@@ -1,6 +1,6 @@
 from functools import partial
 from multiprocessing import Pool
-from typing import Tuple, Union
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ def local_search(
     td: TensorDict,
     actions: torch.Tensor,
     max_trials: int = 10,
-    neighbourhood_params: Union[dict, None] = None,
+    neighbourhood_params: dict | None = None,
     load_penalty: float = 0.2,
     allow_infeasible_solution: bool = False,
     seed: int = 0,
@@ -113,7 +113,7 @@ def local_search_single(
     positions: np.ndarray,
     demands: np.ndarray,
     distances: np.ndarray,
-    neighbourhood_params: Union[dict, None] = None,
+    neighbourhood_params: dict | None = None,
     allow_infeasible_solution: bool = False,
     load_penalty: float = 0.2,
     max_trials: int = 10,
@@ -178,7 +178,7 @@ def make_solution(data: ProblemData, path: np.ndarray) -> Solution:
 
 
 def make_search_operator(
-    data: ProblemData, seed=0, neighbourhood_params: Union[dict, None] = None
+    data: ProblemData, seed=0, neighbourhood_params: dict | None = None
 ) -> LocalSearch:
     rng = RandomNumberGenerator(seed)
     neighbours = compute_neighbours(
