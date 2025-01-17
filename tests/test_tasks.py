@@ -1,5 +1,3 @@
-import sys
-
 import pyrootutils
 import pytest
 
@@ -50,6 +48,7 @@ def cfg_train(cfg_train_global, tmp_path) -> DictConfig:
     yield cfg
 
     GlobalHydra.instance().clear()
+
 
 def test_train_fast_dev_run(cfg_train):
     """Run for 1 train, val and test step."""
