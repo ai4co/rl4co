@@ -1,6 +1,6 @@
 [project]
 name = "rl4co"
-version = "0.5.2dev0"
+version = "0.5.2"
 description = "RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark"
 authors = [
     { name = "Federico Berto", email = "berto.federico2@gmail.com" },
