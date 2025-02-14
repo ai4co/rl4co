@@ -1,4 +1,4 @@
-As local search in CVRP, we adopted the SWAP* algorithm by Vidal et al. [1, 2] ([repo](https://github.com/vidalt/HGS-CVRP)). Specifically, we use the modified version of code provided by [DeepACO](https://github.com/henry-yeh/DeepACO/tree/main/cvrp_nls/HGS-CVRP-main).
+As local search in CVRP, we adopted the SWAP* algorithm by Vidal et al. [1, 2] ([repo](https://github.com/vidalt/HGS-CVRP)). Specifically, we use the modified version of code provided by [DeepACO](https://github.com/henry-yeh/DeepACO/tree/main/cvrp_nls/HGS-CVRP-main), which we uploaded to [https://github.com/ai4co/HGS-CVRP](https://github.com/ai4co/HGS-CVRP) for convenience.
 
 
 ### Installation
