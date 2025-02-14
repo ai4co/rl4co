@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from tensordict import TensorDict
 import torch
