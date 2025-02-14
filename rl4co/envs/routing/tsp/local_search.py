@@ -1,7 +1,8 @@
-import concurrent.futures
+import os
 
 import numpy as np
 import numba as nb
+from numba import set_num_threads
 import torch
 from tensordict.tensordict import TensorDict
 
@@ -11,7 +12,12 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def local_search(td: TensorDict, actions: torch.Tensor, max_iterations: int = 1000) -> torch.Tensor:
+def local_search(
+    td: TensorDict,
+    actions: torch.Tensor,
+    max_iterations: int = 1000,
+    num_threads: int | None = None,
+) -> torch.Tensor:
     """
     Improve the solution using local search, especially 2-opt for TSP.
     Implementation credits to: https://github.com/henry-yeh/DeepACO
@@ -31,12 +37,9 @@ def local_search(td: TensorDict, actions: torch.Tensor, max_iterations: int = 10
     distances_np = distances_np + 1e9 * np.eye(distances_np.shape[1], dtype=np.float32)[None, :, :]
 
     actions_np = actions.detach().cpu().numpy().astype(np.uint16)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for dist, tour in zip(distances_np, actions_np):
-            future = executor.submit(_two_opt_python, distmat=dist, tour=tour, max_iterations=max_iterations)
-            futures.append(future)
-        return torch.from_numpy(np.stack([f.result() for f in futures]).astype(np.int64)).to(actions.device)
+    set_num_threads(num_threads or min(os.cpu_count(), 32))
+    numba_results = _two_opt_python(distances_np, actions_np, max_iterations)
+    return torch.from_numpy(numba_results.astype(np.int64)).to(actions.device)
 
 
 @nb.njit(nb.float32(nb.float32[:,:], nb.uint16[:], nb.uint16), nogil=True)
@@ -63,12 +66,12 @@ def two_opt_once(distmat, tour, fixed_i = 0):
     else:
         return 0.0
 
-
-@nb.njit(nb.uint16[:](nb.float32[:,:], nb.uint16[:], nb.int64), nogil=True)
+@nb.njit(nb.uint16[:,:](nb.float32[:,:,:], nb.uint16[:,:], nb.int64), nogil=True, parallel=True)
 def _two_opt_python(distmat, tour, max_iterations=1000):
-    iterations = 0
-    min_change = -1.0
-    while min_change < -1e-6 and iterations < max_iterations:
-        min_change = two_opt_once(distmat, tour, 0)
-        iterations += 1
+    for i in nb.prange(tour.shape[0]):
+        iterations = 0
+        min_change = -1.0
+        while min_change < -1e-6 and iterations < max_iterations:
+            min_change = two_opt_once(distmat[i], tour[i], 0)
+            iterations += 1
     return tour

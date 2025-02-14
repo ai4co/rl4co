@@ -248,7 +248,7 @@ class TSPkoptEnv(ImprovementEnvBase):
         cost_bsf = td["cost_bsf"]
         bs, gs = solution_best.size()
 
-        # perform loca_operator
+        # perform local_operator
         if solution_to is None:
             action = td["action"]
             solution = td["rec_current"]
