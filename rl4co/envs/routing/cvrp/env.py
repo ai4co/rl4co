@@ -256,7 +256,7 @@ class CVRPEnv(RL4COEnvBase):
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
         assert (
             local_search is not None
-        ), "Cannot import local_search module. Check if HGS is built."
+        ), "Cannot import local_search module. Check `rl4co/envs/routing/cvrp/README.md` for instructions to build HGS."
         return local_search(td, actions, **kwargs)
 
     @staticmethod
