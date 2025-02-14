@@ -29,22 +29,10 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def get_lib_filename(hgs_dir: str) -> str:
-    path = os.path.join(hgs_dir, "build", "libhgscvrp.so")
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"Shared library file `{path}` not found")
-    return path
-
-
 # Check if HGS-CVRP is installed
 hgs_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "HGS-CVRP")
-try:
-    HGS_LIBRARY_FILEPATH = get_lib_filename(hgs_dir)
-except FileNotFoundError:
-    log.info("HGS-CVRP is not installed. Running the build script...")
-    os.popen(f"sh {hgs_dir}/build.sh").read()
-    HGS_LIBRARY_FILEPATH = get_lib_filename(hgs_dir)
-    log.info("HGS-CVRP is installed successfully.")
+HGS_LIBRARY_FILEPATH = os.path.join(hgs_dir, "build", "libhgscvrp.so")
+assert os.path.isfile(HGS_LIBRARY_FILEPATH)  # Failure case will be handled in the env.py
 
 
 def local_search(td: TensorDict, actions: torch.Tensor, max_iterations: int = 1000) -> torch.Tensor:

@@ -1,6 +1,4 @@
-from functools import partial
 from typing import Optional, Type, Union
-import math
 
 from tensordict import TensorDict
 import torch
@@ -52,10 +50,13 @@ class GFACSPolicy(DeepACOPolicy):
         train_with_local_search: bool = True,
         n_ants: Optional[Union[int, dict]] = None,
         n_iterations: Optional[Union[int, dict]] = None,
+        multistart: bool = False,
+        k_sparse: Optional[int] = None,
         **encoder_kwargs,
     ):
         if encoder is None:
             encoder_kwargs["z_out_dim"] = 2 if train_with_local_search else 1
+            encoder_kwargs["k_sparse"] = k_sparse
             encoder = GFACSEncoder(env_name=env_name, **encoder_kwargs)
 
         super().__init__(
@@ -69,6 +70,8 @@ class GFACSPolicy(DeepACOPolicy):
             train_with_local_search=train_with_local_search,
             n_ants=n_ants,
             n_iterations=n_iterations,
+            multistart=multistart,
+            k_sparse=k_sparse,
         )
 
     def forward(
@@ -86,6 +89,14 @@ class GFACSPolicy(DeepACOPolicy):
         See :class:`NonAutoregressivePolicy` for more details during the training phase.
         """
         n_ants = self.n_ants[phase]
+
+        heatmap, _, logZ = self.encoder(td_initial)
+
+        decoding_kwargs.update(self.default_decoding_kwargs)
+        decoding_kwargs.update(
+            {"num_starts": n_ants} if "multistart" in self.decode_type else {"num_samples": n_ants}
+        )
+
         # Instantiate environment if needed
         if (phase != "train" or self.train_with_local_search) and (env is None or isinstance(env, str)):
             env_name = self.env_name if env is None else env
@@ -95,32 +106,19 @@ class GFACSPolicy(DeepACOPolicy):
 
         if phase == "train":
             # Encoder: get encoder output and initial embeddings from initial state
-            hidden, init_embeds, logZ = self.encoder(td_initial)
             if self.train_with_local_search:
                 logZ, ls_logZ = logZ[:, [0]], logZ[:, [1]]
             else:
                 logZ = logZ[:, [0]]
 
-            select_start_nodes_fn = partial(
-                self.aco_class.select_start_node_fn, start_node=self.aco_kwargs.get("start_node", None)
-            )
-            decoding_kwargs.update(
-                {
-                    "select_start_nodes_fn": select_start_nodes_fn,
-                    # These are only for inference; TODO: Are they useful for training too?
-                    # "top_p": self.top_p,
-                    # "top_k": self.top_k,
-                }
-            )
             logprobs, actions, td, env = self.common_decoding(
-                "multistart_sampling", td_initial, env, hidden, n_ants, actions, **decoding_kwargs
+                self.decode_type, td_initial, env, heatmap, actions, **decoding_kwargs
             )
-            td.set("reward", env.get_reward(td, actions))
 
             # Output dictionary construction
             outdict = {
                 "logZ": logZ,
-                "reward": unbatchify(td["reward"], n_ants),
+                "reward": unbatchify(env.get_reward(td, actions), n_ants),
                 "log_likelihood": unbatchify(
                     get_log_likelihood(logprobs, actions, td.get("mask", None), True), n_ants
                 )
@@ -133,14 +131,15 @@ class GFACSPolicy(DeepACOPolicy):
             # Local search
             if self.train_with_local_search:
                 # TODO: Refactor this so that we don't need to use the aco object
-                aco = self.aco_class(hidden, n_ants=n_ants, **self.aco_kwargs)
+                aco = self.aco_class(heatmap, n_ants=n_ants, **self.aco_kwargs)
                 ls_actions, ls_reward = aco.local_search(
-                    batchify(td_initial, n_ants), env, actions  # type:ignore
+                    batchify(td_initial, n_ants), env, actions, decoding_kwargs
                 )
+                ls_decoding_kwargs = decoding_kwargs.copy()
+                ls_decoding_kwargs["top_k"] = 0  # This should be 0, otherwise logprobs can be -inf
                 ls_logprobs, ls_actions, td, env = self.common_decoding(
-                    "evaluate", td_initial, env, hidden, n_ants, ls_actions, **decoding_kwargs
+                    "evaluate", td_initial, env, heatmap, ls_actions, **ls_decoding_kwargs
                 )
-                td.set("ls_reward", ls_reward)
                 outdict.update(
                     {
                         "ls_logZ": ls_logZ,
@@ -156,25 +155,25 @@ class GFACSPolicy(DeepACOPolicy):
             ########################################################################
 
             if return_hidden:
-                outdict["hidden"] = hidden
+                outdict["hidden"] = heatmap
 
             return outdict
 
-        heatmap_logits, _, _ = self.encoder(td_initial)
-        heatmap_logits /= self.temperature
+        heatmap /= self.temperature
 
         if self.top_k > 0:
-            self.top_k = min(self.top_k, heatmap_logits.size(-1))  # safety check
-            heatmap_logits = modify_logits_for_top_k_filtering(heatmap_logits, self.top_k)
+            self.top_k = min(self.top_k, heatmap.size(-1))  # safety check
+            heatmap = modify_logits_for_top_k_filtering(heatmap, self.top_k)
 
         if self.top_p > 0:
             assert self.top_p <= 1.0, "top-p should be in (0, 1]."
-            heatmap_logits = modify_logits_for_top_p_filtering(heatmap_logits, self.top_p)
+            heatmap = modify_logits_for_top_p_filtering(heatmap, self.top_p)
 
-        aco = self.aco_class(heatmap_logits, n_ants=n_ants, **self.aco_kwargs)
-        td, actions, reward = aco.run(td_initial, env, self.n_iterations[phase])
+        aco = self.aco_class(heatmap, n_ants=n_ants, **self.aco_kwargs)
+        actions, iter_rewards = aco.run(td_initial, env, self.n_iterations[phase], decoding_kwargs)
 
-        out = {"reward": reward}
+        out = {"reward": iter_rewards[self.n_iterations[phase] - 1]}
+        out.update({f"reward_{i:03d}": iter_rewards[i] for i in range(self.n_iterations[phase])})
         if return_actions:
             out["actions"] = actions
 
@@ -186,19 +185,15 @@ class GFACSPolicy(DeepACOPolicy):
         td: TensorDict,
         env: RL4COEnvBase,
         hidden: TensorDict,
-        num_starts: int,
         actions: Optional[torch.Tensor] = None,
         max_steps: int = 1_000_000,
         **decoding_kwargs,
     ):
-        multistart = True if num_starts > 1 else False
         decoding_strategy: DecodingStrategy = get_decoding_strategy(
             decoding_strategy=decode_type,
             temperature=decoding_kwargs.pop("temperature", self.temperature),
             mask_logits=decoding_kwargs.pop("mask_logits", self.mask_logits),
             tanh_clipping=decoding_kwargs.pop("tanh_clipping", self.tanh_clipping),
-            num_starts=num_starts,
-            multistart=multistart,
             select_start_nodes_fn=decoding_kwargs.pop("select_start_nodes_fn", None),
             store_all_logp=decoding_kwargs.pop("store_all_logp", False),
             **decoding_kwargs,
@@ -207,13 +202,15 @@ class GFACSPolicy(DeepACOPolicy):
             assert decoding_strategy.name == "evaluate", "decoding strategy must be 'evaluate' when actions are provided"
 
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
-        td, env, num_starts = decoding_strategy.pre_decoder_hook(td, env, actions[:, 0] if actions is not None else None)
+        td, env, num_starts = decoding_strategy.pre_decoder_hook(
+            td, env, actions[:, 0] if actions is not None and "multistart" in self.decode_type else None
+        )
 
         # Additionally call a decoder hook if needed before main decoding
         td, env, hidden = self.decoder.pre_decoder_hook(td, env, hidden, num_starts)
 
         # Main decoding: loop until all sequences are done
-        step = 1 if multistart else 0
+        step = 1 if "multistart" in self.decode_type else 0
         while not td["done"].all():
             logits, mask = self.decoder(td, hidden, num_starts)
             td = decoding_strategy.step(

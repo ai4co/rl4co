@@ -27,14 +27,18 @@ model:
   test_data_size: 100
   optimizer: "AdamW"
   optimizer_kwargs:
-    lr: 1e-3
+    lr: 5e-4
     weight_decay: 0
   lr_scheduler:
-    "MultiStepLR"
+    "CosineAnnealingLR"
   lr_scheduler_kwargs:
-    milestones: [15, 35]
-    gamma: 0.1
-
+    T_max: 50
+    eta_min: 1e-5
+  metrics:
+    test:
+      - reward_000
+      - reward_002
+      - reward_009  # since n_iterations["text"] = 10
   train_with_local_search: True
   ls_reward_aug_W: 0.99
 
@@ -50,6 +54,10 @@ model:
     temperature: 1.0
     top_p: 0.0
     top_k: 0
+    start_node: null
+    multistart: False
+    k_sparse: 5  # this should be adjusted based on the `num_loc` value
+
     aco_kwargs:
       alpha: 1.0
       beta: 1.0
@@ -61,9 +69,12 @@ model:
         max_iterations: 1000
       perturbation_params:
         max_iterations: 20
-    k_sparse: 5  # this should be adjusted based on the `num_loc` value
 
 trainer:
   max_epochs: 50
+  gradient_clip_val: 3.0
+  precision: "bf16-mixed"
+  device:
+    - 0
 
 seed: 1234
