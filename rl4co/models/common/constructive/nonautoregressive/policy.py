@@ -1,3 +1,4 @@
+from typing import Optional
 from rl4co.models.common.constructive.base import ConstructivePolicy
 
 from .decoder import NonAutoregressiveDecoder
@@ -12,7 +13,7 @@ class NonAutoregressivePolicy(ConstructivePolicy):
     def __init__(
         self,
         encoder: NonAutoregressiveEncoder,
-        decoder: NonAutoregressiveDecoder = None,
+        decoder: Optional[NonAutoregressiveDecoder] = None,
         env_name: str = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,

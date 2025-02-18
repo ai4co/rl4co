@@ -30,11 +30,14 @@ class NonAutoregressiveDecoder(ConstructiveDecoder):
     @staticmethod
     def heatmap_to_logits(td: TensorDict, heatmaps_logits: torch.Tensor, num_starts: int):
         """Obtain heatmap logits for current action to the next ones"""
-        current_action = td.get("action", None)
-        if current_action is None:
+        batch_size = heatmaps_logits.shape[0]
+        _indexer = _multistart_batched_index(batch_size, num_starts)
+        assert _indexer.shape[0] == td.shape[0]
+
+        current_node = td.get("current_node", None).squeeze(-1)
+        if current_node is None:
             logits = heatmaps_logits.mean(-1)
+            logits = logits[_indexer, :]
         else:
-            batch_size = heatmaps_logits.shape[0]
-            _indexer = _multistart_batched_index(batch_size, num_starts)
-            logits = heatmaps_logits[_indexer, current_action, :]
+            logits = heatmaps_logits[_indexer, current_node, :]
         return logits, td["action_mask"]
