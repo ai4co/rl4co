@@ -15,10 +15,15 @@ from rl4co.models.nn.env_embeddings.edge import VRPPolarEdgeEmbedding
 from rl4co.models.nn.env_embeddings.init import VRPPolarInitEmbedding
 from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.zoo.glop.adapter import adapter_map
-from rl4co.models.zoo.glop.utils import eval_lkh, shpp_eval_insertion, tsp_eval_insertion
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
+import numpy as np
+
+try:
+    import random_insertion as insertion
+except ImportError:
+    insertion = None
 
 log = get_pylogger(__name__)
 
@@ -128,6 +133,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
             td,
             par_actions,
             subprob_solver=self._get_subprob_solver(subprob_solver),
+            phase=phase,
         )
         actions = local_policy_out["actions"]
 
@@ -157,6 +163,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         td: TensorDict,
         actions: torch.Tensor,
         subprob_solver: Callable[[torch.Tensor], torch.Tensor],
+        phase = 'test',
     ):
         assert self.subprob_adapter_class is not None
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
@@ -180,14 +187,15 @@ class GLOPPolicy(NonAutoregressivePolicy):
 
         if isinstance(solver, str):
             if solver == "insertion":
+                if insertion is None:
+                    raise ImportError("Module `random-insertion` not found. "
+                                      "Please try installing the module with pip or use alternate sub-problem solvers.")
                 if env_name == "tsp":
-                    subprob_solver = tsp_eval_insertion
+                    subprob_solver = self._insertion_solver_wrapper(insertion.tsp_random_insertion_parallel)
                 elif env_name == "shpp":
-                    subprob_solver = shpp_eval_insertion
+                    subprob_solver = self._insertion_solver_wrapper(insertion.shpp_random_insertion_parallel)
                 else:
                     raise NotImplementedError(f"{env_name} is not supported by insertion")
-            elif solver == "lkh":
-                subprob_solver = eval_lkh
             else:
                 raise ValueError(f"Unexpected sub-problem solver value '{solver}'")
 
@@ -210,3 +218,11 @@ class GLOPPolicy(NonAutoregressivePolicy):
             subprob_solver = solver
 
         return subprob_solver
+    
+    @staticmethod
+    def _insertion_solver_wrapper(func):
+        def wrapped(coords):
+            results = func(coords.numpy())
+            actions = torch.from_numpy(results.astype(np.int64))
+            return actions
+        return wrapped
