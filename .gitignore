@@ -13,6 +13,13 @@
 *saved_checkpoints*
 *.ckpt
 
+# CO-related file types
+*.tsp
+*.tour
+*.sol
+*.vrp
+*.problems
+
 
 # Hydra
 .hydra/
@@ -160,6 +167,9 @@ wandb/
 # poetry
 poetry.lock
 
+# uv
+uv.lock
+
 # idea
 .idea
 
@@ -169,3 +179,6 @@ local_nbrun*
 # osx meta files
 .DS_Store
 outputs/
+
+# HGS-CVRP for cvrp local search
+HGS-CVRP/

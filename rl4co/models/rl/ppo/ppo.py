@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -66,7 +66,7 @@ class PPO(RL4COLitModule):
         critic_kwargs: dict = {},
         clip_range: float = 0.2,  # epsilon of PPO
         ppo_epochs: int = 2,  # inner epoch, K
-        mini_batch_size: Union[int, float] = 0.25,  # 0.25,
+        mini_batch_size: int | float = 0.25,  # 0.25,
         vf_lambda: float = 0.5,  # lambda of Value function fitting
         entropy_lambda: float = 0.0,  # lambda of entropy bonus
         normalize_adv: bool = False,  # whether to normalize advantage
@@ -131,7 +131,7 @@ class PPO(RL4COLitModule):
         # Evaluate old actions, log probabilities, and rewards
         with torch.no_grad():
             td = self.env.reset(batch)  # note: clone needed for dataloader
-            out = self.policy(td.clone(), self.env, phase=phase, return_actions=True)
+            out = self.policy(td.clone(), self.env, phase=phase)
 
         if phase == "train":
             batch_size = out["actions"].shape[0]

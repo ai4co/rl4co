@@ -1,26 +1,17 @@
 import os
-import zipfile
 
 from typing import Optional
 
 import numpy as np
 import torch
 
-from robust_downloader import download
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
-from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import DPPGenerator
-from .render import render
 
 log = get_pylogger(__name__)
 
@@ -36,7 +27,7 @@ class DPPEnv(RL4COEnvBase):
         - locations of the probing port and keepout regions
         - current decap placement
         - remaining decaps
-    
+
     Constraints:
         - decaps cannot be placed at the probing port or keepout regions
         - the number of decaps is limited
@@ -117,39 +108,39 @@ class DPPEnv(RL4COEnvBase):
         )
 
     def _make_spec(self, generator: DPPGenerator):
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.size**2, 2),
                 dtype=torch.float32,
             ),
-            probe=UnboundedDiscreteTensorSpec(
+            probe=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            keepout=UnboundedDiscreteTensorSpec(
+            keepout=Unbounded(
                 shape=(generator.size**2),
                 dtype=torch.bool,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.size**2),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.size**2,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def _get_reward(self, td, actions):
         """

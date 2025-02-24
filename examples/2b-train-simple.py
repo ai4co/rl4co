@@ -56,9 +56,7 @@ def main():
     # note: modify this to load your own data instead!
     td_init = env.reset(batch_size=[16]).to(device)
     policy = model.policy.to(device)
-    out = policy(
-        td_init.clone(), env, phase="test", decode_type="greedy", return_actions=True
-    )
+    out = policy(td_init.clone(), env, phase="test", decode_type="greedy")
 
     # Print results
     print(f"Tour lengths: {[f'{-r.item():.3f}' for r in out['reward']]}")

@@ -6,12 +6,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.data.dataset import FastTdDataset
 from rl4co.envs.common.base import RL4COEnvBase
@@ -356,40 +351,40 @@ class FFSPEnv(RL4COEnvBase):
         )
 
     def _make_spec(self, generator: FFSPGenerator):
-        self.observation_spec = CompositeSpec(
-            time_idx=UnboundedDiscreteTensorSpec(
+        self.observation_spec = Composite(
+            time_idx=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            sub_time_idx=UnboundedDiscreteTensorSpec(
+            sub_time_idx=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            batch_idx=UnboundedDiscreteTensorSpec(
+            batch_idx=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            machine_idx=UnboundedDiscreteTensorSpec(
+            machine_idx=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            schedule=UnboundedDiscreteTensorSpec(
+            schedule=Unbounded(
                 shape=(generator.num_machine_total, generator.num_job + 1),
                 dtype=torch.int64,
             ),
-            machine_wait_step=UnboundedDiscreteTensorSpec(
+            machine_wait_step=Unbounded(
                 shape=(generator.num_machine_total),
                 dtype=torch.int64,
             ),
-            job_location=UnboundedDiscreteTensorSpec(
+            job_location=Unbounded(
                 shape=(generator.num_job + 1),
                 dtype=torch.int64,
             ),
-            job_wait_step=UnboundedDiscreteTensorSpec(
+            job_wait_step=Unbounded(
                 shape=(generator.num_job + 1),
                 dtype=torch.int64,
             ),
-            job_duration=UnboundedDiscreteTensorSpec(
+            job_duration=Unbounded(
                 shape=(
                     generator.num_job + 1,
                     generator.num_machine * generator.num_stage,
@@ -398,14 +393,14 @@ class FFSPEnv(RL4COEnvBase):
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_machine_total,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def _get_reward(self, td, actions) -> TensorDict:
         return td["reward"]

@@ -152,9 +152,7 @@ class n_step_PPO(RL4COLitModule):
                 for i in range(self.ppo_cfg["n_step"]):
                     memory.tds.append(td.clone())
 
-                    out = self.policy(
-                        td, self.env, phase=phase, return_actions=True, return_embeds=True
-                    )
+                    out = self.policy(td, self.env, phase=phase, return_embeds=True)
                     value_pred = self.critic(
                         out["embeds"].detach(), td["cost_bsf"].unsqueeze(-1)
                     )

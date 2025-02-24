@@ -4,12 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index, get_tour_length
@@ -221,63 +216,63 @@ class PCTSPEnv(RL4COEnvBase):
 
     def _make_spec(self, generator):
         """Make the locs and action specs from the parameters."""
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.num_loc, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            expected_prize=UnboundedContinuousTensorSpec(
+            expected_prize=Unbounded(
                 shape=(generator.num_loc),
                 dtype=torch.float32,
             ),
-            real_prize=UnboundedContinuousTensorSpec(
+            real_prize=Unbounded(
                 shape=(generator.num_loc + 1),
                 dtype=torch.float32,
             ),
-            penalty=UnboundedContinuousTensorSpec(
+            penalty=Unbounded(
                 shape=(generator.num_loc + 1),
                 dtype=torch.float32,
             ),
-            cur_total_prize=UnboundedContinuousTensorSpec(
+            cur_total_prize=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            cur_total_penalty=UnboundedContinuousTensorSpec(
+            cur_total_penalty=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            visited=UnboundedDiscreteTensorSpec(
+            visited=Unbounded(
                 shape=(generator.num_loc + 1),
                 dtype=torch.bool,
             ),
-            prize_required=UnboundedContinuousTensorSpec(
+            prize_required=Unbounded(
                 shape=(1),
                 dtype=torch.float32,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.num_loc),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.num_loc,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):

@@ -1,6 +1,6 @@
 import abc
 
-from typing import Tuple, Union
+from typing import Tuple
 
 import torch.nn as nn
 
@@ -118,9 +118,9 @@ class ImprovementPolicy(nn.Module):
     def forward(
         self,
         td: TensorDict,
-        env: Union[str, RL4COEnvBase] = None,
+        env: str | RL4COEnvBase = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         actions=None,

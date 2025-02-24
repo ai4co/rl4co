@@ -2,7 +2,7 @@ import itertools
 import math
 import warnings
 
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -19,7 +19,8 @@ log = get_pylogger(__name__)
 def scaled_dot_product_attention_simple(
     q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False
 ):
-    """Simple Scaled Dot-Product Attention in PyTorch without Flash Attention"""
+    """Simple (exact) Scaled Dot-Product Attention in RL4CO without customized kernels (i.e. no Flash Attention)."""
+
     # Check for causal and attn_mask conflict
     if is_causal and attn_mask is not None:
         raise ValueError("Cannot set both is_causal and attn_mask")
@@ -170,7 +171,7 @@ class MultiHeadCrossAttention(nn.Module):
         attention_dropout: float = 0.0,
         device: str = None,
         dtype: torch.dtype = None,
-        sdpa_fn: Optional[Union[Callable, nn.Module]] = None,
+        sdpa_fn: Optional[Callable | nn.Module] = None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -248,7 +249,7 @@ class PointerAttention(nn.Module):
         mask_inner: bool = True,
         out_bias: bool = False,
         check_nan: bool = True,
-        sdpa_fn: Optional[Callable] = None,
+        sdpa_fn: Callable | str = "default",
         **kwargs,
     ):
         super(PointerAttention, self).__init__()
@@ -257,8 +258,26 @@ class PointerAttention(nn.Module):
 
         # Projection - query, key, value already include projections
         self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
-        self.sdpa_fn = sdpa_fn if sdpa_fn is not None else scaled_dot_product_attention
         self.check_nan = check_nan
+
+        # Defaults for sdpa_fn implementation
+        # see https://github.com/ai4co/rl4co/issues/228
+        if isinstance(sdpa_fn, str):
+            if sdpa_fn == "default":
+                sdpa_fn = scaled_dot_product_attention
+            elif sdpa_fn == "simple":
+                sdpa_fn = scaled_dot_product_attention_simple
+            else:
+                raise ValueError(
+                    f"Unknown sdpa_fn: {sdpa_fn}. Available options: ['default', 'simple']"
+                )
+        else:
+            if sdpa_fn is None:
+                sdpa_fn = scaled_dot_product_attention
+                log.info(
+                    "Using default scaled_dot_product_attention for PointerAttention"
+                )
+        self.sdpa_fn = sdpa_fn
 
     def forward(self, query, key, value, logit_key, attn_mask=None):
         """Compute attention logits given query, key, value, logit key and attention mask.

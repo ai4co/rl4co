@@ -1,16 +1,15 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from matplotlib import cm, colormaps
 
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-def render(td, actions=None, ax=None):
+def render(td, actions=None, ax=None, skip_depot=True, integer_demands=True):
     num_routine = (actions == 0).sum().item() + 2
     base = colormaps["nipy_spectral"]
     color_list = base(np.linspace(0, 1, num_routine))
@@ -32,7 +31,7 @@ def render(td, actions=None, ax=None):
         actions = actions[0]
 
     locs = td["locs"]
-    scale_demand = td["capacity"][0]
+    scale_demand = td["capacity"][0] if td["capacity"].ndim == 1 else td["capacity"]
     demands = td["demand"] * scale_demand
 
     # add the depot at the first action and the end action
@@ -86,10 +85,15 @@ def render(td, actions=None, ax=None):
 
     # text demand
     for node_idx in range(1, len(locs)):
+        demand_text = (
+            f"{demands[node_idx-1].int().item()}"
+            if integer_demands
+            else f"{demands[node_idx-1].item():.2f}"
+        )
         ax.text(
             locs[node_idx, 0],
             locs[node_idx, 1] - 0.025,
-            f"{demands[node_idx-1].item():.2f}",
+            f"{demand_text}",
             horizontalalignment="center",
             verticalalignment="top",
             fontsize=10,
@@ -114,6 +118,8 @@ def render(td, actions=None, ax=None):
             color_idx += 1
         from_loc = locs[actions[action_idx]]
         to_loc = locs[actions[action_idx + 1]]
+        if skip_depot and (actions[action_idx] == 0 or actions[action_idx + 1] == 0):
+            continue
         ax.plot(
             [from_loc[0], to_loc[0]],
             [from_loc[1], to_loc[1]],

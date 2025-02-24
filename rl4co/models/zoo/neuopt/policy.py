@@ -1,7 +1,5 @@
 import math
 
-from typing import Union
-
 import torch
 import torch.nn as nn
 
@@ -120,9 +118,9 @@ class NeuOptPolicy(ImprovementPolicy):
     def forward(
         self,
         td: TensorDict,
-        env: Union[str, RL4COEnvBase] = None,
+        env: str | RL4COEnvBase = None,
         phase: str = "train",
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_embeds: bool = False,
         only_return_embed: bool = False,
         actions=None,
@@ -270,9 +268,9 @@ class NeuOptPolicy(ImprovementPolicy):
             mask[(visited_time_tag <= visited_time_tag.gather(1, action_sampled))] = True
             if i == 0:
                 mask[visited_time_tag > (gs - 2)] = True
-            mask[
-                stopped, action_sampled[stopped].squeeze()
-            ] = False  # allow next k-opt starts immediately
+            mask[stopped, action_sampled[stopped].squeeze()] = (
+                False  # allow next k-opt starts immediately
+            )
             # if True:#i == env.k_max - 2: # allow special case: close k-opt at the first selected node
             index_allow_first_node = (~stopped) & (
                 next_of_new_action.squeeze() == action_index[:, 0]

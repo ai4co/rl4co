@@ -1,6 +1,6 @@
 import abc
 
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple
 
 import torch.nn as nn
 
@@ -58,7 +58,7 @@ class ConstructiveDecoder(nn.Module, metaclass=abc.ABCMeta):
 
     def pre_decoder_hook(
         self, td: TensorDict, env: RL4COEnvBase, hidden: Any = None, num_starts: int = 0
-    ) -> Tuple[TensorDict, Any, RL4COEnvBase]:
+    ) -> Tuple[TensorDict, RL4COEnvBase, Any]:
         """By default, we don't need to do anything here.
 
         Args:
@@ -68,7 +68,7 @@ class ConstructiveDecoder(nn.Module, metaclass=abc.ABCMeta):
             num_starts: Number of starts for multistart decoding
 
         Returns:
-            Tuple containing the updated hidden state, TensorDict, and environment
+            Tuple containing the updated Tensordict, environment, and hidden state
         """
         return td, env, hidden
 
@@ -121,8 +121,8 @@ class ConstructivePolicy(nn.Module):
 
     def __init__(
         self,
-        encoder: Union[ConstructiveEncoder, Callable],
-        decoder: Union[ConstructiveDecoder, Callable],
+        encoder: ConstructiveEncoder | Callable,
+        decoder: ConstructiveDecoder | Callable,
         env_name: str = "tsp",
         temperature: float = 1.0,
         tanh_clipping: float = 0,
@@ -157,10 +157,10 @@ class ConstructivePolicy(nn.Module):
     def forward(
         self,
         td: TensorDict,
-        env: Optional[Union[str, RL4COEnvBase]] = None,
+        env: Optional[str | RL4COEnvBase] = None,
         phase: str = "train",
         calc_reward: bool = True,
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_entropy: bool = False,
         return_hidden: bool = False,
         return_init_embeds: bool = False,

@@ -3,12 +3,7 @@ from typing import Optional
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
@@ -33,12 +28,12 @@ class MPDPEnv(RL4COEnvBase):
         - the remaining locations to deliver
         - the visited locations
         - the current step
-    
+
     Constraints:
         - the tour starts and ends at the depot
         - each pickup location must be visited before its corresponding delivery location
         - the vehicle cannot visit the same location twice
-    
+
     Finish Condition:
         - the vehicle has visited all locations
 
@@ -157,9 +152,7 @@ class MPDPEnv(RL4COEnvBase):
 
         # Distance from all nodes between each other
         distance = torch.cdist(whole_instance, whole_instance, p=2)
-        index = torch.arange(left_request, 2 * left_request, device=device)[
-            None, :, None
-        ]
+        index = torch.arange(left_request, 2 * left_request, device=device)[None, :, None]
         index = index.repeat(distance.shape[0], 1, 1)
         add_pd_distance = distance[
             :, agent_num + 1 : agent_num + 1 + left_request, agent_num + 1 :
@@ -197,9 +190,7 @@ class MPDPEnv(RL4COEnvBase):
                     dtype=torch.uint8,
                     device=device,
                 ),
-                torch.zeros(
-                    batch_size, 1, n_loc // 2, dtype=torch.uint8, device=device
-                ),
+                torch.zeros(batch_size, 1, n_loc // 2, dtype=torch.uint8, device=device),
             ],
             dim=-1,
         )
@@ -217,9 +208,9 @@ class MPDPEnv(RL4COEnvBase):
                 ),
                 "lengths": torch.zeros(batch_size, agent_num, device=device),
                 "longest_lengths": torch.zeros(batch_size, agent_num, device=device),
-                "cur_coord": td["depot"]
-                if len(td["depot"].shape) == 2
-                else td["depot"].squeeze(1),
+                "cur_coord": (
+                    td["depot"] if len(td["depot"].shape) == 2 else td["depot"].squeeze(1)
+                ),
                 "i": torch.zeros(
                     batch_size, dtype=torch.int64, device=device
                 ),  # Vector with length num_steps
@@ -227,9 +218,7 @@ class MPDPEnv(RL4COEnvBase):
                 "count_depot": torch.zeros(
                     batch_size, 1, dtype=torch.int64, device=device
                 ),
-                "agent_idx": torch.ones(
-                    batch_size, 1, dtype=torch.long, device=device
-                ),
+                "agent_idx": torch.ones(batch_size, 1, dtype=torch.long, device=device),
                 "left_request": left_request
                 * torch.ones(batch_size, 1, dtype=torch.long, device=device),
                 "remain_pickup_max_distance": remain_pickup_max_distance,
@@ -312,94 +301,94 @@ class MPDPEnv(RL4COEnvBase):
     def _make_spec(self, generator: MPDPGenerator):
         """Make the observation and action specs from the parameters."""
         max_nodes = self.num_loc + self.max_num_agents + 1
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(max_nodes, 2),
                 dtype=torch.float32,
             ),
-            current_node=UnboundedDiscreteTensorSpec(
+            current_node=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(max_nodes, 1),
                 dtype=torch.bool,
             ),
-            visited=UnboundedDiscreteTensorSpec(
+            visited=Unbounded(
                 shape=(1, max_nodes),
                 dtype=torch.bool,
             ),
-            lengths=UnboundedContinuousTensorSpec(
+            lengths=Unbounded(
                 shape=(generator.max_num_agents,),
                 dtype=torch.float32,
             ),
-            longest_lengths=UnboundedContinuousTensorSpec(
+            longest_lengths=Unbounded(
                 shape=(generator.max_num_agents,),
                 dtype=torch.float32,
             ),
-            cur_coord=BoundedTensorSpec(
+            cur_coord=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(2,),
                 dtype=torch.float32,
             ),
-            to_delivery=UnboundedDiscreteTensorSpec(
+            to_delivery=Unbounded(
                 shape=(max_nodes, 1),
                 dtype=torch.bool,
             ),
-            count_depot=UnboundedDiscreteTensorSpec(
+            count_depot=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            agent_idx=UnboundedDiscreteTensorSpec(
+            agent_idx=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            left_request=UnboundedDiscreteTensorSpec(
+            left_request=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            remain_pickup_max_distance=UnboundedContinuousTensorSpec(
+            remain_pickup_max_distance=Unbounded(
                 shape=(1,),
                 dtype=torch.float32,
             ),
-            remain_delivery_max_distance=UnboundedContinuousTensorSpec(
+            remain_delivery_max_distance=Unbounded(
                 shape=(1,),
                 dtype=torch.float32,
             ),
-            depot_distance=UnboundedContinuousTensorSpec(
+            depot_distance=Unbounded(
                 shape=(max_nodes,),
                 dtype=torch.float32,
             ),
-            remain_sum_paired_distance=UnboundedContinuousTensorSpec(
+            remain_sum_paired_distance=Unbounded(
                 shape=(1,),
                 dtype=torch.float32,
             ),
-            add_pd_distance=UnboundedContinuousTensorSpec(
+            add_pd_distance=Unbounded(
                 shape=(max_nodes,),
                 dtype=torch.float32,
             ),
             ## NOTE: we should have a vectorized implementation for agent_num
-            # agent_num=UnboundedDiscreteTensorSpec(
+            # agent_num=Unbounded(
             #     shape=(1,),
             #     dtype=torch.int64,
             # ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=max_nodes,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     @staticmethod
-    def render(td: TensorDict, actions: torch.Tensor=None, ax = None):
+    def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)

@@ -1,21 +1,14 @@
 from typing import Optional
 
-import numpy as np
 import torch
 
 from tensordict.tensordict import TensorDict
-from torchrl.data import (
-    BoundedTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    UnboundedDiscreteTensorSpec,
-)
+from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.envs.eda.dpp.env import DPPEnv
 from rl4co.utils.pylogger import get_pylogger
 
 from .generator import MDPPGenerator
-from .render import render
 
 log = get_pylogger(__name__)
 
@@ -45,9 +38,9 @@ class MDPPEnv(DPPEnv):
         reward_type: reward type, either minmax or meansum
             - minmax: min of the max of the decap scores
             - meansum: mean of the sum of the decap scores
-    
+
     Note:
-        The minmax is more challenging as it requires to find the best decap location 
+        The minmax is more challenging as it requires to find the best decap location
         for the worst case
     """
 
@@ -93,39 +86,39 @@ class MDPPEnv(DPPEnv):
         return td_reset
 
     def _make_spec(self, generator: MDPPGenerator):
-        self.observation_spec = CompositeSpec(
-            locs=BoundedTensorSpec(
+        self.observation_spec = Composite(
+            locs=Bounded(
                 low=generator.min_loc,
                 high=generator.max_loc,
                 shape=(generator.size**2, 2),
                 dtype=torch.float32,
             ),
-            probe=UnboundedDiscreteTensorSpec(
+            probe=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            keepout=UnboundedDiscreteTensorSpec(
+            keepout=Unbounded(
                 shape=(generator.size**2),
                 dtype=torch.bool,
             ),
-            i=UnboundedDiscreteTensorSpec(
+            i=Unbounded(
                 shape=(1),
                 dtype=torch.int64,
             ),
-            action_mask=UnboundedDiscreteTensorSpec(
+            action_mask=Unbounded(
                 shape=(generator.size**2),
                 dtype=torch.bool,
             ),
             shape=(),
         )
-        self.action_spec = BoundedTensorSpec(
+        self.action_spec = Bounded(
             shape=(1,),
             dtype=torch.int64,
             low=0,
             high=generator.size**2,
         )
-        self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
-        self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+        self.reward_spec = Unbounded(shape=(1,))
+        self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def _get_reward(self, td, actions):
         """We call the reward function with the final sequence of actions to get the reward
