@@ -179,11 +179,15 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         """Make the specifications of the environment (observation, action, reward, done)"""
         raise NotImplementedError
 
-    def get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
+    def get_reward(
+        self, td: TensorDict, actions: torch.Tensor, check_solution: Optional[bool] = None
+    ) -> torch.Tensor:
         """Function to compute the reward. Can be called by the agent to compute the reward of the current state
         This is faster than calling step() and getting the reward from the returned TensorDict at each time for CO tasks
         """
-        if self.check_solution:
+        # Fallback to env setting if not assigned
+        check_solution = self.check_solution if check_solution is None else check_solution
+        if check_solution:
             self.check_solution_validity(td, actions)
         return self._get_reward(td, actions)
 

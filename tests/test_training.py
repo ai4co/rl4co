@@ -5,6 +5,7 @@ import pytest
 
 from rl4co.envs import (
     ATSPEnv,
+    CVRPMVCEnv,
     FJSPEnv,
     JSSPEnv,
     PDPEnv,
@@ -15,6 +16,7 @@ from rl4co.envs import (
 from rl4co.models.rl import A2C, PPO, REINFORCE
 from rl4co.models.zoo import (
     DACT,
+    GLOP,
     MDAM,
     N2S,
     POMO,
@@ -211,6 +213,35 @@ def test_deepaco(use_local_search):
         test_data_size=10,
         train_with_local_search=use_local_search,
         policy_kwargs={"n_ants": 5, "aco_kwargs": {"use_local_search": use_local_search}},
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+@pytest.mark.skipif(
+    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
+)
+@pytest.mark.parametrize(
+    "Environment", [TSPEnv] if "numba" not in sys.modules else [TSPEnv, CVRPMVCEnv]
+)
+def test_glop(Environment):
+    import torch
+
+    def dummy_solver(c):
+        return torch.arange(c.shape[1] - 1, -1, -1).unsqueeze(0).expand(c.shape[0], -1)
+
+    env = Environment(generator_params=dict(num_loc=50))
+    model = GLOP(
+        env,
+        train_data_size=10,
+        val_data_size=10,
+        test_data_size=10,
+        policy_kwargs={
+            "subprob_solver": dummy_solver,
+        },
     )
     trainer = RL4COTrainer(
         max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator

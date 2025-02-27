@@ -4,6 +4,7 @@ import torch.nn as nn
 from tensordict.tensordict import TensorDict
 
 from rl4co.models.nn.ops import PositionalEncoding
+from rl4co.utils.ops import cartesian_to_polar
 
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
@@ -21,6 +22,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "matnet": MatNetInitEmbedding,
         "cvrp": VRPInitEmbedding,
         "cvrptw": VRPTWInitEmbedding,
+        "cvrpmvc": VRPInitEmbedding,
         "svrp": SVRPInitEmbedding,
         "sdvrp": VRPInitEmbedding,
         "pctsp": PCTSPInitEmbedding,
@@ -37,6 +39,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "fjsp": FJSPInitEmbedding,
         "jssp": FJSPInitEmbedding,
         "mtvrp": MTVRPInitEmbedding,
+        "shpp": TSPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -150,6 +153,55 @@ class VRPTWInitEmbedding(VRPInitEmbedding):
             )
         )
         return torch.cat((depot_embedding, node_embeddings), -2)
+
+
+class VRPPolarInitEmbedding(nn.Module):
+    """Initial embedding for the Vehicle Routing Problems (VRP).
+    Embed the following node features to the embedding space, based on polar coordinates:
+        - locs: r, theta coordinates of the nodes, with the depot as the origin
+        - demand: demand of the customers
+    """
+
+    def __init__(
+        self,
+        embed_dim,
+        linear_bias=True,
+        node_dim: int = 3,
+        attach_cartesian_coords=False,
+    ):
+        super(VRPPolarInitEmbedding, self).__init__()
+        self.node_dim = node_dim + (
+            2 if attach_cartesian_coords else 0
+        )  # 3: r, theta, demand; 5: r, theta, demand, x, y;
+        self.attach_cartesian_coords = attach_cartesian_coords
+        self.init_embed = nn.Linear(self.node_dim, embed_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(
+            self.node_dim, embed_dim, linear_bias
+        )  # depot embedding
+
+    def forward(self, td):
+        with torch.no_grad():
+            locs = td["locs"]
+            polar_locs = cartesian_to_polar(locs, locs[..., 0:1, :])
+            td["polar_locs"] = polar_locs
+
+            demand = td["demand"]
+            demand_with_depot = torch.concat(
+                (torch.zeros(demand.shape[0], 1, device=demand.device), demand),
+                dim=-1,
+            ).unsqueeze(-1)
+
+            if self.attach_cartesian_coords:
+                x = torch.concat((polar_locs, demand_with_depot, locs), dim=-1)
+            else:
+                x = torch.concat((polar_locs, demand_with_depot), dim=-1)
+
+        depot, cities = x[:, :1, :], x[:, 1:, :]
+        depot_embedding = self.init_embed_depot(depot)
+        node_embeddings = self.init_embed(cities)
+
+        out = torch.cat((depot_embedding, node_embeddings), -2)
+        return out
 
 
 class SVRPInitEmbedding(nn.Module):

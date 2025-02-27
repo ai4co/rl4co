@@ -20,6 +20,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "atsp": TSPContext,
         "cvrp": VRPContext,
         "cvrptw": VRPTWContext,
+        "cvrpmvc": VRPContext,
         "ffsp": FFSPContext,
         "svrp": SVRPContext,
         "sdvrp": VRPContext,
@@ -33,6 +34,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "smtwtp": SMTWTPContext,
         "mdcpdp": MDCPDPContext,
         "mtvrp": MTVRPContext,
+        "shpp": TSPContext,
     }
 
     if env_name not in embedding_registry:

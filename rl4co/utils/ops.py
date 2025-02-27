@@ -252,3 +252,34 @@ def sample_n_random_actions(td: TensorDict, n: int):
     selected = torch.multinomial(ps, n, replacement=replace).squeeze(1)
     selected = rearrange(selected, "b n -> (n b)")
     return selected.to(td.device)
+
+
+def cartesian_to_polar(cartesian: torch.Tensor, origin: Optional[torch.Tensor] = None):
+    """Convert Cartesian coordinates to polar coordinates.
+
+    Args:
+        cartesian: Tensor of shape [..., 2] containing Cartesian coordinates (x, y)
+        origin: Optional origin point to subtract from coordinates before conversion
+    """
+
+    if origin is not None:
+        cartesian = cartesian - origin
+    x, y = cartesian[..., 0], cartesian[..., 1]
+    rho = torch.norm(cartesian, dim=-1)
+    theta = torch.atan2(y, x)
+    polar = torch.stack((rho, theta), dim=-1)
+    return polar
+
+
+def select_start_nodes_by_distance(td, env, num_starts, exclude_depot=True):
+    """Select start nodes based on their distance from the origin."""
+    polar_locs = td.get("polar_locs", None)
+    if polar_locs is None:
+        radius = torch.norm(td["locs"], dim=-1)
+    else:
+        radius = polar_locs[..., 0]
+    _, node_index = torch.topk(
+        radius, k=num_starts + 1, dim=-1, sorted=True, largest=False
+    )
+    selected_nodes = node_index[:, 1:] if exclude_depot else node_index[:, :-1]
+    return rearrange(selected_nodes, "b n -> (n b)")
