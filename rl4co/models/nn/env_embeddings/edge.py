@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Union
 
 import torch
 import torch.nn as nn
@@ -64,7 +64,7 @@ class TSPEdgeEmbedding(nn.Module):
         embed_dim,
         linear_bias=True,
         sparsify=True,
-        k_sparse: Optional[int] = None,
+        k_sparse: Union[int, Callable[[int], int], None] = None,
     ):
         assert Batch is not None, (
             "torch_geometric not found. Please install torch_geometric using instructions from "
@@ -72,7 +72,16 @@ class TSPEdgeEmbedding(nn.Module):
         )
 
         super(TSPEdgeEmbedding, self).__init__()
-        self.k_sparse = k_sparse
+
+        if k_sparse is None:
+            self._get_k_sparse = lambda n: max(n // 5, 10)
+        elif isinstance(k_sparse, int):
+            self._get_k_sparse = lambda n: k_sparse
+        elif callable(k_sparse):
+            self._get_k_sparse = k_sparse
+        else:
+            raise ValueError("k_sparse must be an int or a callable")
+
         self.sparsify = sparsify
         self.edge_embed = nn.Linear(self.node_dim, embed_dim, linear_bias)
 
@@ -88,11 +97,12 @@ class TSPEdgeEmbedding(nn.Module):
             batch_cost_matrix: Tensor of shape [batch_size, n, n]
             init_embedding: init embeddings
         """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
         graph_data = []
         for index, cost_matrix in enumerate(batch_cost_matrix):
             if self.sparsify:
                 edge_index, edge_attr = sparsify_graph(
-                    cost_matrix, self.k_sparse, self_loop=False
+                    cost_matrix, k_sparse, self_loop=False
                 )
             else:
                 edge_index = get_full_graph_edge_index(
@@ -123,11 +133,12 @@ class CVRPEdgeEmbedding(TSPEdgeEmbedding):
             batch_cost_matrix: Tensor of shape [batch_size, n, n]
             init_embedding: init embeddings
         """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
         graph_data = []
         for index, cost_matrix in enumerate(batch_cost_matrix):
             if self.sparsify:
                 edge_index, edge_attr = sparsify_graph(
-                    cost_matrix[1:, 1:], self.k_sparse, self_loop=False
+                    cost_matrix[1:, 1:], k_sparse, self_loop=False
                 )
                 edge_index = edge_index + 1  # because we removed the depot
                 # Note here
@@ -209,9 +220,8 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
             batch_cost_matrix: Tensor of shape [batch_size, n, n, m]
             init_embedding: init embeddings of shape [batch_size, n, m]
         """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
         graph_data = []
-        k_sparse = self.k_sparse
-
         for index, cost_matrix in enumerate(batch_cost_matrix):
             edge_index, _ = sparsify_graph(cost_matrix[..., 0], k_sparse, self_loop=False)
             edge_index = edge_index.T[torch.all(edge_index != 0, dim=0)].T
