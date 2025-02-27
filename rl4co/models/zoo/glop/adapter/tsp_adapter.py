@@ -13,8 +13,8 @@ class SHPPMapping(NamedTuple):
     subprob_coordinates: torch.Tensor
 
 
-class TSP2SHPPAdapter(object):
-    """TODO"""
+class TSP2SHPPAdapter:
+    """Adapter class for decomposing and composing TSP solutions."""
 
     subproblem_env_name = "shpp"
 
@@ -22,7 +22,6 @@ class TSP2SHPPAdapter(object):
         self,
         parent_td: TensorDict,
         actions: torch.Tensor,
-        /,
         subprob_batch_size: Optional[int] = None,
         partition_node_count: Union[int, list[int]] = 20,
         shift: int = 0,
@@ -32,14 +31,20 @@ class TSP2SHPPAdapter(object):
         assert actions.shape[0] == n_samples * batch_size
 
         self._actions = actions.cpu().clone()
-        self.shpp_node_counts = [partition_node_count] if isinstance(partition_node_count, int) else partition_node_count
+        self.shpp_node_counts = (
+            [partition_node_count]
+            if isinstance(partition_node_count, int)
+            else partition_node_count
+        )
         self.coordinates = parent_td["locs"].cpu()
         self.subprob_batch_size = subprob_batch_size
         self.shift = shift
 
-    def _get_batched_subprobs_one_iter(self, node_count: int) -> Generator[SHPPMapping, Any, None]:
-        self.shpp_actions, shpp_coordinates, self.share_memory = (
-            self.action_partitioner(self._actions, self.coordinates, node_count)
+    def _get_batched_subprobs_one_iter(
+        self, node_count: int
+    ) -> Generator[SHPPMapping, Any, None]:
+        self.shpp_actions, shpp_coordinates, self.share_memory = self.action_partitioner(
+            self._actions, self.coordinates, node_count
         )
         self.shpp_node_count = node_count
         shpp_count = len(self.shpp_actions)
@@ -54,14 +59,13 @@ class TSP2SHPPAdapter(object):
             this_shpp_coordinates = shpp_coordinates[map_action_index]
             yield SHPPMapping(map_action_index, map_node_index, this_shpp_coordinates)
 
-
     def get_batched_subprobs(self) -> Generator[SHPPMapping, Any, None]:
         if len(self.shpp_node_counts) == 1:
             yield from self._get_batched_subprobs_one_iter(self.shpp_node_counts[0])
         else:
             for node_count in self.shpp_node_counts:
                 yield from self._get_batched_subprobs_one_iter(node_count)
-                self.get_actions() # update self._actions in case not shared
+                self.get_actions()  # update self._actions in case not shared
                 if self.shift:
                     self._actions = torch.roll(self._actions, self.shift, 1)
 

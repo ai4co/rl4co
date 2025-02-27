@@ -13,8 +13,10 @@ class SubTSPMapping(NamedTuple):
     subprob_coordinates: torch.Tensor
 
 
-class VRP2SubTSPAdapter(object):
-    """TODO"""
+class VRP2SubTSPAdapter:
+    """Adapter class for decomposing and composing CVRP solutions.
+    The library numba is used to accelerate the computation.
+    """
 
     subproblem_env_name = "tsp"
 
@@ -22,7 +24,6 @@ class VRP2SubTSPAdapter(object):
         self,
         parent_td: TensorDict,
         actions: torch.Tensor,
-        /,
         subprob_batch_size: Optional[int] = None,
         min_node_count: int = 4,
     ) -> None:
@@ -104,7 +105,6 @@ def _cvrp_action_partitioner(routes: np.ndarray, min_node_count: int = 4):
                 last_is_not_zero = True
         if node != 0 and route_length - start >= min_node_count:  # handle final routes
             map_action_index.append((index, start, route_length))
-    # [route_index, subtsp_start_index, subtsp_end_index] * total_count
     map_action_index = np.array(map_action_index, dtype=np.int32)
     return map_action_index
 

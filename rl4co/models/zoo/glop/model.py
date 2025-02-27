@@ -8,15 +8,12 @@ from rl4co.utils.ops import gather_by_index, unbatchify
 
 
 class GLOP(REINFORCE):
-    """Global and Local Optimization Policies (GLOP) REINFORCE: https://arxiv.org/abs/2312.08224
+    """Implements GLOP: https://arxiv.org/abs/2312.08224
 
     Args:
         env: Environment to use for the algorithm
         policy: Policy to use for the algorithm
-        baseline: REINFORCE baseline. Defaults to rollout (1 epoch of exponential, then greedy rollout baseline)
-        revisers: List of revisers to use for the GLOP revision phase, the reviser could be a neural network model
-            or a heuristic function. Defaults to None, but this is required.
-        n_samples: Number of samples to use for the GLOP policy. Defaults to 10.
+        baseline: REINFORCE baseline. Defaults to mean
         policy_kwargs: Keyword arguments for policy
         baseline_kwargs: Keyword arguments for baseline
         **kwargs: Keyword arguments passed to the superclass
@@ -26,7 +23,7 @@ class GLOP(REINFORCE):
         self,
         env: RL4COEnvBase,
         policy: Optional[GLOPPolicy] = None,
-        baseline: Union[REINFORCEBaseline, str] = "shared",
+        baseline: Union[REINFORCEBaseline, str] = "mean",
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,

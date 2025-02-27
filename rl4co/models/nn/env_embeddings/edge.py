@@ -109,10 +109,11 @@ class TSPEdgeEmbedding(nn.Module):
         batch.edge_attr = self.edge_embed(batch.edge_attr)
         return batch
 
+
 class CVRPEdgeEmbedding(TSPEdgeEmbedding):
     """Edge embedding module for the Capacitated Vehicle Routing Problem (CVRP).
     Unlike the TSP, all nodes in the CVRP should be connected to the depot,
-    so each node will have k_sparse + 1 edges. 
+    so each node will have k_sparse + 1 edges.
     """
 
     def _cost_matrix_to_graph(self, batch_cost_matrix: Tensor, init_embeddings: Tensor):
@@ -171,7 +172,11 @@ class CVRPEdgeEmbedding(TSPEdgeEmbedding):
 
 
 class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
-    """TODO"""
+    """Edge embedding module for VRPs using polar coordinates, with the depot as the origin.
+
+    This class extends TSPEdgeEmbedding to handle VRP problems by incorporating polar coordinate
+    information for edge embeddings.
+    """
 
     node_dim = 2
 
@@ -205,7 +210,7 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
             init_embedding: init embeddings of shape [batch_size, n, m]
         """
         graph_data = []
-        k_sparse = self.get_k_sparse(batch_cost_matrix.shape[2])
+        k_sparse = self.k_sparse
 
         for index, cost_matrix in enumerate(batch_cost_matrix):
             edge_index, _ = sparsify_graph(cost_matrix[..., 0], k_sparse, self_loop=False)
@@ -229,23 +234,6 @@ class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
 
         batch = Batch.from_data_list(graph_data)  # type: ignore
         return batch
-
-    def get_k_sparse(self, n_nodes):
-        # for reproducing GLOP
-        if self.k_sparse is None:
-            if n_nodes >= 30000:
-                k_sparse = 350
-            elif n_nodes >= 10000:
-                k_sparse = 300
-            elif n_nodes >= 7000:
-                k_sparse = 250
-            elif n_nodes >= 3000:
-                k_sparse = 200
-            else:
-                k_sparse = min(100, max(n_nodes // 10, 10))
-            return k_sparse
-        else:
-            return self.k_sparse
 
 
 class ATSPEdgeEmbedding(TSPEdgeEmbedding):

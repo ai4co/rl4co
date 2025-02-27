@@ -1,5 +1,6 @@
 from typing import Callable, Literal, Optional, Union
 
+import numpy as np
 import torch
 
 from einops import rearrange
@@ -18,7 +19,6 @@ from rl4co.models.zoo.glop.adapter import adapter_map
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 from rl4co.utils.ops import batchify, select_start_nodes_by_distance
 from rl4co.utils.pylogger import get_pylogger
-import numpy as np
 
 try:
     import random_insertion as insertion
@@ -28,7 +28,7 @@ except ImportError:
 log = get_pylogger(__name__)
 
 SubProblemSolverType = Union[
-    Literal["insertion", "lkh"],
+    Literal["insertion"],
     RL4COLitModule,
     tuple[RL4COLitModule, dict],
     Callable[[torch.Tensor], torch.Tensor],
@@ -36,13 +36,28 @@ SubProblemSolverType = Union[
 
 
 class GLOPPolicy(NonAutoregressivePolicy):
+    """Implements GLOP policy based on :class:`NonAutoregressivePolicy`. Introduced by Ye et al. (2023): https://arxiv.org/abs/2312.08224.
+    This policy combines global partitioning with local optimization to solve routing problems.
+
+    Args:
+        encoder: :class:`NonAutoregressiveEncoder` instance for encoding problem states
+        decoder: :class:`NonAutoregressiveDecoder` instance for decoding solutions
+        env_name: Name of the environment (default: "cvrp")
+        n_samples: Number of samples per instance for multistart decoding (default: 10)
+        temperature: Temperature parameter for sampling (default: 1.0)
+        subprob_adapter_class: Class for adapting global partitions to local subproblems
+        subprob_adapter_kwargs: Additional arguments for subproblem adapter initialization
+        subprob_solver: Solver for local subproblems (default: "insertion")
+        **encoder_kwargs: Additional arguments for encoder initialization
+    """
+
     def __init__(
         self,
         encoder: Optional[NonAutoregressiveEncoder] = None,
         decoder: Optional[NonAutoregressiveDecoder] = None,
         env_name: str = "cvrp",
         n_samples: int = 10,
-        temperature: float = 0.1,
+        temperature: float = 1.0,
         subprob_adapter_class=None,
         subprob_adapter_kwargs: dict = {},
         subprob_solver: SubProblemSolverType = "insertion",
@@ -50,7 +65,6 @@ class GLOPPolicy(NonAutoregressivePolicy):
     ):
 
         if subprob_adapter_class is None:
-            # TODO: test more VRPs
             assert (
                 env_name in adapter_map
             ), f"{env_name} is not supported by {self.__class__.__name__} yet"
@@ -62,6 +76,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         if encoder is None:
             encoder_kwargs.setdefault("embed_dim", 64)
             if env_name.startswith("cvrp"):
+                # Use Polar coordinate embeddings for CVRP as in Ye et al. (2023)
                 embed_dim = encoder_kwargs.get("embed_dim", 64)
                 if "init_embedding" not in encoder_kwargs:
                     encoder_kwargs["init_embedding"] = VRPPolarInitEmbedding(
@@ -102,6 +117,21 @@ class GLOPPolicy(NonAutoregressivePolicy):
         subprob_solver: Optional[SubProblemSolverType] = None,
         **decoding_kwargs,
     ) -> dict:
+        """Forward pass of GLOP.
+
+        Args:
+            td: TensorDict containing problem state
+            env: Environment instance or name (default: None)
+            phase: Current phase (train/val/test) (default: "test")
+            calc_reward: Whether to calculate reward (default: True)
+            return_actions: Whether to return actions (default: False)
+            return_entropy: Whether to return entropy (default: False)
+            return_init_embeds: Whether to return initial embeddings (default: False)
+            return_sum_log_likelihood: Whether to return sum of log likelihoods (default: False)
+            subprob_solver: Overriding the solver for local subproblems (default: None)
+            **decoding_kwargs: Additional decoding arguments
+        """
+
         if (
             env is None
             and self.env_name.startswith("cvrp")
@@ -133,7 +163,6 @@ class GLOPPolicy(NonAutoregressivePolicy):
             td,
             par_actions,
             subprob_solver=self._get_subprob_solver(subprob_solver),
-            phase=phase,
         )
         actions = local_policy_out["actions"]
 
@@ -163,8 +192,15 @@ class GLOPPolicy(NonAutoregressivePolicy):
         td: TensorDict,
         actions: torch.Tensor,
         subprob_solver: Callable[[torch.Tensor], torch.Tensor],
-        phase = 'test',
     ):
+        """Partition and apply local optimization policy.
+
+        Args:
+            td: TensorDict containing problem state
+            actions: Global partition actions from the main policy
+            subprob_solver: Function to solve local subproblems
+        """
+
         assert self.subprob_adapter_class is not None
         actions = rearrange(actions, "(n b) ... -> (b n) ...", n=self.n_samples)
 
@@ -188,12 +224,18 @@ class GLOPPolicy(NonAutoregressivePolicy):
         if isinstance(solver, str):
             if solver == "insertion":
                 if insertion is None:
-                    raise ImportError("Module `random-insertion` not found. "
-                                      "Please try installing the module with pip or use alternate sub-problem solvers.")
+                    raise ImportError(
+                        "Module `random-insertion` not found. "
+                        "Please try installing the module with pip or use alternate sub-problem solvers."
+                    )
                 if env_name == "tsp":
-                    subprob_solver = self._insertion_solver_wrapper(insertion.tsp_random_insertion_parallel)
+                    subprob_solver = self._insertion_solver_wrapper(
+                        insertion.tsp_random_insertion_parallel
+                    )
                 elif env_name == "shpp":
-                    subprob_solver = self._insertion_solver_wrapper(insertion.shpp_random_insertion_parallel)
+                    subprob_solver = self._insertion_solver_wrapper(
+                        insertion.shpp_random_insertion_parallel
+                    )
                 else:
                     raise NotImplementedError(f"{env_name} is not supported by insertion")
             else:
@@ -218,11 +260,12 @@ class GLOPPolicy(NonAutoregressivePolicy):
             subprob_solver = solver
 
         return subprob_solver
-    
+
     @staticmethod
     def _insertion_solver_wrapper(func):
         def wrapped(coords):
             results = func(coords.numpy())
             actions = torch.from_numpy(results.astype(np.int64))
             return actions
+
         return wrapped
