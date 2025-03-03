@@ -9,11 +9,14 @@ from tensordict import TensorDict
 from rl4co.envs import (
     ATSPEnv,
     CVRPEnv,
+    CVRPMVCEnv,
     CVRPTWEnv,
     DPPEnv,
     FFSPEnv,
     FJSPEnv,
+    FLPEnv,
     JSSPEnv,
+    MCPEnv,
     MDCPDPEnv,
     MDPPEnv,
     MTSPEnv,
@@ -22,12 +25,11 @@ from rl4co.envs import (
     PCTSPEnv,
     PDPEnv,
     SDVRPEnv,
+    SHPPEnv,
     SMTWTPEnv,
     SPCTSPEnv,
     SVRPEnv,
     TSPEnv,
-    FLPEnv,
-    MCPEnv,
 )
 from rl4co.utils.decoding import random_policy, rollout
 
@@ -42,6 +44,8 @@ warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
         TSPEnv,
         CVRPEnv,
         CVRPTWEnv,
+        CVRPMVCEnv,
+        SHPPEnv,
         SVRPEnv,
         SDVRPEnv,
         PCTSPEnv,

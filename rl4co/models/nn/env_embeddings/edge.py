@@ -1,3 +1,5 @@
+from typing import Callable, Union
+
 import torch
 import torch.nn as nn
 
@@ -27,6 +29,7 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
         "tsp": TSPEdgeEmbedding,
         "atsp": ATSPEdgeEmbedding,
         "cvrp": CVRPEdgeEmbedding,
+        "cvrpmvc": CVRPEdgeEmbedding,
         "sdvrp": TSPEdgeEmbedding,
         "pctsp": CVRPEdgeEmbedding,
         "spctsp": TSPEdgeEmbedding,
@@ -36,6 +39,7 @@ def env_edge_embedding(env_name: str, config: dict) -> nn.Module:
         "pdp": TSPEdgeEmbedding,
         "mtsp": TSPEdgeEmbedding,
         "smtwtp": NoEdgeEmbedding,
+        "shpp": TSPEdgeEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -53,12 +57,14 @@ class TSPEdgeEmbedding(nn.Module):
     which is particularly useful for large graphs.
     """
 
+    node_dim = 1
+
     def __init__(
         self,
         embed_dim,
         linear_bias=True,
         sparsify=True,
-        k_sparse: int = None,
+        k_sparse: Union[int, Callable[[int], int], None] = None,
     ):
         assert Batch is not None, (
             "torch_geometric not found. Please install torch_geometric using instructions from "
@@ -66,10 +72,18 @@ class TSPEdgeEmbedding(nn.Module):
         )
 
         super(TSPEdgeEmbedding, self).__init__()
-        node_dim = 1
-        self.k_sparse = k_sparse
+
+        if k_sparse is None:
+            self._get_k_sparse = lambda n: max(n // 5, 10)
+        elif isinstance(k_sparse, int):
+            self._get_k_sparse = lambda n: k_sparse
+        elif callable(k_sparse):
+            self._get_k_sparse = k_sparse
+        else:
+            raise ValueError("k_sparse must be an int or a callable")
+
         self.sparsify = sparsify
-        self.edge_embed = nn.Linear(node_dim, embed_dim, linear_bias)
+        self.edge_embed = nn.Linear(self.node_dim, embed_dim, linear_bias)
 
     def forward(self, td, init_embeddings: Tensor):
         cost_matrix = get_distance_matrix(td["locs"])
@@ -83,11 +97,12 @@ class TSPEdgeEmbedding(nn.Module):
             batch_cost_matrix: Tensor of shape [batch_size, n, n]
             init_embedding: init embeddings
         """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
         graph_data = []
         for index, cost_matrix in enumerate(batch_cost_matrix):
             if self.sparsify:
                 edge_index, edge_attr = sparsify_graph(
-                    cost_matrix, self.k_sparse, self_loop=False
+                    cost_matrix, k_sparse, self_loop=False
                 )
             else:
                 edge_index = get_full_graph_edge_index(
@@ -104,10 +119,11 @@ class TSPEdgeEmbedding(nn.Module):
         batch.edge_attr = self.edge_embed(batch.edge_attr)
         return batch
 
+
 class CVRPEdgeEmbedding(TSPEdgeEmbedding):
     """Edge embedding module for the Capacitated Vehicle Routing Problem (CVRP).
     Unlike the TSP, all nodes in the CVRP should be connected to the depot,
-    so each node will have k_sparse + 1 edges. 
+    so each node will have k_sparse + 1 edges.
     """
 
     def _cost_matrix_to_graph(self, batch_cost_matrix: Tensor, init_embeddings: Tensor):
@@ -117,11 +133,12 @@ class CVRPEdgeEmbedding(TSPEdgeEmbedding):
             batch_cost_matrix: Tensor of shape [batch_size, n, n]
             init_embedding: init embeddings
         """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
         graph_data = []
         for index, cost_matrix in enumerate(batch_cost_matrix):
             if self.sparsify:
                 edge_index, edge_attr = sparsify_graph(
-                    cost_matrix[1:, 1:], self.k_sparse, self_loop=False
+                    cost_matrix[1:, 1:], k_sparse, self_loop=False
                 )
                 edge_index = edge_index + 1  # because we removed the depot
                 # Note here
@@ -160,8 +177,72 @@ class CVRPEdgeEmbedding(TSPEdgeEmbedding):
             )
             graph_data.append(graph)
 
-        batch = Batch.from_data_list(graph_data)
-        batch.edge_attr = self.edge_embed(batch.edge_attr)
+        batch = Batch.from_data_list(graph_data)  # type: ignore
+        batch.edge_attr = self.edge_embed(batch.edge_attr)  # type: ignore
+        return batch
+
+
+class VRPPolarEdgeEmbedding(TSPEdgeEmbedding):
+    """Edge embedding module for VRPs using polar coordinates, with the depot as the origin.
+
+    This class extends TSPEdgeEmbedding to handle VRP problems by incorporating polar coordinate
+    information for edge embeddings.
+    """
+
+    node_dim = 2
+
+    def forward(self, td, init_embeddings: Tensor):
+        with torch.no_grad():
+            if "polar_locs" in td.keys():
+                theta = td["polar_locs"][..., 1]
+            else:
+                shifted_locs = td["locs"] - td["locs"][..., 0:1, :]
+                x, y = shifted_locs[..., 0], shifted_locs[..., 1]
+                theta = torch.atan2(y, x)
+
+            delta_theta_matrix = theta[..., :, None] - theta[..., None, :]
+            edge_attr1 = 1 - torch.cos(delta_theta_matrix)
+            edge_attr2 = get_distance_matrix(td["locs"])
+            cost_matrix = torch.stack((edge_attr1, edge_attr2), dim=-1)
+            del edge_attr1, edge_attr2, delta_theta_matrix
+
+            batch = self._cost_matrix_to_graph(cost_matrix, init_embeddings)
+            del cost_matrix
+
+        batch.edge_attr = self.edge_embed(batch.edge_attr)  # type: ignore
+        return batch
+
+    @torch.no_grad()
+    def _cost_matrix_to_graph(self, batch_cost_matrix: Tensor, init_embeddings: Tensor):
+        """Convert batched cost_matrix to batched PyG graph, and calculate edge embeddings.
+
+        Args:
+            batch_cost_matrix: Tensor of shape [batch_size, n, n, m]
+            init_embedding: init embeddings of shape [batch_size, n, m]
+        """
+        k_sparse = self._get_k_sparse(batch_cost_matrix.shape[-1])
+        graph_data = []
+        for index, cost_matrix in enumerate(batch_cost_matrix):
+            edge_index, _ = sparsify_graph(cost_matrix[..., 0], k_sparse, self_loop=False)
+            edge_index = edge_index.T[torch.all(edge_index != 0, dim=0)].T
+            _, depot_edge_index = torch.topk(
+                cost_matrix[0, :, 1], k=k_sparse, largest=False, sorted=False
+            )
+            depot_edge_index = depot_edge_index[depot_edge_index != 0]
+            depot_edge_index = torch.stack(
+                (torch.zeros_like(depot_edge_index), depot_edge_index), dim=0
+            )
+            edge_index = torch.concat((depot_edge_index, edge_index), dim=-1).detach()
+            edge_attr = cost_matrix[edge_index[0], edge_index[1]].detach()
+
+            graph = Data(
+                x=init_embeddings[index],
+                edge_index=edge_index,
+                edge_attr=edge_attr,
+            )  # type: ignore
+            graph_data.append(graph)
+
+        batch = Batch.from_data_list(graph_data)  # type: ignore
         return batch
 
 
@@ -204,8 +285,8 @@ class NoEdgeEmbedding(nn.Module):
                 x=node_embed,
                 edge_index=edge_index,
                 edge_attr=torch.zeros((m, self.embed_dim), device=device),
-            )
+            )  # type: ignore
             data_list.append(data)
 
-        batch = Batch.from_data_list(data_list)
+        batch = Batch.from_data_list(data_list)  # type: ignore
         return batch
