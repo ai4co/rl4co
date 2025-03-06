@@ -2,7 +2,7 @@
 
 defaults:
   - override /model: am.yaml
-  - override /env: mcp.yaml
+  - override /env: flp.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
   - override /logger: wandb.yaml
