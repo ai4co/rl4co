@@ -35,6 +35,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "mdcpdp": MDCPDPContext,
         "mtvrp": MTVRPContext,
         "shpp": TSPContext,
+        "flp": FLPContext,
     }
 
     if env_name not in embedding_registry:
@@ -372,3 +373,22 @@ class MTVRPContext(VRPContext):
             ],
             -1,
         )
+
+class FLPContext(EnvContext):
+    """Context embedding for the Facility Location Problem (FLP).    
+    """
+    def __init__(self, embed_dim: int):
+        super(FLPContext, self).__init__(embed_dim=embed_dim)
+        self.embed_dim = embed_dim
+        # self.mlp_context = MLP(embed_dim, [embed_dim, embed_dim])
+        self.projection = nn.Linear(embed_dim, embed_dim, bias=True)
+        
+    def forward(self, embeddings, td):        
+        cur_dist = td["distances"].unsqueeze(-2)  # (batch_size, 1, n_points)
+        dist_improve = cur_dist - td["orig_distances"]  # (batch_size, n_points, n_points)
+        dist_improve = torch.clamp(dist_improve, min=0).sum(-1) # (batch_size, n_points)       
+        
+        # softmax
+        loc_best_soft = torch.softmax(dist_improve, dim=-1) # (batch_size, n_points)        
+        embed_best = (embeddings * loc_best_soft[..., None]).sum(-2)
+        return embed_best

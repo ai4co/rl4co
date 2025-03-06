@@ -40,6 +40,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "jssp": FJSPInitEmbedding,
         "mtvrp": MTVRPInitEmbedding,
         "shpp": TSPInitEmbedding,
+        "flp": FLPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -562,3 +563,12 @@ class MTVRPInitEmbedding(VRPInitEmbedding):
             )
         )
         return torch.cat((depot_embedding, node_embeddings), -2)
+
+class FLPInitEmbedding(nn.Module):
+    def __init__(self, embed_dim: int):
+        super().__init__()
+        self.projection = nn.Linear(2, embed_dim, bias=True)
+
+    def forward(self, td: TensorDict):
+        hdim = self.projection(td["locs"])
+        return hdim
