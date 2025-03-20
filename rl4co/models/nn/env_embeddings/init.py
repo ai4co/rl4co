@@ -4,7 +4,7 @@ import torch.nn as nn
 from tensordict.tensordict import TensorDict
 
 from rl4co.models.nn.ops import PositionalEncoding
-from rl4co.utils.ops import cartesian_to_polar
+from rl4co.utils.ops import cartesian_to_polar, batched_scatter_sum
 
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
@@ -41,6 +41,7 @@ def env_init_embedding(env_name: str, config: dict) -> nn.Module:
         "mtvrp": MTVRPInitEmbedding,
         "shpp": TSPInitEmbedding,
         "flp": FLPInitEmbedding,
+        "mcp": MCPInitEmbedding,
     }
 
     if env_name not in embedding_registry:
@@ -572,3 +573,15 @@ class FLPInitEmbedding(nn.Module):
     def forward(self, td: TensorDict):
         hdim = self.projection(td["locs"])
         return hdim
+
+class MCPInitEmbedding(nn.Module):
+    def __init__(self, embed_dim: int):
+        super().__init__()
+        self.projection_items = nn.Linear(1, embed_dim, bias=True)
+
+    def forward(self, td: TensorDict):
+        items_embed = self.projection_items(td["weights"].unsqueeze(-1))
+        # sum pooling
+        membership_emb = batched_scatter_sum(items_embed, td["membership"].long())        
+        return membership_emb
+    

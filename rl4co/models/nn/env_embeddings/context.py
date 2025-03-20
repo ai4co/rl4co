@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from tensordict import TensorDict
 
-from rl4co.utils.ops import gather_by_index
+from rl4co.utils.ops import gather_by_index, batched_scatter_sum
 
 
 def env_context_embedding(env_name: str, config: dict) -> nn.Module:
@@ -36,6 +36,7 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "mtvrp": MTVRPContext,
         "shpp": TSPContext,
         "flp": FLPContext,
+        "mcp": MCPContext,
     }
 
     if env_name not in embedding_registry:
@@ -379,9 +380,8 @@ class FLPContext(EnvContext):
     """
     def __init__(self, embed_dim: int):
         super(FLPContext, self).__init__(embed_dim=embed_dim)
-        self.embed_dim = embed_dim
-        # self.mlp_context = MLP(embed_dim, [embed_dim, embed_dim])
-        self.projection = nn.Linear(embed_dim, embed_dim, bias=True)
+        self.embed_dim = embed_dim        
+        self.project_context = nn.Linear(embed_dim, embed_dim, bias=True)
         
     def forward(self, embeddings, td):        
         cur_dist = td["distances"].unsqueeze(-2)  # (batch_size, 1, n_points)
@@ -390,5 +390,27 @@ class FLPContext(EnvContext):
         
         # softmax
         loc_best_soft = torch.softmax(dist_improve, dim=-1) # (batch_size, n_points)        
-        embed_best = (embeddings * loc_best_soft[..., None]).sum(-2)
-        return embed_best
+        context_embedding = (embeddings * loc_best_soft[..., None]).sum(-2)
+        return self.project_context(context_embedding)
+
+class MCPContext(EnvContext):
+    """Context embedding for the Maximum Coverage Problem (MCP).
+    """
+    def __init__(self, embed_dim: int):
+        super(MCPContext, self).__init__(embed_dim=embed_dim)
+        self.embed_dim = embed_dim        
+        self.project_context = nn.Linear(embed_dim, embed_dim, bias=True)
+    
+    def forward(self, embeddings, td):
+        membership_weighted = batched_scatter_sum(
+            td["weights"].unsqueeze(-1), td["membership"].long()
+        )
+        membership_weighted.squeeze_(-1)
+        # membership_weighted: [batch_size, n_sets]
+
+        # softmax; higher weights for better sets
+        membership_weighted = torch.softmax(
+            membership_weighted, dim=-1
+        )  # (batch_size, n_sets)
+        context_embedding = (membership_weighted.unsqueeze(-1) * embeddings).sum(1)
+        return self.project_context(context_embedding)

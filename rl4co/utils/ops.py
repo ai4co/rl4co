@@ -283,3 +283,33 @@ def select_start_nodes_by_distance(td, env, num_starts, exclude_depot=True):
     )
     selected_nodes = node_index[:, 1:] if exclude_depot else node_index[:, :-1]
     return rearrange(selected_nodes, "b n -> (n b)")
+
+
+def batched_scatter_sum(src, idx):
+    """Performs a batched scatter and sum operation on the source tensor using the provided indices.
+
+    Parameters:
+        src (Tensor): A tensor of shape [batch_size, N, h].
+                      Contains the data to be scattered and summed.
+        idx (Tensor): A tensor of shape [batch_size, M, K] with zero-padding.
+                      Each non-zero element in idx represents an index (offset by 1)
+                      into src. A zero value indicates a padded (invalid) index.
+    
+    Returns:
+        Tensor: A tensor of shape [batch_size, M, h] where for each batch and each index j,
+                the output is computed as:
+                    Output[batch, j] = sum(src[batch, k - 1] for k in idx[batch, j] if k != 0)
+                The subtraction of 1 is applied because 0 is used as the padding value.
+
+    Details:
+        - A temporary target tensor (tgt) of shape [batch_size, N+1, h] is created,
+          where tgt[:, 1:] is populated with src.
+        - The function reshapes idx to gather the corresponding values and then reshapes
+          the result back to [batch_size, M, K, h] before summing over the scattering dimension.    
+    """
+    bs, N, h = src.shape
+    bs, M, K = idx.shape
+    tgt = torch.zeros(bs, N + 1, h, device=src.device)
+    tgt[:, 1:] = src
+    tgt = gather_by_index(tgt, idx.long().reshape(bs, -1), squeeze=False)
+    return tgt.reshape(bs, M, K, h).sum(-2)    
