@@ -134,8 +134,8 @@ class CVRPTWGenerator(CVRPGenerator):
             durations = durations / self.max_time
             min_times = min_times / self.max_time
             max_times = max_times / self.max_time
-            td["depot"] = td["depot"] / self.max_time
-            td["locs"] = td["locs"] / self.max_time
+            td["depot"] = td["depot"] / self.max_log
+            td["locs"] = td["locs"] / self.max_log
 
         # 8. stack to tensor time_windows
         time_windows = torch.stack((min_times, max_times), dim=-1)
