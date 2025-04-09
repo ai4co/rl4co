@@ -86,7 +86,7 @@ class SymNCO(REINFORCE):
         # Evaluate policy
         out = self.policy(td, self.env, phase=phase, num_starts=n_start)
 
-        # Unbatchify reward to [batch_size, n_start, n_aug].
+        # Unbatchify reward to [batch_size, n_aug, n_start].
         unbatch_dims = (n_aug, n_start)
         reward = unbatchify(out["reward"], unbatch_dims)
 
