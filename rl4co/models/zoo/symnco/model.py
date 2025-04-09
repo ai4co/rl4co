@@ -140,3 +140,27 @@ class SymNCO(REINFORCE):
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    @classmethod
+    def load_from_checkpoint(
+        cls,
+        checkpoint_path,
+        map_location=None,
+        hparams_file=None,
+        strict=False,
+        load_baseline=True,
+        **kwargs,
+    ):
+        if kwargs.pop("baseline", "symnco") != "symnco":
+            log.warning(
+                "SymNCO only supports custom-symnco baseline. Setting to 'symnco'."
+            )
+        kwargs["baseline"] = "symnco"
+        return super().load_from_checkpoint(
+            checkpoint_path,
+            map_location,
+            hparams_file,
+            strict,
+            load_baseline,
+            **kwargs,
+        )
