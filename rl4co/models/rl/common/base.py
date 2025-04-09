@@ -77,7 +77,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         # This line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute
         # Note: we will send to logger with `self.logger.save_hyperparams` in `setup`
-        self.save_hyperparameters(logger=False)
+        self.save_hyperparameters(logger=False, ignore=["env", "policy", "dataset"])
 
         self.env = env
         self.policy = policy
