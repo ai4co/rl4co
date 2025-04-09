@@ -87,12 +87,13 @@ class SymNCO(REINFORCE):
         out = self.policy(td, self.env, phase=phase, num_starts=n_start)
 
         # Unbatchify reward to [batch_size, n_start, n_aug].
-        reward = unbatchify(out["reward"], (n_start, n_aug))
+        unbatch_dims = (n_aug, n_start)
+        reward = unbatchify(out["reward"], unbatch_dims)
 
         # Main training loss
         if phase == "train":
             # [batch_size, n_start, n_aug]
-            ll = unbatchify(out["log_likelihood"], (n_start, n_aug))
+            ll = unbatchify(out["log_likelihood"], unbatch_dims)
 
             # Calculate losses: problem symmetricity, solution symmetricity, invariance
             loss_ps = problem_symmetricity_loss(reward, ll) if n_start > 1 else 0
@@ -117,7 +118,7 @@ class SymNCO(REINFORCE):
 
                 # Reshape batch to [batch, n_start, n_aug]
                 if out.get("actions", None) is not None:
-                    actions = unbatchify(out["actions"], (n_start, n_aug))
+                    actions = unbatchify(out["actions"], unbatch_dims)
                     out.update(
                         {"best_multistart_actions": gather_by_index(actions, max_idxs)}
                     )
