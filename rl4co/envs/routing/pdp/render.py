@@ -76,8 +76,6 @@ def render(td, actions=None, ax=None):
         )
 
     # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
 
 
 def render_improvement(td, current_soltuion, best_soltuion):

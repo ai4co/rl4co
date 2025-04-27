@@ -1,8 +1,11 @@
+import torch
+
 from tensordict.tensordict import TensorDict
 
 
 def render(td: TensorDict, actions=None, ax=None):
     import matplotlib.pyplot as plt
+
     markersize = 8
 
     td = td.detach().cpu()
@@ -28,10 +31,10 @@ def render(td: TensorDict, actions=None, ax=None):
 
     # Plot the actions in order
     last_depot = 0
-    for i in range(len(actions)-1):
-        if actions[i+1] < n_depots:
-            last_depot = actions[i+1]
-        if actions[i] < n_depots and actions[i+1] < n_depots:
+    for i in range(len(actions) - 1):
+        if actions[i + 1] < n_depots:
+            last_depot = actions[i + 1]
+        if actions[i] < n_depots and actions[i + 1] < n_depots:
             continue
         from_node = actions[i]
         to_node = (
@@ -116,5 +119,3 @@ def render(td: TensorDict, actions=None, ax=None):
         )
 
     # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
