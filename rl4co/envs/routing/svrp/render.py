@@ -101,3 +101,4 @@ def render(td, actions=None, ax=None):
             size=15,
             annotation_clip=False,
         )
+    return ax

@@ -29,8 +29,7 @@ def render(td, actions=None, ax=None):
     prizes = td["real_prize"][1:]
     penalties = td["penalty"][1:]
     normalized_prizes = (
-        200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes))
-        + 10
+        200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes)) + 10
     )
     normalized_penalties = (
         3
@@ -88,6 +87,4 @@ def render(td, actions=None, ax=None):
             width=0.0035,
         )
 
-    # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    return ax

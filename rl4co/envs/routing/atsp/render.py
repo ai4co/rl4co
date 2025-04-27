@@ -1,6 +1,6 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
@@ -41,10 +41,6 @@ def render(td, actions=None, ax=None):
 
     # Add arrows between visited nodes as a quiver plot
     dx, dy = np.diff(x), np.diff(y)
-    ax.quiver(
-        x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k"
-    )
+    ax.quiver(x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k")
 
-    # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    return ax

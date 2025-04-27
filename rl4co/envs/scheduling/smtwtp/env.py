@@ -195,4 +195,4 @@ class SMTWTPEnv(RL4COEnvBase):
 
     @staticmethod
     def render(td, actions=None, ax=None):
-        raise render(td, actions, ax)
+        return render(td, actions, ax)

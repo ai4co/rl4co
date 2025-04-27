@@ -68,5 +68,4 @@ def render(td: TensorDict, idx: int):
     )
 
     plt.tight_layout()
-    # Show the Gantt chart
-    plt.show()
+    return ax

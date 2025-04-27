@@ -1,10 +1,7 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
-from matplotlib import cm, colormaps
-
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -32,8 +29,7 @@ def render(td, actions=None, ax=None):
     customers = td["locs"][1:, :]
     prizes = td["prize"][1:]
     normalized_prizes = (
-        200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes))
-        + 10
+        200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes)) + 10
     )
 
     # Plot depot and customers with prize
@@ -81,6 +77,4 @@ def render(td, actions=None, ax=None):
             width=0.0035,
         )
 
-    # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    return ax

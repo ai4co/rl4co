@@ -1,10 +1,7 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
-from matplotlib import cm, colormaps
-
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -15,7 +12,6 @@ def render(self, decaps, probe, action_mask, ax=None, legend=True):
     Plot a grid of 1x1 squares representing the environment.
     The keepout regions are the action_mask - decaps - probe
     """
-    import matplotlib.pyplot as plt
 
     settings = {
         0: {"color": "white", "label": "available"},
@@ -58,9 +54,7 @@ def render(self, decaps, probe, action_mask, ax=None, legend=True):
             ax.add_patch(plt.Rectangle((x, y), 1, 1, color=color, linestyle="-"))
 
     # Add grid with 1x1 squares
-    ax.grid(
-        which="major", axis="both", linestyle="-", color="k", linewidth=1, alpha=0.5
-    )
+    ax.grid(which="major", axis="both", linestyle="-", color="k", linewidth=1, alpha=0.5)
     # set 10 ticks
     ax.set_xticks(np.arange(0, xdim, 1))
     ax.set_yticks(np.arange(0, ydim, 1))
@@ -82,3 +76,5 @@ def render(self, decaps, probe, action_mask, ax=None, legend=True):
             loc="upper center",
             bbox_to_anchor=(0.5, 1.1),
         )
+
+    return ax

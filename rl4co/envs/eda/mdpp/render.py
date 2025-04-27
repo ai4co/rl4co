@@ -1,10 +1,7 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
-from matplotlib import cm, colormaps
-
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -14,8 +11,6 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
     """Plot a grid of squares representing the environment.
     The keepout regions are the action_mask - decaps - probe
     """
-
-    import matplotlib.pyplot as plt
 
     from matplotlib.lines import Line2D
     from matplotlib.patches import Annulus, Rectangle, RegularPolygon
@@ -87,9 +82,7 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
         # Backgrund rectangle: same as color but with alpha=0.5
         ax.add_patch(Rectangle((x, y), 1, 1, color=color, alpha=0.5))
         ax.add_patch(
-            RegularPolygon(
-                (x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color
-            )
+            RegularPolygon((x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color)
         )
 
     size = self.size
@@ -132,9 +125,7 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
             elif keepout[i, j] == 1:
                 draw_keepout(ax, x, y, color=settings["keepout"]["color"])
 
-    ax.grid(
-        which="major", axis="both", linestyle="-", color="k", linewidth=1, alpha=0.5
-    )
+    ax.grid(which="major", axis="both", linestyle="-", color="k", linewidth=1, alpha=0.5)
     # set 10 ticks
     ax.set_xticks(np.arange(0, xdim, 1))
     ax.set_yticks(np.arange(0, ydim, 1))
@@ -159,3 +150,5 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
             loc="upper center",
             bbox_to_anchor=(0.5, 1.1),
         )
+
+    return ax

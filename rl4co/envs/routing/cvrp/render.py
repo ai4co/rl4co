@@ -135,5 +135,4 @@ def render(td, actions=None, ax=None, skip_depot=True, integer_demands=True):
             annotation_clip=False,
         )
 
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    return ax

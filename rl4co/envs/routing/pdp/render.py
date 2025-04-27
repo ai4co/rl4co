@@ -75,9 +75,7 @@ def render(td, actions=None, ax=None):
             label="Delivery" if i == 0 else None,
         )
 
-    # Setup limits and show
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    return ax
 
 
 def render_improvement(td, current_soltuion, best_soltuion):
@@ -140,3 +138,5 @@ def render_improvement(td, current_soltuion, best_soltuion):
                 )
             ax.set_title("Best Solution")
     plt.tight_layout()
+
+    return ax
