@@ -1,11 +1,7 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib import cm, colormaps
 from tensordict.tensordict import TensorDict
 
-from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -13,7 +9,6 @@ log = get_pylogger(__name__)
 
 def render(td: TensorDict, idx: int):
     import matplotlib.patches as patches
-    import matplotlib.pyplot as plt
 
     # TODO: fix this render function parameters
     num_machine_total = td["num_machine_total"][idx].item()
@@ -59,7 +54,8 @@ def render(td: TensorDict, idx: int):
 
     ax.grid()
     ax.set_axisbelow(True)
-    plt.show()
+    return ax
+
 
 def _get_cmap(color_cnt):
     from random import shuffle

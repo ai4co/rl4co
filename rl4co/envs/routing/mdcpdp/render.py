@@ -118,4 +118,4 @@ def render(td: TensorDict, actions=None, ax=None):
             alpha=0.5,
         )
 
-    # Setup limits and show
+    return ax

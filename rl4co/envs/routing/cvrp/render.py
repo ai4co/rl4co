@@ -135,5 +135,4 @@ def render(td, actions=None, ax=None, skip_depot=True, integer_demands=True):
             annotation_clip=False,
         )
 
-    #
-    #
+    return ax

@@ -282,7 +282,9 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
 
     def render(self, *args, **kwargs):
         """Render the environment"""
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"Render is not implemented for {self.name} environment. Please implement the `render` method in the subclass."
+        )
 
     @staticmethod
     def load_data(fpath, batch_size=[]):

@@ -215,7 +215,7 @@ class CVRPTWEnv(CVRPEnv):
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
-        render(td, actions, ax)
+        return render(td, actions, ax)
 
     @staticmethod
     def load_data(

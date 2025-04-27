@@ -1,6 +1,6 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from matplotlib import colormaps
 
@@ -93,3 +93,5 @@ def render(td, actions=None, ax=None):
     ax.set_title("mTSP")
     ax.set_xlabel("x-coordinate")
     ax.set_ylabel("y-coordinate")
+
+    return ax

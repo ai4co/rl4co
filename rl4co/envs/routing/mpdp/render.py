@@ -103,4 +103,4 @@ def render(td, actions=None, ax=None):
             annotation_clip=False,
         )
 
-    # Setup limits and show
+    return ax

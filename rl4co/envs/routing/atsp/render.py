@@ -43,4 +43,4 @@ def render(td, actions=None, ax=None):
     dx, dy = np.diff(x), np.diff(y)
     ax.quiver(x[:-1], y[:-1], dx, dy, scale_units="xy", angles="xy", scale=1, color="k")
 
-    # Setup limits and show
+    return ax

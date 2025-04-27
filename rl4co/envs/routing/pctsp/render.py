@@ -87,4 +87,4 @@ def render(td, actions=None, ax=None):
             width=0.0035,
         )
 
-    # Setup limits and show
+    return ax

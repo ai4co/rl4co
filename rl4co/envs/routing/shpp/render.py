@@ -59,4 +59,4 @@ def render(td, actions=None, ax=None):
         headwidth=8,
     )
 
-    # Setup limits and show
+    return ax
