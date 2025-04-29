@@ -16,8 +16,11 @@ class MDCPDPEnv(RL4COEnvBase):
     """Multi Depot Capacitated Pickup and Delivery Problem (MDCPDP) environment.
     One reference to understand the problem could be: Solving the multi-compartment capacitated location routing
     problem with pickup–delivery routes and stochastic demands (https://doi.org/10.1016/j.cie.2015.05.008).
-    The environment is made of num_loc + num_depots locations (cities):
-        - num_depot depot
+    This problem is also solved in a parallel manner (multi-agent) in PARCO: https://github.com/ai4co/parco. This
+    environment is a single-agent version of the environment in PARCO environment.
+
+    The environment is made of num_loc + num_agents locations (cities):
+        - num_agents depot
         - num_loc / 2 pickup locations
         - num_loc / 2 delivery locations
     The goal is to visit all the pickup and delivery locations in the shortest path possible starting from the depot
@@ -25,11 +28,11 @@ class MDCPDPEnv(RL4COEnvBase):
     The capacity is the maximum number of pickups that the vehicle can carry at the same time
 
     Observations:
-        - locs: locations of the cities [num_loc + num_depot, 2]
+        - locs: locations of the cities [num_loc + num_agents, 2]
         - current_node: current node of the agent [1]
         - to_deliver: if the node is to deliver [1]
         - i: current step [1]
-        - action_mask: mask of the available actions [num_loc + num_depot]
+        - action_mask: mask of the available actions [num_loc + num_agents]
         - shape: shape of the observation
 
     Constraints:
@@ -63,8 +66,8 @@ class MDCPDPEnv(RL4COEnvBase):
         generator_params: dict = {},
         dist_mode: str = "L2",
         reward_mode: str = "lateness",
-        problem_mode: str = "close",
-        start_mode: str = "order",
+        problem_mode: str = "open",
+        start_mode: str = "order",  # TODO: actually now it could be chosen by model
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -98,22 +101,25 @@ class MDCPDPEnv(RL4COEnvBase):
         current_node = td["action"].unsqueeze(-1)
         current_depot = td["current_depot"]
 
-        num_depot = td["capacity"].shape[-1]
-        num_loc = td["locs"].shape[-2] - num_depot  # no depot
-        pd_split_idx = num_loc // 2 + num_depot
+        num_agents = td["capacity"].shape[-1]
+        num_loc = td["locs"].shape[-2] - num_agents  # no depot
+        pd_split_idx = num_loc // 2 + num_agents
 
         # Pickup and delivery node pair of selected node
-        new_to_deliver = (current_node + num_loc // 2) % (num_loc + num_depot)
+        new_to_deliver = (current_node + num_loc // 2) % (num_loc + num_agents)
 
-        # If back to the depot
-        back_flag = (current_node < num_depot) & (
-            td["available"].gather(-1, current_node) == 0
-        )
+        back_flag = (
+            (current_node < num_agents) & (current_node == current_depot) & (td["i"] > 0)
+        )  # only for later steps
 
         # Set available to 0 (i.e., we visited the node)
-        available = td["available"].scatter(
-            -1, current_node.expand_as(td["action_mask"]), 0
-        )
+        # do this only if td["i"] > 0, i.e., not the first step
+        # TODO: better way?
+        available = td["available"]
+        if td["i"][0] > 0:
+            available = available.scatter(
+                -1, current_node.expand_as(td["action_mask"]), 0
+            )
 
         # Record the to be delivered node
         to_deliver = td["to_deliver"].scatter(
@@ -123,23 +129,28 @@ class MDCPDPEnv(RL4COEnvBase):
         # Update number of current carry orders
         current_carry = td["current_carry"]
         current_carry += (
-            (current_node < pd_split_idx) & (current_node >= num_depot)
+            (current_node < pd_split_idx) & (current_node >= num_agents)
         ).long()  # If pickup, add 1
         current_carry -= (current_node >= pd_split_idx).long()  # If delivery, minus 1
 
         # Update the current depot
-        current_depot = td["current_depot"]
-        current_depot = torch.where(back_flag, current_node, current_depot)
+        # current_depot = td["current_depot"]
+        # current_depot = torch.where(back_flag, current_node, current_depot)
+        current_depot = torch.where(
+            current_node < num_agents, current_node, td["current_depot"]
+        )
 
         # Update the length of current tour
         current_length = td["current_length"]
         prev_loc = gather_by_index(td["locs"], td["current_node"])
         curr_loc = gather_by_index(td["locs"], current_node)
-        current_step_length = self.get_distance(prev_loc, curr_loc)
 
-        # If this path is the way between two depods, i.e. open a new route, set the length to 0
+        # TODO: actually, in case of `close`, this may not always hold
+        # please check if this is correct
+        current_step_length = self.get_distance(prev_loc, curr_loc)[..., None]
+        # If this path is the way between two depots, i.e. open a new route, set the length to 0
         current_step_length = torch.where(
-            (current_node < num_depot) & (td["current_node"] < num_depot),
+            (current_node < num_agents) & (td["current_node"] < num_agents),
             0,
             current_step_length,
         )
@@ -147,7 +158,7 @@ class MDCPDPEnv(RL4COEnvBase):
         # If the problem mode is open, the path back to the depot will not be counted
         if self.problem_mode == "open":
             current_step_length = torch.where(
-                (current_node < num_depot) & (td["current_node"] >= num_depot),
+                (current_node < num_agents) & (td["current_node"] >= num_agents),
                 0,
                 current_step_length,
             )
@@ -166,42 +177,57 @@ class MDCPDPEnv(RL4COEnvBase):
 
         # If reach the capacity, only delivery is available
         current_capacity = td["capacity"].gather(-1, current_depot)
-        capacity_flag = current_carry >= current_capacity
+        over_capacity = current_carry >= current_capacity
         action_mask[
-            ..., num_depot:pd_split_idx
-        ] &= ~capacity_flag  # If reach the capacity, pickup is not available
+            ..., num_agents:pd_split_idx
+        ] &= ~over_capacity  # If reach the capacity, pickup is not available
 
         # If back to the current depot, this tour is done, set other depots to availbe to start
         # a new tour. Must start from a depot.
-        action_mask[..., num_depot:] &= ~back_flag.expand_as(action_mask[..., num_depot:])
+        action_mask[..., num_agents:] &= ~back_flag.expand_as(
+            action_mask[..., num_agents:]
+        )
 
         # If back to the depot, other unvisited depots are available
         # if not back to the depot, depots are not available except the current depot
-        action_mask[..., :num_depot] &= back_flag.expand_as(action_mask[..., :num_depot])
-        action_mask[..., :num_depot].scatter_(-1, current_depot, ~back_flag)
+        action_mask[..., :num_agents] &= back_flag.expand_as(
+            action_mask[..., :num_agents]
+        )
+        action_mask[..., :num_agents].scatter_(-1, current_depot, ~back_flag)
 
         # If this is the last agent, it has to finish all the left taks
         last_depot_flag = (
-            torch.sum(available[..., :num_depot].long(), dim=-1, keepdim=True) == 0
+            torch.sum(available[..., :num_agents].long(), dim=-1, keepdim=True) == 0
         )
-        action_mask[..., :num_depot] &= ~last_depot_flag.expand_as(
-            action_mask[..., :num_depot]
+        action_mask[..., :num_agents] &= ~last_depot_flag.expand_as(
+            action_mask[..., :num_agents]
         )
 
         # Update depot mask
         carry_flag = current_carry > 0  # If agent is carrying orders
         action_mask[
-            ..., :num_depot
+            ..., :num_agents
         ] &= ~carry_flag  # If carrying orders, depot is not available
 
+        # 1) current node is a depot
+        # 2) we did not just come back
+        # 3) it is not the first step
+        # cannot go to other depots
+        prev_depot_flag = (current_node < num_agents) & (td["i"] > 0) & ~back_flag
+        action_mask[..., :num_agents] &= ~prev_depot_flag.expand_as(
+            action_mask[..., :num_agents]
+        )
+
         # We are done there are no unvisited locations
-        done = torch.count_nonzero(available, dim=-1) == 0
+        # done = torch.count_nonzero(available, dim=-1) == 0
+        done = torch.sum(available[..., num_agents:], dim=-1) == 0
 
         # If done, the last depot would be always available
-        action_mask[..., :num_depot].scatter_(
+        action_mask[..., :num_agents].scatter_(
             -1,
             current_depot,
-            action_mask[..., :num_depot].gather(-1, current_depot) | done,
+            action_mask[..., :num_agents].gather(-1, current_depot)
+            | done[..., None].expand_as(action_mask[..., :num_agents]),
         )
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
@@ -225,7 +251,16 @@ class MDCPDPEnv(RL4COEnvBase):
 
     def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
         device = td.device
-        locs = torch.cat((td["depot"], td["locs"]), -2)
+
+        if "depots" in td:
+            depots = td["depots"]
+        else:
+            depots = td["depot"]
+
+        locs = torch.cat((depots, td["locs"]), -2)
+
+        num_agents = depots.shape[-2]
+        num_loc = td["locs"].shape[-2]
 
         # Record how many depots are visited
         depot_idx = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -235,13 +270,13 @@ class MDCPDPEnv(RL4COEnvBase):
             [
                 torch.ones(
                     *batch_size,
-                    self.generator.num_loc // 2 + self.generator.num_depot,
+                    num_loc // 2 + num_agents,
                     dtype=torch.bool,
                     device=device,
                 ),
                 torch.zeros(
                     *batch_size,
-                    self.generator.num_loc // 2,
+                    num_loc // 2,
                     dtype=torch.bool,
                     device=device,
                 ),
@@ -252,7 +287,7 @@ class MDCPDPEnv(RL4COEnvBase):
         # Current depot index
         if self.start_mode == "random":
             current_depot = torch.randint(
-                low=0, high=self.generator.num_depot, size=(*batch_size, 1), device=device
+                low=0, high=num_agents, size=(*batch_size, 1), device=device
             )
         elif self.start_mode == "order":
             current_depot = torch.zeros(
@@ -264,24 +299,27 @@ class MDCPDPEnv(RL4COEnvBase):
 
         # Current length of each depot
         current_length = torch.zeros(
-            (*batch_size, self.generator.num_depot), dtype=torch.float32, device=device
+            (*batch_size, num_agents), dtype=torch.float32, device=device
         )
 
         # Arrive time for each city
         arrivetime_record = torch.zeros(
-            (*batch_size, self.generator.num_loc + self.generator.num_depot),
+            (*batch_size, num_loc + num_agents),
             dtype=torch.float32,
             device=device,
         )
 
         # Cannot visit depot at first step # [0,1...1] so set not available
         available = torch.ones(
-            (*batch_size, self.generator.num_loc + self.generator.num_depot),
+            (*batch_size, num_loc + num_agents),
             dtype=torch.bool,
             device=device,
         )
         action_mask = ~available.contiguous()  # [batch_size, graph_size+1]
-        action_mask[..., 0] = 1  # First step is always the depot
+        # action_mask[..., 0] = 1  # First step is always the depot
+
+        # Allow the model to choose any depot at the beginning
+        action_mask[..., :num_agents] = True
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
@@ -358,12 +396,12 @@ class MDCPDPEnv(RL4COEnvBase):
             - minsum: the reward is the sum of all agents' length
             - lateness: the reward is the sum of all agents' length plus the lateness with a weight
         Args:
-            - actions [batch_size, num_depot+num_locs-1]: the actions taken by the agents
+            - actions [batch_size, num_agents+num_locs-1]: the actions taken by the agents
                 note that the last city back to depot is not included here
         """
         # Check the validity of the actions
-        num_depot = td["capacity"].shape[-1]
-        num_loc = td["locs"].shape[-2] - num_depot  # except depot
+        num_agents = td["capacity"].shape[-1]
+        num_loc = td["locs"].shape[-2] - num_agents  # except depot
 
         # Append the last depot to the end of the actions
         actions = torch.cat([actions, td["current_depot"]], dim=-1)
@@ -375,7 +413,7 @@ class MDCPDPEnv(RL4COEnvBase):
             cost = torch.sum(td["current_length"], dim=-1)
         elif self.reward_mode == "lateness":
             cost = torch.sum(td["current_length"], dim=(-1))
-            lateness = td["arrivetime_record"][..., num_depot + num_loc // 2 :]
+            lateness = td["arrivetime_record"][..., num_agents + num_loc // 2 :]
             if self.reward_mode == "lateness_square":
                 lateness = lateness**2
             lateness = torch.sum(lateness, dim=-1)

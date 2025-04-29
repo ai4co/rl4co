@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from tensordict import TensorDict
 
-from rl4co.utils.ops import gather_by_index, batched_scatter_sum
+from rl4co.utils.ops import batched_scatter_sum, gather_by_index
 
 
 def env_context_embedding(env_name: str, config: dict) -> nn.Module:
@@ -30,9 +30,9 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "dpp": DPPContext,
         "mdpp": DPPContext,
         "pdp": PDPContext,
+        "mdcpdp": MDCPDPContext,
         "mtsp": MTSPContext,
         "smtwtp": SMTWTPContext,
-        "mdcpdp": MDCPDPContext,
         "mtvrp": MTVRPContext,
         "shpp": TSPContext,
         "flp": FLPContext,
@@ -318,11 +318,41 @@ class MDCPDPContext(EnvContext):
     """
 
     def __init__(self, embed_dim):
-        super(MDCPDPContext, self).__init__(embed_dim, embed_dim)
+        super(MDCPDPContext, self).__init__(embed_dim, embed_dim * 2 + 5)
+
+    def _state_embedding(self, embeddings, td):
+        # get number of visited cities over total
+        num_agents = td["capacity"].shape[-1]
+        num_cities = td["locs"].shape[-2] - num_agents
+        unvisited_number = td["available"][..., num_agents:].sum(-1)
+        agent_capacity = td["capacity"].gather(-1, td["current_depot"])
+        current_to_deliver = td["to_deliver"][..., num_agents + num_cities // 2 :]
+
+        context_feats = torch.cat(
+            [
+                agent_capacity - td["current_carry"],  # current available capacity
+                td["current_length"].gather(-1, td["current_depot"]),
+                unvisited_number[..., None] / num_cities,
+                current_to_deliver.sum(-1)[..., None],  # current to deliver number
+                td["current_length"].max(-1)[0][..., None],  # max length
+            ],
+            -1,
+        )
+        return context_feats
+
+    def _cur_agent_embedding(self, embeddings, td):
+        """Get embedding of current agent"""
+        cur_agent_embedding = gather_by_index(embeddings, td["current_depot"])
+        return cur_agent_embedding
 
     def forward(self, embeddings, td):
-        cur_node_embedding = self._cur_node_embedding(embeddings, td).squeeze()
-        return self.project_context(cur_node_embedding)
+        cur_node_embedding = self._cur_node_embedding(embeddings, td)
+        cur_agent_embedding = self._cur_agent_embedding(embeddings, td)
+        state_embedding = self._state_embedding(embeddings, td)
+        context_embedding = torch.cat(
+            [cur_node_embedding, cur_agent_embedding, state_embedding], -1
+        )
+        return self.project_context(context_embedding)
 
 
 class SchedulingContext(nn.Module):
@@ -375,32 +405,34 @@ class MTVRPContext(VRPContext):
             -1,
         )
 
+
 class FLPContext(EnvContext):
-    """Context embedding for the Facility Location Problem (FLP).    
-    """
+    """Context embedding for the Facility Location Problem (FLP)."""
+
     def __init__(self, embed_dim: int):
         super(FLPContext, self).__init__(embed_dim=embed_dim)
-        self.embed_dim = embed_dim        
+        self.embed_dim = embed_dim
         self.project_context = nn.Linear(embed_dim, embed_dim, bias=True)
-        
-    def forward(self, embeddings, td):        
+
+    def forward(self, embeddings, td):
         cur_dist = td["distances"].unsqueeze(-2)  # (batch_size, 1, n_points)
         dist_improve = cur_dist - td["orig_distances"]  # (batch_size, n_points, n_points)
-        dist_improve = torch.clamp(dist_improve, min=0).sum(-1) # (batch_size, n_points)       
-        
+        dist_improve = torch.clamp(dist_improve, min=0).sum(-1)  # (batch_size, n_points)
+
         # softmax
-        loc_best_soft = torch.softmax(dist_improve, dim=-1) # (batch_size, n_points)        
+        loc_best_soft = torch.softmax(dist_improve, dim=-1)  # (batch_size, n_points)
         context_embedding = (embeddings * loc_best_soft[..., None]).sum(-2)
         return self.project_context(context_embedding)
 
+
 class MCPContext(EnvContext):
-    """Context embedding for the Maximum Coverage Problem (MCP).
-    """
+    """Context embedding for the Maximum Coverage Problem (MCP)."""
+
     def __init__(self, embed_dim: int):
         super(MCPContext, self).__init__(embed_dim=embed_dim)
-        self.embed_dim = embed_dim        
+        self.embed_dim = embed_dim
         self.project_context = nn.Linear(embed_dim, embed_dim, bias=True)
-    
+
     def forward(self, embeddings, td):
         membership_weighted = batched_scatter_sum(
             td["weights"].unsqueeze(-1), td["membership"].long()

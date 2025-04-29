@@ -4,7 +4,7 @@ import torch.nn as nn
 from tensordict.tensordict import TensorDict
 
 from rl4co.models.nn.ops import PositionalEncoding
-from rl4co.utils.ops import cartesian_to_polar, batched_scatter_sum
+from rl4co.utils.ops import batched_scatter_sum, cartesian_to_polar
 
 
 def env_init_embedding(env_name: str, config: dict) -> nn.Module:
@@ -428,8 +428,8 @@ class MDCPDPInitEmbedding(nn.Module):
         self.init_embed_delivery = nn.Linear(node_dim, embed_dim, linear_bias)
 
     def forward(self, td):
-        num_depots = td["capacity"].size(-1)
-        depot, locs = td["locs"][..., 0:num_depots, :], td["locs"][..., num_depots:, :]
+        num_agents = td["capacity"].size(-1)
+        depot, locs = td["locs"][..., 0:num_agents, :], td["locs"][..., num_agents:, :]
         num_locs = locs.size(-2)
         pick_feats = torch.cat(
             [locs[:, : num_locs // 2, :], locs[:, num_locs // 2 :, :]], -1
@@ -565,6 +565,7 @@ class MTVRPInitEmbedding(VRPInitEmbedding):
         )
         return torch.cat((depot_embedding, node_embeddings), -2)
 
+
 class FLPInitEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
         super().__init__()
@@ -574,6 +575,7 @@ class FLPInitEmbedding(nn.Module):
         hdim = self.projection(td["locs"])
         return hdim
 
+
 class MCPInitEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
         super().__init__()
@@ -582,6 +584,5 @@ class MCPInitEmbedding(nn.Module):
     def forward(self, td: TensorDict):
         items_embed = self.projection_items(td["weights"].unsqueeze(-1))
         # sum pooling
-        membership_emb = batched_scatter_sum(items_embed, td["membership"].long())        
+        membership_emb = batched_scatter_sum(items_embed, td["membership"].long())
         return membership_emb
-    
