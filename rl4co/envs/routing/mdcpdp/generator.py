@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union
 
 import torch
 
@@ -19,7 +19,7 @@ class MDCPDPGenerator(Generator):
         min_loc: minimum value for the location coordinates
         max_loc: maximum value for the location coordinates, default is 150 insted of 1.0, will be scaled
         loc_distribution: distribution for the location coordinates
-        num_depot: number of depots, each depot has one vehicle
+        num_agents: number of depots, each depot has one vehicle
         depot_mode: mode for the depot, either single or multiple
         depod_distribution: distribution for the depot coordinates
         min_capacity: minimum value of the capacity
@@ -31,7 +31,7 @@ class MDCPDPGenerator(Generator):
     Returns:
         A TensorDict with the following keys:
             locs [batch_size, num_loc, 2]: locations of each customer
-            depot [batch_size, num_depot, 2]: locations of each depot
+            depot [batch_size, num_agents, 2]: locations of each depot
             capacity [batch_size, 1]: capacity of the vehicle
             lateness_weight [batch_size, 1]: weight of the lateness cost
     """
@@ -41,22 +41,22 @@ class MDCPDPGenerator(Generator):
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: int | float | str | type | Callable = Uniform,
-        num_depot: int = 5,
+        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
+        num_agents: int = 5,
         depot_mode: str = "multiple",
-        depot_distribution: int | float | str | type | Callable = Uniform,
-        min_capacity: int = 1,
-        max_capacity: int = 5,
+        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
+        min_capacity: int = 3,
+        max_capacity: int = 3,
         min_lateness_weight: float = 1.0,
         max_lateness_weight: float = 1.0,
-        lateness_weight_distribution: int | float | str | type | Callable = Uniform,
+        lateness_weight_distribution: Union[int, float, str, type, Callable] = Uniform,
         **kwargs,
     ):
         self.num_loc = num_loc
         self.min_loc = min_loc
         self.max_loc = max_loc
         self.depot_mode = depot_mode
-        self.num_depot = num_depot
+        self.num_agents = num_agents
         self.min_capacity = min_capacity
         self.max_capacity = max_capacity
         self.min_lateness_weight = min_lateness_weight
@@ -107,16 +107,14 @@ class MDCPDPGenerator(Generator):
         # Sample depot
         if self.depot_mode == "single":
             depot = self.depot_sampler.sample((*batch_size, 2))[:, None, :].repeat(
-                1, self.num_depot, 1
+                1, self.num_agents, 1
             )
         else:
-            depot = self.depot_sampler.sample((*batch_size, self.num_depot, 2))
+            depot = self.depot_sampler.sample((*batch_size, self.num_agents, 2))
 
         # Sample capacity
         capacity = torch.randint(
-            self.min_capacity,
-            self.max_capacity + 1,
-            size=(*batch_size, 1),
+            self.min_capacity, self.max_capacity + 1, size=(*batch_size, self.num_agents)
         )
 
         # Sample lateness weight
