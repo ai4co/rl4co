@@ -3,27 +3,24 @@
 fail_fast: true
 
 repos:
-
 - repo: https://github.com/psf/black
-  rev: 24.4.2
+  rev: 25.1.0
   hooks:
     - id: black
       args: [--config, pyproject.toml]
       types: [python]
 
-
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.4.8
+  rev: v0.11.0
   hooks:
     - id: ruff
       args: [ --fix ]
 
-
--  repo: https://github.com/pre-commit/pre-commit-hooks
-   rev: v4.6.0
-   hooks:
-   -   id: check-toml
-       id: check-yaml
-       id: detect-private-key
-       id: end-of-file-fixer
-       id: trailing-whitespace
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+    - id: check-toml
+    - id: check-yaml
+    - id: detect-private-key
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
