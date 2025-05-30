@@ -82,16 +82,15 @@ pip install -U git+https://github.com/ai4co/rl4co.git
 ```
 
 ### Local install and development
-If you want to develop RL4CO we recommend you to install it locally with `pip` in editable mode:
+
+We recommend local development with the blazing-fast [`uv`](https://docs.astral.sh/uv/) package manager, for instance:
 
 ```bash
 git clone https://github.com/ai4co/rl4co && cd rl4co
-pip install -e .
+uv sync --all-extras
 ```
 
-We recommend installing in virtual environments with a package manager such as the blazing-fast [`uv`](https://docs.astral.sh/uv/), [`poetry`](https://python-poetry.org/), or [`conda`](https://docs.conda.io/en/latest/); instruction are available in the [documentation](https://rl4.co/docs/content/start/installation/).
-
-
+This will create a new virtual environment in `.venv/` and install all dependencies.
 
 ## Usage
 
