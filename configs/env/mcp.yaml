@@ -1,0 +1,17 @@
+_target_: rl4co.envs.MCPEnv
+name: mcp
+
+generator_params:
+  num_items: 200
+  num_sets: 100
+  min_weight: 1
+  max_weight: 10
+  min_size: 5
+  max_size: 15
+  n_sets_to_choose: 10
+  size_distribution: uniform
+  weight_distribution: uniform
+
+# data_dir: ${paths.root_dir}/data/mcp
+# val_file: mcp${env.generator_params.num_loc}_val_seed4321.npz
+# test_file: mcp${env.generator_params.num_loc}_test_seed1234.npz
