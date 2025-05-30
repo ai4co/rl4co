@@ -17,7 +17,7 @@ class MDCPDPGenerator(Generator):
     Args:
         num_loc: number of locations (customers)
         min_loc: minimum value for the location coordinates
-        max_loc: maximum value for the location coordinates, default is 150 insted of 1.0, will be scaled
+        max_loc: maximum value for the location coordinates, default is 150 instead of 1.0, will be scaled
         loc_distribution: distribution for the location coordinates
         num_agents: number of depots, each depot has one vehicle
         depot_mode: mode for the depot, either single or multiple
@@ -64,7 +64,7 @@ class MDCPDPGenerator(Generator):
 
         # Number of locations must be even
         if num_loc % 2 != 0:
-            log.warn(
+            log.warning(
                 "Number of locations must be even. Adding 1 to the number of locations."
             )
             self.num_loc += 1

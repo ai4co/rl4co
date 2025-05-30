@@ -68,7 +68,7 @@ class NARGNNPolicy(NonAutoregressivePolicy):
         **constructive_policy_kw,
     ):
         if len(constructive_policy_kw) > 0:
-            log.warn(f"Unused kwargs: {constructive_policy_kw}")
+            log.warning(f"Unused kwargs: {constructive_policy_kw}")
 
         if encoder is None:
             encoder = NARGNNEncoder(
