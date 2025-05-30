@@ -79,6 +79,7 @@ dev = [
     "ruff",
     "pytest",
     "pytest-cov",
+    "pytest-xdist>=3.7.0",
 ]
 graph = ["torch_geometric"]
 routing = [
