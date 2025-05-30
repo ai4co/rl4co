@@ -32,8 +32,10 @@ pip install uv
 ```
 
 Then, you can create a virtual environment locally and activate it:
+
 ```bash
-uv sync
+git clone https://github.com/ai4co/rl4co && cd rl4co
+uv sync --all-extras
 source .venv/bin/activate
 ```
 

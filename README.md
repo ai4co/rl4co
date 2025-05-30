@@ -11,7 +11,7 @@
 <a href="https://github.com/pytorch/rl"><img alt="base: TorchRL" src="https://img.shields.io/badge/base-TorchRL-red"></a>
 <a href="https://hydra.cc/"><img alt="config: Hydra" src="https://img.shields.io/badge/config-Hydra-89b8cd"></a>
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-<a href="https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ"><img alt="Slack" src="https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack"></a>
+<a href="https://join.slack.com/t/ai4co-community/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ"><img alt="Slack" src="https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack"></a>
 <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-red.svg"></a>
 <a href="https://colab.research.google.com/github/ai4co/rl4co/blob/main/examples/1-quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 <a href="https://pypi.org/project/rl4co"><img alt="PyPI" src="https://img.shields.io/pypi/v/rl4co?logo=pypi"></a>
@@ -82,16 +82,16 @@ pip install -U git+https://github.com/ai4co/rl4co.git
 ```
 
 ### Local install and development
-If you want to develop RL4CO we recommend you to install it locally with `pip` in editable mode:
+
+We recommend local development with the blazing-fast [`uv`](https://docs.astral.sh/uv/) package manager, for instance:
 
 ```bash
 git clone https://github.com/ai4co/rl4co && cd rl4co
-pip install -e .
+uv sync --all-extras
+source .venv/bin/activate
 ```
 
-We recommend installing in virtual environments with a package manager such as the blazing-fast [`uv`](https://docs.astral.sh/uv/), [`poetry`](https://python-poetry.org/), or [`conda`](https://docs.conda.io/en/latest/); instruction are available in the [documentation](https://rl4.co/docs/content/start/installation/).
-
-
+This will create a new virtual environment in `.venv/` and install all dependencies.
 
 ## Usage
 
@@ -181,7 +181,7 @@ You may check out the [issues](https://github.com/ai4co/rl4co/issues) and [discu
 Have a suggestion, request, or found a bug? Feel free to [open an issue](https://github.com/ai4co/rl4co/issues) or [submit a pull request](https://github.com/ai4co/rl4co/pulls).
 If you would like to contribute, please check out our contribution guidelines   [here](.github/CONTRIBUTING.md). We welcome and look forward to all contributions to RL4CO!
 
-We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ) if you have any questions or would like to discuss RL4CO with us. We are open to collaborations and would love to hear from you 🚀
+We are also on [Slack](https://join.slack.com/t/ai4co-community/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ) if you have any questions or would like to discuss RL4CO with us. We are open to collaborations and would love to hear from you 🚀
 
 ### Contributors
 <a href="https://github.com/ai4co/rl4co/graphs/contributors">
@@ -192,22 +192,22 @@ We are also on [Slack](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4
 If you find RL4CO valuable for your research or applied projects:
 
 ```bibtex
-@article{berto2024rl4co,
+@inproceedings{berto2025rl4co,
     title={{RL4CO: an Extensive Reinforcement Learning for Combinatorial Optimization Benchmark}},
     author={Federico Berto and Chuanbo Hua and Junyoung Park and Laurin Luttmann and Yining Ma and Fanchen Bu and Jiarui Wang and Haoran Ye and Minsu Kim and Sanghyeok Choi and Nayeli Gast Zepeda and Andr\'e Hottung and Jianan Zhou and Jieyi Bi and Yu Hu and Fei Liu and Hyeonah Kim and Jiwoo Son and Haeyeon Kim and Davide Angioni and Wouter Kool and Zhiguang Cao and Jie Zhang and Kijung Shin and Cathy Wu and Sungsoo Ahn and Guojie Song and Changhyun Kwon and Lin Xie and Jinkyoo Park},
-    year={2024},
-    journal={arXiv preprint arXiv:2306.17100},
-    note={\url{https://github.com/ai4co/rl4co}}
+    booktitle={Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+    year={2025},
+    url={https://github.com/ai4co/rl4co}
 }
 ```
 
-Note that a [previous version of RL4CO](https://openreview.net/forum?id=YXSJxi8dOV) has been accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/). Since then, the library has greatly evolved and improved!
+Note that a [previous version of RL4CO](https://openreview.net/forum?id=YXSJxi8dOV) was also accepted as an oral presentation at the [NeurIPS 2023 GLFrontiers Workshop](https://glfrontiers.github.io/). Since then, the library has greatly evolved and improved!
 
 ---
 
 
 ## Join us
-[![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/rl4co/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
+[![Slack](https://img.shields.io/badge/slack-chat-611f69.svg?logo=slack)](https://join.slack.com/t/ai4co-community/shared_invite/zt-1ytz2c1v4-0IkQ8NQH4TRXIX8PrRmDhQ)
 
 We invite you to join our AI4CO community, an open research group in Artificial Intelligence (AI) for Combinatorial Optimization (CO)!
 
