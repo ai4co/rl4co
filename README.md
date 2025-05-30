@@ -88,6 +88,7 @@ We recommend local development with the blazing-fast [`uv`](https://docs.astral.
 ```bash
 git clone https://github.com/ai4co/rl4co && cd rl4co
 uv sync --all-extras
+source .venv/bin/activate
 ```
 
 This will create a new virtual environment in `.venv/` and install all dependencies.

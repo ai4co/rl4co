@@ -36,6 +36,7 @@ Then, you can create a virtual environment locally and activate it:
 ```bash
 git clone https://github.com/ai4co/rl4co && cd rl4co
 uv sync --all-extras
+source .venv/bin/activate
 ```
 
 Note that `uv` directly generates the `.venv` folder in the current directory.
