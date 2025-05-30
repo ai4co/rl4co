@@ -45,7 +45,7 @@ class L2DPolicy(AutoregressivePolicy):
         **constructive_policy_kw,
     ):
         if len(constructive_policy_kw) > 0:
-            log.warn(f"Unused kwargs: {constructive_policy_kw}")
+            log.warning(f"Unused kwargs: {constructive_policy_kw}")
 
         if encoder is None:
             if stepwise_encoding:
@@ -113,7 +113,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
         **constructive_policy_kw,
     ):
         if len(constructive_policy_kw) > 0:
-            log.warn(f"Unused kwargs: {constructive_policy_kw}")
+            log.warning(f"Unused kwargs: {constructive_policy_kw}")
 
         if encoder is None:
             if init_embedding is None:

@@ -48,7 +48,7 @@ class MPDPGenerator(Generator):
 
         # Number of locations must be even
         if num_loc % 2 != 0:
-            log.warn(
+            log.warning(
                 "Number of locations must be even. Adding 1 to the number of locations."
             )
             self.num_loc += 1
