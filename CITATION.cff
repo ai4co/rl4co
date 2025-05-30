@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 title: RL4CO
 authors:
-  - family-names: RL4CO Team
+  - family-names: AI4CO
 url: https://github.com/ai4co/rl4co
 
 preferred-citation:
@@ -71,8 +71,8 @@ preferred-citation:
       given-names: Jinkyoo
 
 
-  collection-title: arXiv
-  year: 2024
-  url: https://arxiv.org/abs/2306.17100
+  collection-title: KDD
+  year: 2025
+  url: https://github.com/ai4co/rl4co
 
 
