@@ -202,7 +202,7 @@ def test_nargnn():
 @pytest.mark.skipif(
     "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
 )
-@pytest.mark.skipfif("numba" not in sys.modules, reason="Numba not installed")
+@pytest.mark.skipif("numba" not in sys.modules, reason="Numba not installed")
 @pytest.mark.parametrize("use_local_search", [False])
 def test_deepaco(use_local_search):
     env = TSPEnv(generator_params=dict(num_loc=20))
