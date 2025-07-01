@@ -41,10 +41,10 @@ def on_startup(*args, **kwargs):
 
     append_tricks_to_readme("README.md")
 
-    # Create CNAME file with content "rl4.co"
-    log.info("Creating CNAME file with content 'rl4.co'")
+    # Create CNAME file with content "rl4co.ai4co.org"
+    log.info("Creating CNAME file with content 'rl4co.ai4co.org'")
     with open("CNAME", "w") as f:
-        f.write("rl4.co")
+        f.write("rl4co.ai4co.org")
 
 
 def on_shutdown(*args, **kwargs):

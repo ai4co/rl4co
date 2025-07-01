@@ -19,7 +19,7 @@
 <a href="https://github.com/ai4co/rl4co/actions/workflows/tests.yml"><img alt="Test" src="https://github.com/ai4co/rl4co/actions/workflows/tests.yml/badge.svg"></a>
 
 <p>
-  <a href="https://rl4.co/"><strong>Documentation</strong></a> |
+  <a href="https://rl4co.ai4co.org/"><strong>Documentation</strong></a> |
   <a href="#getting-started"><strong>Getting Started</strong></a> |
   <a href="#usage"><strong>Usage</strong></a> |
   <a href="#contributing"><strong>Contributing</strong></a> |
@@ -161,7 +161,7 @@ trainer = RL4COTrainer(max_epochs=10, accelerator="gpu", precision="16-mixed")
 trainer.fit(model)
 ```
 
-Other examples can be found on our [documentation](https://rl4.co/examples/1-quickstart/)!
+Other examples can be found on our [documentation](https://rl4co.ai4co.org/examples/1-quickstart/)!
 
 
 ### Testing
@@ -174,7 +174,7 @@ pytest tests
 
 ### Known Bugs
 
-You may check out the [issues](https://github.com/ai4co/rl4co/issues) and [discussions](https://github.com/ai4co/rl4co/discussions). We will also periodically post updates on the [FAQ section](https://rl4.co/docs/content/general/faq/).
+You may check out the [issues](https://github.com/ai4co/rl4co/issues) and [discussions](https://github.com/ai4co/rl4co/discussions). We will also periodically post updates on the [FAQ section](https://rl4co.ai4co.org/docs/content/general/faq/).
 
 ## Contributing
 

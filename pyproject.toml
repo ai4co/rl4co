@@ -105,9 +105,9 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://rl4.co"
+Homepage = "https://rl4co.ai4co.org"
 Repository = "https://github.com/ai4co/rl4co"
-Documentation = "https://rl4co.readthedocs.io"
+Documentation = "https://rl4co.ai4co.org"
 Tracker = "https://github.com/ai4co/rl4co/issues"
 
 [tool.hatch.build.targets.sdist]

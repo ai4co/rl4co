@@ -72,7 +72,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
         if kwargs:
             log.error(
                 f"Unused keyword arguments: {', '.join(kwargs.keys())}. "
-                "Please check the base class documentation at https://rl4co.readthedocs.io/en/latest/_content/api/envs/base.html. "
+                "Please check the base class documentation at https://rl4co.ai4co.org/en/latest/_content/api/envs/base.html. "
                 "In case you would like to pass data generation arguments, please pass a `generator` method instead "
                 "or for example: `generator_kwargs=dict(num_loc=50)` to the constructor."
             )
