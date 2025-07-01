@@ -141,17 +141,19 @@ exclude = '''
 '''
 
 [tool.ruff]
-select = ["F", "E", "W", "I001"]
 line-length = 90
-show-fixes = false
 target-version = "py311"
-task-tags = ["TODO", "FIXME"]
-ignore = ["E501"] # never enforce `E501` (line length violations), done in Black
+show-fixes = false
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint]
+select = ["F", "E", "W", "I001"]
+ignore = ["E501"]  # never enforce `E501` (line length violations), handled by Black
+task-tags = ["TODO", "FIXME"]
+
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = []
 known-third-party = []
 section-order = [
