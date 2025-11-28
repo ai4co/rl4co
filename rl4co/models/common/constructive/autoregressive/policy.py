@@ -32,7 +32,7 @@ class AutoregressivePolicy(ConstructivePolicy):
         if decoder is None:
             raise ValueError("AutoregressivePolicy requires a decoder to be provided.")
 
-        super(AutoregressivePolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

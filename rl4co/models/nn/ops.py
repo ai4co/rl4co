@@ -1,7 +1,5 @@
 import math
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 
@@ -10,7 +8,7 @@ from rl4co.utils.ops import gather_by_index
 
 class SkipConnection(nn.Module):
     def __init__(self, module):
-        super(SkipConnection, self).__init__()
+        super().__init__()
         self.module = module
 
     def forward(self, x):
@@ -19,10 +17,10 @@ class SkipConnection(nn.Module):
 
 class AdaptiveSequential(nn.Sequential):
     def forward(
-        self, *inputs: Tuple[torch.Tensor] | torch.Tensor
-    ) -> Tuple[torch.Tensor] | torch.Tensor:
+        self, *inputs: tuple[torch.Tensor] | torch.Tensor
+    ) -> tuple[torch.Tensor] | torch.Tensor:
         for module in self._modules.values():
-            if type(inputs) == tuple:
+            if isinstance(inputs, tuple):
                 inputs = module(*inputs)
             else:
                 inputs = module(inputs)
@@ -31,7 +29,7 @@ class AdaptiveSequential(nn.Sequential):
 
 class Normalization(nn.Module):
     def __init__(self, embed_dim, normalization="batch"):
-        super(Normalization, self).__init__()
+        super().__init__()
         if normalization != "layer":
             normalizer_class = {
                 "batch": nn.BatchNorm1d,
@@ -63,9 +61,7 @@ class PositionalEncoding(nn.Module):
         self.d_model = embed_dim
         max_len = max_len
         position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, self.d_model, 2) * (-math.log(10000.0) / self.d_model)
-        )
+        div_term = torch.exp(torch.arange(0, self.d_model, 2) * (-math.log(10000.0) / self.d_model))
         pe = torch.zeros(max_len, 1, self.d_model)
         pe[:, 0, 0::2] = torch.sin(position * div_term)
         pe[:, 0, 1::2] = torch.cos(position * div_term)
@@ -126,9 +122,7 @@ class RandomEncoding(nn.Module):
         b, s, _ = hidden.shape
         if classes is None:
             classes = torch.eye(s).unsqueeze(0).expand(b, s)
-        assert (
-            classes.max() < self.max_classes
-        ), "number of classes larger than embedding table"
+        assert classes.max() < self.max_classes, "number of classes larger than embedding table"
         classes = classes.unsqueeze(-1).expand(-1, -1, self.embed_dim)
         rand_idx = torch.rand(b, self.max_classes).argsort(dim=1)
         embs_permuted = self.emb[rand_idx]

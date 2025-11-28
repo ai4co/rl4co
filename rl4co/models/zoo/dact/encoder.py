@@ -1,7 +1,5 @@
 import math
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,7 +16,7 @@ log = get_pylogger(__name__)
 # implements the Multi-head DAC-Att module
 class DAC_ATT(nn.Module):
     def __init__(self, n_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None):
-        super(DAC_ATT, self).__init__()
+        super().__init__()
 
         self.n_heads = n_heads
 
@@ -29,37 +27,23 @@ class DAC_ATT(nn.Module):
         self.norm_factor = 1 / math.sqrt(1 * self.key_dim)
 
         # W_h^Q in the paper
-        self.W_query_node = nn.Parameter(
-            torch.Tensor(n_heads, self.input_dim, self.key_dim)
-        )
+        self.W_query_node = nn.Parameter(torch.Tensor(n_heads, self.input_dim, self.key_dim))
         # W_g^Q in the paper
-        self.W_query_pos = nn.Parameter(
-            torch.Tensor(n_heads, self.input_dim, self.key_dim)
-        )
+        self.W_query_pos = nn.Parameter(torch.Tensor(n_heads, self.input_dim, self.key_dim))
         # W_h^K in the paper
-        self.W_key_node = nn.Parameter(
-            torch.Tensor(n_heads, self.input_dim, self.key_dim)
-        )
+        self.W_key_node = nn.Parameter(torch.Tensor(n_heads, self.input_dim, self.key_dim))
         # W_g^K in the paper
         self.W_key_pos = nn.Parameter(torch.Tensor(n_heads, self.input_dim, self.key_dim))
 
         # W_h^V and W_h^Vref in the paper
-        self.W_val_node = nn.Parameter(
-            torch.Tensor(2 * n_heads, self.input_dim, self.val_dim)
-        )
+        self.W_val_node = nn.Parameter(torch.Tensor(2 * n_heads, self.input_dim, self.val_dim))
         # W_g^V and W_g^Vref in the paper
-        self.W_val_pos = nn.Parameter(
-            torch.Tensor(2 * n_heads, self.input_dim, self.val_dim)
-        )
+        self.W_val_pos = nn.Parameter(torch.Tensor(2 * n_heads, self.input_dim, self.val_dim))
 
         # W_h^O and W_g^O in the paper
         if embed_dim is not None:
-            self.W_out_node = nn.Parameter(
-                torch.Tensor(n_heads, 2 * self.key_dim, embed_dim)
-            )
-            self.W_out_pos = nn.Parameter(
-                torch.Tensor(n_heads, 2 * self.key_dim, embed_dim)
-            )
+            self.W_out_node = nn.Parameter(torch.Tensor(n_heads, 2 * self.key_dim, embed_dim))
+            self.W_out_pos = nn.Parameter(torch.Tensor(n_heads, 2 * self.key_dim, embed_dim))
 
         self.init_parameters()
 
@@ -88,9 +72,7 @@ class DAC_ATT(nn.Module):
         V_pos = torch.matmul(h_pos, self.W_val_pos).view(shp_v)
 
         # Get attention correlations and norm by softmax
-        node_correlations = self.norm_factor * torch.matmul(
-            Q_node, K_node.transpose(2, 3)
-        )
+        node_correlations = self.norm_factor * torch.matmul(Q_node, K_node.transpose(2, 3))
         pos_correlations = self.norm_factor * torch.matmul(Q_pos, K_pos.transpose(2, 3))
         attn1 = F.softmax(node_correlations, dim=-1)  # head, bs, n, n
         attn2 = F.softmax(pos_correlations, dim=-1)  # head, bs, n, n
@@ -106,16 +88,12 @@ class DAC_ATT(nn.Module):
 
         # get output
         out_node = torch.mm(
-            heads_node.permute(1, 2, 0, 3)
-            .contiguous()
-            .view(-1, self.n_heads * 2 * self.val_dim),
+            heads_node.permute(1, 2, 0, 3).contiguous().view(-1, self.n_heads * 2 * self.val_dim),
             self.W_out_node.view(-1, self.embed_dim),
         ).view(batch_size, graph_size, self.embed_dim)
 
         out_pos = torch.mm(
-            heads_pos.permute(1, 2, 0, 3)
-            .contiguous()
-            .view(-1, self.n_heads * 2 * self.val_dim),
+            heads_pos.permute(1, 2, 0, 3).contiguous().view(-1, self.n_heads * 2 * self.val_dim),
             self.W_out_pos.view(-1, self.embed_dim),
         ).view(batch_size, graph_size, self.embed_dim)
 
@@ -131,7 +109,7 @@ class DACTEncoderLayer(nn.Module):
         feed_forward_hidden,
         normalization="layer",
     ):
-        super(DACTEncoderLayer, self).__init__()
+        super().__init__()
 
         self.MHA_sublayer = DACsubLayer(
             n_heads,
@@ -161,7 +139,7 @@ class DACsubLayer(nn.Module):
         feed_forward_hidden,
         normalization="layer",
     ):
-        super(DACsubLayer, self).__init__()
+        super().__init__()
 
         self.MHA = DAC_ATT(n_heads, input_dim=embed_dim, embed_dim=embed_dim)
 
@@ -184,7 +162,7 @@ class FFNsubLayer(nn.Module):
         feed_forward_hidden,
         normalization="layer",
     ):
-        super(FFNsubLayer, self).__init__()
+        super().__init__()
 
         self.FF1 = (
             nn.Sequential(
@@ -244,7 +222,7 @@ class DACTEncoder(ImprovementEncoder):
         normalization: str = "layer",
         feedforward_hidden: int = 64,
     ):
-        super(DACTEncoder, self).__init__(
+        super().__init__(
             embed_dim=embed_dim,
             env_name=env_name,
             pos_type=pos_type,
@@ -268,7 +246,7 @@ class DACTEncoder(ImprovementEncoder):
             )
         )
 
-    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> Tuple[Tensor, Tensor]:
+    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> tuple[Tensor, Tensor]:
         NFE, PFE = self.net(init_h, init_p)
 
         return NFE, PFE

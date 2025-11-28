@@ -1,4 +1,5 @@
-from typing import Any, Generator, NamedTuple, Optional, Union
+from collections.abc import Generator
+from typing import Any, NamedTuple
 
 import torch
 
@@ -22,8 +23,8 @@ class TSP2SHPPAdapter:
         self,
         parent_td: TensorDict,
         actions: torch.Tensor,
-        subprob_batch_size: Optional[int] = None,
-        partition_node_count: Union[int, list[int]] = 20,
+        subprob_batch_size: int | None = None,
+        partition_node_count: int | list[int] = 20,
         shift: int = 0,
     ) -> None:
         batch_size = parent_td.batch_size[0]
@@ -40,9 +41,7 @@ class TSP2SHPPAdapter:
         self.subprob_batch_size = subprob_batch_size
         self.shift = shift
 
-    def _get_batched_subprobs_one_iter(
-        self, node_count: int
-    ) -> Generator[SHPPMapping, Any, None]:
+    def _get_batched_subprobs_one_iter(self, node_count: int) -> Generator[SHPPMapping, Any, None]:
         self.shpp_actions, shpp_coordinates, self.share_memory = self.action_partitioner(
             self._actions, self.coordinates, node_count
         )
@@ -52,9 +51,7 @@ class TSP2SHPPAdapter:
             return
         batch_size = self.subprob_batch_size is None or shpp_count
         for start_index in range(0, shpp_count, batch_size):
-            map_action_index = torch.arange(
-                start_index, min(start_index + batch_size, shpp_count)
-            )
+            map_action_index = torch.arange(start_index, min(start_index + batch_size, shpp_count))
             map_node_index = self.shpp_actions[map_action_index]  # shpp_index
             this_shpp_coordinates = shpp_coordinates[map_action_index]
             yield SHPPMapping(map_action_index, map_node_index, this_shpp_coordinates)
@@ -84,18 +81,14 @@ class TSP2SHPPAdapter:
         return self._actions
 
     @staticmethod
-    def action_partitioner(
-        actions: torch.Tensor, coordinates: torch.Tensor, shpp_nodes: int
-    ):
+    def action_partitioner(actions: torch.Tensor, coordinates: torch.Tensor, shpp_nodes: int):
         batch_size, tsp_nodes, _ = coordinates.shape
         share_memory = tsp_nodes % shpp_nodes == 0
         if share_memory:
             shpp_actions = actions.view(-1, shpp_nodes)
         else:
             tsp_nodes -= tsp_nodes % shpp_nodes
-            shpp_actions = actions[:, :tsp_nodes].reshape(
-                -1, shpp_nodes
-            )  # trim tail nodes
+            shpp_actions = actions[:, :tsp_nodes].reshape(-1, shpp_nodes)  # trim tail nodes
 
         repeated_coordinates = (
             coordinates.unsqueeze(1)

@@ -37,7 +37,7 @@ Arguments guideline:
 - `--method`: the evaluation method, e.g., `greedy`, `sampling`, `multistart_greedy`, `augment_dihedral_8`, `augment`, `multistart_greedy_augment_dihedral_8`, and `multistart_greedy_augment`. Default is `greedy`.
 - `--save-results`: whether to save the evaluation results as a `.pkl` file. Deafult is `True`. The results include `actions`, `rewards`, `inference_time`, and `avg_reward`.
 - `--save-path`: the path to save the evaluation results. Default is `results/`.
-- `--num-instances`: the number of test instances to evaluate. Default is `1000`. 
+- `--num-instances`: the number of test instances to evaluate. Default is `1000`.
 
 If you use the `sampling` method, you may need to specify the following parameters:
 - `--samples`: the number of samples for the sampling method. Default is `1280`.

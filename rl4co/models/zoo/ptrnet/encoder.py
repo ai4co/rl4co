@@ -9,7 +9,7 @@ class Encoder(nn.Module):
     to a hidden vector"""
 
     def __init__(self, input_dim, hidden_dim):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.hidden_dim = hidden_dim
         self.lstm = nn.LSTM(input_dim, hidden_dim)
         self.init_hx, self.init_cx = self.init_hidden(hidden_dim)

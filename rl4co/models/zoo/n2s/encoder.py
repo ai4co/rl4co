@@ -1,6 +1,6 @@
 import math
 
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -48,7 +48,7 @@ class Synth_Attention(nn.Module):
 
     def forward(
         self, h_fea: torch.Tensor, aux_att_score: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # h should be (batch_size, n_query, input_dim)
         batch_size, n_query, input_dim = h_fea.size()
 
@@ -64,9 +64,7 @@ class Synth_Attention(nn.Module):
         # Calculate compatibility (n_heads, batch_size, n_query, n_key)
         compatibility = torch.cat((torch.matmul(Q, K.transpose(2, 3)), aux_att_score), 0)
 
-        attn_raw = compatibility.permute(
-            1, 2, 3, 0
-        )  # (batch_size, n_query, n_key, n_heads)
+        attn_raw = compatibility.permute(1, 2, 3, 0)  # (batch_size, n_query, n_key, n_heads)
         attn = self.score_aggr(attn_raw).permute(
             3, 0, 1, 2
         )  # (n_heads, batch_size, n_query, n_key)
@@ -94,11 +92,11 @@ class SynthAttNormSubLayer(nn.Module):
 
         self.Norm = Normalization(input_dim, normalization)
 
-    __call__: Callable[..., Tuple[torch.Tensor, torch.Tensor]]
+    __call__: Callable[..., tuple[torch.Tensor, torch.Tensor]]
 
     def forward(
         self, h_fea: torch.Tensor, aux_att_score: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # Attention and Residual connection
         h_wave, aux_att_score = self.SynthAtt(h_fea, aux_att_score)
 
@@ -107,9 +105,7 @@ class SynthAttNormSubLayer(nn.Module):
 
 
 class FFNormSubLayer(nn.Module):
-    def __init__(
-        self, input_dim: int, feed_forward_hidden: int, normalization: str
-    ) -> None:
+    def __init__(self, input_dim: int, feed_forward_hidden: int, normalization: str) -> None:
         super().__init__()
 
         self.FF = (
@@ -139,19 +135,15 @@ class N2SEncoderLayer(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.SynthAttNorm_sublayer = SynthAttNormSubLayer(
-            n_heads, input_dim, normalization
-        )
+        self.SynthAttNorm_sublayer = SynthAttNormSubLayer(n_heads, input_dim, normalization)
 
-        self.FFNorm_sublayer = FFNormSubLayer(
-            input_dim, feed_forward_hidden, normalization
-        )
+        self.FFNorm_sublayer = FFNormSubLayer(input_dim, feed_forward_hidden, normalization)
 
-    __call__: Callable[..., Tuple[torch.Tensor, torch.Tensor]]
+    __call__: Callable[..., tuple[torch.Tensor, torch.Tensor]]
 
     def forward(
         self, h_fea: torch.Tensor, aux_att_score: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         h_wave, aux_att_score = self.SynthAttNorm_sublayer(h_fea, aux_att_score)
         return self.FFNorm_sublayer(h_wave), aux_att_score
 
@@ -184,7 +176,7 @@ class N2SEncoder(ImprovementEncoder):
         normalization: str = "layer",
         feedforward_hidden: int = 128,
     ):
-        super(N2SEncoder, self).__init__(
+        super().__init__(
             embed_dim=embed_dim,
             init_embedding=init_embedding,
             pos_embedding=pos_embedding,
@@ -210,7 +202,7 @@ class N2SEncoder(ImprovementEncoder):
             )
         )
 
-    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> Tuple[Tensor, Tensor]:
+    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> tuple[Tensor, Tensor]:
         embed_p = self.pos_net(init_p)
         final_h, final_p = self.net(init_h, embed_p)
 

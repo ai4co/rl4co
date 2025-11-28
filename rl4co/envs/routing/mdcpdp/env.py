@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -117,14 +115,10 @@ class MDCPDPEnv(RL4COEnvBase):
         # TODO: better way?
         available = td["available"]
         if td["i"][0] > 0:
-            available = available.scatter(
-                -1, current_node.expand_as(td["action_mask"]), 0
-            )
+            available = available.scatter(-1, current_node.expand_as(td["action_mask"]), 0)
 
         # Record the to be delivered node
-        to_deliver = td["to_deliver"].scatter(
-            -1, new_to_deliver.expand_as(td["to_deliver"]), 1
-        )
+        to_deliver = td["to_deliver"].scatter(-1, new_to_deliver.expand_as(td["to_deliver"]), 1)
 
         # Update number of current carry orders
         current_carry = td["current_carry"]
@@ -136,9 +130,7 @@ class MDCPDPEnv(RL4COEnvBase):
         # Update the current depot
         # current_depot = td["current_depot"]
         # current_depot = torch.where(back_flag, current_node, current_depot)
-        current_depot = torch.where(
-            current_node < num_agents, current_node, td["current_depot"]
-        )
+        current_depot = torch.where(current_node < num_agents, current_node, td["current_depot"])
 
         # Update the length of current tour
         current_length = td["current_length"]
@@ -168,9 +160,7 @@ class MDCPDPEnv(RL4COEnvBase):
 
         # Update the arrive time for each city
         arrivetime_record = td["arrivetime_record"]
-        arrivetime_record.scatter_(
-            -1, current_node, current_length.gather(-1, current_depot)
-        )
+        arrivetime_record.scatter_(-1, current_node, current_length.gather(-1, current_depot))
 
         # Action is feasible if the node is not visited and is to deliver
         action_mask = available & to_deliver
@@ -184,39 +174,27 @@ class MDCPDPEnv(RL4COEnvBase):
 
         # If back to the current depot, this tour is done, set other depots to availbe to start
         # a new tour. Must start from a depot.
-        action_mask[..., num_agents:] &= ~back_flag.expand_as(
-            action_mask[..., num_agents:]
-        )
+        action_mask[..., num_agents:] &= ~back_flag.expand_as(action_mask[..., num_agents:])
 
         # If back to the depot, other unvisited depots are available
         # if not back to the depot, depots are not available except the current depot
-        action_mask[..., :num_agents] &= back_flag.expand_as(
-            action_mask[..., :num_agents]
-        )
+        action_mask[..., :num_agents] &= back_flag.expand_as(action_mask[..., :num_agents])
         action_mask[..., :num_agents].scatter_(-1, current_depot, ~back_flag)
 
         # If this is the last agent, it has to finish all the left taks
-        last_depot_flag = (
-            torch.sum(available[..., :num_agents].long(), dim=-1, keepdim=True) == 0
-        )
-        action_mask[..., :num_agents] &= ~last_depot_flag.expand_as(
-            action_mask[..., :num_agents]
-        )
+        last_depot_flag = torch.sum(available[..., :num_agents].long(), dim=-1, keepdim=True) == 0
+        action_mask[..., :num_agents] &= ~last_depot_flag.expand_as(action_mask[..., :num_agents])
 
         # Update depot mask
         carry_flag = current_carry > 0  # If agent is carrying orders
-        action_mask[
-            ..., :num_agents
-        ] &= ~carry_flag  # If carrying orders, depot is not available
+        action_mask[..., :num_agents] &= ~carry_flag  # If carrying orders, depot is not available
 
         # 1) current node is a depot
         # 2) we did not just come back
         # 3) it is not the first step
         # cannot go to other depots
         prev_depot_flag = (current_node < num_agents) & (td["i"] > 0) & ~back_flag
-        action_mask[..., :num_agents] &= ~prev_depot_flag.expand_as(
-            action_mask[..., :num_agents]
-        )
+        action_mask[..., :num_agents] &= ~prev_depot_flag.expand_as(action_mask[..., :num_agents])
 
         # We are done there are no unvisited locations
         # done = torch.count_nonzero(available, dim=-1) == 0
@@ -249,7 +227,7 @@ class MDCPDPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         if "depots" in td:
@@ -290,17 +268,13 @@ class MDCPDPEnv(RL4COEnvBase):
                 low=0, high=num_agents, size=(*batch_size, 1), device=device
             )
         elif self.start_mode == "order":
-            current_depot = torch.zeros(
-                (*batch_size, 1), dtype=torch.int64, device=device
-            )
+            current_depot = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Current carry order number
         current_carry = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
 
         # Current length of each depot
-        current_length = torch.zeros(
-            (*batch_size, num_agents), dtype=torch.float32, device=device
-        )
+        current_length = torch.zeros((*batch_size, num_agents), dtype=torch.float32, device=device)
 
         # Arrive time for each city
         arrivetime_record = torch.zeros(

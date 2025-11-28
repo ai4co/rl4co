@@ -1,30 +1,20 @@
+import concurrent.futures
 import os
 import platform
-from ctypes import (
-    Structure,
-    CDLL,
-    POINTER,
-    c_int,
-    c_double,
-    c_char,
-    sizeof,
-    cast,
-    byref,
-)
-from dataclasses import dataclass
-from typing import List
-
-import concurrent.futures
-import numpy as np
-import sys
 import random
+import sys
 import time
+
+from ctypes import CDLL, POINTER, Structure, byref, c_char, c_double, c_int, cast, sizeof
+from dataclasses import dataclass
+
+import numpy as np
 import torch
+
 from tensordict.tensordict import TensorDict
 
 from rl4co.utils.ops import get_distance_matrix
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -64,7 +54,7 @@ def local_search(
     else:
         distances_np = distances.detach().cpu().numpy()
 
-    subroutes_all: List[List[List[int]]] = [get_subroutes(path) for path in actions_np]
+    subroutes_all: list[list[list[int]]] = [get_subroutes(path) for path in actions_np]
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         for i in range(len(subroutes_all)):
@@ -86,32 +76,35 @@ def local_search(
 
     # Remove heading and tailing zeros
     max_pos = np.max(np.where(new_actions != 0)[1])
-    new_actions = new_actions[:, 1: max_pos + 1]
+    new_actions = new_actions[:, 1 : max_pos + 1]
     new_actions = torch.from_numpy(new_actions).to(td.device)
 
     # Check the validity of the solution and use the original solution if the new solution is invalid
     isvalid = check_validity(td, new_actions)
-    if not isvalid.all():    
+    if not isvalid.all():
         new_actions[~isvalid] = 0
         orig_valid_actions = actions[~isvalid]
         # pad if needed
         orig_max_pos = torch.max(torch.where(orig_valid_actions != 0)[1]) + 1
         if orig_max_pos > max_pos:
             new_actions = torch.nn.functional.pad(
-                new_actions, (0, orig_max_pos - max_pos, 0, 0), mode="constant", value=0  # type: ignore
+                new_actions,
+                (0, orig_max_pos - max_pos, 0, 0),
+                mode="constant",
+                value=0,  # type: ignore
             )
         new_actions[~isvalid, :orig_max_pos] = orig_valid_actions[:, :orig_max_pos]
     return new_actions
 
 
-def get_subroutes(path, end_with_zero = True) -> List[List[int]]:
+def get_subroutes(path, end_with_zero=True) -> list[list[int]]:
     x = np.where(path == 0)[0]
     subroutes = []
     for i, j in zip(x, x[1:]):
         if j - i > 1:
             if end_with_zero:
                 j = j + 1
-            subroutes.append(path[i: j])
+            subroutes.append(path[i:j])
     return subroutes
 
 
@@ -121,7 +114,7 @@ def merge_subroutes(subroutes, length):
     for r in subroutes:
         if len(r) > 2:
             r = r[:-1]  # remove the last zero
-            route[i: i + len(r)] = r
+            route[i : i + len(r)] = r
             i += len(r)
     return route
 
@@ -150,14 +143,10 @@ def check_validity(td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
     used_cap = torch.zeros_like(td["demand"][:, 0])
     valid = torch.ones(batch_size, dtype=torch.bool)
     for i in range(actions.size(1)):
-        used_cap += d[
-            :, i
-        ]  # This will reset/make capacity negative if i == 0, e.g. depot visited
+        used_cap += d[:, i]  # This will reset/make capacity negative if i == 0, e.g. depot visited
         # Cannot use less than 0
         used_cap[used_cap < 0] = 0
-        valid &= (
-            used_cap <= td["vehicle_capacity"][:, 0] + 1e-5
-        )
+        valid &= used_cap <= td["vehicle_capacity"][:, 0] + 1e-5
     return valid
 
 
@@ -171,16 +160,16 @@ C_INT_MAX = 2 ** (sizeof(c_int) * 8 - 1) - 1
 C_DBL_MAX = sys.float_info.max
 
 
-def write_routes(routes: List[np.ndarray], filepath: str):
+def write_routes(routes: list[np.ndarray], filepath: str):
     with open(filepath, "w") as f:
         for i, r in enumerate(routes):
-            f.write(f"Route #{i + 1}: "+' '.join([str(x) for x in r if x > 0])+"\n")
+            f.write(f"Route #{i + 1}: " + " ".join([str(x) for x in r if x > 0]) + "\n")
     return
 
 
-def read_routes(filepath) -> List[np.ndarray]:
+def read_routes(filepath) -> list[np.ndarray]:
     routes = []
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         while 1:
             line = f.readline().strip()
             if line.startswith("Route"):
@@ -315,8 +304,8 @@ class Solver:
         self._c_api_delete_sol = hgs_library.delete_solution
         self._c_api_delete_sol.restype = None
         self._c_api_delete_sol.argtypes = [POINTER(_Solution)]
-    
-    def local_search(self, data, routes: List[np.ndarray], count: int = 1) -> List[np.ndarray]:
+
+    def local_search(self, data, routes: list[np.ndarray], count: int = 1) -> list[np.ndarray]:
         # required data
         demand = np.asarray(data["demands"])
         vehicle_capacity = data["vehicle_capacity"]
@@ -367,10 +356,10 @@ class Solver:
         assert dist_mtx.shape[0] == dist_mtx.shape[1]
         assert (dist_mtx >= 0.0).all()
 
-        callid = (time.time_ns()*100000+random.randint(0,100000))%C_INT_MAX
+        callid = (time.time_ns() * 100000 + random.randint(0, 100000)) % C_INT_MAX
 
-        tmppath = "/tmp/route-{}".format(callid)
-        resultpath = "/tmp/swapstar-result-{}".format(callid)
+        tmppath = f"/tmp/route-{callid}"
+        resultpath = f"/tmp/swapstar-result-{callid}"
         write_routes(routes, tmppath)
         try:
             self._local_search(
@@ -396,7 +385,7 @@ class Solver:
             os.remove(resultpath)
         finally:
             os.remove(tmppath)
-        
+
         return result
 
     def _local_search(
@@ -413,7 +402,7 @@ class Solver:
         algorithm_parameters: AlgorithmParameters,
         verbose: bool,
         callid: int,
-        count:int,
+        count: int,
     ):
         n_nodes = x_coords.size
 
@@ -424,7 +413,6 @@ class Solver:
 
         m_ct = dist_mtx.reshape(n_nodes * n_nodes).astype(c_double).ctypes
         ap_ct = algorithm_parameters.ctypes
-
 
         # struct Solution *solve_cvrp_dist_mtx(
         # 	int n, double* x, double* y, double *dist_mtx, double *serv_time, double *dem,
@@ -451,22 +439,22 @@ class Solver:
         return result
 
 
-def swapstar(demands, matrix, positions, routes: List[np.ndarray], count=1):
+def swapstar(demands, matrix, positions, routes: list[np.ndarray], count=1):
     ap = AlgorithmParameters()
     hgs_solver = Solver(parameters=ap, verbose=False)
 
     data = dict()
     x = positions[:, 0]
     y = positions[:, 1]
-    data['x_coordinates'] = x
-    data['y_coordinates'] = y
+    data["x_coordinates"] = x
+    data["y_coordinates"] = y
 
-    data['depot'] = 0
-    data['demands'] = demands * 1000
+    data["depot"] = 0
+    data["demands"] = demands * 1000
     data["num_vehicles"] = len(routes)
-    data['vehicle_capacity'] = 1000.001  # to avoid floating-point error
+    data["vehicle_capacity"] = 1000.001  # to avoid floating-point error
 
     # Solve with calculated distances
-    data['distance_matrix'] = matrix
+    data["distance_matrix"] = matrix
     result = hgs_solver.local_search(data, routes, count)
     return result

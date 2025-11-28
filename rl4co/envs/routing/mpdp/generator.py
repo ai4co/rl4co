@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -48,18 +48,14 @@ class MPDPGenerator(Generator):
 
         # Number of locations must be even
         if num_loc % 2 != 0:
-            log.warning(
-                "Number of locations must be even. Adding 1 to the number of locations."
-            )
+            log.warning("Number of locations must be even. Adding 1 to the number of locations.")
             self.num_loc += 1
 
         # Location distribution
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:

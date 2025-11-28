@@ -51,7 +51,7 @@ class StaticEmbedding(nn.Module):
     """
 
     def __init__(self, *args, **kwargs):
-        super(StaticEmbedding, self).__init__()
+        super().__init__()
 
     def forward(self, td):
         return 0, 0, 0
@@ -66,7 +66,7 @@ class SDVRPDynamicEmbedding(nn.Module):
     """
 
     def __init__(self, embed_dim, linear_bias=False):
-        super(SDVRPDynamicEmbedding, self).__init__()
+        super().__init__()
         self.projection = nn.Linear(1, 3 * embed_dim, bias=linear_bias)
 
     def forward(self, td):
@@ -104,9 +104,7 @@ class JSSPDynamicEmbedding(nn.Module):
         # bs, ma, ops
         masked_proc_times[ma_busy] = 0.0
         # bs, ops, ma, 3
-        edge_feat = self.project_edge_step(masked_proc_times.unsqueeze(-1)).transpose(
-            1, 2
-        )
+        edge_feat = self.project_edge_step(masked_proc_times.unsqueeze(-1)).transpose(1, 2)
         job_edge_feat = gather_by_index(edge_feat, td["next_op"], dim=1)
         # bs, nodes, 3*emb
         edge_upd = torch.einsum("ijkl,ikm->ijlm", job_edge_feat, ma_emb).view(
@@ -115,7 +113,5 @@ class JSSPDynamicEmbedding(nn.Module):
         updates = updates + edge_upd
 
         # (bs, nodes, emb)
-        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = updates.chunk(
-            3, dim=-1
-        )
+        glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic = updates.chunk(3, dim=-1)
         return glimpse_key_dynamic, glimpse_val_dynamic, logit_key_dynamic

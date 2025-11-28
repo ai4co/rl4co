@@ -60,9 +60,7 @@ class RDSDecoder(ImprovementDecoder):
                 + self.linear_Q1(q1).unsqueeze(1)
                 + self.linear_K3(h) * self.linear_Q3(q1).unsqueeze(1)
             )
-        ).sum(
-            -1
-        )  # \mu stream
+        ).sum(-1)  # \mu stream
         result += (
             linear_V2.unsqueeze(1)
             * torch.tanh(
@@ -70,8 +68,6 @@ class RDSDecoder(ImprovementDecoder):
                 + self.linear_Q2(q2).unsqueeze(1)
                 + self.linear_K4(h) * self.linear_Q4(q2).unsqueeze(1)
             )
-        ).sum(
-            -1
-        )  # \lambda stream
+        ).sum(-1)  # \lambda stream
 
         return result, q1, q2

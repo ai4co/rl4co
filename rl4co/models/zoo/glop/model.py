@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
@@ -22,8 +22,8 @@ class GLOP(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: Optional[GLOPPolicy] = None,
-        baseline: Union[REINFORCEBaseline, str] = "mean",
+        policy: GLOPPolicy | None = None,
+        baseline: REINFORCEBaseline | str = "mean",
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
@@ -34,7 +34,7 @@ class GLOP(REINFORCE):
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
 
     def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: Optional[int] = None
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int | None = None
     ):
         td = self.env.reset(batch)
         n_samples = self.policy.n_samples

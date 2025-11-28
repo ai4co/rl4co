@@ -1,5 +1,4 @@
-from functools import lru_cache, cached_property
-from typing import Optional, Tuple
+from functools import cached_property, lru_cache
 
 import torch
 
@@ -8,9 +7,7 @@ from torch import Tensor
 from tqdm import trange
 
 from rl4co.envs import RL4COEnvBase
-from rl4co.models.common.constructive.nonautoregressive.decoder import (
-    NonAutoregressiveDecoder,
-)
+from rl4co.models.common.constructive.nonautoregressive.decoder import NonAutoregressiveDecoder
 from rl4co.utils.decoding import Sampling
 from rl4co.utils.ops import batchify, get_distance_matrix, unbatchify
 
@@ -40,8 +37,8 @@ class AntSystem:
         alpha: float = 1.0,
         beta: float = 1.0,
         decay: float = 0.95,
-        Q: Optional[float] = None,
-        pheromone: Optional[Tensor | int] = None,
+        Q: float | None = None,
+        pheromone: Tensor | int | None = None,
         use_local_search: bool = False,
         use_nls: bool = False,
         n_perturbations: int = 1,
@@ -71,7 +68,9 @@ class AntSystem:
         assert not (use_nls and not use_local_search), "use_nls requires use_local_search"
         self.use_nls = use_nls
         self.n_perturbations = n_perturbations
-        self.local_search_params = local_search_params.copy()  # needs to be copied to avoid side effects
+        self.local_search_params = (
+            local_search_params.copy()
+        )  # needs to be copied to avoid side effects
         self.perturbation_params = perturbation_params.copy()
 
         self._batchindex = torch.arange(self.batch_size, device=log_heuristic.device)
@@ -92,7 +91,7 @@ class AntSystem:
         n_iterations: int,
         decoding_kwargs: dict,
         disable_tqdm: bool = True,
-    ) -> Tuple[Tensor, dict[int, Tensor]]:
+    ) -> tuple[Tensor, dict[int, Tensor]]:
         """Run the Ant System algorithm for a specified number of iterations.
 
         Args:
@@ -107,9 +106,7 @@ class AntSystem:
             actions: The final actions chosen by the algorithm.
             reward: The final reward achieved by the algorithm.
         """
-        pbar = trange(
-            n_iterations, dynamic_ncols=True, desc="Running ACO", disable=disable_tqdm
-        )
+        pbar = trange(n_iterations, dynamic_ncols=True, desc="Running ACO", disable=disable_tqdm)
         for i in pbar:
             # reset environment
             td = td_initial.clone()
@@ -157,9 +154,7 @@ class AntSystem:
     ):
         # Sample from heatmaps
         # p = phe**alpha * heu**beta <==> log(p) = alpha*log(phe) + beta*log(heu)
-        heatmaps_logits = (
-            self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
-        )
+        heatmaps_logits = self.alpha * torch.log(self.pheromone) + self.beta * self.log_heuristic
         decode_strategy = Sampling(**decoding_kwargs)
 
         td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
@@ -177,7 +172,7 @@ class AntSystem:
 
     def local_search(
         self, td: TensorDict, env: RL4COEnvBase, actions: Tensor, decoding_kwargs: dict
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Perform local search on the actions and reward obtained.
 
         Args:

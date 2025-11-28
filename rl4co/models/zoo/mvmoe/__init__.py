@@ -1,2 +1,1 @@
-from .model import MVMoE_POMO
-from .model import MVMoE_AM
+from .model import MVMoE_AM, MVMoE_POMO

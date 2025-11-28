@@ -38,12 +38,8 @@ class NodePairRemovalDecoder(ImprovementDecoder):
 
         assert embed_dim % num_heads == 0
 
-        self.W_Q = nn.Parameter(
-            torch.Tensor(self.n_heads, self.input_dim, self.hidden_dim)
-        )
-        self.W_K = nn.Parameter(
-            torch.Tensor(self.n_heads, self.input_dim, self.hidden_dim)
-        )
+        self.W_Q = nn.Parameter(torch.Tensor(self.n_heads, self.input_dim, self.hidden_dim))
+        self.W_K = nn.Parameter(torch.Tensor(self.n_heads, self.input_dim, self.hidden_dim))
 
         self.agg = MLP(input_dim=2 * self.n_heads + 4, output_dim=1, num_neurons=[32, 32])
 
@@ -69,9 +65,7 @@ class NodePairRemovalDecoder(ImprovementDecoder):
         solution = td["rec_current"]
 
         pre = solution.argsort()  # pre=[1,2,0]
-        post = solution.gather(
-            1, solution
-        )  # post=[1,2,0] # the second neighbour works better
+        post = solution.gather(1, solution)  # post=[1,2,0] # the second neighbour works better
         batch_size, graph_size_plus1, input_dim = final_h.size()
 
         hflat = final_h.contiguous().view(-1, input_dim)  #################   reshape
@@ -82,20 +76,14 @@ class NodePairRemovalDecoder(ImprovementDecoder):
         hidden_Q = torch.matmul(hflat, self.W_Q).view(shp)
         hidden_K = torch.matmul(hflat, self.W_K).view(shp)
 
-        Q_pre = hidden_Q.gather(
-            2, pre.view(1, batch_size, graph_size_plus1, 1).expand_as(hidden_Q)
-        )
+        Q_pre = hidden_Q.gather(2, pre.view(1, batch_size, graph_size_plus1, 1).expand_as(hidden_Q))
         K_post = hidden_K.gather(
             2, post.view(1, batch_size, graph_size_plus1, 1).expand_as(hidden_Q)
         )
 
         compatibility = (
-            (Q_pre * hidden_K).sum(-1)
-            + (hidden_Q * K_post).sum(-1)
-            - (Q_pre * K_post).sum(-1)
-        )[
-            :, :, 1:
-        ]  # (n_heads, batch_size, graph_size) (12)
+            (Q_pre * hidden_K).sum(-1) + (hidden_Q * K_post).sum(-1) - (Q_pre * K_post).sum(-1)
+        )[:, :, 1:]  # (n_heads, batch_size, graph_size) (12)
 
         compatibility_pairing = torch.cat(
             (
@@ -166,31 +154,22 @@ class NodePairReinsertionDecoder(ImprovementDecoder):
 
         arange = torch.arange(batch_size, device=final_h.device)
         h_pickup = final_h[arange, pos_pickup].unsqueeze(1)  # (batch_size, 1, input_dim)
-        h_delivery = final_h[arange, pos_delivery].unsqueeze(
-            1
-        )  # (batch_size, 1, input_dim)
+        h_delivery = final_h[arange, pos_delivery].unsqueeze(1)  # (batch_size, 1, input_dim)
         h_K_neibour = final_h.gather(
             1, solution.view(batch_size, graph_size_plus1, 1).expand_as(final_h)
         )  # (batch_size, graph_size+1, input_dim)
 
         compatibility_pickup_pre = (
-            self.compater_insert1(
-                h_pickup, final_h
-            )  # (n_heads, batch_size, 1, graph_size+1)
+            self.compater_insert1(h_pickup, final_h)  # (n_heads, batch_size, 1, graph_size+1)
             .permute(1, 2, 3, 0)  # (batch_size, 1, graph_size+1, n_heads)
             .view(shp_p)  # (batch_size, graph_size+1, 1, n_heads)
             .expand(shp)  # (batch_size, graph_size+1, graph_size+1, n_heads)
         )
         compatibility_pickup_post = (
-            self.compater_insert2(h_pickup, h_K_neibour)
-            .permute(1, 2, 3, 0)
-            .view(shp_p)
-            .expand(shp)
+            self.compater_insert2(h_pickup, h_K_neibour).permute(1, 2, 3, 0).view(shp_p).expand(shp)
         )
         compatibility_delivery_pre = (
-            self.compater_insert1(
-                h_delivery, final_h
-            )  # (n_heads, batch_size, 1, graph_size+1)
+            self.compater_insert1(h_delivery, final_h)  # (n_heads, batch_size, 1, graph_size+1)
             .permute(1, 2, 3, 0)  # (batch_size, 1, graph_size+1, n_heads)
             .view(shp_d)  # (batch_size, 1, graph_size+1, n_heads)
             .expand(shp)  # (batch_size, graph_size+1, graph_size+1, n_heads)
@@ -238,9 +217,7 @@ class CriticDecoder(nn.Module):
         graph_feature: torch.Tensor = self.project_graph(mean_pooling)[
             :, None, :
         ]  # (batch_size, 1, input_dim/2)
-        node_feature: torch.Tensor = self.project_node(
-            x
-        )  # (batch_size, graph_size+1, input_dim/2)
+        node_feature: torch.Tensor = self.project_node(x)  # (batch_size, graph_size+1, input_dim/2)
 
         # pass through value_head, get estimated value
         fusion = node_feature + graph_feature.expand_as(

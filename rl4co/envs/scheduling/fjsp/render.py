@@ -48,9 +48,7 @@ def render(td: TensorDict, idx: int):
                 linewidth=1,
             )
 
-            ax.text(
-                start + (end - start) / 2, ma, op, ha="center", va="center", color="white"
-            )
+            ax.text(start + (end - start) / 2, ma, op, ha="center", va="center", color="white")
 
     # Set labels and title
     ax.set_yticks(range(len(schedule)))

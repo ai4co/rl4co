@@ -44,7 +44,7 @@ class MatNet(POMO):
         else:
             kwargs["num_augment"] = 0
 
-        super(MatNet, self).__init__(
+        super().__init__(
             env=env,
             policy=policy,
             num_starts=num_starts,

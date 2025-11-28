@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch.nn as nn
 
@@ -34,7 +34,7 @@ class HeterogeneousAttentionModelPolicy(AttentionModelPolicy):
         num_heads: int = 8,
         normalization: str = "batch",
         feedforward_hidden: int = 512,
-        sdpa_fn: Optional[Callable] = None,
+        sdpa_fn: Callable | None = None,
         **kwargs,
     ):
         if encoder is None:
@@ -51,7 +51,7 @@ class HeterogeneousAttentionModelPolicy(AttentionModelPolicy):
         else:
             encoder = encoder
 
-        super(HeterogeneousAttentionModelPolicy, self).__init__(
+        super().__init__(
             env_name=env_name,
             encoder=encoder,
             embed_dim=embed_dim,

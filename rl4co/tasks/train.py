@@ -1,5 +1,3 @@
-from typing import Optional, Tuple
-
 import hydra
 import lightning as L
 import pyrootutils
@@ -19,7 +17,7 @@ log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def run(cfg: DictConfig) -> Tuple[dict, dict]:
+def run(cfg: DictConfig) -> tuple[dict, dict]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
     training.
     This method is wrapped in optional @task_wrapper decorator, that controls the behavior during
@@ -96,7 +94,7 @@ def run(cfg: DictConfig) -> Tuple[dict, dict]:
 
 
 @hydra.main(version_base="1.3", config_path="../../configs", config_name="main.yaml")
-def train(cfg: DictConfig) -> Optional[float]:
+def train(cfg: DictConfig) -> float | None:
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     utils.extras(cfg)

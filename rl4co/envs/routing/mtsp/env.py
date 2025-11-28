@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -132,7 +130,7 @@ class MTSPEnv(RL4COEnvBase):
 
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         # Keep track of the agent number to know when to stop

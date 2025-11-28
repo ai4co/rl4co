@@ -1,7 +1,5 @@
 import os
 
-from typing import Optional
-
 import numpy as np
 import torch
 
@@ -90,7 +88,7 @@ class DPPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         # Other variables
@@ -152,9 +150,7 @@ class DPPEnv(RL4COEnvBase):
             td = td.unsqueeze(0)
             actions = actions.unsqueeze(0)
         probes = td["probe"]
-        reward = torch.stack(
-            [self._decap_simulator(p, a) for p, a in zip(probes, actions)]
-        )
+        reward = torch.stack([self._decap_simulator(p, a) for p, a in zip(probes, actions)])
         return reward
 
     @staticmethod
@@ -169,9 +165,7 @@ class DPPEnv(RL4COEnvBase):
         z1 = self.raw_pdn.to(device)
 
         decap = self.decap.reshape(-1).to(device)
-        z2 = torch.zeros(
-            (self.num_freq, num_decap, num_decap), dtype=torch.float32, device=device
-        )
+        z2 = torch.zeros((self.num_freq, num_decap, num_decap), dtype=torch.float32, device=device)
 
         qIndx = torch.arange(num_decap, device=device)
 
@@ -181,9 +175,7 @@ class DPPEnv(RL4COEnvBase):
         pIndx = pi.long()
 
         aIndx = torch.arange(len(z1[0]), device=device)
-        aIndx = torch.tensor(
-            list(set(aIndx.tolist()) - set(pIndx.tolist())), device=device
-        )
+        aIndx = torch.tensor(list(set(aIndx.tolist()) - set(pIndx.tolist())), device=device)
 
         z1aa = z1[:, aIndx, :][:, :, aIndx]
         z1ap = z1[:, aIndx, :][:, :, pIndx]
@@ -220,9 +212,9 @@ class DPPEnv(RL4COEnvBase):
 
         probe = probe.item()
 
-        assert len(solution) == len(
-            torch.unique(solution)
-        ), "An Element of Decap Sequence must be Unique"
+        assert len(solution) == len(torch.unique(solution)), (
+            "An Element of Decap Sequence must be Unique"
+        )
 
         if keepout is not None:
             keepout = torch.tensor(keepout)

@@ -71,11 +71,11 @@ class EAS(TransductiveModel):
     ):
         self.save_hyperparameters(logger=False, ignore=["env", "policy", "dataset"])
 
-        assert (
-            self.hparams.use_eas_embedding or self.hparams.use_eas_layer
-        ), "At least one of `use_eas_embedding` or `use_eas_layer` must be True."
+        assert self.hparams.use_eas_embedding or self.hparams.use_eas_layer, (
+            "At least one of `use_eas_embedding` or `use_eas_layer` must be True."
+        )
 
-        super(EAS, self).__init__(
+        super().__init__(
             env,
             policy=policy,
             dataset=dataset,
@@ -105,7 +105,7 @@ class EAS(TransductiveModel):
             f"- EAS Embedding: {self.hparams.use_eas_embedding} \n"
             f"- EAS Layer: {self.hparams.use_eas_layer} \n"
         )
-        super(EAS, self).setup(stage)
+        super().setup(stage)
 
         # Instantiate augmentation
         self.augmentation = StateAugmentation(
@@ -166,18 +166,14 @@ class EAS(TransductiveModel):
             # EASLay: replace forward of logit attention computation. EASLayer
             eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(batch.device)
             decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
-            decoder.pointer.forward = partial(
-                forward_pointer_attn_eas_lay, decoder.pointer
-            )
+            decoder.pointer.forward = partial(forward_pointer_attn_eas_lay, decoder.pointer)
             for param in eas_layer.parameters():
                 opt_params.append(param)
         if self.hparams.use_eas_embedding:
             # EASEmb: set gradient of emb_key to True
             # for all the keys, wrap the embedding in a nn.Parameter
             for key in self.hparams.eas_emb_cache_keys:
-                setattr(
-                    cached_embeds, key, torch.nn.Parameter(getattr(cached_embeds, key))
-                )
+                setattr(cached_embeds, key, torch.nn.Parameter(getattr(cached_embeds, key)))
                 opt_params.append(getattr(cached_embeds, key))
         decoder.forward_eas = partial(forward_eas, decoder)
 
@@ -226,9 +222,7 @@ class EAS(TransductiveModel):
             elif self.hparams.baseline == "symmetric":
                 bl_val = group_reward.mean(dim=-2, keepdim=True)
             elif self.hparams.baseline == "full":
-                bl_val = group_reward.mean(dim=-1, keepdim=True).mean(
-                    dim=-2, keepdim=True
-                )
+                bl_val = group_reward.mean(dim=-1, keepdim=True).mean(dim=-2, keepdim=True)
             else:
                 raise ValueError(f"Baseline {self.hparams.baseline} not supported.")
 
@@ -269,8 +263,7 @@ class EAS(TransductiveModel):
             )
 
             log.info(
-                f"{iter_count}/{self.hparams.max_iters} | "
-                f" Reward: {max_reward.mean().item():.2f} "
+                f"{iter_count}/{self.hparams.max_iters} |  Reward: {max_reward.mean().item():.2f} "
             )
 
             # Stop if max runtime is exceeded
@@ -280,9 +273,7 @@ class EAS(TransductiveModel):
 
         return {"max_reward": max_reward, "best_solutions": best_solutions}
 
-    def on_train_batch_end(
-        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
-    ) -> None:
+    def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
         """We store the best solution and reward found."""
         max_rewards, best_solutions = outputs["max_reward"], outputs["best_solutions"]
         self.instance_solutions.append(best_solutions)
@@ -316,15 +307,13 @@ class EASEmb(EAS):
         *args,
         **kwargs,
     ):
-        if not kwargs.get("use_eas_embedding", False) or kwargs.get(
-            "use_eas_layer", True
-        ):
+        if not kwargs.get("use_eas_embedding", False) or kwargs.get("use_eas_layer", True):
             log.warning(
                 "Setting `use_eas_embedding` to True and `use_eas_layer` to False. Use EAS base class to override."
             )
         kwargs["use_eas_embedding"] = True
         kwargs["use_eas_layer"] = False
-        super(EASEmb, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class EASLay(EAS):
@@ -335,12 +324,10 @@ class EASLay(EAS):
         *args,
         **kwargs,
     ):
-        if kwargs.get("use_eas_embedding", False) or not kwargs.get(
-            "use_eas_layer", True
-        ):
+        if kwargs.get("use_eas_embedding", False) or not kwargs.get("use_eas_layer", True):
             log.warning(
                 "Setting `use_eas_embedding` to True and `use_eas_layer` to False. Use EAS base class to override."
             )
         kwargs["use_eas_embedding"] = False
         kwargs["use_eas_layer"] = True
-        super(EASLay, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)

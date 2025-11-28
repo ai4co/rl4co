@@ -26,19 +26,10 @@ from rl4co.models.zoo.amppo import AMPPO
 from rl4co.models.zoo.dact import DACT, DACTPolicy
 from rl4co.models.zoo.deepaco import DeepACO, DeepACOPolicy
 from rl4co.models.zoo.eas import EAS, EASEmb, EASLay
-from rl4co.models.zoo.glop import GLOP, GLOPPolicy
 from rl4co.models.zoo.gfacs import GFACS, GFACSPolicy
-from rl4co.models.zoo.ham import (
-    HeterogeneousAttentionModel,
-    HeterogeneousAttentionModelPolicy,
-)
-from rl4co.models.zoo.l2d import (
-    L2DAttnPolicy,
-    L2DModel,
-    L2DPolicy,
-    L2DPolicy4PPO,
-    L2DPPOModel,
-)
+from rl4co.models.zoo.glop import GLOP, GLOPPolicy
+from rl4co.models.zoo.ham import HeterogeneousAttentionModel, HeterogeneousAttentionModelPolicy
+from rl4co.models.zoo.l2d import L2DAttnPolicy, L2DModel, L2DPolicy, L2DPolicy4PPO, L2DPPOModel
 from rl4co.models.zoo.matnet import MatNet, MatNetPolicy
 from rl4co.models.zoo.mdam import MDAM, MDAMPolicy
 from rl4co.models.zoo.mvmoe import MVMoE_AM, MVMoE_POMO

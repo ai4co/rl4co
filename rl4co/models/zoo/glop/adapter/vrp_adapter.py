@@ -1,4 +1,5 @@
-from typing import Any, Generator, NamedTuple, Optional
+from collections.abc import Generator
+from typing import Any, NamedTuple
 
 import numba as nb
 import numpy as np
@@ -24,7 +25,7 @@ class VRP2SubTSPAdapter:
         self,
         parent_td: TensorDict,
         actions: torch.Tensor,
-        subprob_batch_size: Optional[int] = None,
+        subprob_batch_size: int | None = None,
         min_node_count: int = 4,
     ) -> None:
         batch_size = parent_td.batch_size[0]
@@ -118,9 +119,7 @@ def _compose_subtsp_coordinates(
     n_samples = actions.shape[0] // batch_size
     max_subtsp_length = (map_action_index[:, 2] - map_action_index[:, 1]).max()
     subtsp_index = np.zeros((n_subtsp, max_subtsp_length + 1), dtype=np.int32)
-    subtsp_coordinates = np.zeros(
-        (n_subtsp, max_subtsp_length + 1, 2), dtype=coordinates.dtype
-    )
+    subtsp_coordinates = np.zeros((n_subtsp, max_subtsp_length + 1, 2), dtype=coordinates.dtype)
     for idx in nb.prange(n_subtsp):
         route_idx, start, end = map_action_index[idx]
         inst_idx = route_idx // n_samples
@@ -137,9 +136,7 @@ def _update_cvrp_actions(
     map_node_index: np.ndarray,
 ):
     subtsp_length = subtsp_actions.shape[1]
-    subtsp_underlying_actions = np.take_along_axis(
-        map_node_index, subtsp_actions, axis=-1
-    )
+    subtsp_underlying_actions = np.take_along_axis(map_node_index, subtsp_actions, axis=-1)
     for idx in nb.prange(subtsp_actions.shape[0]):
         route_idx, start, end = map_action_index[idx]
         real_nodes = subtsp_underlying_actions[idx]

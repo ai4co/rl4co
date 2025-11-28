@@ -1,6 +1,6 @@
 import abc
 
-from typing import Any, Tuple
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -31,7 +31,7 @@ class L2DActor(nn.Module, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def forward(
         self, td: TensorDict, hidden: Any = None, num_starts: int = 0
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Obtain logits for current action to the next ones
 
         Args:
@@ -46,7 +46,7 @@ class L2DActor(nn.Module, metaclass=abc.ABCMeta):
 
     def pre_decoder_hook(
         self, td: TensorDict, env=None, hidden: Any = None, num_starts: int = 0
-    ) -> Tuple[TensorDict, Any]:
+    ) -> tuple[TensorDict, Any]:
         """By default, we only require the input for the actor to be a tuple
         (in JSSP we only have operation embeddings but in FJSP we have operation
         and machine embeddings. By expecting a tuple we can generalize things.)
@@ -183,7 +183,7 @@ class L2DDecoder(AutoregressiveDecoder):
         stepwise: bool = False,
         scaling_factor: int = 1000,
     ):
-        super(L2DDecoder, self).__init__()
+        super().__init__()
 
         if feature_extractor is None and stepwise:
             if env_name == "fjsp" or (het_emb and env_name == "jssp"):
@@ -307,7 +307,7 @@ class AttnActor(AttentionModelDecoder):
 
     def pre_decoder_hook(
         self, td: TensorDict, env=None, hidden: Any = None, num_starts: int = 0
-    ) -> Tuple[TensorDict, Any]:
+    ) -> tuple[TensorDict, Any]:
         cache = self._precompute_cache(hidden, num_starts=num_starts)
         return td, env, (cache,)
 
@@ -327,9 +327,7 @@ class L2DAttnActor(AttnActor):
             dynamic_embedding = None
         else:
             # otherwise we might want to update the static embeddings using dynamic updates
-            dynamic_embedding = JSSPDynamicEmbedding(
-                embed_dim, scaling_factor=scaling_factor
-            )
+            dynamic_embedding = JSSPDynamicEmbedding(embed_dim, scaling_factor=scaling_factor)
         pointer = L2DAttnPointer(env_name, embed_dim, num_heads, check_nan=False)
 
         super().__init__(
@@ -364,16 +362,14 @@ class L2DAttnActor(AttnActor):
 
         return glimpse_k, glimpse_v, logit_k
 
-    def _precompute_cache(self, embeddings: Tuple[torch.Tensor, torch.Tensor], **kwargs):
+    def _precompute_cache(self, embeddings: tuple[torch.Tensor, torch.Tensor], **kwargs):
         ops_emb, ma_emb = embeddings
 
         (
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key,
-        ) = self.project_node_embeddings(
-            ops_emb
-        ).chunk(3, dim=-1)
+        ) = self.project_node_embeddings(ops_emb).chunk(3, dim=-1)
 
         embeddings = TensorDict(
             {"op_embeddings": ops_emb, "machine_embeddings": ma_emb},

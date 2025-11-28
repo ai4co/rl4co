@@ -1,4 +1,5 @@
-from typing import Callable, Literal, Optional, Union
+from collections.abc import Callable
+from typing import Literal
 
 import numpy as np
 import torch
@@ -27,12 +28,12 @@ except ImportError:
 
 log = get_pylogger(__name__)
 
-SubProblemSolverType = Union[
-    Literal["insertion"],
-    RL4COLitModule,
-    tuple[RL4COLitModule, dict],
-    Callable[[torch.Tensor], torch.Tensor],
-]
+SubProblemSolverType = (
+    Literal["insertion"]
+    | RL4COLitModule
+    | tuple[RL4COLitModule, dict]
+    | Callable[[torch.Tensor], torch.Tensor]
+)
 
 
 class GLOPPolicy(NonAutoregressivePolicy):
@@ -53,8 +54,8 @@ class GLOPPolicy(NonAutoregressivePolicy):
 
     def __init__(
         self,
-        encoder: Optional[NonAutoregressiveEncoder] = None,
-        decoder: Optional[NonAutoregressiveDecoder] = None,
+        encoder: NonAutoregressiveEncoder | None = None,
+        decoder: NonAutoregressiveDecoder | None = None,
         env_name: str = "cvrp",
         n_samples: int = 10,
         temperature: float = 1.0,
@@ -63,15 +64,14 @@ class GLOPPolicy(NonAutoregressivePolicy):
         subprob_solver: SubProblemSolverType = "insertion",
         **encoder_kwargs,
     ):
-
         if subprob_adapter_class is None:
-            assert (
-                env_name in adapter_map
-            ), f"{env_name} is not supported by {self.__class__.__name__} yet"
+            assert env_name in adapter_map, (
+                f"{env_name} is not supported by {self.__class__.__name__} yet"
+            )
             subprob_adapter_class = adapter_map.get(env_name)
-            assert (
-                subprob_adapter_class is not None
-            ), "Can not import adapter module. Please check if `numba` is installed."
+            assert subprob_adapter_class is not None, (
+                "Can not import adapter module. Please check if `numba` is installed."
+            )
 
         if encoder is None:
             encoder_kwargs.setdefault("embed_dim", 64)
@@ -107,14 +107,14 @@ class GLOPPolicy(NonAutoregressivePolicy):
     def forward(
         self,
         td: TensorDict,
-        env: Optional[Union[RL4COEnvBase, str]] = None,
+        env: RL4COEnvBase | str | None = None,
         phase: Literal["train", "val", "test"] = "test",
         calc_reward: bool = True,
         return_actions: bool = False,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         return_sum_log_likelihood: bool = False,
-        subprob_solver: Optional[SubProblemSolverType] = None,
+        subprob_solver: SubProblemSolverType | None = None,
         **decoding_kwargs,
     ) -> dict:
         """Forward pass of GLOP.
@@ -140,9 +140,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
             or isinstance(env, RL4COEnvBase)
             and env.name.startswith("cvrp")
         ):
-            decoding_kwargs.setdefault(
-                "select_start_nodes_fn", select_start_nodes_by_distance
-            )
+            decoding_kwargs.setdefault("select_start_nodes_fn", select_start_nodes_by_distance)
 
         par_out = super().forward(
             td=td,
@@ -177,9 +175,7 @@ class GLOPPolicy(NonAutoregressivePolicy):
         if calc_reward:
             if isinstance(env, str) or env is None:
                 env_name = self.env_name if env is None else env
-                log.info(
-                    f"Instantiated environment not provided; instantiating {env_name}"
-                )
+                log.info(f"Instantiated environment not provided; instantiating {env_name}")
                 env = get_env(env_name)
             td_repeated = batchify(td, self.n_samples)
             reward = env.get_reward(td_repeated, actions)
@@ -210,13 +206,11 @@ class GLOPPolicy(NonAutoregressivePolicy):
             adapter.update_actions(mapping, subprob_actions)
 
         actions_revised = adapter.get_actions().to(td.device)
-        actions_revised = rearrange(
-            actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples
-        )
+        actions_revised = rearrange(actions_revised, "(b n) ... -> (n b) ...", n=self.n_samples)
         return dict(actions=actions_revised)
 
     def _get_subprob_solver(
-        self, solver: Optional[SubProblemSolverType]
+        self, solver: SubProblemSolverType | None
     ) -> Callable[[torch.Tensor], torch.Tensor]:
         solver = self.subprob_solver if solver is None else solver
         env_name = self.subprob_adapter_class.subproblem_env_name

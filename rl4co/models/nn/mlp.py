@@ -17,7 +17,7 @@ class MLP(nn.Module):
         input_norm: str = "None",
         output_norm: str = "None",
     ):
-        super(MLP, self).__init__()
+        super().__init__()
 
         assert input_norm in ["Batch", "Layer", "None"]
         assert output_norm in ["Batch", "Layer", "None"]
@@ -69,9 +69,7 @@ class MLP(nn.Module):
         elif norm_method == "None":
             in_norm = nn.Identity()  # kinda placeholder
         else:
-            raise RuntimeError(
-                "Not implemented normalization layer type {}".format(norm_method)
-            )
+            raise RuntimeError(f"Not implemented normalization layer type {norm_method}")
         return in_norm
 
     def _get_act(self, is_last):

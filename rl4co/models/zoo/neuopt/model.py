@@ -46,9 +46,7 @@ class NeuOpt(n_step_PPO):
                 critic_kwargs["feedforward_hidden"]
                 if "feedforward_hidden" in critic_kwargs
                 else 128,
-                critic_kwargs["normalization"]
-                if "normalization" in critic_kwargs
-                else "layer",
+                critic_kwargs["normalization"] if "normalization" in critic_kwargs else "layer",
                 bias=False,
             )
             value_head = CriticDecoder(embed_dim, dropout_rate=0.001)

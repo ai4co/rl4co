@@ -22,7 +22,7 @@ class PointerNetworkPolicy(nn.Module):
         mask_logits=True,
         **kwargs,
     ):
-        super(PointerNetworkPolicy, self).__init__()
+        super().__init__()
 
         assert env_name == "tsp", "Only the Euclidean TSP env is implemented"
         self.env_name = env_name

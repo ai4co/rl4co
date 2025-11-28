@@ -96,9 +96,9 @@ class n_step_PPO(RL4COLitModule):
         }
 
     def configure_optimizers(self):
-        parameters = [
-            {"params": self.policy.parameters(), "lr": self.ppo_cfg["lr_policy"]}
-        ] + [{"params": self.critic.parameters(), "lr": self.ppo_cfg["lr_critic"]}]
+        parameters = [{"params": self.policy.parameters(), "lr": self.ppo_cfg["lr_policy"]}] + [
+            {"params": self.critic.parameters(), "lr": self.ppo_cfg["lr_critic"]}
+        ]
 
         return super().configure_optimizers(parameters)
 
@@ -113,9 +113,7 @@ class n_step_PPO(RL4COLitModule):
         # CL scheduler
         self.CL_num += 1 / self.CL_scalar
 
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         if phase != "train":
             with torch.no_grad():
                 td = self.env.reset(batch)
@@ -140,9 +138,9 @@ class n_step_PPO(RL4COLitModule):
             cost_init = td["cost_current"]
 
             # perform gradiant updates every n_step untill reaching T_max
-            assert (
-                self.ppo_cfg["T_train"] % self.ppo_cfg["n_step"] == 0
-            ), "T_max should be divided by n_step with no remainder"
+            assert self.ppo_cfg["T_train"] % self.ppo_cfg["n_step"] == 0, (
+                "T_max should be divided by n_step with no remainder"
+            )
             t = 0
             while t < self.ppo_cfg["T_train"]:
                 memory.clear_memory()
@@ -153,9 +151,7 @@ class n_step_PPO(RL4COLitModule):
                     memory.tds.append(td.clone())
 
                     out = self.policy(td, self.env, phase=phase, return_embeds=True)
-                    value_pred = self.critic(
-                        out["embeds"].detach(), td["cost_bsf"].unsqueeze(-1)
-                    )
+                    value_pred = self.critic(out["embeds"].detach(), td["cost_bsf"].unsqueeze(-1))
 
                     memory.actions.append(out["actions"].clone())
                     memory.logprobs.append(out["log_likelihood"].clone())

@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -72,9 +72,7 @@ class GCNEncoder(nn.Module):
             [GCNConv(embed_dim, embed_dim, bias=bias) for _ in range(num_layers)]
         )
 
-    def forward(
-        self, td: TensorDict, mask: Tensor | None = None
-    ) -> Tuple[Tensor, Tensor]:
+    def forward(self, td: TensorDict, mask: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """Forward pass of the encoder.
         Transform the input TensorDict into a latent representation.
 

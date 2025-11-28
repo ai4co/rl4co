@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -70,7 +68,7 @@ class MDPPEnv(DPPEnv):
         # Step function is the same as DPPEnv, only masking changes
         return super()._step(td)
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         # Reset function is the same as DPPEnv, only masking changes due to probes
         td_reset = super()._reset(td, batch_size=batch_size)
 
@@ -131,10 +129,7 @@ class MDPPEnv(DPPEnv):
 
         # Reward calculation is expensive since we need to run decap simulation (not vectorizable)
         reward = torch.stack(
-            [
-                self._single_env_reward(td_single, action)
-                for td_single, action in zip(td, actions)
-            ]
+            [self._single_env_reward(td_single, action) for td_single, action in zip(td, actions)]
         )
         return reward
 

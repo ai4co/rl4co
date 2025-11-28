@@ -60,7 +60,7 @@ Click [here](../api/envs/routing.md) for API documentation on routing problems.
 
 ## Scheduling Problems
 
-Scheduling problems are a fundamental class of problems in operations research and industrial engineering, where the objective is to optimize the allocation of resources over time. These problems are critical in various industries, such as manufacturing, computer science, and project management. 
+Scheduling problems are a fundamental class of problems in operations research and industrial engineering, where the objective is to optimize the allocation of resources over time. These problems are critical in various industries, such as manufacturing, computer science, and project management.
 
 
 
@@ -68,24 +68,24 @@ Scheduling problems are a fundamental class of problems in operations research a
 
 Here we show a general constructive MDP formulation based on the Job Shop Scheduling Problem (JSSP), a well-known scheduling problem, which can be adapted to other scheduling problems.
 
-- **State** $s_t \in \mathcal{S}$: 
+- **State** $s_t \in \mathcal{S}$:
   The state is represented by a disjunctive graph, where:
   - Operations are nodes
   - Processing orders between operations are shown by directed arcs
   - This graph encapsulates both the problem instance and the current partial schedule
 
-- **Action** $a_t \in \mathcal{A}$: 
+- **Action** $a_t \in \mathcal{A}$:
   An action involves selecting a feasible operation to assign to its designated machine, a process often referred to as dispatching. The action space consists of all operations that can be feasibly scheduled at the current state.
 
-- **Transition** $\mathcal{T}$: 
+- **Transition** $\mathcal{T}$:
   The transition function deterministically updates the disjunctive graph based on the dispatched operation. This includes:
   - Modifying the graph's topology (e.g., adding new connections between operations)
   - Updating operation attributes (e.g., start times)
 
-- **Reward** $\mathcal{R}$: 
+- **Reward** $\mathcal{R}$:
   The reward function is designed to align with the optimization objective. For instance, if minimizing makespan is the goal, the reward could be the negative change in makespan resulting from the latest action.
 
-- **Policy** $\pi$: 
+- **Policy** $\pi$:
   The policy, typically stochastic, takes the current disjunctive graph as input and outputs a probability distribution over feasible dispatching actions. This process continues until a complete schedule is constructed.
 
 
@@ -103,25 +103,25 @@ Electronic Design Automation (EDA) is a sophisticated process that involves the 
 EDA encompasses many problem types; here we'll focus on placement problems, which are fundamental in the physical design of integrated circuits and printed circuit boards. We'll use the Decap Placement Problem (DPP) as an example to illustrate a typical MDP formulation for EDA placement problems.
 
 
-- **State** $s_t \in \mathcal{S}$: 
+- **State** $s_t \in \mathcal{S}$:
   The state typically represents the current configuration of the design space, which may include:
   - Locations of fixed elements (e.g., ports, keepout regions)
   - Current placements of movable elements
   - Remaining resources or components to be placed
 
-- **Action** $a_t \in \mathcal{A}$: 
+- **Action** $a_t \in \mathcal{A}$:
   An action usually involves placing a component at a valid location within the design space. The action space consists of all feasible placement locations, considering design rules and constraints.
 
-- **Transition** $\mathcal{T}$: 
+- **Transition** $\mathcal{T}$:
   The transition function updates the design state based on the placement action, which may include:
   - Updating the placement map
   - Adjusting available resources or remaining components
   - Recalculating relevant metrics (e.g., wire length, power distribution)
 
-- **Reward** $\mathcal{R}$: 
+- **Reward** $\mathcal{R}$:
   The reward is typically based on the improvement in the design objective resulting from the latest placement action. This could involve metrics such as area efficiency, signal integrity, or power consumption.
 
-- **Policy** $\pi$: 
+- **Policy** $\pi$:
   The policy takes the current design state as input and outputs a probability distribution over possible placement actions.
 
 Note that specific problems may introduce additional complexities or constraints.
@@ -142,26 +142,26 @@ In graph problems, we typically work with a graph $G = (V, E)$, where $V$ is a s
 
 Graph problems can be effectively modeled using a Markov Decision Process (MDP) framework in a constructive fashion. Here, we outline the key components of the MDP formulation for graph problems:
 
-- **State** $s_t \in \mathcal{S}$: 
+- **State** $s_t \in \mathcal{S}$:
   The state encapsulates the current configuration of the graph and the optimization progress. It typically includes:
   - The graph structure (vertices and edges)
   - Attributes associated with vertices or edges
   - The set of elements (vertices, edges, or subgraphs) selected so far
   - Problem-specific information, such as remaining selections or resources
 
-- **Action** $a_t \in \mathcal{A}$: 
+- **Action** $a_t \in \mathcal{A}$:
   An action usually involves selecting a graph element (e.g., a vertex, edge, or subgraph). The action space comprises all valid selections based on the problem constraints and the current state.
 
-- **Transition** $\mathcal{T}$: 
+- **Transition** $\mathcal{T}$:
   The transition function $\mathcal{T}(s_t, a_t) \rightarrow s_{t+1}$ updates the graph state based on the selected action. This typically involves:
   - Updating the set of selected elements
   - Modifying graph attributes affected by the selection
   - Updating problem-specific information (e.g., remaining selections or resources)
 
-- **Reward** $\mathcal{R}$: 
+- **Reward** $\mathcal{R}$:
   The reward function $\mathcal{R}(s_t, a_t)$ quantifies the quality of the action taken. It is typically based on the improvement in the optimization objective resulting from the latest selection. This could involve metrics such as coverage, distance, connectivity, or any other problem-specific criteria.
 
-- **Policy** $\pi$: 
+- **Policy** $\pi$:
   The policy $\pi(a_t|s_t)$ is a probability distribution over possible actions given the current state. It guides the decision-making process, determining which graph elements to select at each step to optimize the objective.
 
 Specific problems may introduce additional complexities or constraints, which can often be incorporated through careful design of the state space, action space, and reward function.

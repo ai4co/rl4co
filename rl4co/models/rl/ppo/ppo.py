@@ -25,8 +25,8 @@ class PPO(RL4COLitModule):
     choice for tractable CO solution generation. This choice aligns with the Attention Model (AM)
     (https://openreview.net/forum?id=ByxBFsRqYm), which treats decoding steps as a single-step MDP in Equation 9.
 
-    Modeling autoregressive decoding steps as a single-step MDP introduces significant changes to the PPO implementation,
-    including:
+    Modeling autoregressive decoding steps as a single-step MDP introduces significant changes to the PPO
+    implementation, including:
     - Generalized Advantage Estimation (GAE) (https://arxiv.org/abs/1506.02438) is not applicable since we are dealing with a single-step MDP.
     - The definition of policy entropy can differ from the commonly implemented manner.
 
@@ -80,13 +80,11 @@ class PPO(RL4COLitModule):
         self.automatic_optimization = False  # PPO uses custom optimization routine
 
         if critic is None:
-            log.info("Creating critic network for {}".format(env.name))
+            log.info(f"Creating critic network for {env.name}")
             critic = create_critic_from_actor(policy, **critic_kwargs)
         self.critic = critic
 
-        if isinstance(mini_batch_size, float) and (
-            mini_batch_size <= 0 or mini_batch_size > 1
-        ):
+        if isinstance(mini_batch_size, float) and (mini_batch_size <= 0 or mini_batch_size > 1):
             default_mini_batch_fraction = 0.25
             log.warning(
                 f"mini_batch_size must be an integer or a float in the range (0, 1], got {mini_batch_size}. Setting mini_batch_size to {default_mini_batch_fraction}."
@@ -125,9 +123,7 @@ class PPO(RL4COLitModule):
         if isinstance(sch, torch.optim.lr_scheduler.MultiStepLR):
             sch.step()
 
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         # Evaluate old actions, log probabilities, and rewards
         with torch.no_grad():
             td = self.env.reset(batch)  # note: clone needed for dataloader
@@ -175,9 +171,7 @@ class PPO(RL4COLitModule):
                     ll, entropy = out["log_likelihood"], out["entropy"]
 
                     # Compute the ratio of probabilities of new and old actions
-                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["logprobs"]).view(
-                        -1, 1
-                    )  # [batch, 1]
+                    ratio = torch.exp(ll.sum(dim=-1) - sub_td["logprobs"]).view(-1, 1)  # [batch, 1]
 
                     # Compute the advantage
                     value_pred = self.critic(sub_td)  # [batch, 1]

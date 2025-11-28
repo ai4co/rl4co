@@ -2,7 +2,7 @@ import itertools
 import math
 import warnings
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -16,9 +16,7 @@ from rl4co.utils import get_pylogger
 log = get_pylogger(__name__)
 
 
-def scaled_dot_product_attention_simple(
-    q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False
-):
+def scaled_dot_product_attention_simple(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False):
     """Simple (exact) Scaled Dot-Product Attention in RL4CO without customized kernels (i.e. no Flash Attention)."""
 
     # Check for causal and attn_mask conflict
@@ -90,7 +88,7 @@ class MultiHeadAttention(nn.Module):
         causal: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
-        sdpa_fn: Optional[Callable] = None,
+        sdpa_fn: Callable | None = None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -102,9 +100,9 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
-        assert (
-            self.head_dim % 8 == 0 and self.head_dim <= 128
-        ), "Only support head_dim <= 128 and divisible by 8"
+        assert self.head_dim % 8 == 0 and self.head_dim <= 128, (
+            "Only support head_dim <= 128 and divisible by 8"
+        )
 
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
@@ -171,7 +169,7 @@ class MultiHeadCrossAttention(nn.Module):
         attention_dropout: float = 0.0,
         device: str = None,
         dtype: torch.dtype = None,
-        sdpa_fn: Optional[Callable | nn.Module] = None,
+        sdpa_fn: Callable | nn.Module | None = None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -186,9 +184,9 @@ class MultiHeadCrossAttention(nn.Module):
         self.num_heads = num_heads
         assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
         self.head_dim = self.embed_dim // num_heads
-        assert (
-            self.head_dim % 8 == 0 and self.head_dim <= 128
-        ), "Only support head_dim <= 128 and divisible by 8"
+        assert self.head_dim % 8 == 0 and self.head_dim <= 128, (
+            "Only support head_dim <= 128 and divisible by 8"
+        )
 
         self.Wq = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
         self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias, **factory_kwargs)
@@ -196,14 +194,10 @@ class MultiHeadCrossAttention(nn.Module):
 
     def forward(self, q_input, kv_input, cross_attn_mask=None, dmat=None):
         # Project query, key, value
-        q = rearrange(
-            self.Wq(q_input), "b m (h d) -> b h m d", h=self.num_heads
-        )  # [b, h, m, d]
+        q = rearrange(self.Wq(q_input), "b m (h d) -> b h m d", h=self.num_heads)  # [b, h, m, d]
         k, v = rearrange(
             self.Wkv(kv_input), "b n (two h d) -> two b h n d", two=2, h=self.num_heads
-        ).unbind(
-            dim=0
-        )  # [b, h, n, d]
+        ).unbind(dim=0)  # [b, h, n, d]
 
         if cross_attn_mask is not None:
             # add head dim
@@ -252,7 +246,7 @@ class PointerAttention(nn.Module):
         sdpa_fn: Callable | str = "default",
         **kwargs,
     ):
-        super(PointerAttention, self).__init__()
+        super().__init__()
         self.num_heads = num_heads
         self.mask_inner = mask_inner
 
@@ -274,9 +268,7 @@ class PointerAttention(nn.Module):
         else:
             if sdpa_fn is None:
                 sdpa_fn = scaled_dot_product_attention
-                log.info(
-                    "Using default scaled_dot_product_attention for PointerAttention"
-                )
+                log.info("Using default scaled_dot_product_attention for PointerAttention")
         self.sdpa_fn = sdpa_fn
 
     def forward(self, query, key, value, logit_key, attn_mask=None):
@@ -358,12 +350,10 @@ class PointerAttnMoE(PointerAttention):
         mask_inner: bool = True,
         out_bias: bool = False,
         check_nan: bool = True,
-        sdpa_fn: Optional[Callable] = None,
-        moe_kwargs: Optional[dict] = None,
+        sdpa_fn: Callable | None = None,
+        moe_kwargs: dict | None = None,
     ):
-        super(PointerAttnMoE, self).__init__(
-            embed_dim, num_heads, mask_inner, out_bias, check_nan, sdpa_fn
-        )
+        super().__init__(embed_dim, num_heads, mask_inner, out_bias, check_nan, sdpa_fn)
         self.moe_kwargs = moe_kwargs
 
         self.project_out = None
@@ -381,17 +371,11 @@ class PointerAttnMoE(PointerAttention):
             # only do this at the "second" step, which is depot -> pomo -> first select
             if (num_available_nodes >= num_nodes - 1).any():
                 self.probs = F.softmax(
-                    self.dense_or_moe(
-                        out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)
-                    ),
+                    self.dense_or_moe(out.view(-1, out.size(-1)).mean(dim=0, keepdim=True)),
                     dim=-1,
                 )
             selected = self.probs.multinomial(1).squeeze(0)
-            out = (
-                self.project_out_moe(out)
-                if selected.item() == 1
-                else self.project_out(out)
-            )
+            out = self.project_out_moe(out) if selected.item() == 1 else self.project_out(out)
             glimpse = out * self.probs.squeeze(0)[selected]
         else:
             glimpse = self.project_out_moe(out)
@@ -408,13 +392,13 @@ class LogitAttention(PointerAttention):
             "Note that several components of the previous LogitAttention have moved to `rl4co.models.nn.dec_strategies`.",
             category=DeprecationWarning,
         )
-        super(LogitAttention, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 # MultiHeadCompat
 class MultiHeadCompat(nn.Module):
     def __init__(self, n_heads, input_dim, embed_dim=None, val_dim=None, key_dim=None):
-        super(MultiHeadCompat, self).__init__()
+        super().__init__()
 
         if val_dim is None:
             # assert embed_dim is not None, "Provide either embed_dim or val_dim"
@@ -499,17 +483,13 @@ class PolyNetAttention(PointerAttention):
         sdpa_fn: scaled dot product attention function (SDPA) implementation
     """
 
-    def __init__(
-        self, k: int, embed_dim: int, poly_layer_dim: int, num_heads: int, **kwargs
-    ):
-        super(PolyNetAttention, self).__init__(embed_dim, num_heads, **kwargs)
+    def __init__(self, k: int, embed_dim: int, poly_layer_dim: int, num_heads: int, **kwargs):
+        super().__init__(embed_dim, num_heads, **kwargs)
 
         self.k = k
         self.binary_vector_dim = math.ceil(math.log2(k))
         self.binary_vectors = torch.nn.Parameter(
-            torch.Tensor(
-                list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]
-            ),
+            torch.Tensor(list(itertools.product([0, 1], repeat=self.binary_vector_dim))[:k]),
             requires_grad=False,
         )
 
@@ -532,9 +512,7 @@ class PolyNetAttention(PointerAttention):
         glimpse = self.project_out(heads)
 
         num_solutions = glimpse.shape[1]
-        z = self.binary_vectors.repeat(math.ceil(num_solutions / self.k), 1)[
-            :num_solutions
-        ]
+        z = self.binary_vectors.repeat(math.ceil(num_solutions / self.k), 1)[:num_solutions]
         z = z[None].expand(glimpse.shape[0], num_solutions, self.binary_vector_dim)
 
         # PolyNet layers

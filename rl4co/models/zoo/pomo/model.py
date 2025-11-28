@@ -1,4 +1,5 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import torch.nn as nn
 
@@ -61,14 +62,12 @@ class POMO(REINFORCE):
                 "use_graph_context": False,
             }
             policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = AttentionModelPolicy(
-                env_name=env.name, **policy_kwargs_with_defaults
-            )
+            policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs_with_defaults)
 
         assert baseline == "shared", "POMO only supports shared baseline"
 
         # Initialize with the shared baseline
-        super(POMO, self).__init__(env, policy, baseline, **kwargs)
+        super().__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
         self.num_augment = num_augment
@@ -86,9 +85,7 @@ class POMO(REINFORCE):
         for phase in ["train", "val", "test"]:
             self.set_decode_type_multistart(phase)
 
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
@@ -139,9 +136,7 @@ class POMO(REINFORCE):
                 out.update({"max_aug_reward": max_aug_reward})
 
                 if out.get("actions", None) is not None:
-                    actions_ = (
-                        out["best_multistart_actions"] if n_start > 1 else out["actions"]
-                    )
+                    actions_ = out["best_multistart_actions"] if n_start > 1 else out["actions"]
                     out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)

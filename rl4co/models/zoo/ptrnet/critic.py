@@ -16,16 +16,14 @@ class CriticNetworkLSTM(nn.Module):
         tanh_exploration,
         use_tanh,
     ):
-        super(CriticNetworkLSTM, self).__init__()
+        super().__init__()
 
         self.hidden_dim = hidden_dim
         self.n_process_block_iters = n_process_block_iters
 
         self.encoder = Encoder(embed_dim, hidden_dim)
 
-        self.process_block = SimpleAttention(
-            hidden_dim, use_tanh=use_tanh, C=tanh_exploration
-        )
+        self.process_block = SimpleAttention(hidden_dim, use_tanh=use_tanh, C=tanh_exploration)
         self.sm = nn.Softmax(dim=1)
         self.decoder = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1)
@@ -38,12 +36,8 @@ class CriticNetworkLSTM(nn.Module):
         """
         inputs = inputs.transpose(0, 1).contiguous()
 
-        encoder_hx = (
-            self.encoder.init_hx.unsqueeze(0).repeat(inputs.size(1), 1).unsqueeze(0)
-        )
-        encoder_cx = (
-            self.encoder.init_cx.unsqueeze(0).repeat(inputs.size(1), 1).unsqueeze(0)
-        )
+        encoder_hx = self.encoder.init_hx.unsqueeze(0).repeat(inputs.size(1), 1).unsqueeze(0)
+        encoder_cx = self.encoder.init_cx.unsqueeze(0).repeat(inputs.size(1), 1).unsqueeze(0)
 
         # encoder forward pass
         enc_outputs, (enc_h_t, enc_c_t) = self.encoder(inputs, (encoder_hx, encoder_cx))

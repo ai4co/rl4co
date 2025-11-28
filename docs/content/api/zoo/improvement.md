@@ -2,7 +2,7 @@
 
 These methods are trained to improve existing solutions iteratively, akin to local search algorithms. They focus on refining existing solutions rather than generating them from scratch.
 
-### DACT 
+### DACT
 
 :::models.zoo.dact.encoder
     options:
@@ -19,7 +19,7 @@ These methods are trained to improve existing solutions iteratively, akin to loc
 :::models.zoo.dact.model
     options:
       show_root_heading: false
-      
+
 
 ### N2S
 

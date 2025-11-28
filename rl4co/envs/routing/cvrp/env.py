@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -14,7 +12,7 @@ from .generator import CVRPGenerator
 
 try:
     from .local_search import local_search
-except:  # In case when we fail to build HGS
+except Exception:  # In case when we fail to build HGS
     local_search = None
 from .render import render
 
@@ -75,9 +73,7 @@ class CVRPEnv(RL4COEnvBase):
         )
 
         # Increase capacity if depot is not visited, otherwise set to 0
-        used_capacity = (td["used_capacity"] + selected_demand) * (
-            current_node != 0
-        ).float()
+        used_capacity = (td["used_capacity"] + selected_demand) * (current_node != 0).float()
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
@@ -101,8 +97,8 @@ class CVRPEnv(RL4COEnvBase):
 
     def _reset(
         self,
-        td: Optional[TensorDict] = None,
-        batch_size: Optional[list] = None,
+        td: TensorDict | None = None,
+        batch_size: list | None = None,
     ) -> TensorDict:
         device = td.device
 
@@ -111,9 +107,7 @@ class CVRPEnv(RL4COEnvBase):
             {
                 "locs": torch.cat((td["depot"][:, None, :], td["locs"]), -2),
                 "demand": td["demand"],
-                "current_node": torch.zeros(
-                    *batch_size, 1, dtype=torch.long, device=device
-                ),
+                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=device),
                 "used_capacity": torch.zeros((*batch_size, 1), device=device),
                 "vehicle_capacity": torch.full(
                     (*batch_size, 1), self.generator.vehicle_capacity, device=device
@@ -138,9 +132,7 @@ class CVRPEnv(RL4COEnvBase):
         mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
 
         # Cannot visit the depot if just visited and still unserved nodes
-        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[
-            :, None
-        ]
+        mask_depot = (td["current_node"] == 0) & ((mask_loc == 0).int().sum(-1) > 0)[:, None]
         return ~torch.cat((mask_depot, mask_loc), -1)
 
     def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
@@ -180,9 +172,9 @@ class CVRPEnv(RL4COEnvBase):
             ]  # This will reset/make capacity negative if i == 0, e.g. depot visited
             # Cannot use less than 0
             used_cap[used_cap < 0] = 0
-            assert (
-                used_cap <= td["vehicle_capacity"][:, 0] + 1e-5
-            ).all(), "Used more than capacity"
+            assert (used_cap <= td["vehicle_capacity"][:, 0] + 1e-5).all(), (
+                "Used more than capacity"
+            )
 
     @staticmethod
     def load_data(fpath, batch_size=[]):
@@ -254,9 +246,9 @@ class CVRPEnv(RL4COEnvBase):
 
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
-        assert (
-            local_search is not None
-        ), "Cannot import local_search module. Check `rl4co/envs/routing/cvrp/README.md` for instructions to build HGS."
+        assert local_search is not None, (
+            "Cannot import local_search module. Check `rl4co/envs/routing/cvrp/README.md` for instructions to build HGS."
+        )
         return local_search(td, actions, **kwargs)
 
     @staticmethod

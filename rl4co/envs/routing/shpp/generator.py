@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from collections.abc import Callable
 
 from tensordict.tensordict import TensorDict
 from torch.distributions import Uniform
@@ -27,7 +27,7 @@ class SHPPGenerator(Generator):
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
+        loc_distribution: int | float | str | type | Callable = Uniform,
         **kwargs,
     ):
         self.num_loc = num_loc
@@ -38,9 +38,7 @@ class SHPPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
     def _generate(self, batch_size) -> TensorDict:
         # Sample locations

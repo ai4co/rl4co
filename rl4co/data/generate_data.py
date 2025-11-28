@@ -29,17 +29,13 @@ def generate_env_data(env_type, *args, **kwargs):
         # remove all None values from args
         args = [arg for arg in args if arg is not None]
 
-        return getattr(sys.modules[__name__], f"generate_{env_type}_data")(
-            *args, **kwargs
-        )
+        return getattr(sys.modules[__name__], f"generate_{env_type}_data")(*args, **kwargs)
     except AttributeError:
         raise NotImplementedError(f"Environment type {env_type} not implemented")
 
 
 def generate_tsp_data(dataset_size, tsp_size):
-    return {
-        "locs": np.random.uniform(size=(dataset_size, tsp_size, 2)).astype(np.float32)
-    }
+    return {"locs": np.random.uniform(size=(dataset_size, tsp_size, 2)).astype(np.float32)}
 
 
 def generate_vrp_data(dataset_size, vrp_size, capacities=None):
@@ -69,9 +65,7 @@ def generate_vrp_data(dataset_size, vrp_size, capacities=None):
                 CAPACITIES[k] = v
 
     return {
-        "depot": np.random.uniform(size=(dataset_size, 2)).astype(
-            np.float32
-        ),  # Depot location
+        "depot": np.random.uniform(size=(dataset_size, 2)).astype(np.float32),  # Depot location
         "locs": np.random.uniform(size=(dataset_size, vrp_size, 2)).astype(
             np.float32
         ),  # Node locations
@@ -103,9 +97,7 @@ def generate_op_data(dataset_size, op_size, prize_type="const", max_lengths=None
     else:  # Based on distance to depot
         assert prize_type == "dist"
         prize_ = np.linalg.norm(depot[:, None, :] - loc, axis=-1)
-        prize = (
-            1 + (prize_ / prize_.max(axis=-1, keepdims=True) * 99).astype(int)
-        ) / 100.0
+        prize = (1 + (prize_ / prize_.max(axis=-1, keepdims=True) * 99).astype(int)) / 100.0
 
     # Max length is approximately half of optimal TSP tour, such that half (a bit more) of the nodes can be visited
     # which is maximally difficult as this has the largest number of possibilities
@@ -140,17 +132,13 @@ def generate_pctsp_data(dataset_size, pctsp_size, penalty_factor=3, max_lengths=
     # Now expectation is 0.5 so expected total prize is n / 2, we want to force to visit approximately half of the nodes
     # so the constraint will be that total prize >= (n / 2) / 2 = n / 4
     # equivalently, we divide all prizes by n / 4 and the total prize should be >= 1
-    deterministic_prize = (
-        np.random.uniform(size=(dataset_size, pctsp_size)) * 4 / float(pctsp_size)
-    )
+    deterministic_prize = np.random.uniform(size=(dataset_size, pctsp_size)) * 4 / float(pctsp_size)
 
     # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
     # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
     # stochastic prize is only revealed once the node is visited
     # Stochastic prize is between (0, 2 * expected_prize) such that E(stochastic prize) = E(deterministic_prize)
-    stochastic_prize = (
-        np.random.uniform(size=(dataset_size, pctsp_size)) * deterministic_prize * 2
-    )
+    stochastic_prize = np.random.uniform(size=(dataset_size, pctsp_size)) * deterministic_prize * 2
 
     return {
         "locs": loc.astype(np.float32),
@@ -287,11 +275,7 @@ def generate_dataset(
                         datadir,
                         "{}{}{}_{}_seed{}.npz".format(
                             problem,
-                            (
-                                "_{}".format(distribution)
-                                if distribution is not None
-                                else ""
-                            ),
+                            (f"_{distribution}" if distribution is not None else ""),
                             graph_size,
                             name,
                             seed,
@@ -304,19 +288,13 @@ def generate_dataset(
                         os.makedirs(os.path.dirname(fname), exist_ok=True)
                         iter += 1
                     except Exception:
-                        raise ValueError(
-                            "Number of filenames does not match number of problems"
-                        )
+                        raise ValueError("Number of filenames does not match number of problems")
                     fname = check_extension(filename, extension=".npz")
 
-                if not overwrite and os.path.isfile(
-                    check_extension(fname, extension=".npz")
-                ):
+                if not overwrite and os.path.isfile(check_extension(fname, extension=".npz")):
                     if not disable_warning:
                         log.info(
-                            "File {} already exists! Run with -f option to overwrite. Skipping...".format(
-                                fname
-                            )
+                            f"File {fname} already exists! Run with -f option to overwrite. Skipping..."
                         )
                     continue
 
@@ -324,14 +302,12 @@ def generate_dataset(
                 np.random.seed(seed)
 
                 # Automatically generate dataset
-                dataset = generate_env_data(
-                    problem, dataset_size, graph_size, distribution
-                )
+                dataset = generate_env_data(problem, dataset_size, graph_size, distribution)
 
                 # A function can return None in case of an error or a skip
                 if dataset is not None:
                     # Save to disk as dict
-                    log.info("Saving {} dataset to {}".format(problem, fname))
+                    log.info(f"Saving {problem} dataset to {fname}")
                     np.savez(fname, **dataset)
 
 
@@ -354,23 +330,18 @@ def generate_default_datasets(data_dir, generate_eda=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--filename", help="Filename of the dataset to create (ignores datadir)"
-    )
+    parser.add_argument("--filename", help="Filename of the dataset to create (ignores datadir)")
     parser.add_argument(
         "--data_dir",
         default="data",
         help="Create datasets in data_dir/problem (default 'data')",
     )
-    parser.add_argument(
-        "--name", type=str, required=True, help="Name to identify dataset"
-    )
+    parser.add_argument("--name", type=str, required=True, help="Name to identify dataset")
     parser.add_argument(
         "--problem",
         type=str,
         default="all",
-        help="Problem, 'tsp', 'vrp', 'pctsp' or 'op_const', 'op_unif' or 'op_dist'"
-        " or 'all' to generate all",
+        help="Problem, 'tsp', 'vrp', 'pctsp' or 'op_const', 'op_unif' or 'op_dist' or 'all' to generate all",
     )
     parser.add_argument(
         "--data_distribution",
@@ -378,9 +349,7 @@ if __name__ == "__main__":
         default="all",
         help="Distributions to generate for problem, default 'all'.",
     )
-    parser.add_argument(
-        "--dataset_size", type=int, default=10000, help="Size of the dataset"
-    )
+    parser.add_argument("--dataset_size", type=int, default=10000, help="Size of the dataset")
     parser.add_argument(
         "--graph_sizes",
         type=int,

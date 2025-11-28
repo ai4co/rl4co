@@ -39,7 +39,7 @@ class MDAMDecoder(nn.Module):
         val_decode_type: str = "greedy",
         test_decode_type: str = "greedy",
     ):
-        super(MDAMDecoder, self).__init__()
+        super().__init__()
         self.dynamic_embedding = env_dynamic_embedding(env_name, {"embed_dim": embed_dim})
 
         self.train_decode_type = train_decode_type
@@ -47,15 +47,10 @@ class MDAMDecoder(nn.Module):
         self.test_decode_type = test_decode_type
 
         self.W_placeholder = nn.Parameter(torch.Tensor(2 * embed_dim))
-        self.W_placeholder.data.uniform_(
-            -1, 1
-        )  # Placeholder should be in range of activations
+        self.W_placeholder.data.uniform_(-1, 1)  # Placeholder should be in range of activations
 
         self.context = nn.ModuleList(
-            [
-                env_context_embedding(env_name, {"embed_dim": embed_dim})
-                for _ in range(num_paths)
-            ]
+            [env_context_embedding(env_name, {"embed_dim": embed_dim}) for _ in range(num_paths)]
         )
 
         self.project_node_embeddings = [
@@ -73,9 +68,7 @@ class MDAMDecoder(nn.Module):
         ]
         self.project_step_context = nn.ModuleList(self.project_step_context)
 
-        self.project_out = [
-            nn.Linear(embed_dim, embed_dim, bias=False) for _ in range(num_paths)
-        ]
+        self.project_out = [nn.Linear(embed_dim, embed_dim, bias=False) for _ in range(num_paths)]
         self.project_out = nn.ModuleList(self.project_out)
 
         self.dynamic_embedding = env_dynamic_embedding(env_name, {"embed_dim": embed_dim})
@@ -224,9 +217,7 @@ class MDAMDecoder(nn.Module):
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key_fixed,
-        ) = self.project_node_embeddings[path_index](embeddings[:, None, :, :]).chunk(
-            3, dim=-1
-        )
+        ) = self.project_node_embeddings[path_index](embeddings[:, None, :, :]).chunk(3, dim=-1)
 
         fixed = PrecomputedCache(
             node_embeddings=embeddings,
@@ -249,18 +240,12 @@ class MDAMDecoder(nn.Module):
                 self.num_heads,
                 -1,
             )
-            .permute(
-                3, 0, 1, 2, 4
-            )  # (n_heads, batch_size, num_steps, graph_size, head_dim)
+            .permute(3, 0, 1, 2, 4)  # (n_heads, batch_size, num_steps, graph_size, head_dim)
         )
 
     def _get_logprobs(self, fixed, td, path_index, normalize=True):
-        step_context = self.context[path_index](
-            fixed.node_embeddings, td
-        )  # [batch, embed_dim]
-        glimpse_q = fixed.graph_context + step_context.unsqueeze(1).to(
-            fixed.graph_context.device
-        )
+        step_context = self.context[path_index](fixed.node_embeddings, td)  # [batch, embed_dim]
+        glimpse_q = fixed.graph_context + step_context.unsqueeze(1).to(fixed.graph_context.device)
 
         # Compute keys and values for the nodes
         (
@@ -287,9 +272,9 @@ class MDAMDecoder(nn.Module):
         key_size = val_size = embed_dim // self.num_heads
 
         # Compute the glimpse, rearrange dimensions so the dimensions are (n_heads, batch_size, num_steps, 1, key_size)
-        glimpse_Q = query.view(
-            batch_size, num_steps, self.num_heads, 1, key_size
-        ).permute(2, 0, 1, 3, 4)
+        glimpse_Q = query.view(batch_size, num_steps, self.num_heads, 1, key_size).permute(
+            2, 0, 1, 3, 4
+        )
 
         # Batch matrix multiplication to compute compatibilities (n_heads, batch_size, num_steps, graph_size)
         compatibility = torch.matmul(glimpse_Q, glimpse_K.transpose(-2, -1)) / math.sqrt(
@@ -297,9 +282,7 @@ class MDAMDecoder(nn.Module):
         )
         if self.mask_inner:
             assert self.mask_logits, "Cannot mask inner without masking logits"
-            compatibility[~mask[None, :, None, None, :].expand_as(compatibility)] = (
-                -math.inf
-            )
+            compatibility[~mask[None, :, None, None, :].expand_as(compatibility)] = -math.inf
 
         # Batch matrix multiplication to compute heads (n_heads, batch_size, num_steps, val_size)
         heads = torch.matmul(F.softmax(compatibility, dim=-1), glimpse_V)

@@ -1,20 +1,17 @@
 import os
 import zipfile
-from typing import Union, Callable
 
-import torch
 import numpy as np
+import torch
 
 from robust_downloader import download
-from torch.distributions import Uniform
 from tensordict.tensordict import TensorDict
 
 from rl4co.data.utils import load_npz_to_tensordict
+from rl4co.envs.common.utils import Generator
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.envs.common.utils import get_sampler, Generator
 
 log = get_pylogger(__name__)
-
 
 
 class DPPGenerator(Generator):
@@ -32,7 +29,7 @@ class DPPGenerator(Generator):
         decap_file: Name of the decap file. Defaults to "01nF_decap.npy".
         freq_file: Name of the frequency file. Defaults to "freq_201.npy".
         url: URL to download data from. Defaults to None.
-    
+
     Returns:
         A TensorDict with the following keys:
             locs [batch_size, num_loc, 2]: locations of each customer
@@ -40,6 +37,7 @@ class DPPGenerator(Generator):
             demand [batch_size, num_loc]: demand of each customer
             capacity [batch_size]: capacity of the vehicle
     """
+
     def __init__(
         self,
         min_loc: float = 0.0,
@@ -52,7 +50,7 @@ class DPPGenerator(Generator):
         decap_file: str = "01nF_decap.npy",
         freq_file: str = "freq_201.npy",
         url: str = None,
-        **unused_kwargs
+        **unused_kwargs,
     ):
         self.min_loc = min_loc
         self.max_loc = max_loc
@@ -65,25 +63,20 @@ class DPPGenerator(Generator):
         if len(unused_kwargs) > 0:
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
 
-
         # Download and load the data from online dataset
         self.url = (
             "https://github.com/kaist-silab/devformer/raw/main/data/data.zip"
             if url is None
             else url
         )
-        self.backup_url = (
-            "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
-        )
+        self.backup_url = "https://drive.google.com/uc?id=1IEuR2v8Le-mtHWHxwTAbTOPIkkQszI95"
         self._load_dpp_data(chip_file, decap_file, freq_file)
 
         # Check the validity of the keepout parameters
-        assert (
-            num_keepout_min <= num_keepout_max
-        ), "num_keepout_min must be <= num_keepout_max"
-        assert (
-            num_keepout_max <= self.size**2
-        ), "num_keepout_max must be <= size * size (total number of locations)"
+        assert num_keepout_min <= num_keepout_max, "num_keepout_min must be <= num_keepout_max"
+        assert num_keepout_max <= self.size**2, (
+            "num_keepout_max must be <= size * size (total number of locations)"
+        )
 
     def _generate(self, batch_size) -> TensorDict:
         """
@@ -97,9 +90,7 @@ class DPPGenerator(Generator):
         bs = [1] if not batched else batch_size
 
         # Create a list of locs on a grid
-        locs = torch.meshgrid(
-            torch.arange(m), torch.arange(n)
-        )
+        locs = torch.meshgrid(torch.arange(m), torch.arange(n))
         locs = torch.stack(locs, dim=-1).reshape(-1, 2)
         # normalize the locations by the number of rows and columns
         locs = locs / torch.tensor([m, n], dtype=torch.float)
@@ -155,9 +146,7 @@ class DPPGenerator(Generator):
             )
             download(self.backup_url, self.data_dir, "data.zip")
         log.info("Download complete. Unzipping...")
-        zipfile.ZipFile(os.path.join(self.data_dir, "data.zip"), "r").extractall(
-            self.data_dir
-        )
+        zipfile.ZipFile(os.path.join(self.data_dir, "data.zip"), "r").extractall(self.data_dir)
         log.info("Unzip complete. Removing zip file")
         os.remove(os.path.join(self.data_dir, "data.zip"))
 

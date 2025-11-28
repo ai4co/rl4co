@@ -32,9 +32,7 @@ class SpeedMonitor(Callback):
     def on_train_start(self, trainer: "L.Trainer", L_module: "L.LightningModule") -> None:
         self._snap_epoch_time = None
 
-    def on_train_epoch_start(
-        self, trainer: "L.Trainer", L_module: "L.LightningModule"
-    ) -> None:
+    def on_train_epoch_start(self, trainer: "L.Trainer", L_module: "L.LightningModule") -> None:
         self._snap_intra_step_time = None
         self._snap_inter_step_time = None
         self._snap_epoch_time = time.time()
@@ -44,9 +42,7 @@ class SpeedMonitor(Callback):
     ) -> None:
         self._snap_inter_step_time = None
 
-    def on_test_epoch_start(
-        self, trainer: "L.Trainer", L_module: "L.LightningModule"
-    ) -> None:
+    def on_test_epoch_start(self, trainer: "L.Trainer", L_module: "L.LightningModule") -> None:
         self._snap_inter_step_time = None
 
     @rank_zero_only
@@ -65,9 +61,7 @@ class SpeedMonitor(Callback):
         logs = {}
         if self._log_stats.inter_step_time and self._snap_inter_step_time:
             # First log at beginning of second step
-            logs["time/inter_step (ms)"] = (
-                time.time() - self._snap_inter_step_time
-            ) * 1000
+            logs["time/inter_step (ms)"] = (time.time() - self._snap_inter_step_time) * 1000
 
         if trainer.logger is not None:
             trainer.logger.log_metrics(logs, step=trainer.global_step)
@@ -83,11 +77,7 @@ class SpeedMonitor(Callback):
         if self._log_stats.inter_step_time:
             self._snap_inter_step_time = time.time()
 
-        if (
-            self.verbose
-            and self._log_stats.intra_step_time
-            and self._snap_intra_step_time
-        ):
+        if self.verbose and self._log_stats.intra_step_time and self._snap_intra_step_time:
             L_module.print(
                 f"time/intra_step (ms): {(time.time() - self._snap_intra_step_time) * 1000}"
             )
@@ -97,9 +87,7 @@ class SpeedMonitor(Callback):
 
         logs = {}
         if self._log_stats.intra_step_time and self._snap_intra_step_time:
-            logs["time/intra_step (ms)"] = (
-                time.time() - self._snap_intra_step_time
-            ) * 1000
+            logs["time/intra_step (ms)"] = (time.time() - self._snap_intra_step_time) * 1000
 
         if trainer.logger is not None:
             trainer.logger.log_metrics(logs, step=trainer.global_step)
@@ -118,6 +106,4 @@ class SpeedMonitor(Callback):
 
     @staticmethod
     def _should_log(trainer) -> bool:
-        return (
-            trainer.global_step + 1
-        ) % trainer.log_every_n_steps == 0 or trainer.should_stop
+        return (trainer.global_step + 1) % trainer.log_every_n_steps == 0 or trainer.should_stop

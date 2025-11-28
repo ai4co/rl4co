@@ -1,6 +1,6 @@
 import math
 
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -38,9 +38,7 @@ def dihedral_8_augmentation(xy: Tensor) -> Tensor:
     return aug_xy
 
 
-def dihedral_8_augmentation_wrapper(
-    xy: Tensor, reduce: bool = True, *args, **kw
-) -> Tensor:
+def dihedral_8_augmentation_wrapper(xy: Tensor, reduce: bool = True, *args, **kw) -> Tensor:
     """Wrapper for dihedral_8_augmentation. If reduce, only return the first 1/8 of the augmented data
     since the augmentation augments the data 8 times.
     """
@@ -104,7 +102,7 @@ def get_augment_function(augment_fn: str | Callable):
     )
 
 
-class StateAugmentation(object):
+class StateAugmentation:
     """Augment state by N times via symmetric rotation/reflection transform
 
     Args:
@@ -125,9 +123,9 @@ class StateAugmentation(object):
         feats: list = None,
     ):
         self.augmentation = get_augment_function(augment_fn)
-        assert not (
-            self.augmentation == dihedral_8_augmentation_wrapper and num_augment != 8
-        ), "When using the `dihedral8` augmentation function, then num_augment must be 8"
+        assert not (self.augmentation == dihedral_8_augmentation_wrapper and num_augment != 8), (
+            "When using the `dihedral8` augmentation function, then num_augment must be 8"
+        )
 
         if feats is None:
             log.info("Features not passed, defaulting to 'locs'")

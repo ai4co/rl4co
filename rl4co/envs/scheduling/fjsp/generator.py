@@ -62,9 +62,7 @@ class FJSPGenerator(Generator):
         if len(unused_kwargs) > 0:
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
 
-    def _simulate_processing_times(
-        self, n_eligible_per_ops: torch.Tensor
-    ) -> torch.Tensor:
+    def _simulate_processing_times(self, n_eligible_per_ops: torch.Tensor) -> torch.Tensor:
         bs, n_ops_max = n_eligible_per_ops.shape
 
         # (bs, max_ops, machines)
@@ -102,8 +100,7 @@ class FJSPGenerator(Generator):
                 + 1
             )
             proc_times = (
-                torch.randint(2**63 - 1, size=proc_times.shape)
-                % (high_bounds - low_bounds)
+                torch.randint(2**63 - 1, size=proc_times.shape) % (high_bounds - low_bounds)
                 + low_bounds
             )
         else:
@@ -229,9 +226,7 @@ class FJSPFileGenerator(Generator):
         import os
 
         files = [
-            os.path.join(path, f)
-            for f in os.listdir(path)
-            if os.path.isfile(os.path.join(path, f))
+            os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))
         ]
         assert len(files) > 0
         return files

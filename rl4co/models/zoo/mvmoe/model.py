@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch.nn as nn
 
@@ -57,7 +57,7 @@ class MVMoE_POMO(POMO):
             policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
 
         # Initialize with the shared baseline
-        super(MVMoE_POMO, self).__init__(
+        super().__init__(
             env,
             policy,
             policy_kwargs,
@@ -111,6 +111,4 @@ class MVMoE_AM(AttentionModel):
             policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
 
         # Initialize with the shared baseline
-        super(MVMoE_AM, self).__init__(
-            env, policy, baseline, policy_kwargs, baseline_kwargs, **kwargs
-        )
+        super().__init__(env, policy, baseline, policy_kwargs, baseline_kwargs, **kwargs)

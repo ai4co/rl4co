@@ -1,7 +1,5 @@
 import copy
 
-from typing import Optional
-
 from tensordict import TensorDict
 from torch import Tensor, nn
 
@@ -24,19 +22,20 @@ class CriticNetwork(nn.Module):
     def __init__(
         self,
         encoder: nn.Module,
-        value_head: Optional[nn.Module] = None,
+        value_head: nn.Module | None = None,
         embed_dim: int = 128,
         hidden_dim: int = 512,
         customized: bool = False,
     ):
-        super(CriticNetwork, self).__init__()
+        super().__init__()
 
         self.encoder = encoder
         if value_head is None:
             # check if embed dim of encoder is different, if so, use it
             if getattr(encoder, "embed_dim", embed_dim) != embed_dim:
                 log.warning(
-                    f"Found encoder with different embed_dim {encoder.embed_dim} than the value head {embed_dim}. Using encoder embed_dim for value head."
+                    f"Found encoder with different embed_dim {encoder.embed_dim} than the value head {embed_dim}. \
+                    Using encoder embed_dim for value head."
                 )
                 embed_dim = getattr(encoder, "embed_dim", embed_dim)
             value_head = nn.Sequential(
@@ -62,15 +61,11 @@ class CriticNetwork(nn.Module):
             return self.value_head(h, hidden)
 
 
-def create_critic_from_actor(
-    policy: nn.Module, backbone: str = "encoder", **critic_kwargs
-):
+def create_critic_from_actor(policy: nn.Module, backbone: str = "encoder", **critic_kwargs):
     # we reuse the network of the policy's backbone, such as an encoder
     encoder = getattr(policy, backbone, None)
     if encoder is None:
-        raise ValueError(
-            f"CriticBaseline requires a backbone in the policy network: {backbone}"
-        )
+        raise ValueError(f"CriticBaseline requires a backbone in the policy network: {backbone}")
     critic = CriticNetwork(copy.deepcopy(encoder), **critic_kwargs).to(
         next(policy.parameters()).device
     )

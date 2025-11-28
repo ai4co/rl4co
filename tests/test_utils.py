@@ -13,9 +13,7 @@ from rl4co.utils.ops import batchify, unbatchify
     "a",
     [
         torch.randn(10, 20, 2),
-        TensorDict(
-            {"a": torch.randn(10, 20, 2), "b": torch.randn(10, 20, 2)}, batch_size=10
-        ),
+        TensorDict({"a": torch.randn(10, 20, 2), "b": torch.randn(10, 20, 2)}, batch_size=10),
     ],
 )
 @pytest.mark.parametrize("shape", [(2,), (2, 2), (2, 2, 2)])

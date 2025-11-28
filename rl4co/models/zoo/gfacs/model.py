@@ -1,7 +1,5 @@
 import math
 
-from typing import Optional, Union
-
 import numpy as np
 import scipy
 import torch
@@ -37,8 +35,8 @@ class GFACS(DeepACO):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: Optional[GFACSPolicy] = None,
-        baseline: Union[REINFORCEBaseline, str] = "no",
+        policy: GFACSPolicy | None = None,
+        baseline: REINFORCEBaseline | str = "no",
         train_with_local_search: bool = True,
         policy_kwargs: dict = {},
         baseline_kwargs: dict = {},
@@ -77,8 +75,7 @@ class GFACS(DeepACO):
     @property
     def alpha(self) -> float:
         return self.alpha_min + (self.alpha_max - self.alpha_min) * min(
-            self.current_epoch
-            / (self.trainer.max_epochs - self.alpha_flat_epochs),  # type: ignore
+            self.current_epoch / (self.trainer.max_epochs - self.alpha_flat_epochs),  # type: ignore
             1.0,
         )
 
@@ -95,8 +92,8 @@ class GFACS(DeepACO):
         td: TensorDict,
         batch: TensorDict,
         policy_out: dict,
-        reward: Optional[torch.Tensor] = None,
-        log_likelihood: Optional[torch.Tensor] = None,
+        reward: torch.Tensor | None = None,
+        log_likelihood: torch.Tensor | None = None,
     ):
         """Calculate loss for REINFORCE algorithm.
 
@@ -128,9 +125,9 @@ class GFACS(DeepACO):
 
         # Off-policy loss
         if self.train_with_local_search:
-            ls_forward_flow = policy_out["ls_log_likelihood"] + policy_out[
-                "ls_logZ"
-            ].repeat(1, n_ants)
+            ls_forward_flow = policy_out["ls_log_likelihood"] + policy_out["ls_logZ"].repeat(
+                1, n_ants
+            )
             ls_backward_flow = (
                 self.calculate_log_pb_uniform(policy_out["ls_actions"], n_ants)
                 + ls_advantage.detach() * self.beta
@@ -152,9 +149,7 @@ class GFACS(DeepACO):
                 n_routes = np.count_nonzero(_a2, axis=1) - n_nodes
                 _a3 = _a1[:, 2:] - _a1[:, :-2]
                 n_multinode_routes = np.count_nonzero(_a3, axis=1) - n_nodes
-                log_b_p = -scipy.special.gammaln(
-                    n_routes + 1
-                ) - n_multinode_routes * math.log(2)
+                log_b_p = -scipy.special.gammaln(n_routes + 1) - n_multinode_routes * math.log(2)
                 return unbatchify(torch.from_numpy(log_b_p).to(actions.device), n_ants)
             case "op" | "pctsp":
                 return math.log(1 / 2)

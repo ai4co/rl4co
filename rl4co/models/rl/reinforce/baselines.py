@@ -28,9 +28,7 @@ class REINFORCEBaseline(nn.Module, metaclass=abc.ABCMeta):
         return dataset
 
     @abc.abstractmethod
-    def eval(
-        self, td: TensorDict, reward: torch.Tensor, env: RL4COEnvBase = None, **kwargs
-    ):
+    def eval(self, td: TensorDict, reward: torch.Tensor, env: RL4COEnvBase = None, **kwargs):
         """Evaluate baseline"""
         raise NotImplementedError
 
@@ -134,7 +132,7 @@ class WarmupBaseline(REINFORCEBaseline):
         self.baseline.epoch_callback(*args, **kw)
         if kw["epoch"] < self.n_epochs:
             self.alpha = (kw["epoch"] + 1) / float(self.n_epochs)
-            log.info("Set warmup alpha = {}".format(self.alpha))
+            log.info(f"Set warmup alpha = {self.alpha}")
 
 
 class CriticBaseline(REINFORCEBaseline):
@@ -145,12 +143,12 @@ class CriticBaseline(REINFORCEBaseline):
     """
 
     def __init__(self, critic: CriticNetwork = None, **unused_kw):
-        super(CriticBaseline, self).__init__()
+        super().__init__()
         self.critic = critic
 
     def setup(self, policy, env, **kwargs):
         if self.critic is None:
-            log.info("Critic not found. Creating critic network for {}".format(env.name))
+            log.info(f"Critic not found. Creating critic network for {env.name}")
             self.critic = create_critic_from_actor(policy)
 
     def eval(self, x, c, env=None):
@@ -167,7 +165,7 @@ class RolloutBaseline(REINFORCEBaseline):
     """
 
     def __init__(self, bl_alpha=0.05, **kw):
-        super(RolloutBaseline, self).__init__()
+        super().__init__()
         self.bl_alpha = bl_alpha
 
     def setup(self, *args, **kw):
@@ -207,18 +205,14 @@ class RolloutBaseline(REINFORCEBaseline):
         candidate_vals = self.rollout(policy, env, batch_size, device).cpu().numpy()
         candidate_mean = candidate_vals.mean()
 
-        log.info(
-            "Candidate mean: {:.3f}, Baseline mean: {:.3f}".format(
-                candidate_mean, self.mean
-            )
-        )
+        log.info(f"Candidate mean: {candidate_mean:.3f}, Baseline mean: {self.mean:.3f}")
         if candidate_mean - self.mean > 0:
             # Calc p value with inverse logic (costs)
             t, p = ttest_rel(-candidate_vals, -self.bl_vals)
 
             p_val = p / 2  # one-sided
             assert t < 0, "T-statistic should be negative"
-            log.info("p-value: {:.3f}".format(p_val))
+            log.info(f"p-value: {p_val:.3f}")
             if p_val < self.bl_alpha:
                 log.info("Updating baseline")
                 self._update_policy(policy, env, batch_size, device, dataset_size)
@@ -250,11 +244,7 @@ class RolloutBaseline(REINFORCEBaseline):
             at every call but just once. Values are added to the dataset. This also allows for
             larger batch sizes since we evauate the policy without gradients.
         """
-        rewards = (
-            self.rollout(self.policy, env, batch_size, device, dataset=dataset)
-            .detach()
-            .cpu()
-        )
+        rewards = self.rollout(self.policy, env, batch_size, device, dataset=dataset).detach().cpu()
         return dataset.add_key("extra", rewards)
 
     def __getstate__(self):
@@ -297,9 +287,7 @@ def get_reinforce_baseline(name, **kw):
         warmup_epochs = kw.get("n_epochs", 1)
         warmup_exp_beta = kw.get("exp_beta", 0.8)
         bl_alpha = kw.get("bl_alpha", 0.05)
-        return WarmupBaseline(
-            RolloutBaseline(bl_alpha=bl_alpha), warmup_epochs, warmup_exp_beta
-        )
+        return WarmupBaseline(RolloutBaseline(bl_alpha=bl_alpha), warmup_epochs, warmup_exp_beta)
 
     if name is None:
         name = "no"  # default to no baseline

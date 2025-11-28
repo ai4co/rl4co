@@ -11,7 +11,7 @@ log = get_pylogger(__name__)
 
 class MultiHeadAttentionMDAM(nn.Module):
     def __init__(self, embed_dim, n_heads, last_one=False, sdpa_fn=None):
-        super(MultiHeadAttentionMDAM, self).__init__()
+        super().__init__()
 
         if sdpa_fn is not None:
             log.warning("sdpa_fn is not used in this implementation")
@@ -77,9 +77,7 @@ class MultiHeadAttentionMDAM(nn.Module):
         heads = torch.matmul(attn, V)
 
         out = torch.mm(
-            heads.permute(1, 2, 0, 3)
-            .contiguous()
-            .view(-1, self.n_heads * self.embed_dim),
+            heads.permute(1, 2, 0, 3).contiguous().view(-1, self.n_heads * self.embed_dim),
             self.W_out.view(-1, self.embed_dim),
         ).view(batch_size, n_query, self.embed_dim)
         if self.last_one:

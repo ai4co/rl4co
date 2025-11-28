@@ -27,7 +27,7 @@ class AbsolutePositionalEmbedding(nn.Module):
     """Absolute Positional Embedding in the original Transformer."""
 
     def __init__(self, embed_dim):
-        super(AbsolutePositionalEmbedding, self).__init__()
+        super().__init__()
         self.embed_dim = embed_dim
         self.pattern = None
 
@@ -75,7 +75,7 @@ class CyclicPositionalEmbedding(nn.Module):
     """
 
     def __init__(self, embed_dim, mean_pooling=True):
-        super(CyclicPositionalEmbedding, self).__init__()
+        super().__init__()
         self.embed_dim = embed_dim
         self.mean_pooling = mean_pooling
         self.pattern = None
@@ -96,28 +96,16 @@ class CyclicPositionalEmbedding(nn.Module):
         x = np.zeros((n_position, emb_dim))
 
         for i in range(emb_dim):
-            Td = (
-                Td_set[i // 3 * 3 + 1]
-                if (i // 3 * 3 + 1) < (emb_dim // 2)
-                else Td_set[-1]
-            )
-            fai = (
-                0
-                if i <= (emb_dim // 2)
-                else 2 * np.pi * ((-i + (emb_dim // 2)) / (emb_dim // 2))
-            )
+            Td = Td_set[i // 3 * 3 + 1] if (i // 3 * 3 + 1) < (emb_dim // 2) else Td_set[-1]
+            fai = 0 if i <= (emb_dim // 2) else 2 * np.pi * ((-i + (emb_dim // 2)) / (emb_dim // 2))
             longer_pattern = np.arange(0, np.ceil((n_position) / Td) * Td, 0.01)
             if i % 2 == 1:
                 x[:, i] = self._basecos(longer_pattern, Td, fai)[
-                    np.linspace(
-                        0, len(longer_pattern), n_position, dtype="int", endpoint=False
-                    )
+                    np.linspace(0, len(longer_pattern), n_position, dtype="int", endpoint=False)
                 ]
             else:
                 x[:, i] = self._basesin(longer_pattern, Td, fai)[
-                    np.linspace(
-                        0, len(longer_pattern), n_position, dtype="int", endpoint=False
-                    )
+                    np.linspace(0, len(longer_pattern), n_position, dtype="int", endpoint=False)
                 ]
 
         pattern = torch.from_numpy(x).type(torch.FloatTensor)

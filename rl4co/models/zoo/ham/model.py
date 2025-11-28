@@ -26,9 +26,9 @@ class HeterogeneousAttentionModel(REINFORCE):
         baseline_kwargs={},
         **kwargs,
     ):
-        assert (
-            env.name == "pdp"
-        ), "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
+        assert env.name == "pdp", (
+            "HeterogeneousAttentionModel only works for PDP (Pickup and Delivery Problem)"
+        )
         if policy is None:
             policy = HeterogeneousAttentionModelPolicy(env_name=env.name, **policy_kwargs)
 

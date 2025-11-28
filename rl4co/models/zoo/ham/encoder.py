@@ -13,7 +13,7 @@ class HeterogeneuousMHALayer(nn.Sequential):
         feedforward_hidden=512,
         normalization="batch",
     ):
-        super(HeterogeneuousMHALayer, self).__init__(
+        super().__init__(
             SkipConnection(HeterogenousMHA(num_heads, embed_dim, embed_dim)),
             Normalization(embed_dim, normalization),
             SkipConnection(
@@ -41,7 +41,7 @@ class GraphHeterogeneousAttentionEncoder(nn.Module):
         feedforward_hidden=512,
         sdpa_fn=None,
     ):
-        super(GraphHeterogeneousAttentionEncoder, self).__init__()
+        super().__init__()
 
         # substitute env_name with pdp if none
         if env_name is None:

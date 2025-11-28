@@ -1,6 +1,7 @@
 import logging
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import torch
 
@@ -73,14 +74,12 @@ class PolyNet(REINFORCE):
             policy_kwargs.get("val_decode_type") == "greedy"
             or policy_kwargs.get("test_decode_type") == "greedy"
         ):
-            assert (
-                val_num_solutions <= k
-            ), "If greedy decoding is used val_num_solutions must be <= k"
+            assert val_num_solutions <= k, (
+                "If greedy decoding is used val_num_solutions must be <= k"
+            )
 
         if encoder_type == "MatNet":
-            assert (
-                num_augment == 1
-            ), "MatNet does not use symmetric or dihedral augmentation"
+            assert num_augment == 1, "MatNet does not use symmetric or dihedral augmentation"
 
         if policy is None:
             policy = PolyNetPolicy(
@@ -88,9 +87,7 @@ class PolyNet(REINFORCE):
             )
 
         if base_model_checkpoint_path is not None:
-            logging.info(
-                f"Trying to load weights from baseline model {base_model_checkpoint_path}"
-            )
+            logging.info(f"Trying to load weights from baseline model {base_model_checkpoint_path}")
             checkpoint = torch.load(base_model_checkpoint_path, weights_only=False)
             state_dict = checkpoint["state_dict"]
             state_dict = {k.replace("policy.", "", 1): v for k, v in state_dict.items()}
@@ -104,7 +101,7 @@ class PolyNet(REINFORCE):
         kwargs_with_defaults.update(kwargs)
 
         # Initialize with the shared baseline
-        super(PolyNet, self).__init__(env, policy, baseline, **kwargs_with_defaults)
+        super().__init__(env, policy, baseline, **kwargs_with_defaults)
 
         self.num_augment = num_augment
         if self.num_augment > 1:
@@ -121,9 +118,7 @@ class PolyNet(REINFORCE):
         # for phase in ["train", "val", "test"]:
         #    self.set_decode_type_multistart(phase)
 
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
         n_aug = self.num_augment
 
@@ -184,9 +179,7 @@ class PolyNet(REINFORCE):
                 out.update({"max_aug_reward": max_aug_reward})
 
                 if out.get("actions", None) is not None:
-                    actions_ = (
-                        out["best_multistart_actions"] if n_start > 1 else out["actions"]
-                    )
+                    actions_ = out["best_multistart_actions"] if n_start > 1 else out["actions"]
                     out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
@@ -197,8 +190,8 @@ class PolyNet(REINFORCE):
         td: TensorDict,
         batch: TensorDict,
         policy_out: dict,
-        reward: Optional[torch.Tensor] = None,
-        log_likelihood: Optional[torch.Tensor] = None,
+        reward: torch.Tensor | None = None,
+        log_likelihood: torch.Tensor | None = None,
     ):
         """Calculate loss following Poppy (https://arxiv.org/abs/2210.03475).
 
@@ -217,9 +210,7 @@ class PolyNet(REINFORCE):
         )
 
         # REINFORCE baseline
-        bl_val, bl_loss = (
-            self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
-        )
+        bl_val, bl_loss = self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
 
         # Log-likelihood mask. Mask everything but the best rollout per instance
         best_idx = (-reward).argsort(1).argsort(1)

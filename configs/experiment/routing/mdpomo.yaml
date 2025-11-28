@@ -11,7 +11,7 @@ env:
   generator_params:
     num_loc: 50
     loc_distribution: "mix_distribution"
-    
+
 
 logger:
   wandb:

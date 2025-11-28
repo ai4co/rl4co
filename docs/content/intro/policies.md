@@ -11,7 +11,7 @@ A policy $\pi$ is used to construct a solution from scratch for a given problem 
 An AR policy is composed of an encoder $f$ that maps the instance $\mathbf{x}$ into an embedding space $\mathbf{h}=f(\mathbf{x})$ and by a decoder $g$ that iteratively determines a sequence of actions $\mathbf{a}$ as follows:
 
 $$
-a_t \sim g(a_t | a_{t-1}, ... ,a_0, s_t, \mathbf{h}), \quad 
+a_t \sim g(a_t | a_{t-1}, ... ,a_0, s_t, \mathbf{h}), \quad
 \pi(\mathbf{a}|\mathbf{x}) \triangleq \prod_{t=1}^{T-1} g(a_{t} | a_{t-1}, \ldots ,a_0, s_t, \mathbf{h}).
 $$
 

@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -116,9 +116,7 @@ class MCPGenerator(Generator):
             1, self.num_items + 1, (batch_size, self.num_sets, max_size)
         )
 
-        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < set_sizes.unsqueeze(
-            -1
-        )
+        cutoffs_masks = torch.arange(self.max_size).view(1, 1, -1) < set_sizes.unsqueeze(-1)
         # Take the masked elements, 0 means the item is invalid
         membership_tensor = (
             membership_tensor_max_size * cutoffs_masks

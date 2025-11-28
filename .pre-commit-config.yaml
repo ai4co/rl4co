@@ -1,26 +1,22 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-fail_fast: true
+# Usage
+# uv run pre-commit install
+# uv run pre-commit run --all-files
 
 repos:
-- repo: https://github.com/psf/black
-  rev: 25.1.0
-  hooks:
-    - id: black
-      args: [--config, pyproject.toml]
-      types: [python]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: mixed-line-ending
+      - id: trailing-whitespace
 
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.11.0
-  hooks:
-    - id: ruff
-      args: [ --fix ]
-
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
-  hooks:
-    - id: check-toml
-    - id: check-yaml
-    - id: detect-private-key
-    - id: end-of-file-fixer
-    - id: trailing-whitespace
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.2
+    hooks:
+      - id: ruff-check
+        args: [ --fix ]
+      - id: ruff-format
+        types_or: [ python, pyi ]

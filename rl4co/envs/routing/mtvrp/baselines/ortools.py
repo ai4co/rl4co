@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import routefinder.baselines.pyvrp as pyvrp
@@ -59,8 +58,8 @@ class ORToolsData:
     vehicle_capacities: list[int]
     max_distance: int
     demands: list[int]
-    time_windows: Optional[list[list[int]]]
-    backhauls: Optional[list[int]]
+    time_windows: list[list[int]] | None
+    backhauls: list[int] | None
 
     @property
     def num_locations(self) -> int:
@@ -132,9 +131,7 @@ def _solve(data: ORToolsData, max_runtime: float, log: bool = False):
     """
     # Manager for converting between nodes (location indices) and index
     # (internal CP variable indices).
-    manager = pywrapcp.RoutingIndexManager(
-        data.num_locations, data.num_vehicles, data.depot
-    )
+    manager = pywrapcp.RoutingIndexManager(data.num_locations, data.num_vehicles, data.depot)
     routing = pywrapcp.RoutingModel(manager)
 
     # Set arc costs equal to distances.

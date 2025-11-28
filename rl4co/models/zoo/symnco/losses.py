@@ -33,7 +33,5 @@ def invariance_loss(proj_embed, num_augment):
     Corresponds to `L_inv` in the SymNCO paper
     """
     pe = rearrange(proj_embed, "(b a) ... -> b a ...", a=num_augment)
-    similarity = sum(
-        [cosine_similarity(pe[:, 0], pe[:, i], dim=-1) for i in range(1, num_augment)]
-    )
+    similarity = sum([cosine_similarity(pe[:, 0], pe[:, i], dim=-1) for i in range(1, num_augment)])
     return similarity.mean()

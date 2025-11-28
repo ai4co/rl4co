@@ -1,9 +1,10 @@
 import os
 
-import numpy as np
 import numba as nb
-from numba import set_num_threads
+import numpy as np
 import torch
+
+from numba import set_num_threads
 from tensordict.tensordict import TensorDict
 
 from rl4co.utils.ops import get_distance_matrix
@@ -42,31 +43,34 @@ def local_search(
     return torch.from_numpy(numba_results.astype(np.int64)).to(actions.device)
 
 
-@nb.njit(nb.float32(nb.float32[:,:], nb.uint16[:], nb.uint16), nogil=True)
-def two_opt_once(distmat, tour, fixed_i = 0):
-    '''in-place operation'''
+@nb.njit(nb.float32(nb.float32[:, :], nb.uint16[:], nb.uint16), nogil=True)
+def two_opt_once(distmat, tour, fixed_i=0):
+    """in-place operation"""
     n = tour.shape[0]
     p = q = 0
     delta = 0
-    for i in range(1, n - 1) if fixed_i==0 else range(fixed_i, fixed_i + 1):
+    for i in range(1, n - 1) if fixed_i == 0 else range(fixed_i, fixed_i + 1):
         for j in range(i + 1, n):
             node_i, node_j = tour[i], tour[j]
             node_prev, node_next = tour[i - 1], tour[(j + 1) % n]
             if node_prev == node_j or node_next == node_i:
                 continue
             change = (
-                distmat[node_prev, node_j] + distmat[node_i, node_next]
-                - distmat[node_prev, node_i] - distmat[node_j, node_next]
+                distmat[node_prev, node_j]
+                + distmat[node_i, node_next]
+                - distmat[node_prev, node_i]
+                - distmat[node_j, node_next]
             )
             if change < delta:
                 p, q, delta = i, j, change
     if delta < -1e-6:
-        tour[p: q + 1] = np.flip(tour[p: q + 1])
+        tour[p : q + 1] = np.flip(tour[p : q + 1])
         return delta
     else:
         return 0.0
 
-@nb.njit(nb.uint16[:,:](nb.float32[:,:,:], nb.uint16[:,:], nb.int64), nogil=True, parallel=True)
+
+@nb.njit(nb.uint16[:, :](nb.float32[:, :, :], nb.uint16[:, :], nb.int64), nogil=True, parallel=True)
 def _two_opt_python(distmat, tour, max_iterations=1000):
     for i in nb.prange(tour.shape[0]):
         iterations = 0

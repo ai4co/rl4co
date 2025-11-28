@@ -102,7 +102,7 @@ defaults:
 This section sets the default configuration for the model, environment, callbacks, trainer, and logger. This means that if a key is not specified in the experiment configuration, the default value will be used. Note that these are set in the root [configs/](https://github.com/ai4co/rl4co/tree/main/configs) folder, and are useful for better organization and reusability.
 
 ```yaml linenums="11"
-env: 
+env:
   generator_params:
     loc_distribution: "uniform"
     num_loc: 50
@@ -153,7 +153,7 @@ logger:
 
 Finally, this section specifies the logger configuration. In this case, we are using Weights & Biases (WandB) to log the results of the experiment. We specify the project name, tags, group, and name of the experiment.
 
-That's it! 🎉 
+That's it! 🎉
 
 
 !!! tip

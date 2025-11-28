@@ -85,7 +85,7 @@ class PolyNetPolicy(AutoregressivePolicy):
             **kwargs,
         )
 
-        super(PolyNetPolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

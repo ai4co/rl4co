@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -36,13 +36,10 @@ class EdgeHeatmapGenerator(nn.Module):
         linear_bias: bool = True,
         undirected_graph: bool = True,
     ) -> None:
-        super(EdgeHeatmapGenerator, self).__init__()
+        super().__init__()
 
         self.linears = nn.ModuleList(
-            [
-                nn.Linear(embed_dim, embed_dim, bias=linear_bias)
-                for _ in range(num_layers - 1)
-            ]
+            [nn.Linear(embed_dim, embed_dim, bias=linear_bias) for _ in range(num_layers - 1)]
         )
         self.output = nn.Linear(embed_dim, 1, bias=linear_bias)
 
@@ -84,7 +81,9 @@ class EdgeHeatmapGenerator(nn.Module):
         if heatmap.dtype == torch.float32 or heatmap.dtype == torch.bfloat16:
             small_value = 1e-12
         elif heatmap.dtype == torch.float16:
-            small_value = 3e-8  # the smallest positive number such that log(small_value) is not -inf
+            small_value = (
+                3e-8  # the smallest positive number such that log(small_value) is not -inf
+            )
         else:
             raise ValueError(f"Unsupported dtype: {heatmap.dtype}")
 
@@ -128,16 +127,16 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         embed_dim: int = 64,
         env_name: str = "tsp",
         # TODO: pass network
-        init_embedding: Optional[nn.Module] = None,
-        edge_embedding: Optional[nn.Module] = None,
-        graph_network: Optional[nn.Module] = None,
-        heatmap_generator: Optional[nn.Module] = None,
+        init_embedding: nn.Module | None = None,
+        edge_embedding: nn.Module | None = None,
+        graph_network: nn.Module | None = None,
+        heatmap_generator: nn.Module | None = None,
         num_layers_heatmap_generator: int = 5,
         num_layers_graph_encoder: int = 15,
         act_fn="silu",
         agg_fn="mean",
         linear_bias: bool = True,
-        k_sparse: Optional[int] = None,
+        k_sparse: int | None = None,
     ):
         super(NonAutoregressiveEncoder, self).__init__()
         self.env_name = env_name
@@ -149,9 +148,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
         )
 
         self.edge_embedding = (
-            env_edge_embedding(
-                self.env_name, {"embed_dim": embed_dim, "k_sparse": k_sparse}
-            )
+            env_edge_embedding(self.env_name, {"embed_dim": embed_dim, "k_sparse": k_sparse})
             if edge_embedding is None
             else edge_embedding
         )
@@ -187,9 +184,7 @@ class NARGNNEncoder(NonAutoregressiveEncoder):
 
         # Process embedding into graph
         # TODO: standardize?
-        graph.x, graph.edge_attr = self.graph_network(
-            graph.x, graph.edge_index, graph.edge_attr
-        )
+        graph.x, graph.edge_attr = self.graph_network(graph.x, graph.edge_index, graph.edge_attr)
 
         # Generate heatmap logits
         heatmap_logits = self.heatmap_generator(graph)
@@ -210,9 +205,7 @@ class NARGNNNodeEncoder(NARGNNEncoder):
 
         # Process embedding into graph
         # TODO: standardize?
-        graph.x, graph.edge_attr = self.graph_network(
-            graph.x, graph.edge_index, graph.edge_attr
-        )
+        graph.x, graph.edge_attr = self.graph_network(graph.x, graph.edge_index, graph.edge_attr)
 
         proc_embeds = graph.x
         batch_size = node_embed.shape[0]

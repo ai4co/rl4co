@@ -19,7 +19,7 @@ $$
 \nabla_{\theta} \mathcal{L}_a(\theta|\mathbf{x}) = \mathbb{E}_{\pi(\mathbf{a}|\mathbf{x})} \left[(R(\mathbf{a}, \mathbf{x}) - b(\mathbf{x})) \nabla_{\theta}\log \pi(\mathbf{a}|\mathbf{x})\right],
 $$
 
-where $b(\cdot)$ is a baseline function used to stabilize training and reduce gradient variance. 
+where $b(\cdot)$ is a baseline function used to stabilize training and reduce gradient variance.
 
 We also distinguish between two types of RL (pre)training:
 

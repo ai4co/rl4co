@@ -1,7 +1,5 @@
 import abc
 
-from typing import Tuple
-
 import torch.nn as nn
 
 from tensordict import TensorDict
@@ -31,15 +29,13 @@ class ImprovementEncoder(nn.Module):
         feedforward_hidden: int = 128,
         linear_bias: bool = False,
     ):
-        super(ImprovementEncoder, self).__init__()
+        super().__init__()
 
         if isinstance(env_name, RL4COEnvBase):
             env_name = env_name.name
         self.env_name = env_name
         self.init_embedding = (
-            env_init_embedding(
-                self.env_name, {"embed_dim": embed_dim, "linear_bias": linear_bias}
-            )
+            env_init_embedding(self.env_name, {"embed_dim": embed_dim, "linear_bias": linear_bias})
             if init_embedding is None
             else init_embedding
         )
@@ -52,7 +48,7 @@ class ImprovementEncoder(nn.Module):
         )
 
     @abc.abstractmethod
-    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> Tuple[Tensor, Tensor]:
+    def _encoder_forward(self, init_h: Tensor, init_p: Tensor) -> tuple[Tensor, Tensor]:
         """Process the node embeddings and positional embeddings to the final embeddings
 
         Args:
@@ -64,7 +60,7 @@ class ImprovementEncoder(nn.Module):
         """
         raise NotImplementedError("Implement me in subclass!")
 
-    def forward(self, td: TensorDict) -> Tuple[Tensor, Tensor]:
+    def forward(self, td: TensorDict) -> tuple[Tensor, Tensor]:
         """Forward pass of the encoder.
         Transform the input TensorDict into a latent representation.
 

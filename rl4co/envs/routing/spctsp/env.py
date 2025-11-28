@@ -26,6 +26,4 @@ class SPCTSPEnv(PCTSPEnv):
     @stochastic.setter
     def stochastic(self, state: bool):
         if state is False:
-            log.warning(
-                "Deterministic mode should not be used for SPCTSP. Use PCTSP instead."
-            )
+            log.warning("Deterministic mode should not be used for SPCTSP. Use PCTSP instead.")

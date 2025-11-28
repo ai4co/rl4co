@@ -36,7 +36,7 @@ class AMPPO(PPO):
             policy = AttentionModelPolicy(env_name=env.name, **policy_kwargs)
 
         if critic is None:
-            log.info("Creating critic network for {}".format(env.name))
+            log.info(f"Creating critic network for {env.name}")
             # we reuse the parameters of the model
             encoder = getattr(policy, "encoder", None)
             if encoder is None:

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -73,13 +71,9 @@ class PDPEnv(RL4COEnvBase):
         new_to_deliver = (current_node + num_loc // 2) % (num_loc + 1)
 
         # Set available to 0 (i.e., we visited the node)
-        available = td["available"].scatter(
-            -1, current_node.expand_as(td["action_mask"]), 0
-        )
+        available = td["available"].scatter(-1, current_node.expand_as(td["action_mask"]), 0)
 
-        to_deliver = td["to_deliver"].scatter(
-            -1, new_to_deliver.expand_as(td["to_deliver"]), 1
-        )
+        to_deliver = td["to_deliver"].scatter(-1, new_to_deliver.expand_as(td["to_deliver"]), 1)
 
         # Action is feasible if the node is not visited and is to deliver
         # action_mask = torch.logical_and(available, to_deliver)
@@ -90,7 +84,7 @@ class PDPEnv(RL4COEnvBase):
 
         # The reward is calculated outside via get_reward for efficiency, so we set it to 0 here
         reward = torch.zeros_like(done)
-        
+
         # Update step
         td.update(
             {
@@ -105,7 +99,7 @@ class PDPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
@@ -128,16 +122,16 @@ class PDPEnv(RL4COEnvBase):
         )
 
         # Masking variables
-        available = torch.ones(
-            (*batch_size, self.generator.num_loc + 1), dtype=torch.bool
-        ).to(device)
-        action_mask = torch.ones_like(available) # [batch_size, graph_size+1]
+        available = torch.ones((*batch_size, self.generator.num_loc + 1), dtype=torch.bool).to(
+            device
+        )
+        action_mask = torch.ones_like(available)  # [batch_size, graph_size+1]
         if self.force_start_at_depot:
-            action_mask[..., 1:] = False # can only visit the depot at the first step
+            action_mask[..., 1:] = False  # can only visit the depot at the first step
         else:
             action_mask = action_mask & to_deliver
-            available[..., 0] = False # depot is already visited (during reward calculation)
-            action_mask[..., 0] = False # depot is not available to visit
+            available[..., 0] = False  # depot is already visited (during reward calculation)
+            action_mask[..., 0] = False  # depot is not available to visit
 
         # Other variables
         current_node = torch.zeros((*batch_size, 1), dtype=torch.int64).to(device)
@@ -208,18 +202,16 @@ class PDPEnv(RL4COEnvBase):
             actions = torch.cat((torch.zeros_like(actions[:, 0:1]), actions), dim=-1)
 
         assert (
-            (torch.arange(actions.size(1), out=actions.data.new()))
-            .view(1, -1)
-            .expand_as(actions)
+            (torch.arange(actions.size(1), out=actions.data.new())).view(1, -1).expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Not visiting all nodes"
-        
-        # make sure we don't go back to the depot in the middle of the tour
-        assert (actions[:, 1:-1] != 0).all(), "Going back to depot in the middle of the tour (not allowed)"
 
-        visited_time = torch.argsort(
-            actions, 1
-        )  # index of pickup less than index of delivery
+        # make sure we don't go back to the depot in the middle of the tour
+        assert (actions[:, 1:-1] != 0).all(), (
+            "Going back to depot in the middle of the tour (not allowed)"
+        )
+
+        visited_time = torch.argsort(actions, 1)  # index of pickup less than index of delivery
         assert (
             visited_time[:, 1 : actions.size(1) // 2 + 1]
             < visited_time[:, actions.size(1) // 2 + 1 :]
@@ -352,7 +344,7 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
 
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         locs = torch.cat((td["depot"][:, None, :], td["locs"]), -2)
@@ -363,7 +355,7 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
         bs = batch_size[0]
         seq_length = self.generator.num_loc + 1
         visited_time = torch.zeros((bs, seq_length)).to(device)
-        pre = torch.zeros((bs)).to(device).long()
+        pre = torch.zeros(bs).to(device).long()
         arange = torch.arange(bs)
         for i in range(seq_length):
             current_nodes = current_rec[arange, pre]
@@ -483,9 +475,7 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
         batch_size, graph_size = solution.size()
 
         assert (
-            torch.arange(graph_size, out=solution.data.new())
-            .view(1, -1)
-            .expand_as(solution)
+            torch.arange(graph_size, out=solution.data.new()).view(1, -1).expand_as(solution)
             == solution.data.sort(1)[0]
         ).all(), "Not visiting all nodes"
 
@@ -497,8 +487,7 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
             pre = solution[arange, pre]
 
         assert (
-            visited_time[:, 1 : graph_size // 2 + 1]
-            < visited_time[:, graph_size // 2 + 1 :]
+            visited_time[:, 1 : graph_size // 2 + 1] < visited_time[:, graph_size // 2 + 1 :]
         ).all(), "Deliverying without pick-up"
 
     @staticmethod
@@ -524,17 +513,13 @@ class PDPRuinRepairEnv(ImprovementEnvBase):
     @classmethod
     def _random_action(cls, td):
         batch_size, graph_size = td["rec_best"].size()
-        selected_node = (
-            (torch.rand(batch_size, 1) * graph_size // 2) % (graph_size // 2)
-        ).long()
+        selected_node = ((torch.rand(batch_size, 1) * graph_size // 2) % (graph_size // 2)).long()
         mask = cls.get_mask(selected_node + 1, td)
         logits = torch.rand(batch_size, graph_size, graph_size)
         logits[~mask] = -1e20
         prob = torch.softmax(logits.view(batch_size, -1), -1)
         sample = prob.multinomial(1)
-        action = torch.cat(
-            (selected_node, sample // (graph_size), sample % (graph_size)), -1
-        )
+        action = torch.cat((selected_node, sample // (graph_size), sample % (graph_size)), -1)
         td["action"] = action
         return action
 

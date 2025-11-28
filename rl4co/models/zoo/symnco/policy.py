@@ -39,7 +39,7 @@ class SymNCOPolicy(AttentionModelPolicy):
         use_projection_head: bool = True,
         **kwargs,
     ):
-        super(SymNCOPolicy, self).__init__(
+        super().__init__(
             env_name=env_name,
             embed_dim=embed_dim,
             num_encoder_layers=num_encoder_layers,
@@ -69,9 +69,9 @@ class SymNCOPolicy(AttentionModelPolicy):
         super().forward.__doc__  # trick to get docs from parent class
 
         # Ensure that if use_projection_head is True, then return_init_embeds is True
-        assert not (
-            self.use_projection_head and not return_init_embeds
-        ), "If `use_projection_head` is True, then we must `return_init_embeds`"
+        assert not (self.use_projection_head and not return_init_embeds), (
+            "If `use_projection_head` is True, then we must `return_init_embeds`"
+        )
 
         out = super().forward(
             td,

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -74,9 +72,7 @@ class MCPEnv(RL4COEnvBase):
         remaining_membership = remaining_sets.unsqueeze(-1) * td["membership"]
 
         batch_indices, set_indices, item_indices = chosen_membership_nonzero.T
-        chosen_items_indices = chosen_membership[
-            batch_indices, set_indices, item_indices
-        ].long()
+        chosen_items_indices = chosen_membership[batch_indices, set_indices, item_indices].long()
 
         batch_size, n_items = td["weights"].shape
 
@@ -107,7 +103,7 @@ class MCPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         self.to(td.device)
 
         return TensorDict(
@@ -150,9 +146,7 @@ class MCPEnv(RL4COEnvBase):
         chosen_membership_nonzero = chosen_membership.nonzero()
 
         batch_indices, set_indices, item_indices = chosen_membership_nonzero.T
-        chosen_items_indices = chosen_membership[
-            batch_indices, set_indices, item_indices
-        ].long()
+        chosen_items_indices = chosen_membership[batch_indices, set_indices, item_indices].long()
 
         batch_size, n_items = weights.shape
 
@@ -187,7 +181,4 @@ class MCPEnv(RL4COEnvBase):
     @staticmethod
     def select_start_nodes(td, num_starts):
         num_sets = td["action_mask"].shape[-1]
-        return (
-            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
-            % num_sets
-        )
+        return torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0]) % num_sets

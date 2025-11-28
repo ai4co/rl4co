@@ -9,7 +9,6 @@ log = get_pylogger(__name__)
 
 
 def render(td, actions=None, ax=None):
-
     if ax is None:
         # Create a plot of the nodes
         _, ax = plt.subplots(figsize=(3, 3))

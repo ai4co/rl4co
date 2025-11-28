@@ -117,9 +117,7 @@ def test_jssp_lb(env_cls):
     env = env_cls(generator_params={"num_jobs": 2, "num_machines": 2})
     td = TensorDict(
         {
-            "proc_times": torch.tensor(
-                [[[1, 0, 0, 4], [0, 2, 3, 0]]], dtype=torch.float32
-            ),
+            "proc_times": torch.tensor([[[1, 0, 0, 4], [0, 2, 3, 0]]], dtype=torch.float32),
             "start_op_per_job": torch.tensor([[0, 2]], dtype=torch.long),
             "end_op_per_job": torch.tensor([[1, 3]], dtype=torch.long),
             "pad_mask": torch.tensor([[0, 0, 0, 0]], dtype=torch.bool),

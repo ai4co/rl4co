@@ -21,7 +21,7 @@ model:
   test_data_size: 1000
   optimizer_kwargs:
     lr: 1e-4
-  
+
 trainer:
   max_epochs: 100
 

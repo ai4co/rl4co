@@ -19,13 +19,10 @@ class Cluster:
         self.n_cluster = n_cluster
 
     def sample(self, size):
-
         batch_size, num_loc, _ = size
 
         # Generate the centers of the clusters
-        center = self.lower + (self.upper - self.lower) * torch.rand(
-            batch_size, self.n_cluster * 2
-        )
+        center = self.lower + (self.upper - self.lower) * torch.rand(batch_size, self.n_cluster * 2)
 
         # Pre-define the coordinates
         coords = torch.zeros(batch_size, num_loc, 2)
@@ -69,7 +66,6 @@ class Mixed:
         self.n_cluster_mix = n_cluster_mix
 
     def sample(self, size):
-
         batch_size, num_loc, _ = size
 
         # Generate the centers of the clusters
@@ -126,7 +122,6 @@ class Gaussian_Mixture:
         self.cdist = cdist
 
     def sample(self, size):
-
         batch_size, num_loc, _ = size
 
         if self.num_modes == 0:  # (0, 0) - uniform
@@ -175,9 +170,7 @@ class Gaussian_Mixture:
         for i in range(batch_size):
             # Construct covariance matrix for each sample
             cov_matrix = torch.tensor([[1.0, covs[i]], [covs[i], 1.0]])
-            m = torch.distributions.MultivariateNormal(
-                mean[i], covariance_matrix=cov_matrix
-            )
+            m = torch.distributions.MultivariateNormal(mean[i], covariance_matrix=cov_matrix)
             coords[i] = m.sample()
 
         # Shuffle the coordinates
@@ -187,7 +180,6 @@ class Gaussian_Mixture:
         return self._batch_normalize_and_center(coords)
 
     def _global_min_max_scaling(self, coords):
-
         # Scale the points to [0, 1] using min-max scaling
         coords_min = coords.min(0, keepdim=True).values
         coords_max = coords.max(0, keepdim=True).values
@@ -201,18 +193,14 @@ class Gaussian_Mixture:
         coords_max = coords.max(dim=1, keepdim=True).values
 
         # Step 2: Normalize coordinates to range [0, 1]
-        coords = (
-            coords - coords_min
-        )  # Broadcasting subtracts min value on each coordinate
+        coords = coords - coords_min  # Broadcasting subtracts min value on each coordinate
         range_max = (
             (coords_max - coords_min).max(dim=-1, keepdim=True).values
         )  # The maximum range among both coordinates
         coords = coords / range_max  # Divide by the max range to normalize
 
         # Step 3: Center the batch in the middle of the [0, 1] range
-        coords = (
-            coords + (1 - coords.max(dim=1, keepdim=True).values) / 2
-        )  # Centering the batch
+        coords = coords + (1 - coords.max(dim=1, keepdim=True).values) / 2  # Centering the batch
 
         return coords
 
@@ -235,7 +223,6 @@ class Mix_Distribution:
         self.Cluster = Cluster(n_cluster=n_cluster)
 
     def sample(self, size):
-
         batch_size, num_loc, _ = size
 
         # Pre-define the coordinates sampled under uniform distribution
@@ -268,9 +255,7 @@ class Mix_Multi_Distributions:
 
     def __init__(self):
         super().__init__()
-        self.dist_set = [(0, 0), (1, 1)] + [
-            (m, c) for m in [3, 5, 7] for c in [10, 30, 50]
-        ]
+        self.dist_set = [(0, 0), (1, 1)] + [(m, c) for m in [3, 5, 7] for c in [10, 30, 50]]
 
     def sample(self, size):
         batch_size, num_loc, _ = size
@@ -278,9 +263,7 @@ class Mix_Multi_Distributions:
 
         # Pre-select distributions for the entire batch
         dists = [random.choice(self.dist_set) for _ in range(batch_size)]
-        unique_dists = list(
-            set(dists)
-        )  # Unique distributions to minimize re-instantiation
+        unique_dists = list(set(dists))  # Unique distributions to minimize re-instantiation
 
         # Instantiate Gaussian_Mixture only once per unique distribution
         gm_instances = {dist: Gaussian_Mixture(*dist) for dist in unique_dists}

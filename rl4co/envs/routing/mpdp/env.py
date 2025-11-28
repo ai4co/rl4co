@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -88,9 +86,9 @@ class MPDPEnv(RL4COEnvBase):
         remain_pickup_max_distance = depot_distance[:, : agent_num + 1 + n_loc // 2].max(
             dim=-1, keepdim=True
         )[0]
-        remain_delivery_max_distance = depot_distance[
-            :, agent_num + 1 + n_loc // 2 :
-        ].max(dim=-1, keepdim=True)[0]
+        remain_delivery_max_distance = depot_distance[:, agent_num + 1 + n_loc // 2 :].max(
+            dim=-1, keepdim=True
+        )[0]
 
         # Calculate makespan
         cur_coord = gather_by_index(td["locs"], selected)
@@ -99,9 +97,9 @@ class MPDPEnv(RL4COEnvBase):
         td["lengths"].scatter_add_(-1, td["count_depot"], path_lengths.unsqueeze(-1))
 
         # If visit depot then plus one to count_depot\
-        td["count_depot"][
-            (selected == td["agent_idx"]) & (td["agent_idx"] < agent_num)
-        ] += 1  # torch.ones(td["count_depot"][(selected == 0) & (td["agent_idx"] < agent_num)].shape, dtype=torch.int64, device=td["count_depot"].device)
+        td["count_depot"][(selected == td["agent_idx"]) & (td["agent_idx"] < agent_num)] += (
+            1  # torch.ones(td["count_depot"][(selected == 0) & (td["agent_idx"] < agent_num)].shape, dtype=torch.int64, device=td["count_depot"].device)
+        )
 
         # `agent_idx` is added by 1 if the current agent comes back to depot
         agent_idx = (td["count_depot"] + 1) * torch.ones(
@@ -134,9 +132,9 @@ class MPDPEnv(RL4COEnvBase):
 
     def _reset(
         self,
-        td: Optional[TensorDict] = None,
-        batch_size: Optional[list] = None,
-        agent_num: Optional[int] = None,  # NOTE hardcoded from ET
+        td: TensorDict | None = None,
+        batch_size: list | None = None,
+        agent_num: int | None = None,  # NOTE hardcoded from ET
     ) -> TensorDict:
         device = td.device
 
@@ -215,9 +213,7 @@ class MPDPEnv(RL4COEnvBase):
                     batch_size, dtype=torch.int64, device=device
                 ),  # Vector with length num_steps
                 "to_delivery": to_delivery,
-                "count_depot": torch.zeros(
-                    batch_size, 1, dtype=torch.int64, device=device
-                ),
+                "count_depot": torch.zeros(batch_size, 1, dtype=torch.int64, device=device),
                 "agent_idx": torch.ones(batch_size, 1, dtype=torch.long, device=device),
                 "left_request": left_request
                 * torch.ones(batch_size, 1, dtype=torch.long, device=device),
@@ -267,9 +263,7 @@ class MPDPEnv(RL4COEnvBase):
             return (
                 torch.cat(
                     [
-                        torch.zeros(
-                            batch_size, 1, 1, dtype=torch.uint8, device=mask_loc.device
-                        ),
+                        torch.zeros(batch_size, 1, 1, dtype=torch.uint8, device=mask_loc.device),
                         torch.ones(
                             batch_size,
                             1,
