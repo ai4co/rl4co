@@ -7,9 +7,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-def render(
-    td: TensorDict, actions=None, ax=None, scale_xy: bool = False, vehicle_capacity=None
-):
+def render(td: TensorDict, actions=None, ax=None, scale_xy: bool = False, vehicle_capacity=None):
     import matplotlib.pyplot as plt
     import numpy as np
 

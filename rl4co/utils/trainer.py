@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 import lightning.pytorch as pl
 import torch
@@ -39,17 +39,18 @@ class RL4COTrainer(Trainer):
         disable_profiling_executor: Disable JIT profiling executor. This reduces memory and increases speed.
         auto_configure_ddp: Automatically configure DDP strategy if multiple GPUs are available.
         reload_dataloaders_every_n_epochs: Set to a value different than 1 to reload dataloaders every n epochs.
-        matmul_precision: Set matmul precision for faster inference https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+        matmul_precision: Set matmul precision for faster inference
+            See: https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
         **kwargs: Additional keyword arguments passed to the Lightning Trainer. See :class:`lightning.pytorch.trainer.Trainer` for details.
     """
 
     def __init__(
         self,
         accelerator: str | Accelerator = "auto",
-        callbacks: Optional[list[Callback]] = None,
-        logger: Optional[Logger | Iterable[Logger]] = None,
-        min_epochs: Optional[int] = None,
-        max_epochs: Optional[int] = None,
+        callbacks: list[Callback] | None = None,
+        logger: Logger | Iterable[Logger] | None = None,
+        min_epochs: int | None = None,
+        max_epochs: int | None = None,
         strategy: str | Strategy = "auto",
         devices: list[int] | str | int = "auto",
         gradient_clip_val: int | float = 1.0,
@@ -78,11 +79,7 @@ class RL4COTrainer(Trainer):
             else:
                 n_devices = devices
             if n_devices > 1:
-                log.info(
-                    "Configuring DDP strategy automatically with {} GPUs".format(
-                        n_devices
-                    )
-                )
+                log.info(f"Configuring DDP strategy automatically with {n_devices} GPUs")
                 strategy = DDPStrategy(
                     find_unused_parameters=True,  # We set to True due to RL envs
                     gradient_as_bucket_view=True,  # https://pytorch-lightning.readthedocs.io/en/stable/advanced/advanced_gpu.html#ddp-optimizations
@@ -94,15 +91,13 @@ class RL4COTrainer(Trainer):
 
         # Check if gradient_clip_val is set to None
         if gradient_clip_val is None:
-            log.warning(
-                "gradient_clip_val is set to None. This may lead to unstable training."
-            )
+            log.warning("gradient_clip_val is set to None. This may lead to unstable training.")
 
         # We should reload dataloaders every epoch for RL training
         if reload_dataloaders_every_n_epochs != 1:
             log.warning(
-                "We reload dataloaders every epoch for RL training. Setting reload_dataloaders_every_n_epochs to a value different than 1 "
-                + "may lead to unexpected behavior since the initial conditions will be the same for `n_epochs` epochs."
+                "We reload dataloaders every epoch for RL training. Setting reload_dataloaders_every_n_epochs \
+                different than 1 may lead to unexpected behavior since the conditions will be the same for `n_epochs`."
             )
 
         # Main call to `Trainer` superclass
@@ -123,10 +118,10 @@ class RL4COTrainer(Trainer):
     def fit(
         self,
         model: "pl.LightningModule",
-        train_dataloaders: Optional[TRAIN_DATALOADERS | LightningDataModule] = None,
-        val_dataloaders: Optional[EVAL_DATALOADERS] = None,
-        datamodule: Optional[LightningDataModule] = None,
-        ckpt_path: Optional[str] = None,
+        train_dataloaders: TRAIN_DATALOADERS | LightningDataModule | None = None,
+        val_dataloaders: EVAL_DATALOADERS | None = None,
+        datamodule: LightningDataModule | None = None,
+        ckpt_path: str | None = None,
     ) -> None:
         """
         We override the `fit` method to automatically apply and handle RL4CO magic

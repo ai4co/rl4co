@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -87,7 +85,7 @@ class TSPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         # Initialize locations
         device = td.device
         init_locs = td["locs"]
@@ -161,9 +159,7 @@ class TSPEnv(RL4COEnvBase):
     def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
         """Check that solution is valid: nodes are visited exactly once"""
         assert (
-            torch.arange(actions.size(1), out=actions.data.new())
-            .view(1, -1)
-            .expand_as(actions)
+            torch.arange(actions.size(1), out=actions.data.new()).view(1, -1).expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 
@@ -186,9 +182,9 @@ class TSPEnv(RL4COEnvBase):
 
     @staticmethod
     def local_search(td: TensorDict, actions: torch.Tensor, **kwargs) -> torch.Tensor:
-        assert (
-            local_search is not None
-        ), "Cannot import local_search module. Check if `numba` is installed."
+        assert local_search is not None, (
+            "Cannot import local_search module. Check if `numba` is installed."
+        )
         return local_search(td, actions, **kwargs)
 
     @staticmethod
@@ -288,7 +284,7 @@ class TSPkoptEnv(ImprovementEnvBase):
 
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         locs = td["locs"]
@@ -300,7 +296,7 @@ class TSPkoptEnv(ImprovementEnvBase):
         bs = batch_size[0]
         seq_length = self.generator.num_loc
         visited_time = torch.zeros((bs, seq_length)).to(device)
-        pre = torch.zeros((bs)).to(device).long()
+        pre = torch.zeros(bs).to(device).long()
         arange = torch.arange(bs)
         for i in range(seq_length):
             current_nodes = current_rec[arange, pre]
@@ -346,9 +342,7 @@ class TSPkoptEnv(ImprovementEnvBase):
             cur = first
             for i in range(self.generator.num_loc):
                 cur_next = solution.gather(1, cur)
-                rec.scatter_(
-                    1, cur_next, torch.where(cur != second, cur, rec.gather(1, cur_next))
-                )
+                rec.scatter_(1, cur_next, torch.where(cur != second, cur, rec.gather(1, cur_next)))
                 cur = torch.where(cur != second, cur_next, cur)
 
             rec_next = rec
@@ -438,9 +432,7 @@ class TSPkoptEnv(ImprovementEnvBase):
         batch_size, graph_size = solution.size()
 
         assert (
-            torch.arange(graph_size, out=solution.data.new())
-            .view(1, -1)
-            .expand_as(solution)
+            torch.arange(graph_size, out=solution.data.new()).view(1, -1).expand_as(solution)
             == solution.data.sort(1)[0]
         ).all(), "Not visiting all nodes"
 
@@ -487,9 +479,7 @@ class TSPkoptEnv(ImprovementEnvBase):
                     1 - value_max.view(-1, 1) < 1e-5, action_max.view(-1, 1), action
                 )  ### fix bug of pytorch
                 if i > 0:
-                    action = torch.where(
-                        stopped.unsqueeze(-1), action_index[:, :1], action
-                    )
+                    action = torch.where(stopped.unsqueeze(-1), action_index[:, :1], action)
 
                 # Store and Process actions
                 next_of_new_action = rec.gather(1, action)
@@ -508,9 +498,7 @@ class TSPkoptEnv(ImprovementEnvBase):
 
                 # Calc next basic masks
                 if i == 0:
-                    visited_time_tag = (
-                        visited_time - visited_time.gather(1, action)
-                    ) % gs
+                    visited_time_tag = (visited_time - visited_time.gather(1, action)) % gs
                 mask &= False
                 mask[(visited_time_tag <= visited_time_tag.gather(1, action))] = True
                 if i == 0:
@@ -522,9 +510,7 @@ class TSPkoptEnv(ImprovementEnvBase):
                 index_allow_first_node = (~stopped) & (
                     next_of_new_action.squeeze() == action_index[:, 0]
                 )
-                mask[index_allow_first_node, action_index[index_allow_first_node, 0]] = (
-                    False
-                )
+                mask[index_allow_first_node, action_index[index_allow_first_node, 0]] = False
 
                 # Move to next
                 next_of_last_action = next_of_new_action
@@ -551,9 +537,7 @@ class DenseRewardTSPEnv(TSPEnv):
     to the current tour by the given action.
     """
 
-    def __init__(
-        self, generator: TSPGenerator = None, generator_params: dict = {}, **kwargs
-    ):
+    def __init__(self, generator: TSPGenerator = None, generator_params: dict = {}, **kwargs):
         super().__init__(
             generator,
             generator_params,

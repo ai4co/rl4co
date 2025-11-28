@@ -1,6 +1,6 @@
-from typing import Optional
-from tensordict import TensorDict
 import torch.nn as nn
+
+from tensordict import TensorDict
 
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
 
@@ -10,21 +10,22 @@ class GFACSEncoder(NARGNNEncoder):
     NARGNNEncoder with log-partition function estimation for training with
     Trajectory Balance (TB) loss (Malkin et al., https://arxiv.org/abs/2201.13259)
     """
+
     def __init__(
         self,
         embed_dim: int = 64,
         env_name: str = "tsp",
         # TODO: pass network
-        init_embedding: Optional[nn.Module] = None,
-        edge_embedding: Optional[nn.Module] = None,
-        graph_network: Optional[nn.Module] = None,
-        heatmap_generator: Optional[nn.Module] = None,
+        init_embedding: nn.Module | None = None,
+        edge_embedding: nn.Module | None = None,
+        graph_network: nn.Module | None = None,
+        heatmap_generator: nn.Module | None = None,
         num_layers_heatmap_generator: int = 5,
         num_layers_graph_encoder: int = 15,
         act_fn="silu",
         agg_fn="mean",
         linear_bias: bool = True,
-        k_sparse: Optional[int] = None,
+        k_sparse: int | None = None,
         z_out_dim: int = 1,
     ):
         super().__init__(
@@ -56,9 +57,7 @@ class GFACSEncoder(NARGNNEncoder):
 
         # Process embedding into graph
         # TODO: standardize?
-        graph.x, graph.edge_attr = self.graph_network(
-            graph.x, graph.edge_index, graph.edge_attr
-        )
+        graph.x, graph.edge_attr = self.graph_network(graph.x, graph.edge_index, graph.edge_attr)
 
         logZ = self.Z_net(graph.edge_attr).reshape(-1, len(td), self.z_out_dim).mean(0)
 

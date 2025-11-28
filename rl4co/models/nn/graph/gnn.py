@@ -26,7 +26,7 @@ class GNNLayer(nn.Module):
             "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
         )
 
-        super(GNNLayer, self).__init__()
+        super().__init__()
         self.units = units
         self.act_fn = getattr(nn.functional, act_fn)
         self.agg_fn = getattr(gnn, f"global_{agg_fn}_pool")
@@ -52,9 +52,7 @@ class GNNLayer(nn.Module):
         x3 = self.v_lin3(x0)
         x4 = self.v_lin4(x0)
         x = x0 + self.act_fn(
-            self.v_bn(
-                x1 + self.agg_fn(torch.sigmoid(w0) * x2[edge_index[1]], edge_index[0])
-            )
+            self.v_bn(x1 + self.agg_fn(torch.sigmoid(w0) * x2[edge_index[1]], edge_index[0]))
         )
 
         # Edge updates
@@ -74,7 +72,7 @@ class GNNEncoder(nn.Module):
     """
 
     def __init__(self, num_layers: int, embed_dim: int, act_fn="silu", agg_fn="mean"):
-        super(GNNEncoder, self).__init__()
+        super().__init__()
         self.act_fn = getattr(nn.functional, act_fn)
         self.agg_fn = agg_fn
 

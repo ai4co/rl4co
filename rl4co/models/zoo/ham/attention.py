@@ -10,7 +10,7 @@ class HeterogenousMHA(nn.Module):
         Heterogenous Multi-Head Attention for Pickup and Delivery problems
         https://arxiv.org/abs/2110.02634
         """
-        super(HeterogenousMHA, self).__init__()
+        super().__init__()
 
         if val_dim is None:
             assert embed_dim is not None, "Provide either embed_dim or val_dim"
@@ -56,7 +56,7 @@ class HeterogenousMHA(nn.Module):
             q: queries (batch_size, n_query, input_dim)
             h: data (batch_size, graph_size, input_dim)
             mask: mask (batch_size, n_query, graph_size) or viewable as that (i.e. can be 2 dim if n_query == 1)
-            
+
         Mask should contain 1 if attention is not possible (i.e. mask is negative adjacency)
         """
         if h is None:
@@ -66,10 +66,10 @@ class HeterogenousMHA(nn.Module):
         batch_size, graph_size, input_dim = h.size()
 
         # Check if graph size is odd number
-        assert (
-            graph_size % 2 == 1
-        ), "Graph size should have odd number of nodes due to pickup-delivery problem  \
+        assert graph_size % 2 == 1, (
+            "Graph size should have odd number of nodes due to pickup-delivery problem  \
                                      (n/2 pickup, n/2 delivery, 1 depot)"
+        )
 
         n_query = q.size(1)
         assert q.size(0) == batch_size
@@ -479,9 +479,7 @@ class HeterogenousMHA(nn.Module):
         )
 
         out = torch.mm(
-            heads.permute(1, 2, 0, 3)
-            .contiguous()
-            .view(-1, self.num_heads * self.val_dim),
+            heads.permute(1, 2, 0, 3).contiguous().view(-1, self.num_heads * self.val_dim),
             self.W_out.view(-1, self.embed_dim),
         ).view(batch_size, n_query, self.embed_dim)
 

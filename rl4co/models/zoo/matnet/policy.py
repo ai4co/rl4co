@@ -7,11 +7,7 @@ from tensordict import TensorDict
 
 from rl4co.envs.scheduling.ffsp.env import FFSPEnv
 from rl4co.models.common.constructive.autoregressive import AutoregressivePolicy
-from rl4co.models.zoo.matnet.decoder import (
-    MatNetDecoder,
-    MatNetFFSPDecoder,
-    MultiStageFFSPDecoder,
-)
+from rl4co.models.zoo.matnet.decoder import MatNetDecoder, MatNetFFSPDecoder, MultiStageFFSPDecoder
 from rl4co.models.zoo.matnet.encoder import MatNetEncoder
 from rl4co.utils.ops import batchify
 from rl4co.utils.pylogger import get_pylogger
@@ -68,7 +64,7 @@ class MatNetPolicy(AutoregressivePolicy):
                 use_graph_context=use_graph_context,
             )
 
-        super(MatNetPolicy, self).__init__(
+        super().__init__(
             env_name=env_name,
             encoder=MatNetEncoder(
                 embed_dim=embed_dim,

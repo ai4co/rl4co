@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -140,9 +140,9 @@ class CVRPTWGenerator(CVRPGenerator):
         # 8. stack to tensor time_windows
         time_windows = torch.stack((min_times, max_times), dim=-1)
 
-        assert torch.all(
-            min_times < max_times
-        ), "Please make sure the relation between max_loc and max_time allows for feasible solutions."
+        assert torch.all(min_times < max_times), (
+            "Please make sure the relation between max_loc and max_time allows for feasible solutions."
+        )
 
         # Reset duration at depot to 0
         durations[:, 0] = 0.0

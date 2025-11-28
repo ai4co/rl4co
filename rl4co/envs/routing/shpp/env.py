@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -93,7 +91,7 @@ class SHPPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         """Note: the first node is the starting node; the last node is the terminating node"""
         device = td.device
         locs = td["locs"]
@@ -103,9 +101,7 @@ class SHPPEnv(RL4COEnvBase):
 
         # Other variables
         current_node = torch.zeros((batch_size), dtype=torch.int64, device=device)
-        last_node = torch.full(
-            (batch_size), num_loc - 1, dtype=torch.int64, device=device
-        )
+        last_node = torch.full((batch_size), num_loc - 1, dtype=torch.int64, device=device)
         available = torch.ones(
             (*batch_size, num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
@@ -136,9 +132,7 @@ class SHPPEnv(RL4COEnvBase):
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         """Check that solution is valid: nodes are visited exactly once"""
         assert (
-            torch.arange(actions.size(1), out=actions.data.new())
-            .view(1, -1)
-            .expand_as(actions)
+            torch.arange(actions.size(1), out=actions.data.new()).view(1, -1).expand_as(actions)
             == actions.data.sort(1)[0]
         ).all(), "Invalid tour"
 

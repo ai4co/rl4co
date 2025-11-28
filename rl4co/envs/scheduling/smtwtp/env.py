@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -98,7 +96,7 @@ class SMTWTPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         device = td.device
 
         init_job_due_time = td["job_due_time"]
@@ -180,9 +178,7 @@ class SMTWTPEnv(RL4COEnvBase):
         ordered_process_time = job_process_time[batch_idx, actions]
         ordered_due_time = job_due_time[batch_idx, actions]
         ordered_job_weight = job_weight[batch_idx, actions]
-        presum_process_time = torch.cumsum(
-            ordered_process_time, dim=1
-        )  # ending time of each job
+        presum_process_time = torch.cumsum(ordered_process_time, dim=1)  # ending time of each job
         job_tardiness = presum_process_time - ordered_due_time
         job_tardiness[job_tardiness < 0] = 0
         job_weighted_tardiness = ordered_job_weight * job_tardiness

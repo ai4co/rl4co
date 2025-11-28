@@ -28,9 +28,7 @@ class CVRPMVCEnv(CVRPEnv):
         )
 
         # Increase capacity if depot is not visited, otherwise set to 0
-        used_capacity = (td["used_capacity"] + selected_demand) * (
-            current_node != 0
-        ).float()
+        used_capacity = (td["used_capacity"] + selected_demand) * (current_node != 0).float()
 
         demand_remaining = td["demand_remaining"] - selected_demand
 
@@ -56,9 +54,7 @@ class CVRPMVCEnv(CVRPEnv):
         td.set("action_mask", self.get_action_mask(td))
         return td
 
-    def _reset(
-        self, td: TensorDict | None = None, batch_size: list | None = None
-    ) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size: list | None = None) -> TensorDict:
         td = super()._reset(td, batch_size)
         batch_size = batch_size or list(td.batch_size)
         td.set(
@@ -66,9 +62,7 @@ class CVRPMVCEnv(CVRPEnv):
             torch.ones((*batch_size, 1), dtype=torch.int, device=td.device),
         )
         td.set("demand_remaining", td["demand"].sum(-1, keepdim=True))
-        td.set(
-            "max_vehicle", torch.ceil(td["demand_remaining"] / td["vehicle_capacity"]) + 1
-        )
+        td.set("max_vehicle", torch.ceil(td["demand_remaining"] / td["vehicle_capacity"]) + 1)
         return td
 
     @staticmethod
@@ -82,20 +76,14 @@ class CVRPMVCEnv(CVRPEnv):
         if "vehicles_used" in td.keys():
             max_vehicle = td["max_vehicle"]
             demand_remaining = td["demand_remaining"]
-            capacity_remaining = (max_vehicle - td["vehicles_used"]) * td[
-                "vehicle_capacity"
-            ]
+            capacity_remaining = (max_vehicle - td["vehicles_used"]) * td["vehicle_capacity"]
             mask_depot = (  # mask the depot
                 (td["current_node"] == 0)  # if the depot is just visited
                 | (
                     demand_remaining > capacity_remaining
                 )  # or the unassigned vehicles' capacity can't sastify remaining demands
-            ) & ~torch.all(
-                mask_loc, dim=-1, keepdim=True
-            )  # unless there's no other choices
+            ) & ~torch.all(mask_loc, dim=-1, keepdim=True)  # unless there's no other choices
         else:
             # Cannot visit the depot if just visited and still unserved nodes
-            mask_depot = (td["current_node"] == 0) & ~torch.all(
-                mask_loc, dim=-1, keepdim=True
-            )
+            mask_depot = (td["current_node"] == 0) & ~torch.all(mask_loc, dim=-1, keepdim=True)
         return ~torch.cat((mask_depot, mask_loc), -1)

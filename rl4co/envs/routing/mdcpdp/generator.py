@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from collections.abc import Callable
 
 import torch
 
@@ -41,15 +41,15 @@ class MDCPDPGenerator(Generator):
         num_loc: int = 20,
         min_loc: float = 0.0,
         max_loc: float = 1.0,
-        loc_distribution: Union[int, float, str, type, Callable] = Uniform,
+        loc_distribution: int | float | str | type | Callable = Uniform,
         num_agents: int = 5,
         depot_mode: str = "multiple",
-        depot_distribution: Union[int, float, str, type, Callable] = Uniform,
+        depot_distribution: int | float | str | type | Callable = Uniform,
         min_capacity: int = 3,
         max_capacity: int = 3,
         min_lateness_weight: float = 1.0,
         max_lateness_weight: float = 1.0,
-        lateness_weight_distribution: Union[int, float, str, type, Callable] = Uniform,
+        lateness_weight_distribution: int | float | str | type | Callable = Uniform,
         **kwargs,
     ):
         self.num_loc = num_loc
@@ -64,9 +64,7 @@ class MDCPDPGenerator(Generator):
 
         # Number of locations must be even
         if num_loc % 2 != 0:
-            log.warning(
-                "Number of locations must be even. Adding 1 to the number of locations."
-            )
+            log.warning("Number of locations must be even. Adding 1 to the number of locations.")
             self.num_loc += 1
 
         # Check depot mode validity
@@ -76,9 +74,7 @@ class MDCPDPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:

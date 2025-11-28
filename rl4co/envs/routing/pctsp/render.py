@@ -32,9 +32,7 @@ def render(td, actions=None, ax=None):
         200 * (prizes - torch.min(prizes)) / (torch.max(prizes) - torch.min(prizes)) + 10
     )
     normalized_penalties = (
-        3
-        * (penalties - torch.min(penalties))
-        / (torch.max(penalties) - torch.min(penalties))
+        3 * (penalties - torch.min(penalties)) / (torch.max(penalties) - torch.min(penalties))
     )
 
     # Represent penalty with colormap and size of edges

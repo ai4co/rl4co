@@ -24,9 +24,7 @@ class HetGNNLayer(nn.Module):
         self.activation = nn.ReLU()
         self.scale = 1 / math.sqrt(embed_dim)
 
-    def forward(
-        self, self_emb: Tensor, other_emb: Tensor, edge_emb: Tensor, edges: Tensor
-    ):
+    def forward(self, self_emb: Tensor, other_emb: Tensor, edge_emb: Tensor, edges: Tensor):
         bs, n_rows, _ = self_emb.shape
 
         # concat operation embeddings and o-m edge features (proc times)

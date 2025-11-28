@@ -53,7 +53,7 @@ class DACTPolicy(ImprovementPolicy):
         val_decode_type: str = "sampling",
         test_decode_type: str = "sampling",
     ):
-        super(DACTPolicy, self).__init__()
+        super().__init__()
 
         self.env_name = env_name
 
@@ -153,11 +153,7 @@ class DACTPolicy(ImprovementPolicy):
         logprob, action_sampled = decode_strategy.step(
             logits,
             mask,
-            action=(
-                actions[:, 0] * seq_length + actions[:, 1]
-                if actions is not None
-                else None
-            ),
+            action=(actions[:, 0] * seq_length + actions[:, 1] if actions is not None else None),
         )
         action_sampled = action_sampled.unsqueeze(-1)
         if phase == "train":

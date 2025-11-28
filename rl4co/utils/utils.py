@@ -3,8 +3,8 @@ import platform
 import sys
 import warnings
 
+from collections.abc import Callable
 from importlib.util import find_spec
-from typing import Callable
 
 import hydra
 
@@ -12,9 +12,7 @@ from lightning import Callback
 from lightning.pytorch.loggers.logger import Logger
 
 # Import the necessary PyTorch Lightning component
-from lightning.pytorch.trainer.connectors.accelerator_connector import (
-    _AcceleratorConnector,
-)
+from lightning.pytorch.trainer.connectors.accelerator_connector import _AcceleratorConnector
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
 
@@ -275,11 +273,11 @@ def show_versions():
             version = "Not installed"
         print(f"{name.rjust(longest_name)} : {version}")
     # platform information
-    print(f'{"Python".rjust(longest_name)} : {sys.version.split()[0]}')
-    print(f'{"Platform".rjust(longest_name)} : {platform.platform()}')
+    print(f"{'Python'.rjust(longest_name)} : {sys.version.split()[0]}")
+    print(f"{'Platform'.rjust(longest_name)} : {platform.platform()}")
     try:
         lightning_auto_device = _AcceleratorConnector()._choose_auto_accelerator(None)
     except Exception:
         lightning_auto_device = _AcceleratorConnector()._choose_auto_accelerator()
     # lightning hardware accelerators
-    print(f'{"Lightning device".rjust(longest_name)} : {lightning_auto_device}')
+    print(f"{'Lightning device'.rjust(longest_name)} : {lightning_auto_device}")

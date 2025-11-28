@@ -1,5 +1,4 @@
 from dataclasses import dataclass, fields
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -108,9 +107,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
         if pointer is None:
             # MHA with Pointer mechanism (https://arxiv.org/abs/1506.03134)
-            pointer_attn_class = (
-                PointerAttention if moe_kwargs is None else PointerAttnMoE
-            )
+            pointer_attn_class = PointerAttention if moe_kwargs is None else PointerAttnMoE
             pointer = pointer_attn_class(
                 embed_dim,
                 num_heads,
@@ -124,9 +121,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         self.pointer = pointer
 
         # For each node we compute (glimpse key, glimpse value, logit key) so 3 * embed_dim
-        self.project_node_embeddings = nn.Linear(
-            embed_dim, 3 * embed_dim, bias=linear_bias
-        )
+        self.project_node_embeddings = nn.Linear(embed_dim, 3 * embed_dim, bias=linear_bias)
         self.project_fixed_context = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
         self.use_graph_context = use_graph_context
 
@@ -163,7 +158,7 @@ class AttentionModelDecoder(AutoregressiveDecoder):
         td: TensorDict,
         cached: PrecomputedCache,
         num_starts: int = 0,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Compute the logits of the next actions given the current state
 
         Args:
@@ -199,13 +194,11 @@ class AttentionModelDecoder(AutoregressiveDecoder):
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
-    ) -> Tuple[TensorDict, RL4COEnvBase, PrecomputedCache]:
+    ) -> tuple[TensorDict, RL4COEnvBase, PrecomputedCache]:
         """Precompute the embeddings cache before the decoder is called"""
         return td, env, self._precompute_cache(embeddings, num_starts=num_starts)
 
-    def _precompute_cache(
-        self, embeddings: torch.Tensor, num_starts: int = 0
-    ) -> PrecomputedCache:
+    def _precompute_cache(self, embeddings: torch.Tensor, num_starts: int = 0) -> PrecomputedCache:
         """Compute the cached embeddings for the pointer attention.
 
         Args:

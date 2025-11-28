@@ -2,7 +2,7 @@
 
 
 
-You can submit your questions via [GitHub Issues](https://github.com/ai4co/rl4co/issues) or [Discussions](https://github.com/ai4co/rl4co/discussions). 
+You can submit your questions via [GitHub Issues](https://github.com/ai4co/rl4co/issues) or [Discussions](https://github.com/ai4co/rl4co/discussions).
 
 You may search for your question in the existing issues or discussions before submitting a new one. If asked more than a few times, we will add it here!
 

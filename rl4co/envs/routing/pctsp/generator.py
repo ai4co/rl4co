@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from tensordict.tensordict import TensorDict
 from torch.distributions import Uniform
@@ -55,9 +55,7 @@ class PCTSPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:
@@ -99,9 +97,7 @@ class PCTSPGenerator(Generator):
 
         # Adjust as in Kool et al. (2019)
         self.max_penalty *= penalty_factor / self.num_loc
-        self.penalty_sampler = get_sampler(
-            "penalty", "uniform", 0.0, self.max_penalty, **kwargs
-        )
+        self.penalty_sampler = get_sampler("penalty", "uniform", 0.0, self.max_penalty, **kwargs)
 
     def _generate(self, batch_size) -> TensorDict:
         # Sample locations: depot and customers
@@ -121,17 +117,14 @@ class PCTSPGenerator(Generator):
         # Now expectation is 0.5 so expected total prize is n / 2, we want to force to visit approximately half of the nodes
         # so the constraint will be that total prize >= (n / 2) / 2 = n / 4
         # equivalently, we divide all prizes by n / 4 and the total prize should be >= 1
-        deterministic_prize = self.deterministic_prize_sampler.sample(
-            (*batch_size, self.num_loc)
-        )
+        deterministic_prize = self.deterministic_prize_sampler.sample((*batch_size, self.num_loc))
 
         # In the deterministic setting, the stochastic_prize is not used and the deterministic prize is known
         # In the stochastic setting, the deterministic prize is the expected prize and is known up front but the
         # stochastic prize is only revealed once the node is visited
         # Stochastic prize is between (0, 2 * expected_prize) such that E(stochastic prize) = E(deterministic_prize)
         stochastic_prize = (
-            self.stochastic_prize_sampler.sample((*batch_size, self.num_loc))
-            * deterministic_prize
+            self.stochastic_prize_sampler.sample((*batch_size, self.num_loc)) * deterministic_prize
         )
 
         return TensorDict(

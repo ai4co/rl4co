@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from torch.distributions.normal import Normal
 
 from rl4co.models.nn.mlp import MLP
@@ -11,7 +12,7 @@ from rl4co.models.nn.mlp import MLP
 """
 
 
-class SparseDispatcher(object):
+class SparseDispatcher:
     """
     Helper for implementing a mixture of experts.
     The purpose of this class is to create input minibatches for the experts
@@ -96,7 +97,9 @@ class SparseDispatcher(object):
 
         if multiply_by_gates:
             stitched = stitched.mul(self._nonzero_gates)
-        zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(-1), requires_grad=True, device=stitched.device)
+        zeros = torch.zeros(
+            self._gates.size(0), expert_out[-1].size(-1), requires_grad=True, device=stitched.device
+        )
         # combine samples that have been processed by the same k experts
         combined = zeros.index_add(0, self._batch_index, stitched.float())
         return combined
@@ -122,8 +125,19 @@ class MoE(nn.Module):
         k: an integer - how many experts to use for each batch element
     """
 
-    def __init__(self, input_size, output_size, num_neurons=[], hidden_act="ReLU", out_bias=True, num_experts=4, k=2, noisy_gating=True, **kwargs):
-        super(MoE, self).__init__()
+    def __init__(
+        self,
+        input_size,
+        output_size,
+        num_neurons=[],
+        hidden_act="ReLU",
+        out_bias=True,
+        num_experts=4,
+        k=2,
+        noisy_gating=True,
+        **kwargs,
+    ):
+        super().__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
         self.output_size = output_size
@@ -132,10 +146,24 @@ class MoE(nn.Module):
 
         # instantiate experts
         if num_neurons != []:
-            self.experts = nn.ModuleList([MLP(input_dim=input_size, output_dim=output_size, num_neurons=num_neurons,
-                                              hidden_act=hidden_act) for _ in range(self.num_experts)])
+            self.experts = nn.ModuleList(
+                [
+                    MLP(
+                        input_dim=input_size,
+                        output_dim=output_size,
+                        num_neurons=num_neurons,
+                        hidden_act=hidden_act,
+                    )
+                    for _ in range(self.num_experts)
+                ]
+            )
         else:
-            self.experts = nn.ModuleList([nn.Linear(self.input_size, self.output_size, bias=out_bias) for _ in range(self.num_experts)])
+            self.experts = nn.ModuleList(
+                [
+                    nn.Linear(self.input_size, self.output_size, bias=out_bias)
+                    for _ in range(self.num_experts)
+                ]
+            )
         self.w_gate = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
         self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
 
@@ -143,7 +171,7 @@ class MoE(nn.Module):
         self.softmax = nn.Softmax(-1)
         self.register_buffer("mean", torch.tensor([0.0]))
         self.register_buffer("std", torch.tensor([1.0]))
-        assert(self.k <= self.num_experts)
+        assert self.k <= self.num_experts
 
     def cv_squared(self, x):
         """The squared coefficient of variation of a sample.
@@ -160,7 +188,7 @@ class MoE(nn.Module):
 
         if x.shape[0] == 1:
             return torch.tensor([0], device=x.device, dtype=x.dtype)
-        return x.float().var() / (x.float().mean()**2 + eps)
+        return x.float().var() / (x.float().mean() ** 2 + eps)
 
     def _gates_to_load(self, gates):
         """Compute the true load per expert, given the gates.
@@ -194,14 +222,18 @@ class MoE(nn.Module):
         top_values_flat = noisy_top_values.flatten()
 
         threshold_positions_if_in = torch.arange(batch, device=clean_values.device) * m + self.k
-        threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
+        threshold_if_in = torch.unsqueeze(
+            torch.gather(top_values_flat, 0, threshold_positions_if_in), 1
+        )
         is_in = torch.gt(noisy_values, threshold_if_in)
         threshold_positions_if_out = threshold_positions_if_in - 1
-        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
+        threshold_if_out = torch.unsqueeze(
+            torch.gather(top_values_flat, 0, threshold_positions_if_out), 1
+        )
         # is each value currently in the top k.
         normal = Normal(self.mean, self.std)
-        prob_if_in = normal.cdf((clean_values - threshold_if_in)/noise_stddev)
-        prob_if_out = normal.cdf((clean_values - threshold_if_out)/noise_stddev)
+        prob_if_in = normal.cdf((clean_values - threshold_if_in) / noise_stddev)
+        prob_if_out = normal.cdf((clean_values - threshold_if_out) / noise_stddev)
         prob = torch.where(is_in, prob_if_in, prob_if_out)
         return prob
 
@@ -228,20 +260,22 @@ class MoE(nn.Module):
         # calculate topk + 1 that will be needed for the noisy gates
         logits = self.softmax(logits)
         top_logits, top_indices = logits.topk(min(self.k + 1, self.num_experts), dim=-1)
-        top_k_logits = top_logits[:, :self.k]
-        top_k_indices = top_indices[:, :self.k]
+        top_k_logits = top_logits[:, : self.k]
+        top_k_indices = top_indices[:, : self.k]
         top_k_gates = top_k_logits / (top_k_logits.sum(1, keepdim=True) + 1e-6)  # normalization
 
         zeros = torch.zeros_like(logits, requires_grad=True)
         gates = zeros.scatter(-1, top_k_indices, top_k_gates)  # non-topk elements will be 0
 
         if self.noisy_gating and self.k < self.num_experts and train:
-            load = (self._prob_in_top_k(clean_logits, noisy_logits, noise_stddev, top_logits)).sum(0)
+            load = (self._prob_in_top_k(clean_logits, noisy_logits, noise_stddev, top_logits)).sum(
+                0
+            )
         else:
             load = self._gates_to_load(gates)
         return gates, load
 
-    def forward(self, x, loss_coef=0.):
+    def forward(self, x, loss_coef=0.0):
         """
         Token/Node-level Gating with the default gating algorithm in <https://arxiv.org/abs/1701.06538>.
         In specific, each token/node chooses TopK experts, auxiliary losses required for load balancing.

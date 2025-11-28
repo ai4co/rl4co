@@ -66,8 +66,7 @@ def render(self, decaps, probe, action_mask, ax=None, legend=True):
     if legend:
         num_unique = 4
         handles = [
-            plt.Rectangle((0, 0), 1, 1, color=settings[i]["color"])
-            for i in range(num_unique)
+            plt.Rectangle((0, 0), 1, 1, color=settings[i]["color"]) for i in range(num_unique)
         ]
         ax.legend(
             handles,

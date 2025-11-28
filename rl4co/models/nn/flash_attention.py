@@ -22,15 +22,13 @@ def fused_chunk_linear_attn_wrapper(
     normalize: bool = True,
     **kwargs,
 ):
-    assert (
-        fused_chunk_linear_attn is not None
-    ), "fused_chunk_linear_attn not found. Install Flash Linear Attention using instructions from https://github.com/sustcsonglin/flash-linear-attention"
-    assert (
-        kwargs.get("attn_mask", None) is None
-    ), "attn_mask is not supported in Flash  Linear Attention"
-    return fused_chunk_linear_attn(
-        q, k, v, scale, initial_state, output_final_state, normalize
-    )[0]
+    assert fused_chunk_linear_attn is not None, (
+        "fused_chunk_linear_attn not found. Install Flash Linear Attention using instructions from https://github.com/sustcsonglin/flash-linear-attention"
+    )
+    assert kwargs.get("attn_mask", None) is None, (
+        "attn_mask is not supported in Flash  Linear Attention"
+    )
+    return fused_chunk_linear_attn(q, k, v, scale, initial_state, output_final_state, normalize)[0]
 
 
 def scaled_dot_product_attention_flash_attn(

@@ -57,7 +57,7 @@ class ActiveSearch(TransductiveModel):
 
         assert batch_size == 1, "Batch size must be 1 for active search"
 
-        super(ActiveSearch, self).__init__(
+        super().__init__(
             env,
             policy=policy,
             dataset=dataset,
@@ -77,7 +77,7 @@ class ActiveSearch(TransductiveModel):
         - original policy state dict
         """
         log.info("Setting up active search...")
-        super(ActiveSearch, self).setup(stage)
+        super().setup(stage)
 
         # Instantiate augmentation
         self.augmentation = StateAugmentation(
@@ -92,9 +92,7 @@ class ActiveSearch(TransductiveModel):
         dataset_size = len(self.dataset)
         _batch = next(iter(self.train_dataloader()))
         self.problem_size = self.env.reset(_batch)["action_mask"].shape[-1]
-        self.instance_solutions = torch.zeros(
-            dataset_size, self.problem_size * 2, dtype=int
-        )
+        self.instance_solutions = torch.zeros(dataset_size, self.problem_size * 2, dtype=int)
         self.instance_rewards = torch.zeros(dataset_size)
 
     def on_train_batch_start(self, batch: Any, batch_idx: int):
@@ -174,15 +172,11 @@ class ActiveSearch(TransductiveModel):
 
         return {"max_reward": max_reward, "best_solutions": best_solutions}
 
-    def on_train_batch_end(
-        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
-    ) -> None:
+    def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
         """We store the best solution and reward found."""
         max_rewards, best_solutions = outputs["max_reward"], outputs["best_solutions"]
         self.instance_rewards[batch_idx] = max_rewards
-        self.instance_solutions[batch_idx, :] = best_solutions.squeeze(
-            0
-        )  # only one instance
+        self.instance_solutions[batch_idx, :] = best_solutions.squeeze(0)  # only one instance
         log.info(f"Best reward: {max_rewards.mean():.2f}")
 
     def on_train_epoch_end(self) -> None:

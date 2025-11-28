@@ -1,7 +1,6 @@
-from typing import Optional, Type, Union
+import torch
 
 from tensordict import TensorDict
-import torch
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.zoo.deepaco import DeepACOPolicy
@@ -12,11 +11,10 @@ from rl4co.utils.decoding import (
     get_decoding_strategy,
     get_log_likelihood,
     modify_logits_for_top_k_filtering,
-    modify_logits_for_top_p_filtering
+    modify_logits_for_top_p_filtering,
 )
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.pylogger import get_pylogger
-
 
 log = get_pylogger(__name__)
 
@@ -40,18 +38,18 @@ class GFACSPolicy(DeepACOPolicy):
 
     def __init__(
         self,
-        encoder: Optional[GFACSEncoder] = None,
+        encoder: GFACSEncoder | None = None,
         env_name: str = "tsp",
         temperature: float = 1.0,
         top_p: float = 0.0,
         top_k: int = 0,
-        aco_class: Optional[Type[AntSystem]] = None,
+        aco_class: type[AntSystem] | None = None,
         aco_kwargs: dict = {},
         train_with_local_search: bool = True,
-        n_ants: Optional[Union[int, dict]] = None,
-        n_iterations: Optional[Union[int, dict]] = None,
+        n_ants: int | dict | None = None,
+        n_iterations: int | dict | None = None,
         multistart: bool = False,
-        k_sparse: Optional[int] = None,
+        k_sparse: int | None = None,
         **encoder_kwargs,
     ):
         if encoder is None:
@@ -77,7 +75,7 @@ class GFACSPolicy(DeepACOPolicy):
     def forward(
         self,
         td_initial: TensorDict,
-        env: Optional[Union[str, RL4COEnvBase]] = None,
+        env: str | RL4COEnvBase | None = None,
         phase: str = "train",
         return_actions: bool = True,
         return_hidden: bool = False,
@@ -98,7 +96,9 @@ class GFACSPolicy(DeepACOPolicy):
         )
 
         # Instantiate environment if needed
-        if (phase != "train" or self.train_with_local_search) and (env is None or isinstance(env, str)):
+        if (phase != "train" or self.train_with_local_search) and (
+            env is None or isinstance(env, str)
+        ):
             env_name = self.env_name if env is None else env
             env = get_env(env_name)
         else:
@@ -121,7 +121,7 @@ class GFACSPolicy(DeepACOPolicy):
                 "reward": unbatchify(env.get_reward(td, actions), n_ants),
                 "log_likelihood": unbatchify(
                     get_log_likelihood(logprobs, actions, td.get("mask", None), True), n_ants
-                )
+                ),
             }
 
             if return_actions:
@@ -147,7 +147,7 @@ class GFACSPolicy(DeepACOPolicy):
                         "ls_log_likelihood": unbatchify(
                             get_log_likelihood(ls_logprobs, ls_actions, td.get("mask", None), True),
                             n_ants,
-                        )
+                        ),
                     }
                 )
                 if return_actions:
@@ -185,7 +185,7 @@ class GFACSPolicy(DeepACOPolicy):
         td: TensorDict,
         env: RL4COEnvBase,
         hidden: TensorDict,
-        actions: Optional[torch.Tensor] = None,
+        actions: torch.Tensor | None = None,
         max_steps: int = 1_000_000,
         **decoding_kwargs,
     ):
@@ -199,11 +199,15 @@ class GFACSPolicy(DeepACOPolicy):
             **decoding_kwargs,
         )
         if actions is not None:
-            assert decoding_strategy.name == "evaluate", "decoding strategy must be 'evaluate' when actions are provided"
+            assert decoding_strategy.name == "evaluate", (
+                "decoding strategy must be 'evaluate' when actions are provided"
+            )
 
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
         td, env, num_starts = decoding_strategy.pre_decoder_hook(
-            td, env, actions[:, 0] if actions is not None and "multistart" in self.decode_type else None
+            td,
+            env,
+            actions[:, 0] if actions is not None and "multistart" in self.decode_type else None,
         )
 
         # Additionally call a decoder hook if needed before main decoding
@@ -222,9 +226,7 @@ class GFACSPolicy(DeepACOPolicy):
             td = env.step(td)["next"]
             step += 1
             if step > max_steps:
-                log.error(
-                    f"Exceeded maximum number of steps ({max_steps}) duing decoding"
-                )
+                log.error(f"Exceeded maximum number of steps ({max_steps}) duing decoding")
                 break
 
         # Post-decoding hook: used for the final step(s) of the decoding strategy

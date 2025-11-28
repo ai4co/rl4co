@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 
@@ -26,7 +24,7 @@ class MessagePassingLayer(MessagePassing):
         residual=False,
         **mlp_params,
     ):
-        super(MessagePassingLayer, self).__init__(aggr=aggregation)
+        super().__init__(aggr=aggregation)
         # Init message passing models
         self.edge_model = MLP(
             input_dim=edge_indim + 2 * node_indim, output_dim=edge_outdim, **mlp_params
@@ -79,7 +77,7 @@ class MessagePassingEncoder(nn.Module):
         Note:
             - Support fully connected graph for now.
         """
-        super(MessagePassingEncoder, self).__init__()
+        super().__init__()
 
         self.env_name = env_name
 
@@ -114,9 +112,7 @@ class MessagePassingEncoder(nn.Module):
         self.self_loop = self_loop
 
     # def forward(self, x, mask=None):
-    def forward(
-        self, td: TensorDict, mask: Tensor | None = None
-    ) -> Tuple[Tensor, Tensor]:
+    def forward(self, td: TensorDict, mask: Tensor | None = None) -> tuple[Tensor, Tensor]:
         init_h = self.init_embedding(td)
         num_node = init_h.size(-2)
 

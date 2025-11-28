@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -64,14 +64,14 @@ class TSPEdgeEmbedding(nn.Module):
         embed_dim,
         linear_bias=True,
         sparsify=True,
-        k_sparse: Union[int, Callable[[int], int], None] = None,
+        k_sparse: int | Callable[[int], int] | None = None,
     ):
         assert Batch is not None, (
             "torch_geometric not found. Please install torch_geometric using instructions from "
             "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
         )
 
-        super(TSPEdgeEmbedding, self).__init__()
+        super().__init__()
 
         if k_sparse is None:
             self._get_k_sparse = lambda n: max(n // 5, 10)
@@ -101,18 +101,14 @@ class TSPEdgeEmbedding(nn.Module):
         graph_data = []
         for index, cost_matrix in enumerate(batch_cost_matrix):
             if self.sparsify:
-                edge_index, edge_attr = sparsify_graph(
-                    cost_matrix, k_sparse, self_loop=False
-                )
+                edge_index, edge_attr = sparsify_graph(cost_matrix, k_sparse, self_loop=False)
             else:
-                edge_index = get_full_graph_edge_index(
-                    cost_matrix.shape[0], self_loop=False
-                ).to(cost_matrix.device)
+                edge_index = get_full_graph_edge_index(cost_matrix.shape[0], self_loop=False).to(
+                    cost_matrix.device
+                )
                 edge_attr = cost_matrix[edge_index[0], edge_index[1]].unsqueeze(-1)
 
-            graph = Data(
-                x=init_embeddings[index], edge_index=edge_index, edge_attr=edge_attr
-            )
+            graph = Data(x=init_embeddings[index], edge_index=edge_index, edge_attr=edge_attr)
             graph_data.append(graph)
 
         batch = Batch.from_data_list(graph_data)
@@ -167,14 +163,12 @@ class CVRPEdgeEmbedding(TSPEdgeEmbedding):
                 )
 
             else:
-                edge_index = get_full_graph_edge_index(
-                    cost_matrix.shape[0], self_loop=False
-                ).to(cost_matrix.device)
+                edge_index = get_full_graph_edge_index(cost_matrix.shape[0], self_loop=False).to(
+                    cost_matrix.device
+                )
                 edge_attr = cost_matrix[edge_index[0], edge_index[1]].unsqueeze(-1)
 
-            graph = Data(
-                x=init_embeddings[index], edge_index=edge_index, edge_attr=edge_attr
-            )
+            graph = Data(x=init_embeddings[index], edge_index=edge_index, edge_attr=edge_attr)
             graph_data.append(graph)
 
         batch = Batch.from_data_list(graph_data)  # type: ignore
@@ -269,7 +263,7 @@ class NoEdgeEmbedding(nn.Module):
             "https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html."
         )
 
-        super(NoEdgeEmbedding, self).__init__()
+        super().__init__()
         self.embed_dim = embed_dim
         self.self_loop = self_loop
 

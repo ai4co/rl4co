@@ -1,4 +1,4 @@
-from typing import IO, Any, Optional, cast
+from typing import IO, Any, cast
 
 import torch
 import torch.nn as nn
@@ -56,9 +56,7 @@ class REINFORCE(RL4COLitModule):
         self.baseline = baseline
         self.advantage_scaler = RewardScaler(reward_scale)
 
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
         out = self.policy(td, self.env, phase=phase, select_best=phase != "train")
@@ -75,8 +73,8 @@ class REINFORCE(RL4COLitModule):
         td: TensorDict,
         batch: TensorDict,
         policy_out: dict,
-        reward: Optional[torch.Tensor] = None,
-        log_likelihood: Optional[torch.Tensor] = None,
+        reward: torch.Tensor | None = None,
+        log_likelihood: torch.Tensor | None = None,
     ):
         """Calculate loss for REINFORCE algorithm.
 
@@ -95,9 +93,7 @@ class REINFORCE(RL4COLitModule):
         )
 
         # REINFORCE baseline
-        bl_val, bl_loss = (
-            self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
-        )
+        bl_val, bl_loss = self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
 
         # Main loss function
         advantage = reward - bl_val  # advantage = reward - baseline
@@ -169,7 +165,7 @@ class REINFORCE(RL4COLitModule):
         cls,
         checkpoint_path: _PATH | IO,
         map_location: _MAP_LOCATION_TYPE = None,
-        hparams_file: Optional[_PATH] = None,
+        hparams_file: _PATH | None = None,
         strict: bool = False,
         load_baseline: bool = True,
         **kwargs: Any,
@@ -201,9 +197,9 @@ class REINFORCE(RL4COLitModule):
             loaded.setup()
             loaded.post_setup_hook()
             # load baseline state dict
-            state_dict = torch.load(
-                checkpoint_path, map_location=map_location, weights_only=False
-            )["state_dict"]
+            state_dict = torch.load(checkpoint_path, map_location=map_location, weights_only=False)[
+                "state_dict"
+            ]
             # get only baseline parameters
             state_dict = {k: v for k, v in state_dict.items() if "baseline" in k}
             state_dict = {k.replace("baseline.", "", 1): v for k, v in state_dict.items()}

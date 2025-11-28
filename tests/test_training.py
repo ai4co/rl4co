@@ -74,9 +74,7 @@ def test_ppo():
     env = TSPEnv(generator_params=dict(num_loc=20))
     policy = AttentionModelPolicy(env_name=env.name)
     model = PPO(env, policy, train_data_size=10, val_data_size=10, test_data_size=10)
-    trainer = RL4COTrainer(
-        max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator
-    )
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
@@ -183,25 +181,17 @@ def test_search_methods(SearchMethod):
     trainer.test(model)
 
 
-@pytest.mark.skipif(
-    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
-)
+@pytest.mark.skipif("torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed")
 def test_nargnn():
     env = TSPEnv(generator_params=dict(num_loc=20))
     policy = NARGNNPolicy(env_name=env.name)
-    model = REINFORCE(
-        env, policy=policy, train_data_size=10, val_data_size=10, test_data_size=10
-    )
-    trainer = RL4COTrainer(
-        max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator
-    )
+    model = REINFORCE(env, policy=policy, train_data_size=10, val_data_size=10, test_data_size=10)
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=None, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
 
-@pytest.mark.skipif(
-    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
-)
+@pytest.mark.skipif("torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed")
 @pytest.mark.skipif("numba" not in sys.modules, reason="Numba not installed")
 @pytest.mark.parametrize("use_local_search", [False])
 def test_deepaco(use_local_search):
@@ -214,16 +204,12 @@ def test_deepaco(use_local_search):
         train_with_local_search=use_local_search,
         policy_kwargs={"n_ants": 5, "aco_kwargs": {"use_local_search": use_local_search}},
     )
-    trainer = RL4COTrainer(
-        max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
-    )
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 
 
-@pytest.mark.skipif(
-    "torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed"
-)
+@pytest.mark.skipif("torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed")
 @pytest.mark.parametrize(
     "Environment", [TSPEnv] if "numba" not in sys.modules else [TSPEnv, CVRPMVCEnv]
 )
@@ -243,9 +229,7 @@ def test_glop(Environment):
             "subprob_solver": dummy_solver,
         },
     )
-    trainer = RL4COTrainer(
-        max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator
-    )
+    trainer = RL4COTrainer(max_epochs=1, gradient_clip_val=1, devices=1, accelerator=accelerator)
     trainer.fit(model)
     trainer.test(model)
 

@@ -1,7 +1,6 @@
 import itertools
 
 from math import factorial
-from typing import Optional
 
 import torch
 
@@ -242,9 +241,7 @@ class FFSPEnv(RL4COEnvBase):
 
         return td
 
-    def _reset(
-        self, td: Optional[TensorDict] = None, batch_size: Optional[list] = None
-    ) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size: list | None = None) -> TensorDict:
         """
         Args:
 
@@ -318,9 +315,7 @@ class FFSPEnv(RL4COEnvBase):
             fill_value=False,
         )
 
-        action_mask = torch.ones(
-            size=(*batch_size, self.num_job + 1), dtype=bool, device=device
-        )
+        action_mask = torch.ones(size=(*batch_size, self.num_job + 1), dtype=bool, device=device)
         action_mask[..., -1] = 0
 
         batch_idx = torch.arange(*batch_size, dtype=torch.long, device=td.device)

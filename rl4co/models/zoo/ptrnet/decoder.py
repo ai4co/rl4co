@@ -12,7 +12,7 @@ class SimpleAttention(nn.Module):
     """A generic attention module for a decoder in seq2seq"""
 
     def __init__(self, dim, use_tanh=False, C=10):
-        super(SimpleAttention, self).__init__()
+        super().__init__()
         self.use_tanh = use_tanh
         self.project_query = nn.Linear(dim, dim)
         self.project_ref = nn.Conv1d(dim, dim, 1, 1)
@@ -58,7 +58,7 @@ class Decoder(nn.Module):
         mask_glimpses=True,
         mask_logits=True,
     ):
-        super(Decoder, self).__init__()
+        super().__init__()
 
         self.embed_dim = embed_dim
         self.hidden_dim = hidden_dim
@@ -76,9 +76,7 @@ class Decoder(nn.Module):
         return mask.clone().scatter_(1, selected.unsqueeze(-1), False)
 
     def recurrence(self, x, h_in, prev_mask, prev_idxs, step, context):
-        logit_mask = (
-            self.update_mask(prev_mask, prev_idxs) if prev_idxs is not None else prev_mask
-        )
+        logit_mask = self.update_mask(prev_mask, prev_idxs) if prev_idxs is not None else prev_mask
 
         logits, h_out = self.calc_logits(
             x, h_in, logit_mask, context, self.mask_glimpses, self.mask_logits
@@ -92,9 +90,7 @@ class Decoder(nn.Module):
 
         return h_out, log_p, logit_mask
 
-    def calc_logits(
-        self, x, h_in, logit_mask, context, mask_glimpses=None, mask_logits=None
-    ):
+    def calc_logits(self, x, h_in, logit_mask, context, mask_glimpses=None, mask_logits=None):
         if mask_glimpses is None:
             mask_glimpses = self.mask_glimpses
 
@@ -152,9 +148,7 @@ class Decoder(nn.Module):
         )
 
         for i in steps:
-            hidden, log_p, mask = self.recurrence(
-                decoder_input, hidden, mask, idxs, i, context
-            )
+            hidden, log_p, mask = self.recurrence(decoder_input, hidden, mask, idxs, i, context)
             # select the next inputs for the decoder [batch_size x hidden_dim]
             idxs = (
                 decode_logprobs(log_p, mask, decode_type=decode_type)

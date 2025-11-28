@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -73,9 +71,7 @@ class FLPEnv(RL4COEnvBase):
         orig_distances = td["orig_distances"]  # (batch_size, n_points, n_points)
 
         cur_min_dist = (
-            gather_by_index(
-                orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size, -1)
-            )
+            gather_by_index(orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size, -1))
             .view(batch_size, -1, n_points_)
             .min(dim=1)
             .values
@@ -97,16 +93,14 @@ class FLPEnv(RL4COEnvBase):
         )
         return td
 
-    def _reset(self, td: Optional[TensorDict] = None, batch_size=None) -> TensorDict:
+    def _reset(self, td: TensorDict | None = None, batch_size=None) -> TensorDict:
         self.to(td.device)
 
         return TensorDict(
             {
                 # given information
                 "locs": td["locs"],  # (batch_size, n_points, dim_loc)
-                "orig_distances": td[
-                    "orig_distances"
-                ],  # (batch_size, n_points, n_points)
+                "orig_distances": td["orig_distances"],  # (batch_size, n_points, n_points)
                 "distances": td["distances"],  # (batch_size, n_points, n_points)
                 # states changed by actions
                 "chosen": torch.zeros(
@@ -137,9 +131,7 @@ class FLPEnv(RL4COEnvBase):
         n_points_ = td["chosen"].shape[-1]
         orig_distances = td["orig_distances"]
         cur_min_dist = (
-            gather_by_index(
-                orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size_, -1)
-            )
+            gather_by_index(orig_distances, chosen.nonzero(as_tuple=True)[1].view(batch_size_, -1))
             .view(batch_size_, -1, n_points_)
             .min(1)
             .values.sum(-1)
@@ -163,7 +155,4 @@ class FLPEnv(RL4COEnvBase):
     @staticmethod
     def select_start_nodes(td, num_starts):
         num_loc = td["action_mask"].shape[-1]
-        return (
-            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
-            % num_loc
-        )
+        return torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0]) % num_loc

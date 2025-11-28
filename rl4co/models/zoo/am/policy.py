@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch.nn as nn
 
@@ -108,7 +108,7 @@ class AttentionModelPolicy(AutoregressivePolicy):
                 moe_kwargs=moe_kwargs["decoder"],
             )
 
-        super(AttentionModelPolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

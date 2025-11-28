@@ -50,9 +50,7 @@ class TensorDictDataset(Dataset):
 
     def __init__(self, td: TensorDict):
         self.data_len = td.batch_size[0]
-        self.data = [
-            {key: value[i] for key, value in td.items()} for i in range(self.data_len)
-        ]
+        self.data = [{key: value[i] for key, value in td.items()} for i in range(self.data_len)]
 
     def __len__(self):
         return self.data_len

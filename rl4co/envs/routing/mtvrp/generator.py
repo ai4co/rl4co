@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import torch
 
@@ -121,9 +121,7 @@ class MTVRPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         if capacity is None:
             capacity = get_vehicle_capacity(num_loc)
@@ -139,16 +137,16 @@ class MTVRPGenerator(Generator):
         self.distance_limit = distance_limit
         self.speed = speed
 
-        assert not (
-            subsample and (variant_preset is None)
-        ), "Cannot use subsample if variant_preset is not specified. "
+        assert not (subsample and (variant_preset is None)), (
+            "Cannot use subsample if variant_preset is not specified. "
+        )
         if variant_preset is not None:
             log.info(f"Using variant generation preset {variant_preset}")
             variant_probs = VARIANT_GENERATION_PRESETS.get(variant_preset)
-            assert (
-                variant_probs is not None
-            ), f"Variant generation preset {variant_preset} not found. \
+            assert variant_probs is not None, (
+                f"Variant generation preset {variant_preset} not found. \
                 Available presets are {VARIANT_GENERATION_PRESETS.keys()} with probabilities {VARIANT_GENERATION_PRESETS.values()}"
+            )
         else:
             variant_probs = {
                 "O": prob_open,
@@ -172,9 +170,7 @@ class MTVRPGenerator(Generator):
         locs = self.generate_locations(batch_size=batch_size, num_loc=self.num_loc)
 
         # Vehicle capacity (C, B) - applies to both linehaul and backhaul
-        vehicle_capacity = torch.full(
-            (*batch_size, 1), self.capacity, dtype=torch.float32
-        )
+        vehicle_capacity = torch.full((*batch_size, 1), self.capacity, dtype=torch.float32)
         capacity_original = vehicle_capacity.clone()
 
         # linehaul demand / delivery (C) and backhaul / pickup demand (B)
@@ -182,12 +178,8 @@ class MTVRPGenerator(Generator):
             batch_size=batch_size, num_loc=self.num_loc
         )
         # add empty depot demands
-        demand_linehaul = torch.cat(
-            [torch.zeros(size=(*batch_size, 1)), demand_linehaul], dim=1
-        )
-        demand_backhaul = torch.cat(
-            [torch.zeros(size=(*batch_size, 1)), demand_backhaul], dim=1
-        )
+        demand_linehaul = torch.cat([torch.zeros(size=(*batch_size, 1)), demand_linehaul], dim=1)
+        demand_backhaul = torch.cat([torch.zeros(size=(*batch_size, 1)), demand_backhaul], dim=1)
 
         # Open (O)
         open_route = self.generate_open_route(shape=(*batch_size, 1))
@@ -260,9 +252,9 @@ class MTVRPGenerator(Generator):
                 cvrp_prob = 0.5
             if self.variant_preset in ("all", "cvrp", "single_feat", "single_feat_otw"):
                 indices = torch.distributions.Categorical(
-                    torch.Tensor(list(self.variant_probs.values()) + [cvrp_prob])[
-                        None
-                    ].repeat(batch_size, 1)
+                    torch.Tensor(list(self.variant_probs.values()) + [cvrp_prob])[None].repeat(
+                        batch_size, 1
+                    )
                 ).sample()
                 if self.variant_preset == "single_feat_otw":
                     keep_mask = torch.zeros((batch_size, 6), dtype=torch.bool)
@@ -320,9 +312,7 @@ class MTVRPGenerator(Generator):
         Returns:
             locs: [B, N+1, 2] where the first location is the depot.
         """
-        locs = torch.FloatTensor(*batch_size, num_loc + 1, 2).uniform_(
-            self.min_loc, self.max_loc
-        )
+        locs = torch.FloatTensor(*batch_size, num_loc + 1, 2).uniform_(self.min_loc, self.max_loc)
         return locs
 
     def generate_demands(self, batch_size: int, num_loc: int) -> torch.Tensor:
@@ -399,9 +389,7 @@ class MTVRPGenerator(Generator):
         service_time = torch.cat((torch.zeros(batch_size, 1), service_time), dim=-1)
         return time_windows, service_time  # [B, N+1, 2], [B, N+1]
 
-    def generate_distance_limit(
-        self, shape: Tuple[int, int], locs: torch.Tensor
-    ) -> torch.Tensor:
+    def generate_distance_limit(self, shape: tuple[int, int], locs: torch.Tensor) -> torch.Tensor:
         """Generates distance limits (L) and checks their feasibilities.
 
         Returns:
@@ -414,13 +402,13 @@ class MTVRPGenerator(Generator):
         ).all(), "Distance limit too low, not all nodes can be reached from the depot."
         return torch.full(shape, self.distance_limit, dtype=torch.float32)
 
-    def generate_open_route(self, shape: Tuple[int, int]):
+    def generate_open_route(self, shape: tuple[int, int]):
         """Generate open route flags (O). Here we could have a sampler but we simply return True here so all
         routes are open. Afterwards, we subsample the problems.
         """
         return torch.ones(shape, dtype=torch.bool)
 
-    def generate_speed(self, shape: Tuple[int, int]):
+    def generate_speed(self, shape: tuple[int, int]):
         """We simply generate the speed as constant here"""
         # in this version, the speed is constant but this class may be overridden
         return torch.full(shape, self.speed, dtype=torch.float32)

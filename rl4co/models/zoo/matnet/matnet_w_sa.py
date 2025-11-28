@@ -116,9 +116,7 @@ class EncoderLayer(nn.Module):
 
         self.op_attn = MultiHeadAttention(embed_dim, num_heads, bias=bias)
         self.ma_attn = MultiHeadAttention(embed_dim, num_heads, bias=bias)
-        self.cross_attn = EfficientMixedScoreMultiHeadAttention(
-            embed_dim, num_heads, bias=bias
-        )
+        self.cross_attn = EfficientMixedScoreMultiHeadAttention(embed_dim, num_heads, bias=bias)
 
         self.op_ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
         self.ma_ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
@@ -126,9 +124,7 @@ class EncoderLayer(nn.Module):
         self.op_norm = Normalization(embed_dim, normalization)
         self.ma_norm = Normalization(embed_dim, normalization)
 
-    def forward(
-        self, op_in, ma_in, cost_mat, op_mask=None, ma_mask=None, cross_mask=None
-    ):
+    def forward(self, op_in, ma_in, cost_mat, op_mask=None, ma_mask=None, cross_mask=None):
         op_cross_out, ma_cross_out = self.cross_attn(
             op_in, ma_in, attn_mask=cross_mask, cost_mat=cost_mat
         )
