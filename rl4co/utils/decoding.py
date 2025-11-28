@@ -1,5 +1,7 @@
 import abc
 
+from collections.abc import Callable
+
 import torch
 import torch.nn.functional as F
 
@@ -221,7 +223,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         multisample: bool = False,
         num_starts: int | None = None,
         multistart: bool = False,
-        select_start_nodes_fn: callable | None = None,
+        select_start_nodes_fn: Callable | None = None,
         improvement_method_mode: bool = False,
         select_best: bool = False,
         store_all_logp: bool = False,
