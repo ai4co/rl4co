@@ -1,6 +1,6 @@
 import abc
 
-from typing import Optional, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
@@ -53,9 +53,7 @@ def get_log_likelihood(logprobs, actions=None, mask=None, return_sum: bool = Tru
     if mask is not None:
         logprobs[~mask] = 0
 
-    assert (
-        logprobs > -1000
-    ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+    assert (logprobs > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
     # Calculate log_likelihood
     if return_sum:
@@ -73,7 +71,7 @@ def decode_logprobs(logprobs, mask, decode_type="sampling"):
     elif "sampling" in decode_type:
         selected = DecodingStrategy.sampling(logprobs, mask)
     else:
-        assert False, "Unknown decode type: {}".format(decode_type)
+        assert False, f"Unknown decode type: {decode_type}"
     return selected
 
 
@@ -221,11 +219,11 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         top_k: int = 0,
         mask_logits: bool = True,
         tanh_clipping: float = 0,
-        num_samples: Optional[int] = None,
+        num_samples: int | None = None,
         multisample: bool = False,
-        num_starts: Optional[int] = None,
+        num_starts: int | None = None,
         multistart: bool = False,
-        select_start_nodes_fn: Optional[callable] = None,
+        select_start_nodes_fn: Callable | None = None,
         improvement_method_mode: bool = False,
         select_best: bool = False,
         store_all_logp: bool = False,
@@ -237,13 +235,13 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self.mask_logits = mask_logits
         self.tanh_clipping = tanh_clipping
         # check if multistart (POMO) and multisample flags
-        assert not (
-            multistart and multisample
-        ), "Using both multistart and multisample is not supported"
+        assert not (multistart and multisample), (
+            "Using both multistart and multisample is not supported"
+        )
         if num_samples and num_starts:
-            assert not (
-                num_samples > 1 and num_starts > 1
-            ), f"num_samples={num_samples} and num_starts={num_starts} are both > 1"
+            assert not (num_samples > 1 and num_starts > 1), (
+                f"num_samples={num_samples} and num_starts={num_starts} are both > 1"
+            )
         if num_samples is not None:
             multisample = True if num_samples > 1 else False
         if num_starts is not None:
@@ -267,10 +265,10 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self,
         logprobs: torch.Tensor,
         mask: torch.Tensor,
-        td: Optional[TensorDict] = None,
-        action: Optional[torch.Tensor] = None,
+        td: TensorDict | None = None,
+        action: torch.Tensor | None = None,
         **kwargs,
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
 
         Args:
@@ -282,7 +280,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         raise NotImplementedError("Must be implemented by subclass")
 
     def pre_decoder_hook(
-        self, td: TensorDict, env: RL4COEnvBase, action: Optional[torch.Tensor] = None
+        self, td: TensorDict, env: RL4COEnvBase, action: torch.Tensor | None = None
     ):
         """Pre decoding hook. This method is called before the main decoding operation."""
 
@@ -333,10 +331,10 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
 
     def post_decoder_hook(
         self, td: TensorDict, env: RL4COEnvBase
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict, RL4COEnvBase]:
-        assert (
-            len(self.logprobs) > 0
-        ), "No logprobs were collected because all environments were done. Check your initial state"
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict, RL4COEnvBase]:
+        assert len(self.logprobs) > 0, (
+            "No logprobs were collected because all environments were done. Check your initial state"
+        )
         logprobs = torch.stack(self.logprobs, 1)
         actions = torch.stack(self.actions, 1)
         if self.num_starts > 0 and self.select_best:
@@ -347,8 +345,8 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         self,
         logits: torch.Tensor,
         mask: torch.Tensor,
-        td: Optional[TensorDict] = None,
-        action: Optional[torch.Tensor] = None,
+        td: TensorDict | None = None,
+        action: torch.Tensor | None = None,
         **kwargs,
     ) -> TensorDict:
         """Main decoding operation. This method should be called in a loop until all sequences are done.
@@ -371,9 +369,7 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             tanh_clipping=self.tanh_clipping,
             mask_logits=self.mask_logits,
         )
-        logprobs, selected_action, td = self._step(
-            logprobs, mask, td, action=action, **kwargs
-        )
+        logprobs, selected_action, td = self._step(logprobs, mask, td, action=action, **kwargs)
 
         # directly return for improvement methods, since the action for improvement methods is finalized in its own policy
         if self.improvement_method_mode:
@@ -394,9 +390,9 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
         # [BS], [BS]
         selected = logprobs.argmax(dim=-1)
         if mask is not None:
-            assert (
-                not (~mask).gather(1, selected.unsqueeze(-1)).data.any()
-            ), "infeasible action selected"
+            assert not (~mask).gather(1, selected.unsqueeze(-1)).data.any(), (
+                "infeasible action selected"
+            )
 
         return selected
 
@@ -410,9 +406,9 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
             while (~mask).gather(1, selected.unsqueeze(-1)).data.any():
                 log.info("Sampled bad values, resampling!")
                 selected = probs.multinomial(1).squeeze(1)
-            assert (
-                not (~mask).gather(1, selected.unsqueeze(-1)).data.any()
-            ), "infeasible action selected"
+            assert not (~mask).gather(1, selected.unsqueeze(-1)).data.any(), (
+                "infeasible action selected"
+            )
 
         return selected
 
@@ -432,7 +428,7 @@ class Greedy(DecodingStrategy):
 
     def _step(
         self, logprobs: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Select the action with the highest log probability"""
         selected = self.greedy(logprobs, mask)
         return logprobs, selected, td
@@ -443,7 +439,7 @@ class Sampling(DecodingStrategy):
 
     def _step(
         self, logprobs: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """Sample an action with a multinomial distribution given by the log probabilities."""
         selected = self.sampling(logprobs, mask)
         return logprobs, selected, td
@@ -459,7 +455,7 @@ class Evaluate(DecodingStrategy):
         td: TensorDict,
         action: torch.Tensor,
         **kwargs,
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict]:
         """The action is provided externally, so we just return the action"""
         selected = action
         return logprobs, selected, td
@@ -479,16 +475,16 @@ class BeamSearch(DecodingStrategy):
 
     def _step(
         self, logprobs: torch.Tensor, mask: torch.Tensor, td: TensorDict, **kwargs
-    ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict]:
+    ) -> tuple[torch.Tensor, torch.Tensor, TensorDict]:
         selected, batch_beam_idx = self._make_beam_step(logprobs)
         # select the correct state representation, logprobs and mask according to beam parent
         td = td[batch_beam_idx]
         logprobs = logprobs[batch_beam_idx]
         mask = mask[batch_beam_idx]
 
-        assert (
-            not (~mask).gather(1, selected.unsqueeze(-1)).data.any()
-        ), "infeasible action selected"
+        assert not (~mask).gather(1, selected.unsqueeze(-1)).data.any(), (
+            "infeasible action selected"
+        )
 
         return logprobs, selected, td
 
@@ -533,9 +529,9 @@ class BeamSearch(DecodingStrategy):
         actions = torch.stack(self.actions, 1)
         # [BS*BW, seq_len]
         logprobs = torch.stack(self.logprobs, 1)
-        assert actions.size(1) == len(
-            self.beam_path
-        ), "action idx shape and beam path shape dont match"
+        assert actions.size(1) == len(self.beam_path), (
+            "action idx shape and beam path shape dont match"
+        )
 
         # [BS*BW]
         cur_parent = self.beam_path[-1]
@@ -545,9 +541,7 @@ class BeamSearch(DecodingStrategy):
 
         aug_batch_size = actions.size(0)
         batch_size = aug_batch_size // self.beam_width
-        batch_beam_sequence = (
-            torch.arange(0, batch_size).repeat(self.beam_width).to(actions.device)
-        )
+        batch_beam_sequence = torch.arange(0, batch_size).repeat(self.beam_width).to(actions.device)
 
         for k in reversed(range(len(self.beam_path) - 1)):
             batch_beam_idx = batch_beam_sequence + cur_parent * batch_size
@@ -583,9 +577,7 @@ class BeamSearch(DecodingStrategy):
         # [BS, num_nodes * BW]
         log_beam_prob_hstacked = torch.cat(log_beam_prob.split(batch_size), dim=1)
         # [BS, BW]
-        topk_logprobs, topk_ind = torch.topk(
-            log_beam_prob_hstacked, self.beam_width, dim=1
-        )
+        topk_logprobs, topk_ind = torch.topk(log_beam_prob_hstacked, self.beam_width, dim=1)
 
         # [BS*BW, 1]
         logprobs_selected = torch.hstack(torch.unbind(topk_logprobs, 1)).unsqueeze(1)

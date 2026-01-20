@@ -86,9 +86,9 @@ def render(td, actions=None, ax=None, skip_depot=True, integer_demands=True):
     # text demand
     for node_idx in range(1, len(locs)):
         demand_text = (
-            f"{demands[node_idx-1].int().item()}"
+            f"{demands[node_idx - 1].int().item()}"
             if integer_demands
-            else f"{demands[node_idx-1].item():.2f}"
+            else f"{demands[node_idx - 1].item():.2f}"
         )
         ax.text(
             locs[node_idx, 0],

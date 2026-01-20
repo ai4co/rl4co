@@ -1,7 +1,8 @@
 import abc
 
+from collections.abc import Iterable
 from functools import partial
-from typing import Any, Iterable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -98,9 +99,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
 
         self._optimizer_name_or_cls: str | torch.optim.Optimizer = optimizer
         self.optimizer_kwargs: dict = optimizer_kwargs
-        self._lr_scheduler_name_or_cls: str | torch.optim.lr_scheduler.LRScheduler = (
-            lr_scheduler
-        )
+        self._lr_scheduler_name_or_cls: str | torch.optim.lr_scheduler.LRScheduler = lr_scheduler
         self.lr_scheduler_kwargs: dict = lr_scheduler_kwargs
         self.lr_scheduler_interval: str = lr_scheduler_interval
         self.lr_scheduler_monitor: str = lr_scheduler_monitor
@@ -137,9 +136,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         self.test_batch_size = self.val_batch_size if test_bs is None else test_bs
 
         if self.data_cfg["generate_default_data"]:
-            log.info(
-                "Generating default datasets. If found, they will not be overwritten"
-            )
+            log.info("Generating default datasets. If found, they will not be overwritten")
             generate_default_datasets(data_dir=self.data_cfg["data_dir"])
 
         log.info("Setting up datasets")
@@ -147,9 +144,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
             self.env.dataset(self.data_cfg["train_data_size"], phase="train")
         )
         self.val_dataset = self.env.dataset(self.data_cfg["val_data_size"], phase="val")
-        self.test_dataset = self.env.dataset(
-            self.data_cfg["test_data_size"], phase="test"
-        )
+        self.test_dataset = self.env.dataset(self.data_cfg["test_data_size"], phase="test")
         self.dataloader_names = None
         self.setup_loggers()
         self.post_setup_hook()
@@ -157,9 +152,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
     def setup_loggers(self):
         """Log all hyperparameters except those in `nn.Module`"""
         if self.loggers is not None:
-            hparams_save = {
-                k: v for k, v in self.hparams.items() if not isinstance(v, nn.Module)
-            }
+            hparams_save = {k: v for k, v in self.hparams.items() if not isinstance(v, nn.Module)}
             for logger in self.loggers:
                 logger.log_hyperparams(hparams_save)
                 logger.log_graph(self)
@@ -200,9 +193,7 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
                     optimizer, self._lr_scheduler_name_or_cls, **self.lr_scheduler_kwargs
                 )
             elif isinstance(self._lr_scheduler_name_or_cls, partial):
-                scheduler = self._lr_scheduler_name_or_cls(
-                    optimizer, **self.lr_scheduler_kwargs
-                )
+                scheduler = self._lr_scheduler_name_or_cls(optimizer, **self.lr_scheduler_kwargs)
             else:  # User-defined scheduler
                 scheduler_cls = self._lr_scheduler_name_or_cls
                 scheduler = scheduler_cls(optimizer, **self.lr_scheduler_kwargs)
@@ -213,18 +204,14 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
                 "monitor": self.lr_scheduler_monitor,
             }
 
-    def log_metrics(
-        self, metric_dict: dict, phase: str, dataloader_idx: int | None = None
-    ):
+    def log_metrics(self, metric_dict: dict, phase: str, dataloader_idx: int | None = None):
         """Log metrics to logger and progress bar"""
         metrics = getattr(self, f"{phase}_metrics")
         dataloader_name = ""
         if dataloader_idx is not None and self.dataloader_names is not None:
             dataloader_name = "/" + self.dataloader_names[dataloader_idx]
         metrics = {
-            f"{phase}/{k}{dataloader_name}": (
-                v.mean() if isinstance(v, torch.Tensor) else v
-            )
+            f"{phase}/{k}{dataloader_name}": (v.mean() if isinstance(v, torch.Tensor) else v)
             for k, v in metric_dict.items()
             if k in metrics
         }
@@ -258,14 +245,10 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         return self.shared_step(batch, batch_idx, phase="train")
 
     def validation_step(self, batch: Any, batch_idx: int, dataloader_idx: int = None):
-        return self.shared_step(
-            batch, batch_idx, phase="val", dataloader_idx=dataloader_idx
-        )
+        return self.shared_step(batch, batch_idx, phase="val", dataloader_idx=dataloader_idx)
 
     def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = None):
-        return self.shared_step(
-            batch, batch_idx, phase="test", dataloader_idx=dataloader_idx
-        )
+        return self.shared_step(batch, batch_idx, phase="test", dataloader_idx=dataloader_idx)
 
     def train_dataloader(self):
         return self._dataloader(
@@ -306,18 +289,18 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
             # if batch size is int, make it into list
             if isinstance(batch_size, int):
                 batch_size = [batch_size] * len(self.dataloader_names)
-            assert len(batch_size) == len(
-                self.dataloader_names
-            ), f"Batch size must match number of datasets. \
+            assert len(batch_size) == len(self.dataloader_names), (
+                f"Batch size must match number of datasets. \
                         Found: {len(batch_size)} and {len(self.dataloader_names)}"
+            )
             return [
                 self._dataloader_single(dset, bsize, shuffle)
                 for dset, bsize in zip(dataset.values(), batch_size)
             ]
         else:
-            assert isinstance(
-                batch_size, int
-            ), f"Batch size must be an integer for a single dataset, found {batch_size}"
+            assert isinstance(batch_size, int), (
+                f"Batch size must be an integer for a single dataset, found {batch_size}"
+            )
             return self._dataloader_single(dataset, batch_size, shuffle)
 
     def _dataloader_single(self, dataset, batch_size, shuffle=False):

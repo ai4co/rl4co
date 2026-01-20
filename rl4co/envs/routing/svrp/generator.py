@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -55,9 +55,7 @@ class SVRPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:

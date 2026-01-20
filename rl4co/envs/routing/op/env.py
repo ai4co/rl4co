@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 import torch.nn.functional as F
 
@@ -104,8 +102,8 @@ class OPEnv(RL4COEnvBase):
 
     def _reset(
         self,
-        td: Optional[TensorDict] = None,
-        batch_size: Optional[list] = None,
+        td: TensorDict | None = None,
+        batch_size: list | None = None,
     ) -> TensorDict:
         device = td.device
 
@@ -116,29 +114,21 @@ class OPEnv(RL4COEnvBase):
         td_reset = TensorDict(
             {
                 "locs": locs_with_depot,
-                "prize": F.pad(
-                    td["prize"], (1, 0), mode="constant", value=0
-                ),  # add 0 for depot
+                "prize": F.pad(td["prize"], (1, 0), mode="constant", value=0),  # add 0 for depot
                 "tour_length": torch.zeros(*batch_size, device=device),
                 # max_length is max length allowed when arriving at node, so subtract distance to return to depot
                 # Additionally, substract epsilon margin for numeric stability
                 "max_length": td["max_length"][..., None]
                 - (td["depot"][..., None, :] - locs_with_depot).norm(p=2, dim=-1)
                 - 1e-6,
-                "current_node": torch.zeros(
-                    *batch_size, 1, dtype=torch.long, device=device
-                ),
+                "current_node": torch.zeros(*batch_size, 1, dtype=torch.long, device=device),
                 "visited": torch.zeros(
                     (*batch_size, locs_with_depot.shape[-2]),
                     dtype=torch.bool,
                     device=device,
                 ),
-                "current_total_prize": torch.zeros(
-                    *batch_size, dtype=torch.float, device=device
-                ),
-                "i": torch.zeros(
-                    (*batch_size,), dtype=torch.int64, device=device
-                ),  # counter
+                "current_total_prize": torch.zeros(*batch_size, dtype=torch.float, device=device),
+                "i": torch.zeros((*batch_size,), dtype=torch.int64, device=device),  # counter
             },
             batch_size=batch_size,
         )
@@ -187,8 +177,7 @@ class OPEnv(RL4COEnvBase):
         sorted_actions = actions.data.sort(1)[0]
         # Make sure each node visited once at most (except for depot)
         assert (
-            (sorted_actions[:, 1:] == 0)
-            | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
+            (sorted_actions[:, 1:] == 0) | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
         ).all(), "Duplicates"
 
         # Gather locations in order of tour and get the length of tours
@@ -198,14 +187,10 @@ class OPEnv(RL4COEnvBase):
         max_length = td["max_length"]
         if add_distance_to_depot:
             max_length = (
-                max_length
-                + (td["locs"][..., 0:1, :] - td["locs"]).norm(p=2, dim=-1)
-                + 1e-6
+                max_length + (td["locs"][..., 0:1, :] - td["locs"]).norm(p=2, dim=-1) + 1e-6
             )
-        assert (
-            length[..., None] <= max_length + 1e-5
-        ).all(), "Max length exceeded by {}".format(
-            (length[..., None] - max_length).max()
+        assert (length[..., None] <= max_length + 1e-5).all(), (
+            f"Max length exceeded by {(length[..., None] - max_length).max()}"
         )
 
     def _make_spec(self, generator: OPGenerator):

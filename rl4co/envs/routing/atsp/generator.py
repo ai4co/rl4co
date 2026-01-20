@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -53,12 +53,12 @@ class ATSPGenerator(Generator):
         # We satifsy the triangle inequality (TMAT class) in a batch
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         dms = (
-            self.dist_sampler.sample((batch_size + [self.num_loc, self.num_loc]))
+            self.dist_sampler.sample(batch_size + [self.num_loc, self.num_loc])
             * (self.max_dist - self.min_dist)
             + self.min_dist
         )
         dms[..., torch.arange(self.num_loc), torch.arange(self.num_loc)] = 0
-        log.info("Using TMAT class (triangle inequality): {}".format(self.tmat_class))
+        log.info(f"Using TMAT class (triangle inequality): {self.tmat_class}")
         if self.tmat_class:
             for i in range(self.num_loc):
                 dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])

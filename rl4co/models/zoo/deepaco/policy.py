@@ -1,8 +1,8 @@
 from functools import partial
-from typing import Optional, Type, Union
+
+import torch
 
 from tensordict import TensorDict
-import torch
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.common.constructive.nonautoregressive import (
@@ -11,7 +11,10 @@ from rl4co.models.common.constructive.nonautoregressive import (
 )
 from rl4co.models.zoo.deepaco.antsystem import AntSystem
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
-from rl4co.utils.decoding import modify_logits_for_top_k_filtering, modify_logits_for_top_p_filtering
+from rl4co.utils.decoding import (
+    modify_logits_for_top_k_filtering,
+    modify_logits_for_top_p_filtering,
+)
 from rl4co.utils.ops import batchify, unbatchify
 from rl4co.utils.utils import merge_with_defaults
 
@@ -35,19 +38,19 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
     def __init__(
         self,
-        encoder: Optional[NonAutoregressiveEncoder] = None,
+        encoder: NonAutoregressiveEncoder | None = None,
         env_name: str = "tsp",
         temperature: float = 1.0,
         top_p: float = 0.0,
         top_k: int = 0,
-        aco_class: Optional[Type[AntSystem]] = None,
+        aco_class: type[AntSystem] | None = None,
         aco_kwargs: dict = {},
         train_with_local_search: bool = False,
-        n_ants: Optional[Union[int, dict]] = None,
-        n_iterations: Optional[Union[int, dict]] = None,
-        start_node: Optional[int] = None,
+        n_ants: int | dict | None = None,
+        n_iterations: int | dict | None = None,
+        start_node: int | None = None,
         multistart: bool = False,
-        k_sparse: Optional[int] = None,
+        k_sparse: int | None = None,
         **encoder_kwargs,
     ):
         if encoder is None:
@@ -68,16 +71,16 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         self.default_decoding_kwargs = {}
         self.default_decoding_kwargs["select_best"] = False
         if k_sparse is not None:
-            self.default_decoding_kwargs["top_k"] = k_sparse + (0 if env_name == "tsp" else 1)  # 1 for depot
+            self.default_decoding_kwargs["top_k"] = k_sparse + (
+                0 if env_name == "tsp" else 1
+            )  # 1 for depot
         if "multistart" in self.decode_type:
             select_start_nodes_fn = partial(self.select_start_node_fn, start_node=start_node)
             self.default_decoding_kwargs.update(
                 {"multistart": True, "select_start_nodes_fn": select_start_nodes_fn}
             )
         else:
-            self.default_decoding_kwargs.update(
-                {"multisample": True}
-            )
+            self.default_decoding_kwargs.update({"multisample": True})
 
         # For now, top_p and top_k are only used to filter logits (not passed to decoder)
         self.top_p = top_p
@@ -93,7 +96,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
 
     @staticmethod
     def select_start_node_fn(
-        td: TensorDict, env: RL4COEnvBase, num_starts: int, start_node: Optional[int] = None
+        td: TensorDict, env: RL4COEnvBase, num_starts: int, start_node: int | None = None
     ):
         if env.name == "tsp" and start_node is not None:
             # For now, only TSP supports explicitly setting the start node
@@ -105,7 +108,7 @@ class DeepACOPolicy(NonAutoregressivePolicy):
     def forward(
         self,
         td_initial: TensorDict,
-        env: Optional[Union[str, RL4COEnvBase]] = None,
+        env: str | RL4COEnvBase | None = None,
         phase: str = "train",
         return_actions: bool = True,
         return_hidden: bool = True,
@@ -124,7 +127,9 @@ class DeepACOPolicy(NonAutoregressivePolicy):
         )
 
         # Instantiate environment if needed
-        if (phase != "train" or self.train_with_local_search) and (env is None or isinstance(env, str)):
+        if (phase != "train" or self.train_with_local_search) and (
+            env is None or isinstance(env, str)
+        ):
             env_name = self.env_name if env is None else env
             env = get_env(env_name)
         else:

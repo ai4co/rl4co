@@ -32,7 +32,7 @@ class RewardScaler:
         elif self.scale == "scale":
             scores /= score_scaling_factor
         else:
-            raise ValueError("unknown scaling operation requested: %s" % self.scale)
+            raise ValueError(f"unknown scaling operation requested: {self.scale}")
         return scores
 
     @torch.no_grad()

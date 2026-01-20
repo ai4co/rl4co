@@ -49,9 +49,7 @@ class MDAMPolicy(AutoregressivePolicy):
             else decoder
         )
 
-        super(MDAMPolicy, self).__init__(
-            env_name=env_name, encoder=encoder, decoder=decoder
-        )
+        super().__init__(env_name=env_name, encoder=encoder, decoder=decoder)
 
         self.init_embedding = env_init_embedding(env_name, {"embed_dim": embed_dim})
 

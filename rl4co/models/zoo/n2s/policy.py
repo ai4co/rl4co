@@ -5,10 +5,7 @@ from tensordict import TensorDict
 
 from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.common.improvement.base import ImprovementPolicy
-from rl4co.models.zoo.n2s.decoder import (
-    NodePairReinsertionDecoder,
-    NodePairRemovalDecoder,
-)
+from rl4co.models.zoo.n2s.decoder import NodePairReinsertionDecoder, NodePairRemovalDecoder
 from rl4co.models.zoo.n2s.encoder import N2SEncoder
 from rl4co.utils.decoding import DecodingStrategy, get_decoding_strategy
 from rl4co.utils.pylogger import get_pylogger
@@ -57,7 +54,7 @@ class N2SPolicy(ImprovementPolicy):
         val_decode_type: str = "sampling",
         test_decode_type: str = "sampling",
     ):
-        super(N2SPolicy, self).__init__()
+        super().__init__()
 
         self.env_name = env_name
 
@@ -74,9 +71,7 @@ class N2SPolicy(ImprovementPolicy):
             feedforward_hidden=feedforward_hidden,
         )
 
-        self.removal_decoder = NodePairRemovalDecoder(
-            embed_dim=embed_dim, num_heads=num_heads
-        )
+        self.removal_decoder = NodePairRemovalDecoder(embed_dim=embed_dim, num_heads=num_heads)
 
         self.reinsertion_decoder = NodePairReinsertionDecoder(
             embed_dim=embed_dim, num_heads=num_heads
@@ -123,9 +118,7 @@ class N2SPolicy(ImprovementPolicy):
         h_wave, final_p = self.encoder(td)
         if only_return_embed:
             return {"embeds": h_wave.detach()}
-        final_h = (
-            self.project_node(h_wave) + self.project_graph(h_wave.max(1)[0])[:, None, :]
-        )
+        final_h = self.project_node(h_wave) + self.project_graph(h_wave.max(1)[0])[:, None, :]
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -184,11 +177,7 @@ class N2SPolicy(ImprovementPolicy):
         logprob_reinsertion, action_reinsertion = decode_strategy.step(
             logits,
             mask,
-            action=(
-                actions[:, 1] * seq_length + actions[:, 2]
-                if actions is not None
-                else None
-            ),
+            action=(actions[:, 1] * seq_length + actions[:, 2] if actions is not None else None),
         )
         action_reinsertion = action_reinsertion.unsqueeze(-1)
         if phase == "train":

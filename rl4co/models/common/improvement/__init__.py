@@ -1,1 +1,5 @@
-from rl4co.models.common.improvement.base import ImprovementDecoder, ImprovementEncoder, ImprovementPolicy
+from rl4co.models.common.improvement.base import (
+    ImprovementDecoder,
+    ImprovementEncoder,
+    ImprovementPolicy,
+)

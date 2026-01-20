@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 import torch.nn as nn
 
@@ -28,15 +26,15 @@ log = get_pylogger(__name__)
 class L2DPolicy(AutoregressivePolicy):
     def __init__(
         self,
-        encoder: Optional[AutoregressiveEncoder] = None,
-        decoder: Optional[AutoregressiveDecoder] = None,
+        encoder: AutoregressiveEncoder | None = None,
+        decoder: AutoregressiveDecoder | None = None,
         embed_dim: int = 64,
         num_encoder_layers: int = 2,
         env_name: str = "fjsp",
         het_emb: bool = True,
         scaling_factor: int = 1000,
         normalization: str = "batch",
-        init_embedding: Optional[nn.Module] = None,
+        init_embedding: nn.Module | None = None,
         stepwise_encoding: bool = False,
         tanh_clipping: float = 10,
         train_decode_type: str = "sampling",
@@ -82,7 +80,7 @@ class L2DPolicy(AutoregressivePolicy):
             )
 
         # Pass to constructive policy
-        super(L2DPolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,
@@ -97,15 +95,15 @@ class L2DPolicy(AutoregressivePolicy):
 class L2DAttnPolicy(AutoregressivePolicy):
     def __init__(
         self,
-        encoder: Optional[AutoregressiveEncoder] = None,
-        decoder: Optional[AutoregressiveDecoder] = None,
+        encoder: AutoregressiveEncoder | None = None,
+        decoder: AutoregressiveDecoder | None = None,
         embed_dim: int = 256,
         num_heads: int = 8,
         num_encoder_layers: int = 4,
         scaling_factor: int = 1000,
         normalization: str = "batch",
         env_name: str = "fjsp",
-        init_embedding: Optional[nn.Module] = None,
+        init_embedding: nn.Module | None = None,
         tanh_clipping: float = 10,
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
@@ -117,9 +115,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
 
         if encoder is None:
             if init_embedding is None:
-                init_embedding = FJSPMatNetInitEmbedding(
-                    embed_dim, scaling_factor=scaling_factor
-                )
+                init_embedding = FJSPMatNetInitEmbedding(embed_dim, scaling_factor=scaling_factor)
 
             encoder = Encoder(
                 embed_dim=embed_dim,
@@ -141,7 +137,7 @@ class L2DAttnPolicy(AutoregressivePolicy):
             )
 
         # Pass to constructive policy
-        super(L2DAttnPolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,
@@ -199,9 +195,9 @@ class L2DPolicy4PPO(L2DPolicy):
             critic = MLP(input_dim, 1, num_neurons=[embed_dim] * 2)
 
         self.critic = critic
-        assert isinstance(
-            self.encoder, NoEncoder
-        ), "Define a feature extractor for decoder rather than an encoder in stepwise PPO"
+        assert isinstance(self.encoder, NoEncoder), (
+            "Define a feature extractor for decoder rather than an encoder in stepwise PPO"
+        )
 
     def evaluate(self, td):
         # Encoder: get encoder output and initial embeddings from initial state
@@ -214,9 +210,7 @@ class L2DPolicy4PPO(L2DPolicy):
         # pred value via the value head
         value_pred = self.critic(h_pooled)
         # pre decoder / actor hook
-        td, _, hidden = self.decoder.actor.pre_decoder_hook(
-            td, None, hidden, num_starts=0
-        )
+        td, _, hidden = self.decoder.actor.pre_decoder_hook(td, None, hidden, num_starts=0)
         logits, mask = self.decoder.actor(td, *hidden)
         # get logprobs and entropy over logp distribution
         logprobs = process_logits(logits, mask, tanh_clipping=self.tanh_clipping)

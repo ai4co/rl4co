@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Optional
 
 import torch
 
@@ -47,9 +46,7 @@ def unbatchify(x: Tensor | TensorDict, shape: tuple | int) -> Tensor | TensorDic
     >>> out.shape: [a, b, c, ...]
     """
     shape = [shape] if isinstance(shape, int) else shape
-    for s in reversed(
-        shape
-    ):  # we need to reverse the shape to unbatchify in the right order
+    for s in reversed(shape):  # we need to reverse the shape to unbatchify in the right order
         x = _unbatchify_single(x, s) if s > 0 else x
     return x
 
@@ -141,17 +138,14 @@ def select_start_nodes(td, env, num_starts):
     num_loc = env.generator.num_loc if hasattr(env.generator, "num_loc") else 0xFFFFFFFF
     if env.name in ["tsp", "atsp", "flp", "mcp"]:
         selected = (
-            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
-            % num_loc
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0]) % num_loc
         )
     elif env.name in ["jssp", "fjsp"]:
         raise NotImplementedError("Multistart not yet supported for FJSP/JSSP")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (
-            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
-            % num_loc
-            + 1
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0]) % num_loc + 1
         )
         if env.name == "op":
             if (td["action_mask"][..., 1:].float().sum(-1) < num_starts).any():
@@ -172,7 +166,7 @@ def get_best_actions(actions, max_idxs):
     return actions.gather(0, max_idxs[..., None, None])
 
 
-def sparsify_graph(cost_matrix: Tensor, k_sparse: Optional[int] = None, self_loop=False):
+def sparsify_graph(cost_matrix: Tensor, k_sparse: int | None = None, self_loop=False):
     """Generate a sparsified graph for the cost_matrix by selecting k edges with the lowest cost for each node.
 
     Args:
@@ -246,7 +240,7 @@ def sample_n_random_actions(td: TensorDict, n: int):
         replace = True
     else:
         replace = False
-    ps = torch.rand((action_mask.shape))
+    ps = torch.rand(action_mask.shape)
     ps[~action_mask] = -torch.inf
     ps = torch.softmax(ps, dim=1)
     selected = torch.multinomial(ps, n, replacement=replace).squeeze(1)
@@ -254,7 +248,7 @@ def sample_n_random_actions(td: TensorDict, n: int):
     return selected.to(td.device)
 
 
-def cartesian_to_polar(cartesian: torch.Tensor, origin: Optional[torch.Tensor] = None):
+def cartesian_to_polar(cartesian: torch.Tensor, origin: torch.Tensor | None = None):
     """Convert Cartesian coordinates to polar coordinates.
 
     Args:
@@ -278,9 +272,7 @@ def select_start_nodes_by_distance(td, env, num_starts, exclude_depot=True):
         radius = torch.norm(td["locs"], dim=-1)
     else:
         radius = polar_locs[..., 0]
-    _, node_index = torch.topk(
-        radius, k=num_starts + 1, dim=-1, sorted=True, largest=False
-    )
+    _, node_index = torch.topk(radius, k=num_starts + 1, dim=-1, sorted=True, largest=False)
     selected_nodes = node_index[:, 1:] if exclude_depot else node_index[:, :-1]
     return rearrange(selected_nodes, "b n -> (n b)")
 
@@ -294,7 +286,7 @@ def batched_scatter_sum(src, idx):
         idx (Tensor): A tensor of shape [batch_size, M, K] with zero-padding.
                       Each non-zero element in idx represents an index (offset by 1)
                       into src. A zero value indicates a padded (invalid) index.
-    
+
     Returns:
         Tensor: A tensor of shape [batch_size, M, h] where for each batch and each index j,
                 the output is computed as:
@@ -305,11 +297,11 @@ def batched_scatter_sum(src, idx):
         - A temporary target tensor (tgt) of shape [batch_size, N+1, h] is created,
           where tgt[:, 1:] is populated with src.
         - The function reshapes idx to gather the corresponding values and then reshapes
-          the result back to [batch_size, M, K, h] before summing over the scattering dimension.    
+          the result back to [batch_size, M, K, h] before summing over the scattering dimension.
     """
     bs, N, h = src.shape
     bs, M, K = idx.shape
     tgt = torch.zeros(bs, N + 1, h, device=src.device)
     tgt[:, 1:] = src
     tgt = gather_by_index(tgt, idx.long().reshape(bs, -1), squeeze=False)
-    return tgt.reshape(bs, M, K, h).sum(-2)    
+    return tgt.reshape(bs, M, K, h).sum(-2)

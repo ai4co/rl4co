@@ -37,14 +37,10 @@ class DACTDecoder(ImprovementDecoder):
         self.hidden_dim = embed_dim
 
         # for MHC sublayer (NFE aspect)
-        self.compater_node = MultiHeadCompat(
-            num_heads, embed_dim, embed_dim, embed_dim, embed_dim
-        )
+        self.compater_node = MultiHeadCompat(num_heads, embed_dim, embed_dim, embed_dim, embed_dim)
 
         # for MHC sublayer (PFE aspect)
-        self.compater_pos = MultiHeadCompat(
-            num_heads, embed_dim, embed_dim, embed_dim, embed_dim
-        )
+        self.compater_pos = MultiHeadCompat(num_heads, embed_dim, embed_dim, embed_dim, embed_dim)
 
         self.norm_factor = 1 / math.sqrt(1 * self.hidden_dim)
 
@@ -77,9 +73,9 @@ class DACTDecoder(ImprovementDecoder):
         h_node_refined = self.project_node_node(final_h) + self.project_graph_node(
             final_h.max(1)[0]
         )[:, None, :].expand(batch_size, graph_size, dim)
-        h_pos_refined = self.project_node_pos(final_p) + self.project_graph_pos(
-            final_p.max(1)[0]
-        )[:, None, :].expand(batch_size, graph_size, dim)
+        h_pos_refined = self.project_node_pos(final_p) + self.project_graph_pos(final_p.max(1)[0])[
+            :, None, :
+        ].expand(batch_size, graph_size, dim)
 
         # MHC sublayer
         compatibility = torch.zeros(
@@ -89,9 +85,9 @@ class DACTDecoder(ImprovementDecoder):
         compatibility[:, :, :, : self.n_heads] = self.compater_pos(h_pos_refined).permute(
             1, 2, 3, 0
         )
-        compatibility[:, :, :, self.n_heads :] = self.compater_node(
-            h_node_refined
-        ).permute(1, 2, 3, 0)
+        compatibility[:, :, :, self.n_heads :] = self.compater_node(h_node_refined).permute(
+            1, 2, 3, 0
+        )
 
         # FFA sublater
         return self.value_head(self.norm_factor * compatibility).squeeze(-1)
@@ -118,9 +114,7 @@ class CriticDecoder(nn.Module):
         graph_feature: torch.Tensor = self.project_graph(mean_pooling)[
             :, None, :
         ]  # (batch_size, 1, input_dim/2)
-        node_feature: torch.Tensor = self.project_node(
-            x
-        )  # (batch_size, graph_size+1, input_dim/2)
+        node_feature: torch.Tensor = self.project_node(x)  # (batch_size, graph_size+1, input_dim/2)
 
         # pass through value_head, get estimated value
         fusion = node_feature + graph_feature.expand_as(

@@ -35,7 +35,7 @@ class A2C(REINFORCE):
         **kwargs,
     ):
         if critic is None:
-            log.info("Creating critic network for {}".format(env.name))
+            log.info(f"Creating critic network for {env.name}")
             critic = create_critic_from_actor(policy, **critic_kwargs)
 
         # The baseline is directly created here, so we eliminate the baseline argument

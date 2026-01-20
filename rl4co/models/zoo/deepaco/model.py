@@ -1,7 +1,8 @@
-from typing import Any, Optional, Union
+from typing import Any
+
+import torch
 
 from tensordict import TensorDict
-import torch
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl import REINFORCE
@@ -26,8 +27,8 @@ class DeepACO(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: Optional[DeepACOPolicy] = None,
-        baseline: Union[REINFORCEBaseline, str] = "no",  # Shared baseline is manually implemented
+        policy: DeepACOPolicy | None = None,
+        baseline: REINFORCEBaseline | str = "no",  # Shared baseline is manually implemented
         train_with_local_search: bool = True,
         ls_reward_aug_W: float = 0.95,
         policy_kwargs: dict = {},
@@ -45,7 +46,7 @@ class DeepACO(REINFORCE):
         self.ls_reward_aug_W = ls_reward_aug_W
 
     def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: Optional[int] = None
+        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int | None = None
     ):
         td = self.env.reset(batch)
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
@@ -63,8 +64,8 @@ class DeepACO(REINFORCE):
         td: TensorDict,
         batch: TensorDict,
         policy_out: dict,
-        reward: Optional[torch.Tensor] = None,
-        log_likelihood: Optional[torch.Tensor] = None,
+        reward: torch.Tensor | None = None,
+        log_likelihood: torch.Tensor | None = None,
     ):
         """Calculate loss for REINFORCE algorithm.
 
@@ -81,7 +82,9 @@ class DeepACO(REINFORCE):
         if self.train_with_local_search:
             ls_reward = policy_out["ls_reward"]
             ls_advantage = ls_reward - ls_reward.mean(dim=1, keepdim=True)  # Shared baseline
-            weighted_advantage = advantage * (1 - self.ls_reward_aug_W) + ls_advantage * self.ls_reward_aug_W
+            weighted_advantage = (
+                advantage * (1 - self.ls_reward_aug_W) + ls_advantage * self.ls_reward_aug_W
+            )
         else:
             weighted_advantage = advantage
 

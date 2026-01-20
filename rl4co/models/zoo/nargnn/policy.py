@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch.nn as nn
 
 from rl4co.models.common.constructive.nonautoregressive import (
@@ -49,14 +47,14 @@ class NARGNNPolicy(NonAutoregressivePolicy):
 
     def __init__(
         self,
-        encoder: Optional[NonAutoregressiveEncoder] = None,
-        decoder: Optional[NonAutoregressiveDecoder] = None,
+        encoder: NonAutoregressiveEncoder | None = None,
+        decoder: NonAutoregressiveDecoder | None = None,
         embed_dim: int = 64,
         env_name: str = "tsp",
-        init_embedding: Optional[nn.Module] = None,
-        edge_embedding: Optional[nn.Module] = None,
-        graph_network: Optional[nn.Module] = None,
-        heatmap_generator: Optional[nn.Module] = None,
+        init_embedding: nn.Module | None = None,
+        edge_embedding: nn.Module | None = None,
+        graph_network: nn.Module | None = None,
+        heatmap_generator: nn.Module | None = None,
         num_layers_heatmap_generator: int = 5,
         num_layers_graph_encoder: int = 15,
         act_fn="silu",
@@ -96,7 +94,7 @@ class NARGNNPolicy(NonAutoregressivePolicy):
                 )
 
         # Pass to constructive policy
-        super(NARGNNPolicy, self).__init__(
+        super().__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

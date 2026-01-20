@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import torch
 
@@ -77,9 +77,7 @@ class CVRPGenerator(Generator):
         if kwargs.get("loc_sampler", None) is not None:
             self.loc_sampler = kwargs["loc_sampler"]
         else:
-            self.loc_sampler = get_sampler(
-                "loc", loc_distribution, min_loc, max_loc, **kwargs
-            )
+            self.loc_sampler = get_sampler("loc", loc_distribution, min_loc, max_loc, **kwargs)
 
         # Depot distribution
         if kwargs.get("depot_sampler", None) is not None:
@@ -100,9 +98,7 @@ class CVRPGenerator(Generator):
             )
 
         # Capacity
-        if (
-            capacity is None
-        ):  # If not provided, use the default capacity from Kool et al. 2019
+        if capacity is None:  # If not provided, use the default capacity from Kool et al. 2019
             capacity = CAPACITIES.get(num_loc, None)
         if (
             capacity is None
@@ -116,7 +112,6 @@ class CVRPGenerator(Generator):
         self.capacity = capacity
 
     def _generate(self, batch_size) -> TensorDict:
-
         # Sample locations: depot and customers
         if self.depot_sampler is not None:
             depot = self.depot_sampler.sample((*batch_size, 2))

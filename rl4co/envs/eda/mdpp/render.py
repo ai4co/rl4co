@@ -81,9 +81,7 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
     def draw_keepout(ax, x, y, color="black"):
         # Backgrund rectangle: same as color but with alpha=0.5
         ax.add_patch(Rectangle((x, y), 1, 1, color=color, alpha=0.5))
-        ax.add_patch(
-            RegularPolygon((x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color)
-        )
+        ax.add_patch(RegularPolygon((x + 0.5, y + 0.5), numVertices=6, radius=0.45, color=color))
 
     size = self.size
     td = td.detach().cpu()
@@ -138,9 +136,7 @@ def render(self, td, actions=None, ax=None, legend=True, settings=None):
         colors = [settings[k]["color"] for k in settings.keys()]
         labels = [settings[k]["label"] for k in settings.keys()]
         handles = [
-            plt.Rectangle(
-                (0, 0), 1, 1, color=c, edgecolor="k", linestyle="-", linewidth=1
-            )
+            plt.Rectangle((0, 0), 1, 1, color=c, edgecolor="k", linestyle="-", linewidth=1)
             for c in colors
         ]
         ax.legend(

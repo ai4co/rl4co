@@ -70,9 +70,7 @@ class JSSPGenerator(Generator):
     def _simulate_processing_times(self, bs, n_ops_max) -> torch.Tensor:
         if self.one2one_ma_map:
             ops_machine_ids = (
-                torch.rand((*bs, self.num_jobs, self.num_mas))
-                .argsort(dim=-1)
-                .flatten(1, 2)
+                torch.rand((*bs, self.num_jobs, self.num_mas)).argsort(dim=-1).flatten(1, 2)
             )
         else:
             ops_machine_ids = torch.randint(
@@ -159,9 +157,7 @@ class JSSPFileGenerator(Generator):
     """
 
     def __init__(self, file_path: str, n_ops_max: int = None, **unused_kwargs):
-        self.files = (
-            [file_path] if os.path.isfile(file_path) else self.list_files(file_path)
-        )
+        self.files = [file_path] if os.path.isfile(file_path) else self.list_files(file_path)
         self.num_samples = len(self.files)
 
         if len(unused_kwargs) > 0:
@@ -198,9 +194,7 @@ class JSSPFileGenerator(Generator):
     @staticmethod
     def list_files(path):
         files = [
-            os.path.join(path, f)
-            for f in os.listdir(path)
-            if os.path.isfile(os.path.join(path, f))
+            os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))
         ]
         assert len(files) > 0, "No files found in the specified path"
         return files

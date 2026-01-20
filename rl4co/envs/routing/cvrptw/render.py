@@ -88,7 +88,7 @@ def render(td, actions=None, ax=None):
         ax.text(
             locs[node_idx, 0],
             locs[node_idx, 1] - 0.025,
-            f"{demands[node_idx-1].item():.2f}",
+            f"{demands[node_idx - 1].item():.2f}",
             horizontalalignment="center",
             verticalalignment="top",
             fontsize=10,

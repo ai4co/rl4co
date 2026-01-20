@@ -2,16 +2,16 @@
 hide:
 - navigation
 - toc
---- 
+---
 
-<div>                        
+<div>
 <style type="text/css">
 .md-typeset h1,
 .md-content__button {
     display: none;
 }
-</style>      
-</div> 
+</style>
+</div>
 
 
 <div class="md-content" data-md-component="content">
@@ -83,11 +83,11 @@ hide:
                 const setContainerDimensions = () => {
                     const container = document.querySelector('.md-main__inner #particles-container');
                     const mainContent = document.querySelector('.md-main__inner');
-                    
+
                     if (mainContent && container) {
                         const containerWidth = mainContent.offsetWidth;
                         container.style.width = `${containerWidth}px`;
-                        
+
                         // Calculate height based on the aspect ratio and 60% width
                         const imageWidth = containerWidth * 0.6;
                         const imageHeight = imageWidth * ASPECT_RATIO;
@@ -103,16 +103,16 @@ hide:
                         const backgroundColor = computedStyle.backgroundColor;
 
                         mask.style.background = `
-                            linear-gradient(to right, 
-                                ${backgroundColor} 0%, 
-                                rgba(0,0,0,0) 10%, 
-                                rgba(0,0,0,0) 90%, 
+                            linear-gradient(to right,
+                                ${backgroundColor} 0%,
+                                rgba(0,0,0,0) 10%,
+                                rgba(0,0,0,0) 90%,
                                 ${backgroundColor} 100%
                             ),
-                            linear-gradient(to bottom, 
-                                ${backgroundColor} 0%, 
-                                rgba(0,0,0,0) 10%, 
-                                rgba(0,0,0,0) 90%, 
+                            linear-gradient(to bottom,
+                                ${backgroundColor} 0%,
+                                rgba(0,0,0,0) 10%,
+                                rgba(0,0,0,0) 90%,
                                 ${backgroundColor} 100%
                             )
                         `;

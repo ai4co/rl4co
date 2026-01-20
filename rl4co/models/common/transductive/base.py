@@ -1,6 +1,6 @@
 import abc
 
-from typing import Any, Optional
+from typing import Any
 
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch.utils.data import Dataset
@@ -36,8 +36,8 @@ class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
         dataset: Dataset | str,
         batch_size: int = 1,
         max_iters: int = 100,
-        max_runtime: Optional[int] = 86_400,
-        save_path: Optional[str] = None,
+        max_runtime: int | None = 86_400,
+        save_path: str | None = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False, ignore=["env", "policy", "dataset"])
@@ -72,9 +72,7 @@ class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
         """Main search loop. We use the training step to effectively adapt to a `batch` of instances."""
         raise NotImplementedError("Implement in subclass")
 
-    def on_train_batch_end(
-        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
-    ) -> None:
+    def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
         """Called when the train batch ends. This can be used for
         instance for logging or clearing cache.
         """

@@ -1,13 +1,9 @@
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
 
-from rl4co.models.nn.graph.attnnet import (
-    MultiHeadAttentionLayer,
-    Normalization,
-    SkipConnection,
-)
+from rl4co.models.nn.graph.attnnet import MultiHeadAttentionLayer, Normalization, SkipConnection
 from rl4co.models.zoo.mdam.mha import MultiHeadAttentionMDAM
 
 
@@ -20,9 +16,9 @@ class MDAMGraphAttentionEncoder(nn.Module):
         node_dim=None,
         normalization="batch",
         feedforward_hidden=512,
-        sdpa_fn: Optional[Callable] = None,
+        sdpa_fn: Callable | None = None,
     ):
-        super(MDAMGraphAttentionEncoder, self).__init__()
+        super().__init__()
 
         # To map input to embedding space
         self.init_embed = nn.Linear(node_dim, embed_dim) if node_dim is not None else None
@@ -77,14 +73,10 @@ class MDAMGraphAttentionEncoder(nn.Module):
     def change(self, attn, V, h_old, mask):
         num_heads, batch_size, graph_size, feat_size = V.size()
         attn = (
-            mask.float()
-            .view(1, batch_size, 1, graph_size)
-            .repeat(num_heads, 1, graph_size, 1)
+            mask.float().view(1, batch_size, 1, graph_size).repeat(num_heads, 1, graph_size, 1)
             * attn
         )
-        attn = attn / (
-            torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9
-        )
+        attn = attn / (torch.sum(attn, dim=-1).view(num_heads, batch_size, graph_size, 1) + 1e-9)
         heads = torch.matmul(attn, V)
 
         h_new = torch.mm(

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -107,9 +105,7 @@ class MatNetCrossMHA(MultiHeadCrossAttention):
             mix2_init=mix2_init,
         )
 
-        super().__init__(
-            embed_dim=embed_dim, num_heads=num_heads, bias=bias, sdpa_fn=attn_fn
-        )
+        super().__init__(embed_dim=embed_dim, num_heads=num_heads, bias=bias, sdpa_fn=attn_fn)
 
 
 class MatNetMHA(nn.Module):
@@ -149,7 +145,7 @@ class MatNetLayer(nn.Module):
         num_heads: int,
         bias: bool = False,
         feedforward_hidden: int = 512,
-        normalization: Optional[str] = "instance",
+        normalization: str | None = "instance",
     ):
         super().__init__()
         self.MHA = MatNetMHA(embed_dim, num_heads, bias)

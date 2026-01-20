@@ -2,27 +2,24 @@ import os
 
 from functools import partial
 from pathlib import Path
-from typing import Tuple
 
 import torch
 
 from tensordict import TensorDict
 
-ProcessingData = list[Tuple[int, int]]
+ProcessingData = list[tuple[int, int]]
 
 
 def list_files(path):
     import os
 
     files = [
-        os.path.join(path, f)
-        for f in os.listdir(path)
-        if os.path.isfile(os.path.join(path, f))
+        os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))
     ]
     return files
 
 
-def parse_job_line(line: Tuple[int]) -> Tuple[ProcessingData]:
+def parse_job_line(line: tuple[int]) -> tuple[ProcessingData]:
     """
     Parses a FJSPLIB job data line of the following form:
 
@@ -119,7 +116,7 @@ def read(loc: Path, max_ops=None):
 
 
 def file2lines(loc: Path | str) -> list[list[int]]:
-    with open(loc, "r") as fh:
+    with open(loc) as fh:
         lines = [line for line in fh.readlines() if line.strip()]
 
     def parse_num(word: str):
@@ -130,9 +127,7 @@ def file2lines(loc: Path | str) -> list[list[int]]:
 
 def write_one(args, where=None):
     id, instance = args
-    assert (
-        len(instance["proc_times"].shape) == 2
-    ), "no batch dimension allowed in write operation"
+    assert len(instance["proc_times"].shape) == 2, "no batch dimension allowed in write operation"
     lines = []
 
     # The flexibility is the average number of eligible machines per operation.
@@ -164,7 +159,7 @@ def write_one(args, where=None):
 
     formatted = "\n".join(lines)
 
-    file_name = f"{str(id+1).rjust(4, '0')}_{num_jobs}j_{num_machines}m.txt"
+    file_name = f"{str(id + 1).rjust(4, '0')}_{num_jobs}j_{num_machines}m.txt"
     full_path = os.path.join(where, file_name)
 
     with open(full_path, "w") as fh:
