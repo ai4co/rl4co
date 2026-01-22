@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  - override /model: glop.yaml
+  - override /env: cvrpmvc.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: wandb.yaml
+
+env:
+  generator_params:
+    num_loc: 1000
+
+logger:
+  wandb:
+    project: "rl4co"
+    tags: ["glop", "${env.name}"]
+    group: ${env.name}${env.generator_params.num_loc}
+    name: glop-${env.name}${env.generator_params.num_loc}
+
+
+model:
+  batch_size: 16
+  val_batch_size: 128
+  test_batch_size: 128
+  train_data_size: 3200
+  val_data_size: 1024
+  test_data_size: 10_000
+  optimizer_kwargs:
+    lr: 1e-4
+    weight_decay: 0
+  lr_scheduler:
+    "MultiStepLR"
+  lr_scheduler_kwargs:
+    milestones: [37, 45]
+    gamma: 0.1
+  policy_kwargs:
+    n_samples: 20
+
+trainer:
+  max_epochs: 50
+  precision: 32
+  gradient_clip_val: 1
+
+seed: 1234
+
