@@ -2,7 +2,9 @@ import abc
 
 from typing import Any
 
+from lightning.pytorch.core.optimizer import LightningOptimizer
 from lightning.pytorch.utilities.types import STEP_OUTPUT
+from torch.optim import Optimizer
 from torch.utils.data import Dataset
 
 from rl4co.models.rl.common.base import RL4COLitModule
@@ -60,6 +62,28 @@ class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
 
         # Setup loggers
         self.setup_loggers()
+
+    def setup_optimizer(self, parameters) -> LightningOptimizer:
+        """Instantiate an optimizer over `parameters` and register it with the Lightning
+        strategy, so that it is the optimizer returned by `self.optimizers()`.
+
+        Transductive methods only adapt a small subset of the parameters, which is not known
+        yet when Lightning calls the `configure_optimizers` hook at setup time. Registering
+        the optimizer here is what makes `self.optimizers().step()` update the adapted
+        parameters, and routes the step through the precision plugin so that mixed precision
+        (the `RL4COTrainer` default) unscales the gradients before stepping.
+
+        Args:
+            parameters: parameters to be adapted during the search
+        """
+        optimizer = self.configure_optimizers(parameters)
+        if not isinstance(optimizer, Optimizer):
+            raise ValueError(
+                "Transductive methods do not support learning rate schedulers; "
+                f"`configure_optimizers` must return a single optimizer, got {type(optimizer)}."
+            )
+        self.trainer.strategy.optimizers = [optimizer]
+        return self.optimizers()
 
     def on_train_batch_start(self, batch: Any, batch_idx: int):
         """Called before training (i.e. search) for a new batch begins.

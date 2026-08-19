@@ -1,3 +1,4 @@
+import copy
 import time
 
 from functools import partial
@@ -114,7 +115,7 @@ class EAS(TransductiveModel):
         )
 
         # Store original policy state dict
-        self.original_policy_state = self.policy.state_dict()
+        self.original_policy_state = copy.deepcopy(self.policy.state_dict())
 
         # Get dataset size and problem size
         len(self.dataset)
@@ -129,6 +130,10 @@ class EAS(TransductiveModel):
         We do the rest in the training step.
         """
         self.policy.load_state_dict(self.original_policy_state)
+
+        # Search happens at test time: keep the policy in eval mode so that e.g. batch
+        # normalization uses its running statistics instead of updating them
+        self.policy.eval()
 
         # Set all policy parameters to not require gradients
         for param in self.policy.parameters():
@@ -160,11 +165,19 @@ class EAS(TransductiveModel):
         embeddings, _ = encoder(td_init)
         cached_embeds = decoder._precompute_cache(embeddings)
 
+        # Keep the adapted parameters in the same dtype as the policy parameters: under mixed
+        # precision the encoder returns half precision activations, which must not be optimized
+        # directly (the gradient scaler refuses to unscale fp16 gradients, and half precision
+        # optimizer updates underflow). This is the usual AMP pattern of fp32 master weights.
+        param_dtype = next(self.policy.parameters()).dtype
+
         # Collect optimizer parameters
         opt_params = []
         if self.hparams.use_eas_layer:
             # EASLay: replace forward of logit attention computation. EASLayer
-            eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(batch.device)
+            eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(
+                device=batch.device, dtype=param_dtype
+            )
             decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
             decoder.pointer.forward = partial(forward_pointer_attn_eas_lay, decoder.pointer)
             for param in eas_layer.parameters():
@@ -173,7 +186,11 @@ class EAS(TransductiveModel):
             # EASEmb: set gradient of emb_key to True
             # for all the keys, wrap the embedding in a nn.Parameter
             for key in self.hparams.eas_emb_cache_keys:
-                setattr(cached_embeds, key, torch.nn.Parameter(getattr(cached_embeds, key)))
+                setattr(
+                    cached_embeds,
+                    key,
+                    torch.nn.Parameter(getattr(cached_embeds, key).to(param_dtype)),
+                )
                 opt_params.append(getattr(cached_embeds, key))
         decoder.forward_eas = partial(forward_eas, decoder)
 
@@ -185,7 +202,7 @@ class EAS(TransductiveModel):
         for attr in ["temperature", "tanh_clipping", "mask_logits"]:
             set_attr_if_exists(attr)
 
-        self.configure_optimizers(opt_params)
+        opt = self.setup_optimizer(opt_params)
 
         # Solution and reward buffer
         max_reward = torch.full((batch_size,), -float("inf"), device=batch.device)
@@ -235,9 +252,9 @@ class EAS(TransductiveModel):
             loss = loss_rl + self.hparams.eas_lambda * loss_il
 
             # Manual backpropagation
-            opt = self.optimizers()
             opt.zero_grad()
             self.manual_backward(loss)
+            opt.step()
 
             # Save best solutions and rewards
             # Get max reward for each group and instance
