@@ -181,6 +181,40 @@ def test_search_methods(SearchMethod):
     trainer.test(model)
 
 
+@pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
+def test_search_methods_update_adapted_parameters(SearchMethod):
+    """Transductive search must apply the gradient update to the parameters it adapts,
+    otherwise it silently degenerates into plain sampling."""
+    adapted = {}
+
+    class ProbedSearchMethod(SearchMethod):
+        def setup_optimizer(self, parameters):
+            opt = super().setup_optimizer(parameters)
+            params = [p for group in opt.param_groups for p in group["params"]]
+            adapted["params"] = params
+            # on CPU: the trainer moves the module off the accelerator during teardown
+            adapted["initial"] = [p.detach().cpu().clone() for p in params]
+            return opt
+
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    batch_size = 2 if SearchMethod not in [ActiveSearch] else 1
+    dataset = env.dataset(2)
+    policy = AttentionModelPolicy(env_name=env.name)
+    model = ProbedSearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
+    # full precision: the fp16 gradient scaler may skip the first optimizer steps
+    trainer = RL4COTrainer(
+        max_epochs=1, devices=1, accelerator=accelerator, precision="32-true"
+    )
+    trainer.fit(model)
+
+    assert adapted, "no optimizer was registered for the adapted parameters"
+    deltas = [
+        (p.detach().cpu() - initial).abs().max().item()
+        for p, initial in zip(adapted["params"], adapted["initial"])
+    ]
+    assert max(deltas) > 0, f"{SearchMethod.__name__} did not update any adapted parameter"
+
+
 @pytest.mark.skipif("torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed")
 def test_nargnn():
     env = TSPEnv(generator_params=dict(num_loc=20))
