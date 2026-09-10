@@ -27,6 +27,7 @@ nav:
       - Decoding Strategies: examples/modeling/1-decoding-strategies.ipynb
       - Transductive Methods: examples/modeling/2-transductive-methods.ipynb
       - Encoder Customization: examples/modeling/3-change-encoder.ipynb
+      - Positional Encodings: examples/other/4-positional-encodings.ipynb
     - Advanced:
       - Hydra Configuration: examples/advanced/1-hydra-config.ipynb
       - Local Search: examples/advanced/3-local-search.ipynb

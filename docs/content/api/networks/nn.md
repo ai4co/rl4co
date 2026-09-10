@@ -27,3 +27,9 @@
 
 :::models.nn.ops.PositionalEncoding
 :::models.nn.ops.RandomEncoding
+
+## Positional Encodings
+
+:::utils.pe
+    options:
+      show_root_heading: false
