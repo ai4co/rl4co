@@ -44,7 +44,7 @@ def _geometric_frequencies(num_freq: int, dim: int, base: float = 10000.0) -> Te
     """Geometric frequency schedule ``base^{-2k/dim}`` for ``k = 0 .. num_freq - 1``.
 
     This matches the schedule used by the original Transformer sinusoidal PE
-    (:cite:`vaswani2017attention`) and by RoPE.
+    (Vaswani et al., 2017) and by RoPE.
 
     Args:
         num_freq: Number of frequency bands to produce.
@@ -109,7 +109,7 @@ class AbsolutePE(nn.Module):
 
 
 class SinusoidalPE(nn.Module):
-    """Sinusoidal PE (SIN): fixed sin/cos of the integer index (:cite:`vaswani2017attention`).
+    """Sinusoidal PE (SIN): fixed sin/cos of the integer index (Vaswani et al., 2017).
 
     ``PE^SIN_{2k}(v_i) = sin(i / λ^{2k/D})`` and ``PE^SIN_{2k+1}(v_i) = cos(i / λ^{2k/D})``
     with ``λ = 10000`` and ``k = 0 .. D/2 - 1``.
@@ -147,7 +147,7 @@ class RotaryPE(nn.Module):
     """Rotary PE (RoPE): query/key rotation rather than an additive embedding.
 
     For each channel pair ``(2k, 2k+1)`` the query/key is rotated by ``θ_i = i · λ^{-2k/D}``
-    (:cite:`su2024roformer`).  The resulting attention logit ``q_i^T k_j`` depends only on the
+    (Su et al., 2024).  The resulting attention logit ``q_i^T k_j`` depends only on the
     index difference ``i - j``.
 
     Args:
@@ -207,7 +207,7 @@ class RotaryPE(nn.Module):
 
 
 class RelativePE(nn.Module):
-    """Relative PE (RPE): a learnable bias indexed by signed index offset (:cite:`shaw2018self`).
+    """Relative PE (RPE): a learnable bias indexed by signed index offset (Shaw et al., 2018).
 
     ``logit(i, j) += b_{clip(i - j, -W, W)}`` with ``{b_Δ}_{Δ=-W}^{W}`` shared across heads.
 
@@ -236,7 +236,7 @@ class RelativePE(nn.Module):
 
 
 class ALiBiBias(nn.Module):
-    """ALiBi: a fixed linear penalty subtracted from attention logits (:cite:`press2021train`).
+    """ALiBi: a fixed linear penalty subtracted from attention logits (Press et al., 2021).
 
     ``logit(i, j) -= m_h · |i - j|`` with head-specific slopes ``m_h`` following the
     geometric schedule of the original paper.  The returned tensor is shaped
@@ -289,7 +289,7 @@ class ALiBiBias(nn.Module):
 class DACTCyclicPE(nn.Module):
     """DACT cyclic PE: a Gray-code lookup over the cyclic index, projected to ``D``.
 
-    ``PE^DACT(v_i) = Linear(Gray(i mod L))`` (:cite:`ma2021learning`).  The Gray code uses
+    ``PE^DACT(v_i) = Linear(Gray(i mod L))`` (Ma et al., 2021).  The Gray code uses
     ``ceil(log2(L))`` bits so consecutive cyclic positions differ by exactly one bit; this is
     *not* bit-wise circular when ``L`` is not a power of two (documented limitation).
 
@@ -331,7 +331,7 @@ class CycleFormerPE(nn.Module):
     """CycleFormer circular PE: a sinusoidal map of the index wrapped around the tour length.
 
     ``PE^Cyc_{2k}(v_i) = sin(2π (i mod L) / L · ω_k)`` and the cosine counterpart, with the
-    same geometric frequency schedule as :class:`SinusoidalPE` (:cite:`yook2024cycleformer`).
+    same geometric frequency schedule as :class:`SinusoidalPE` (Yook et al., 2024).
     Reducing the index modulo ``L`` makes the encoding identical for ``i`` and ``i + L``
     regardless of the frequency schedule.
 
@@ -457,7 +457,7 @@ class LaplacianPE(nn.Module):
 
     For each instance the route graph is built (depot plus route arcs), the unnormalized
     Laplacian ``L = diag(deg) - A`` is formed, and the eigenvectors of the ``K`` smallest
-    non-trivial eigenvalues are taken (:cite:`dwivedi2020generalization`).  Sign ambiguity is
+    non-trivial eigenvalues are taken (Dwivedi & Bresson, 2020).  Sign ambiguity is
     resolved by random flips during training (deterministic, no flips, in eval).  The result
     is zero-padded to ``D`` columns.
 
@@ -520,7 +520,7 @@ class RandomWalkSE(nn.Module):
     """Random-Walk Structural Encoding (RWSE): diagonals of random-walk matrix powers.
 
     ``PE^RWSE(v) = [(R^k)_{vv}]_{k=1}^{K}`` with ``R = D^{-1} A`` on the route graph
-    (:cite:`dwivedi2021graph`), zero-padded to ``D``.  Isolated nodes (degree ``0``) get a
+    (Dwivedi et al., 2021), zero-padded to ``D``.  Isolated nodes (degree ``0``) get a
     zero row of ``R`` so their landing probabilities are ``0``.
 
     Args:
@@ -570,7 +570,7 @@ class ShortestPathBias(nn.Module):
     """Shortest-path-distance attention bias (SPD): a learnable scalar per integer distance.
 
     ``logit(i, j) += b_{spd(v_i, v_j)}`` with a learnable scalar bias per integer
-    shortest-path distance on the route graph (:cite:`ying2021do`), capped at ``max_spd``
+    shortest-path distance on the route graph (Ying et al., 2021), capped at ``max_spd``
     (unreachable pairs are clamped to ``max_spd``).
 
     Args:
