@@ -1,5 +1,6 @@
-from einops import rearrange
 from torch.nn.functional import cosine_similarity
+
+from rl4co.utils.ops import unbatchify
 
 
 def problem_symmetricity_loss(reward, log_likelihood, dim=1):
@@ -32,6 +33,6 @@ def invariance_loss(proj_embed, num_augment):
     """Negative cosine similarity loss for invariant projected node representations.
     Corresponds to `L_inv` in the SymNCO paper
     """
-    pe = rearrange(proj_embed, "(b a) ... -> b a ...", a=num_augment)
+    pe = unbatchify(proj_embed, num_augment)
     similarity = sum([cosine_similarity(pe[:, 0], pe[:, i], dim=-1) for i in range(1, num_augment)])
     return -similarity.mean()

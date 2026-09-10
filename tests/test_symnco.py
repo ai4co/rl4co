@@ -4,6 +4,7 @@ import torch
 from torch.nn.functional import cosine_similarity
 
 from rl4co.models.zoo.symnco.losses import invariance_loss
+from rl4co.utils.ops import batchify
 
 
 @pytest.mark.parametrize("num_augment", [2, 4])
@@ -29,3 +30,9 @@ def test_invariance_loss_gradient_increases_similarity(num_augment):
         after = cosine_similarity(updated[0], updated[1:], dim=-1)
 
     assert torch.all(after > before)
+
+
+def test_invariance_loss_pairs_augmentations_of_same_instance():
+    # identical views of each instance, laid out like StateAugmentation does, must hit the minimum
+    embeddings = batchify(torch.randn(3, 5, 8), 4)
+    assert torch.isclose(invariance_loss(embeddings, 4), torch.tensor(-3.0))
