@@ -1,3 +1,5 @@
+"""Routing positional encodings. IPE/XPE/Hierarchical: https://arxiv.org/abs/2605.11910"""
+
 from __future__ import annotations
 
 import math
@@ -121,7 +123,7 @@ class SinusoidalPE(nn.Module):
     def __init__(self, embed_dim: int, base: float = 10000.0) -> None:
         super().__init__()
         self.embed_dim = embed_dim
-        self.register_buffer("freqs", _geometric_frequencies(embed_dim // 2, embed_dim, base))
+        self.register_buffer("freqs", _geometric_frequencies((embed_dim + 1) // 2, embed_dim, base))
 
     def forward(self, positions: Tensor) -> Tensor:
         """Compute the sinusoidal encoding for the given positions.
@@ -341,7 +343,7 @@ class CycleFormerPE(nn.Module):
     def __init__(self, embed_dim: int, base: float = 10000.0) -> None:
         super().__init__()
         self.embed_dim = embed_dim
-        self.register_buffer("freqs", _geometric_frequencies(embed_dim // 2, embed_dim, base))
+        self.register_buffer("freqs", _geometric_frequencies((embed_dim + 1) // 2, embed_dim, base))
 
     def forward(self, positions: Tensor, seq_len: int | None = None) -> Tensor:
         """Compute the circular sinusoidal encoding.
@@ -460,7 +462,9 @@ class LaplacianPE(nn.Module):
     is zero-padded to ``D`` columns.
 
     Note: only ``K_eff = min(K, N - 1)`` columns can be genuinely non-trivial for a graph on
-    ``N`` nodes; the remaining ``D - K_eff`` columns are zeros.
+    ``N`` nodes; the remaining ``D - K_eff`` columns are zeros. Only eigenvector 0 is dropped
+    (as in PyG), so on a disconnected graph (e.g. unvisited nodes) the leading columns can be
+    component indicators.
 
     Args:
         embed_dim: Output embedding dimension ``D``.
@@ -647,7 +651,7 @@ class InRoutePE(nn.Module):
         self.direction_aware = direction_aware
         self.eps = eps
         if direction_aware:
-            num_freq = embed_dim // 2
+            num_freq = (embed_dim + 1) // 2
         else:
             num_freq = embed_dim
         self.register_buffer("freqs", torch.arange(1, num_freq + 1, dtype=torch.float32))

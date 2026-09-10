@@ -76,7 +76,7 @@ def _closed_route_coords(batch: int, num_loc: int) -> torch.Tensor:
     return coords
 
 
-@pytest.mark.parametrize("embed_dim", [16, 32])
+@pytest.mark.parametrize("embed_dim", [15, 16, 32])
 @pytest.mark.parametrize("num_loc", [7, 20])
 def test_pe_per_node_shapes(embed_dim, num_loc):
     bs = 3
