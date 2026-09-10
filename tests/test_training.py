@@ -202,9 +202,7 @@ def test_search_methods_update_adapted_parameters(SearchMethod):
     policy = AttentionModelPolicy(env_name=env.name)
     model = ProbedSearchMethod(env, policy, dataset, max_iters=2, batch_size=batch_size)
     # full precision: the fp16 gradient scaler may skip the first optimizer steps
-    trainer = RL4COTrainer(
-        max_epochs=1, devices=1, accelerator=accelerator, precision="32-true"
-    )
+    trainer = RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator, precision="32-true")
     trainer.fit(model)
 
     assert adapted, "no optimizer was registered for the adapted parameters"
