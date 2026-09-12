@@ -14,7 +14,7 @@ def _batchify_single(x: Tensor | TensorDict, repeats: int) -> Tensor | TensorDic
 
 
 def batchify(x: Tensor | TensorDict, shape: tuple | int) -> Tensor | TensorDict:
-    """Same as `einops.repeat(x, 'b ... -> (b r) ...', r=repeats)` but ~1.5x faster and supports TensorDicts.
+    """Same as `einops.repeat(x, 'b ... -> (r b) ...', r=repeats)` but ~1.5x faster and supports TensorDicts.
     Repeats batchify operation `n` times as specified by each shape element.
     If shape is a tuple, iterates over each element and repeats that many times to match the tuple shape.
 
