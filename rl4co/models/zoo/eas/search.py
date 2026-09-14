@@ -1,3 +1,4 @@
+import copy
 import time
 
 from functools import partial
@@ -114,7 +115,7 @@ class EAS(TransductiveModel):
         )
 
         # Store original policy state dict
-        self.original_policy_state = self.policy.state_dict()
+        self.original_policy_state = copy.deepcopy(self.policy.state_dict())
 
         # Get dataset size and problem size
         len(self.dataset)
@@ -172,9 +173,12 @@ class EAS(TransductiveModel):
         if self.hparams.use_eas_embedding:
             # EASEmb: set gradient of emb_key to True
             # for all the keys, wrap the embedding in a nn.Parameter
+            # in the policy dtype: under AMP the cache is fp16, which the grad scaler cannot unscale
+            dtype = next(self.policy.parameters()).dtype
             for key in self.hparams.eas_emb_cache_keys:
-                setattr(cached_embeds, key, torch.nn.Parameter(getattr(cached_embeds, key)))
-                opt_params.append(getattr(cached_embeds, key))
+                emb = torch.nn.Parameter(getattr(cached_embeds, key).to(dtype))
+                setattr(cached_embeds, key, emb)
+                opt_params.append(emb)
         decoder.forward_eas = partial(forward_eas, decoder)
 
         # We pass attributes saved in policy too
@@ -185,7 +189,7 @@ class EAS(TransductiveModel):
         for attr in ["temperature", "tanh_clipping", "mask_logits"]:
             set_attr_if_exists(attr)
 
-        self.configure_optimizers(opt_params)
+        opt = self.setup_optimizer(opt_params)
 
         # Solution and reward buffer
         max_reward = torch.full((batch_size,), -float("inf"), device=batch.device)
@@ -235,9 +239,9 @@ class EAS(TransductiveModel):
             loss = loss_rl + self.hparams.eas_lambda * loss_il
 
             # Manual backpropagation
-            opt = self.optimizers()
             opt.zero_grad()
             self.manual_backward(loss)
+            opt.step()
 
             # Save best solutions and rewards
             # Get max reward for each group and instance

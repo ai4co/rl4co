@@ -1,3 +1,4 @@
+import copy
 import time
 
 from functools import partial
@@ -86,7 +87,7 @@ class ActiveSearch(TransductiveModel):
         )
 
         # Store original policy state dict
-        self.original_policy_state = self.policy.state_dict()
+        self.original_policy_state = copy.deepcopy(self.policy.state_dict())
 
         # Get dataset size and problem size
         dataset_size = len(self.dataset)
@@ -100,7 +101,7 @@ class ActiveSearch(TransductiveModel):
         We re-load the original policy state dict and configure the optimizer.
         """
         self.policy.load_state_dict(self.original_policy_state)
-        self.configure_optimizers(self.policy.parameters())
+        self.setup_optimizer(self.policy.parameters())
 
     def training_step(self, batch, batch_idx):
         """Main search loop. We use the training step to effectively adapt to a `batch` of instances."""
@@ -155,6 +156,7 @@ class ActiveSearch(TransductiveModel):
             opt = self.optimizers()
             opt.zero_grad()
             self.manual_backward(loss)
+            opt.step()
 
             self.log_dict(
                 {

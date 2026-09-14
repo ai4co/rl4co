@@ -61,6 +61,13 @@ class TransductiveModel(RL4COLitModule, metaclass=abc.ABCMeta):
         # Setup loggers
         self.setup_loggers()
 
+    def setup_optimizer(self, parameters):
+        """Register an optimizer over `parameters` (only known at search time) with the Lightning
+        strategy, so that `self.optimizers().step()` updates them through the precision plugin.
+        """
+        self.trainer.strategy.optimizers = [self.configure_optimizers(parameters)]
+        return self.optimizers()
+
     def on_train_batch_start(self, batch: Any, batch_idx: int):
         """Called before training (i.e. search) for a new batch begins.
         This can be used to perform changes to the model or optimizer at the start of each batch.

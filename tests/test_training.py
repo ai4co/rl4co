@@ -181,6 +181,26 @@ def test_search_methods(SearchMethod):
     trainer.test(model)
 
 
+@pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
+def test_search_methods_update_adapted_parameters(SearchMethod):
+    """Without the update, transductive search silently degenerates into plain sampling."""
+
+    class Probed(SearchMethod):
+        def setup_optimizer(self, parameters):
+            opt = super().setup_optimizer(parameters)
+            # on CPU: teardown moves the module off the accelerator
+            self.probe = [(p, p.detach().cpu().clone()) for p in opt.param_groups[0]["params"]]
+            return opt
+
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    batch_size = 2 if SearchMethod not in [ActiveSearch] else 1
+    policy = AttentionModelPolicy(env_name=env.name)
+    model = Probed(env, policy, env.dataset(2), max_iters=2, batch_size=batch_size)
+    # full precision: the AMP grad scaler may skip the first steps
+    RL4COTrainer(max_epochs=1, devices=1, accelerator=accelerator, precision="32-true").fit(model)
+    assert any((p.detach().cpu() != p0).any() for p, p0 in model.probe)
+
+
 @pytest.mark.skipif("torch_geometric" not in sys.modules, reason="PyTorch Geometric not installed")
 def test_nargnn():
     env = TSPEnv(generator_params=dict(num_loc=20))
