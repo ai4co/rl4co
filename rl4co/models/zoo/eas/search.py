@@ -131,10 +131,6 @@ class EAS(TransductiveModel):
         """
         self.policy.load_state_dict(self.original_policy_state)
 
-        # Search happens at test time: keep the policy in eval mode so that e.g. batch
-        # normalization uses its running statistics instead of updating them
-        self.policy.eval()
-
         # Set all policy parameters to not require gradients
         for param in self.policy.parameters():
             param.requires_grad = False
@@ -165,19 +161,11 @@ class EAS(TransductiveModel):
         embeddings, _ = encoder(td_init)
         cached_embeds = decoder._precompute_cache(embeddings)
 
-        # Keep the adapted parameters in the same dtype as the policy parameters: under mixed
-        # precision the encoder returns half precision activations, which must not be optimized
-        # directly (the gradient scaler refuses to unscale fp16 gradients, and half precision
-        # optimizer updates underflow). This is the usual AMP pattern of fp32 master weights.
-        param_dtype = next(self.policy.parameters()).dtype
-
         # Collect optimizer parameters
         opt_params = []
         if self.hparams.use_eas_layer:
             # EASLay: replace forward of logit attention computation. EASLayer
-            eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(
-                device=batch.device, dtype=param_dtype
-            )
+            eas_layer = EASLayerNet(num_instances, decoder.embed_dim).to(batch.device)
             decoder.pointer.eas_layer = partial(eas_layer, decoder.pointer)
             decoder.pointer.forward = partial(forward_pointer_attn_eas_lay, decoder.pointer)
             for param in eas_layer.parameters():
@@ -185,13 +173,12 @@ class EAS(TransductiveModel):
         if self.hparams.use_eas_embedding:
             # EASEmb: set gradient of emb_key to True
             # for all the keys, wrap the embedding in a nn.Parameter
+            # in the policy dtype: under AMP the cache is fp16, which the grad scaler cannot unscale
+            dtype = next(self.policy.parameters()).dtype
             for key in self.hparams.eas_emb_cache_keys:
-                setattr(
-                    cached_embeds,
-                    key,
-                    torch.nn.Parameter(getattr(cached_embeds, key).to(param_dtype)),
-                )
-                opt_params.append(getattr(cached_embeds, key))
+                emb = torch.nn.Parameter(getattr(cached_embeds, key).to(dtype))
+                setattr(cached_embeds, key, emb)
+                opt_params.append(emb)
         decoder.forward_eas = partial(forward_eas, decoder)
 
         # We pass attributes saved in policy too

@@ -101,11 +101,6 @@ class ActiveSearch(TransductiveModel):
         We re-load the original policy state dict and configure the optimizer.
         """
         self.policy.load_state_dict(self.original_policy_state)
-
-        # Search happens at test time: keep the policy in eval mode so that e.g. batch
-        # normalization uses its running statistics instead of updating them
-        self.policy.eval()
-
         self.setup_optimizer(self.policy.parameters())
 
     def training_step(self, batch, batch_idx):
