@@ -1,8 +1,18 @@
 import torch.nn as nn
+from torch import Tensor
 
 from tensordict import TensorDict
 
 from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
+
+
+def _pool_edge_logz(predictions: Tensor, edge_batch: Tensor, batch_size: int) -> Tensor:
+    """Mean edge predictions within each graph, preserving all output heads."""
+    sums = predictions.new_zeros((batch_size, predictions.shape[-1]))
+    sums.index_add_(0, edge_batch, predictions)
+    counts = predictions.new_zeros(batch_size)
+    counts.index_add_(0, edge_batch, predictions.new_ones(predictions.shape[0]))
+    return sums / counts.clamp_min(1).unsqueeze(-1)
 
 
 class GFACSEncoder(NARGNNEncoder):
@@ -59,7 +69,9 @@ class GFACSEncoder(NARGNNEncoder):
         # TODO: standardize?
         graph.x, graph.edge_attr = self.graph_network(graph.x, graph.edge_index, graph.edge_attr)
 
-        logZ = self.Z_net(graph.edge_attr).reshape(-1, len(td), self.z_out_dim).mean(0)
+        # PyG concatenates edges by graph, not in interleaved batch order.
+        edge_batch = graph.batch[graph.edge_index[0]]
+        logZ = _pool_edge_logz(self.Z_net(graph.edge_attr), edge_batch, len(td))
 
         # Generate heatmap logits
         heatmap_logits = self.heatmap_generator(graph)
